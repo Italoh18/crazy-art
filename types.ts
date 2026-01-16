@@ -9,14 +9,20 @@ export interface Customer {
     number: string;
     zipCode: string;
   };
+  creditLimit: number; // New field for credit limit
   createdAt: string;
 }
+
+export type ItemType = 'product' | 'service';
 
 export interface Product {
   id: string;
   name: string;
   price: number;
+  costPrice?: number; // New field for internal cost
   description?: string;
+  type: ItemType;
+  imageUrl?: string;
 }
 
 export interface OrderItem {

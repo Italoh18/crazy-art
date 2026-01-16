@@ -6,8 +6,10 @@ interface DataContextType {
   products: Product[];
   orders: Order[];
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt'>) => void;
+  updateCustomer: (id: string, data: Partial<Customer>) => void;
   addProduct: (product: Omit<Product, 'id'>) => void;
-  addOrder: (order: Omit<Order, 'id' | 'orderNumber'>) => void;
+  addOrder: (order: Omit<Order, 'id' | 'orderNumber'>) => Order;
+  updateOrder: (id: string, data: Partial<Order>) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   deleteProduct: (id: string) => void;
   deleteCustomer: (id: string) => void; 
@@ -16,15 +18,51 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children?: ReactNode }) => {
-  // Initialize with some dummy data if empty, otherwise load from localStorage
+  // Initialize with dummy data including Italo
   const [customers, setCustomers] = useState<Customer[]>(() => {
     const saved = localStorage.getItem('gestorbiz_customers');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) return JSON.parse(saved);
+
+    // Pre-seeded customer
+    return [{
+        id: 'italo-uuid-seed',
+        name: 'Italo Henrique da Silva Medeiros',
+        phone: '(16) 99195-4647',
+        email: 'johnmedeirosh18@gmail.com',
+        cpf: '062.353.737-08',
+        address: {
+            street: 'Av. Antônio Vanzella',
+            number: '1020',
+            zipCode: '14165-440'
+        },
+        creditLimit: 50.00,
+        createdAt: new Date().toISOString()
+    }];
   });
 
   const [products, setProducts] = useState<Product[]>(() => {
     const saved = localStorage.getItem('gestorbiz_products');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) return JSON.parse(saved);
+    
+    // Seed Data requested by user
+    return [
+      {
+        id: 'seed-layout-camisa',
+        name: 'Layout Camisa',
+        price: 13.00,
+        costPrice: 1.00,
+        type: 'service',
+        description: 'Desenvolvimento de layout para estampa.'
+      },
+      {
+        id: 'seed-cartao-visitas',
+        name: 'Cartão de Visitas 500 un 4x1',
+        price: 80.00,
+        costPrice: 35.00,
+        type: 'product',
+        description: '500 unidades, verniz total frente.'
+      }
+    ];
   });
 
   const [orders, setOrders] = useState<Order[]>(() => {
@@ -49,8 +87,17 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       ...data,
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
+      creditLimit: data.creditLimit || 50.00 // Ensure default if not provided
     };
     setCustomers((prev) => [...prev, newCustomer]);
+  };
+
+  const updateCustomer = (id: string, data: Partial<Customer>) => {
+    setCustomers((prev) => 
+      prev.map((customer) => 
+        customer.id === id ? { ...customer, ...data } : customer
+      )
+    );
   };
 
   const addProduct = (data: Omit<Product, 'id'>) => {
@@ -71,21 +118,28 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   const addOrder = (data: Omit<Order, 'id' | 'orderNumber'>) => {
-    setOrders((prev) => {
-      // Find the highest existing order number
-      const maxOrderNumber = prev.reduce((max, order) => {
+    // Synchronous calculation to return the object immediately
+    const maxOrderNumber = orders.reduce((max, order) => {
         const num = order.orderNumber || 0;
         return num > max ? num : max;
-      }, 0);
+    }, 0);
 
-      const newOrder: Order = {
+    const newOrder: Order = {
         ...data,
         id: crypto.randomUUID(),
-        orderNumber: maxOrderNumber + 1, // Auto-increment
-      };
-      
-      return [...prev, newOrder];
-    });
+        orderNumber: maxOrderNumber + 1,
+    };
+    
+    setOrders((prev) => [...prev, newOrder]);
+    return newOrder;
+  };
+
+  const updateOrder = (id: string, data: Partial<Order>) => {
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === id ? { ...order, ...data } : order
+      )
+    );
   };
 
   const updateOrderStatus = (orderId: string, status: OrderStatus) => {
@@ -103,8 +157,10 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
         products,
         orders,
         addCustomer,
+        updateCustomer,
         addProduct,
         addOrder,
+        updateOrder,
         updateOrderStatus,
         deleteProduct,
         deleteCustomer

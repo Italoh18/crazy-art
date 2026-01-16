@@ -14,7 +14,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export const AuthProvider = ({ children }: { children?: ReactNode }) => {
   const [role, setRole] = useState<UserRole>('guest');
   const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
   const { customers } = useData();

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, LayoutDashboard, Paintbrush } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, LayoutDashboard, Paintbrush, ArrowLeft, Home } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export const Layout = ({ children }: { children?: React.ReactNode }) => {
@@ -16,12 +16,16 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
   // Admin Routes in Sidebar
   const adminNavItems = [
+    { name: 'Início', path: '/', icon: Home },
     { name: 'Clientes', path: '/customers', icon: Users },
     { name: 'Produtos', path: '/products', icon: Package },
     { name: 'Financeiro (DRE)', path: '/dre', icon: FileText },
   ];
 
-  const isActive = (path: string) => location.pathname.startsWith(path);
+  const isActive = (path: string) => {
+      if (path === '/' && location.pathname !== '/') return false;
+      return location.pathname.startsWith(path);
+  };
 
   const handleLogout = () => {
     logout();
@@ -33,13 +37,19 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     return (
         <div className="min-h-screen bg-background flex flex-col">
             <header className="bg-surface border-b border-zinc-800 h-16 flex items-center justify-between px-6 sticky top-0 z-30">
-                <div className="flex items-center space-x-2">
-                     <Paintbrush className="text-primary" size={24} />
-                     <span className="font-bold text-lg bg-clip-text text-transparent bg-crazy-gradient">Crazy Art</span>
+                <div className="flex items-center space-x-4">
+                     {/* Back Button without Logout */}
+                     <Link to="/" className="text-zinc-400 hover:text-white transition p-2 hover:bg-zinc-800 rounded-full" title="Voltar ao Início">
+                        <ArrowLeft size={20} />
+                     </Link>
+                     <div className="flex items-center space-x-2">
+                        <Paintbrush className="text-primary" size={24} />
+                        <span className="font-bold text-lg bg-clip-text text-transparent bg-crazy-gradient hidden sm:block">Crazy Art</span>
+                     </div>
                 </div>
                 <div className="flex items-center space-x-4">
                     <span className="text-zinc-400 text-sm hidden sm:block">Olá, <span className="text-white font-medium">{currentCustomer?.name}</span></span>
-                    <button onClick={handleLogout} className="text-zinc-400 hover:text-secondary flex items-center space-x-1">
+                    <button onClick={handleLogout} className="text-zinc-400 hover:text-secondary flex items-center space-x-1 pl-4 border-l border-zinc-700">
                         <LogOut size={18} />
                         <span className="text-sm">Sair</span>
                     </button>

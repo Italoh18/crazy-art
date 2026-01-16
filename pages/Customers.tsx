@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, ChevronRight, User } from 'lucide-react';
+import { Plus, Search, ChevronRight, User, CreditCard } from 'lucide-react';
 import { Customer } from '../types';
 
 export default function Customers() {
@@ -13,13 +13,40 @@ export default function Customers() {
   // Form State
   const [formData, setFormData] = useState({
     name: '', phone: '', email: '', cpf: '',
-    street: '', number: '', zipCode: ''
+    street: '', number: '', zipCode: '', creditLimit: '50'
   });
 
   const filteredCustomers = customers.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.cpf.includes(searchTerm)
   );
+
+  // Masks
+  const maskCPF = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+      .replace(/(-\d{2})\d+?$/, '$1');
+  };
+
+  const maskPhone = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{5})(\d)/, '$1-$2')
+      .replace(/(-\d{4})\d+?$/, '$1');
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let { name, value } = e.target;
+    
+    if (name === 'cpf') value = maskCPF(value);
+    if (name === 'phone') value = maskPhone(value);
+
+    setFormData({ ...formData, [name]: value });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,14 +59,11 @@ export default function Customers() {
         street: formData.street,
         number: formData.number,
         zipCode: formData.zipCode
-      }
+      },
+      creditLimit: parseFloat(formData.creditLimit) || 50.00
     });
-    setFormData({ name: '', phone: '', email: '', cpf: '', street: '', number: '', zipCode: '' });
+    setFormData({ name: '', phone: '', email: '', cpf: '', street: '', number: '', zipCode: '', creditLimit: '50' });
     setIsModalOpen(false);
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   return (
@@ -90,6 +114,12 @@ export default function Customers() {
             <div className="mt-4 pt-4 border-t border-zinc-800 text-sm text-zinc-500 space-y-1">
                <p className="truncate">{customer.email}</p>
                <p>CPF: {customer.cpf}</p>
+               {customer.creditLimit > 0 && (
+                   <div className="flex items-center gap-1 text-emerald-500 mt-2">
+                       <CreditCard size={14} />
+                       <span className="text-xs font-bold">Limite: R$ {customer.creditLimit.toFixed(2)}</span>
+                   </div>
+               )}
             </div>
           </div>
         ))}
@@ -120,15 +150,20 @@ export default function Customers() {
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-zinc-400 mb-1">Telefone</label>
-                    <input name="phone" required value={formData.phone} onChange={handleInputChange} className="w-full bg-black/50 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
+                    <input name="phone" required placeholder="(99) 99999-9999" value={formData.phone} onChange={handleInputChange} className="w-full bg-black/50 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-zinc-400 mb-1">CPF</label>
-                    <input name="cpf" required value={formData.cpf} onChange={handleInputChange} className="w-full bg-black/50 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
+                    <input name="cpf" required placeholder="000.000.000-00" value={formData.cpf} onChange={handleInputChange} className="w-full bg-black/50 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
                 </div>
                 <div className="col-span-1 md:col-span-2">
                     <label className="block text-sm font-medium text-zinc-400 mb-1">Email</label>
                     <input name="email" type="email" value={formData.email} onChange={handleInputChange} className="w-full bg-black/50 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
+                </div>
+                <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium text-zinc-400 mb-1">Limite de Crédito (R$)</label>
+                    <input name="creditLimit" type="number" step="0.01" value={formData.creditLimit} onChange={handleInputChange} className="w-full bg-black/50 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none" />
+                    <p className="text-xs text-zinc-500 mt-1">Padrão: R$ 50,00</p>
                 </div>
                 <div className="col-span-1 md:col-span-2 border-t border-zinc-800 pt-4 mt-2">
                    <h3 className="font-semibold text-zinc-300 mb-4">Endereço</h3>
