@@ -72,8 +72,10 @@ export default function Shop() {
       let message = '';
 
       if (lastItemType === 'service') {
+          // Formatação solicitada: "pedido nº "numero do pedido" , "descrição do pedido", de "nome do cliente"
           message = `pedido nº ${lastOrder.orderNumber} , ${lastOrder.description}, de ${currentCustomer.name}`;
       } else {
+          // Formatação solicitada para arte: "arte para pedido nº "numero do pedido" , "descrição do pedido", de "nome do cliente"
           message = `arte para pedido nº ${lastOrder.orderNumber} , ${lastOrder.description}, de ${currentCustomer.name}`;
       }
 
@@ -115,11 +117,11 @@ export default function Shop() {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col items-center mb-10 space-y-6">
             <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-80 border border-zinc-800 shadow-xl relative">
-                <button onClick={() => setActiveTab('product')} className={`flex-1 py-2.5 rounded-full text-xs font-bold transition-all ${activeTab === 'product' ? 'bg-white text-black' : 'text-zinc-500'}`}>PRODUTOS</button>
-                <button onClick={() => setActiveTab('service')} className={`flex-1 py-2.5 rounded-full text-xs font-bold transition-all ${activeTab === 'service' ? 'bg-white text-black' : 'text-zinc-500'}`}>SERVIÇOS</button>
+                <button onClick={() => setActiveTab('product')} className={`flex-1 py-2.5 rounded-full text-xs font-bold transition-all duration-300 z-10 ${activeTab === 'product' ? 'bg-white text-black' : 'text-zinc-500'}`}>PRODUTOS</button>
+                <button onClick={() => setActiveTab('service')} className={`flex-1 py-2.5 rounded-full text-xs font-bold transition-all duration-300 z-10 ${activeTab === 'service' ? 'bg-white text-black' : 'text-zinc-500'}`}>SERVIÇOS</button>
             </div>
             <div className="w-full max-w-md relative">
-                <input type="text" placeholder="Buscar..." className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                <input type="text" placeholder="Buscar..." className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
             </div>
         </div>
@@ -135,7 +137,7 @@ export default function Shop() {
                         <p className="text-zinc-400 text-sm mb-4 line-clamp-2 flex-1">{item.description}</p>
                         <div className="flex items-center justify-between border-t border-zinc-800 pt-4">
                             <span className="text-xl font-bold text-white">R$ {item.price.toFixed(2)}</span>
-                            <button onClick={() => handleOrder(item)} className="bg-white text-black p-2.5 rounded-full hover:bg-primary hover:text-white transition"><ShoppingCart size={18} /></button>
+                            <button onClick={() => handleOrder(item)} className="bg-white text-black p-2.5 rounded-full hover:bg-primary hover:text-white transition shadow-lg"><ShoppingCart size={18} /></button>
                         </div>
                     </div>
                 </div>
@@ -144,16 +146,24 @@ export default function Shop() {
 
         {successModalOpen && lastOrder && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 text-center relative">
-                    <button onClick={() => setSuccessModalOpen(false)} className="absolute top-3 right-3 text-zinc-500"><X size={20} /></button>
-                    <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-500"><CheckCircle size={32} /></div>
-                    <h2 className="text-xl font-bold text-white mb-2">Pedido Realizado!</h2>
-                    <p className="text-zinc-400 text-sm mb-6">Pedido <strong>#{lastOrder.orderNumber}</strong> criado.</p>
-                    <button onClick={handleWhatsAppRedirect} className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2">
-                        {lastItemType === 'service' ? <Send size={18} /> : <ImageIcon size={18} />}
-                        {lastItemType === 'service' ? 'Enviar Pedido via WhatsApp' : 'Enviar Arte via WhatsApp'}
-                    </button>
-                    <button onClick={() => setSuccessModalOpen(false)} className="mt-4 text-sm text-zinc-500">Voltar para a loja</button>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-8 text-center relative shadow-2xl">
+                    <button onClick={() => setSuccessModalOpen(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition"><X size={24} /></button>
+                    <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-500 animate-bounce">
+                        <CheckCircle size={40} />
+                    </div>
+                    <h2 className="text-2xl font-bold text-white mb-2">Pedido #{lastOrder.orderNumber}</h2>
+                    <p className="text-zinc-400 text-sm mb-8">Seu pedido foi registrado com sucesso em nosso sistema!</p>
+                    
+                    <div className="space-y-3">
+                        <button onClick={handleWhatsAppRedirect} className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition transform hover:scale-105 shadow-lg shadow-green-500/10">
+                            {lastItemType === 'service' ? <Send size={20} /> : <ImageIcon size={20} />}
+                            {lastItemType === 'service' ? 'Enviar Pedido p/ WhatsApp' : 'Enviar Arte p/ WhatsApp'}
+                        </button>
+                        
+                        <button onClick={() => setSuccessModalOpen(false)} className="w-full py-3 text-zinc-500 hover:text-zinc-300 text-sm font-medium transition">
+                            Voltar para a loja
+                        </button>
+                    </div>
                 </div>
             </div>
         )}

@@ -3,10 +3,12 @@
 Sistema de gerenciamento de pedidos e estúdio de arte.
 
 ## Funcionalidades
-- Cadastro de Clientes com Limite de Crédito
-- Loja Online para Clientes (Produtos e Serviços)
-- Integração com WhatsApp para envio de artes e pedidos
-- Painel Administrativo com Gestão de Pedidos e DRE (Financeiro)
+- Cadastro de Clientes com Limite de Crédito.
+- Loja Online para Clientes (Produtos e Serviços).
+- Integração direta com WhatsApp para envio de artes e confirmação de pedidos.
+- Painel Administrativo com Gestão de Pedidos e Financeiro (DRE).
 
-## Desenvolvimento
-Este projeto utiliza React, Tailwind CSS e Lucide React.
+## Como utilizar
+1. Acesse o sistema.
+2. Clientes fazem login via CPF para acessar a loja e seu histórico.
+3. Administradores acessam via código de segurança para gerenciar o negócio.
