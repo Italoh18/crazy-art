@@ -8,7 +8,7 @@ interface DataContextType {
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt'>) => void;
   updateCustomer: (id: string, data: Partial<Customer>) => void;
   addProduct: (product: Omit<Product, 'id'>) => void;
-  addOrder: (order: Omit<Order, 'id' | 'orderNumber'>) => Order;
+  addOrder: (order: Omit<Order, 'id' | 'orderNumber'>) => void;
   updateOrder: (id: string, data: Partial<Order>) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   deleteProduct: (id: string) => void;
@@ -18,17 +18,24 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children?: ReactNode }) => {
+  // Initialize with dummy data including Italo
   const [customers, setCustomers] = useState<Customer[]>(() => {
     const saved = localStorage.getItem('gestorbiz_customers');
     if (saved) return JSON.parse(saved);
+
+    // Pre-seeded customer
     return [{
         id: 'italo-uuid-seed',
         name: 'Italo Henrique da Silva Medeiros',
         phone: '(16) 99195-4647',
         email: 'johnmedeirosh18@gmail.com',
         cpf: '062.353.737-08',
-        address: { street: 'Av. Antônio Vanzella', number: '1020', zipCode: '14165-440' },
-        creditLimit: 500.00,
+        address: {
+            street: 'Av. Antônio Vanzella',
+            number: '1020',
+            zipCode: '14165-440'
+        },
+        creditLimit: 50.00,
         createdAt: new Date().toISOString()
     }];
   });
@@ -36,6 +43,8 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>(() => {
     const saved = localStorage.getItem('gestorbiz_products');
     if (saved) return JSON.parse(saved);
+    
+    // Seed Data requested by user
     return [
       {
         id: 'seed-layout-camisa',
@@ -78,17 +87,24 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       ...data,
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
-      creditLimit: data.creditLimit || 50.00
+      creditLimit: data.creditLimit || 50.00 // Ensure default if not provided
     };
     setCustomers((prev) => [...prev, newCustomer]);
   };
 
   const updateCustomer = (id: string, data: Partial<Customer>) => {
-    setCustomers((prev) => prev.map(c => c.id === id ? { ...c, ...data } : c));
+    setCustomers((prev) => 
+      prev.map((customer) => 
+        customer.id === id ? { ...customer, ...data } : customer
+      )
+    );
   };
 
   const addProduct = (data: Omit<Product, 'id'>) => {
-    const newProduct: Product = { ...data, id: crypto.randomUUID() };
+    const newProduct: Product = {
+      ...data,
+      id: crypto.randomUUID(),
+    };
     setProducts((prev) => [...prev, newProduct]);
   };
 
@@ -97,31 +113,42 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   const deleteCustomer = (id: string) => {
-    setCustomers(prev => prev.filter(c => c.id !== id));
+      setCustomers(prev => prev.filter(c => c.id !== id));
+      // Optionally cascade delete orders
   };
 
   const addOrder = (data: Omit<Order, 'id' | 'orderNumber'>) => {
-    const maxOrderNumber = orders.reduce((max, order) => {
+    setOrders((prev) => {
+      // Find the highest existing order number
+      const maxOrderNumber = prev.reduce((max, order) => {
         const num = order.orderNumber || 0;
         return num > max ? num : max;
-    }, 0);
+      }, 0);
 
-    const newOrder: Order = {
+      const newOrder: Order = {
         ...data,
         id: crypto.randomUUID(),
-        orderNumber: maxOrderNumber + 1,
-    };
-    
-    setOrders((prev) => [...prev, newOrder]);
-    return newOrder;
+        orderNumber: maxOrderNumber + 1, // Auto-increment
+      };
+      
+      return [...prev, newOrder];
+    });
   };
 
   const updateOrder = (id: string, data: Partial<Order>) => {
-    setOrders((prev) => prev.map(o => o.id === id ? { ...o, ...data } : o));
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === id ? { ...order, ...data } : order
+      )
+    );
   };
 
   const updateOrderStatus = (orderId: string, status: OrderStatus) => {
-    setOrders((prev) => prev.map(o => o.id === orderId ? { ...o, status } : o));
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === orderId ? { ...order, status } : order
+      )
+    );
   };
 
   return (
@@ -147,6 +174,8 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
 
 export const useData = () => {
   const context = useContext(DataContext);
-  if (!context) throw new Error('useData must be used within a DataProvider');
+  if (!context) {
+    throw new Error('useData must be used within a DataProvider');
+  }
   return context;
 };
