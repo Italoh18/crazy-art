@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -13,10 +14,10 @@ export default function Home() {
   const { loginAdmin, loginClient, role, logout, currentCustomer } = useAuth();
   const navigate = useNavigate();
 
-  // Carousel Logic
+  // Carousel Logic - Updated to 5 slides
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % 3);
+      setCurrentSlide((prev) => (prev + 1) % 5);
     }, 5000);
     return () => clearInterval(timer);
   }, []);
@@ -72,7 +73,6 @@ export default function Home() {
   };
 
   // Sections Configuration
-  // Shop activated
   const sections = [
     { name: 'Loja', icon: ShoppingBag, status: 'active', path: '/shop' },
     { name: 'Blog', icon: BookOpen, status: 'soon', path: '' },
@@ -85,13 +85,10 @@ export default function Home() {
 
       if (section.path === '/my-area') {
           if (role === 'guest') {
-              // If not logged in, open login modal
               setIsModalOpen(true);
           } else if (role === 'admin') {
-              // If admin, go to admin dashboard
               navigate('/customers');
           } else {
-              // If client, go to client area
               navigate('/my-area');
           }
       } else {
@@ -107,9 +104,8 @@ export default function Home() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-red-600/5 rounded-full blur-[150px]"></div>
       </div>
 
-      {/* Header - Solid Black background to differentiate */}
+      {/* Header */}
       <header className="fixed top-0 left-0 w-full z-40 h-20 px-6 flex items-center justify-between bg-black border-b border-zinc-900 shadow-md">
-        {/* Centered Title - Smaller and slightly spaced */}
         <h1 
           className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl md:text-3xl font-bold tracking-wide bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap"
           style={{ fontFamily: '"Times New Roman", Times, serif' }}
@@ -117,12 +113,8 @@ export default function Home() {
           CRAZY ART
         </h1>
 
-        {/* Right Button with Animated Gradient Border */}
         <div className="ml-auto relative group z-10">
-            {/* Animated Gradient Background */}
             <div className="absolute -inset-0.5 bg-crazy-gradient rounded-full blur opacity-75 group-hover:opacity-100 animate-pulse transition duration-200"></div>
-            
-            {/* Button - Changes between Login and Sair based on auth state */}
             <button 
                 onClick={handleHeaderButtonClick}
                 className="relative bg-black text-white px-6 py-2 rounded-full border border-zinc-800 hover:text-white transition duration-200 text-sm font-medium tracking-wide flex items-center justify-center min-w-[100px]"
@@ -138,14 +130,13 @@ export default function Home() {
 
       <main className="relative z-10 flex-1 flex flex-col items-center w-full pt-20">
         
-        {/* Full Width Carousel */}
+        {/* Full Width Carousel - Updated for 5 slides */}
         <div className="w-full h-[60vh] md:h-[80vh] relative overflow-hidden bg-zinc-900 group mb-12 shadow-2xl">
-          {/* Slides Container */}
           <div 
              className="w-full h-full flex transition-transform duration-1000 ease-in-out"
              style={{ transform: `translateX(-${currentSlide * 100}%)` }}
           >
-             {[0, 1, 2].map((index) => (
+             {[0, 1, 2, 3, 4].map((index) => (
                 <div key={index} className="w-full h-full flex-shrink-0 relative flex items-center justify-center bg-zinc-900">
                     <div className="text-center p-12 border-4 border-dashed border-zinc-800 rounded-3xl bg-black/40 backdrop-blur-sm z-10">
                         <span className="text-zinc-500 text-xl md:text-3xl font-light tracking-[0.2em] uppercase block mb-4">
@@ -155,15 +146,14 @@ export default function Home() {
                         Em Construção
                         </h3>
                     </div>
-                    {/* Placeholder Background Pattern */}
                     <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-800 via-zinc-900 to-black"></div>
                 </div>
              ))}
           </div>
           
-          {/* Carousel Indicators */}
+          {/* Carousel Indicators - Updated for 5 slides */}
           <div className="absolute bottom-8 left-0 right-0 flex justify-center space-x-3 z-10">
-            {[0, 1, 2].map((idx) => (
+            {[0, 1, 2, 3, 4].map((idx) => (
               <button
                 key={idx}
                 onClick={() => setCurrentSlide(idx)}
@@ -174,7 +164,6 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Gradient Overlay at Bottom of Carousel to blend with content */}
           <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-zinc-950 to-transparent pointer-events-none"></div>
         </div>
 
