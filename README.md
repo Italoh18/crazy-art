@@ -1,20 +1,12 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Crazy Art - Studio & Management
 
-# Run and deploy your AI Studio app
+Sistema de gerenciamento de pedidos e estúdio de arte.
 
-This contains everything you need to run your app locally.
+## Funcionalidades
+- Cadastro de Clientes com Limite de Crédito
+- Loja Online para Clientes (Produtos e Serviços)
+- Integração com WhatsApp para envio de artes e pedidos
+- Painel Administrativo com Gestão de Pedidos e DRE (Financeiro)
 
-View your app in AI Studio: https://ai.studio/apps/drive/1qgL-AaMKFMiTyrBL-A0hR55UmmsfKVNC
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Desenvolvimento
+Este projeto utiliza React, Tailwind CSS e Lucide React.
