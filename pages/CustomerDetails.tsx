@@ -219,7 +219,7 @@ export default function CustomerDetails() {
   // Current Order Staging Total
   const currentOrderTotal = orderItems.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
 
-  // WhatsApp Logic
+  // WhatsApp Logic (Optional here for history, but main request is in Shop)
   const handleWhatsAppShare = (order: Order, type: 'service' | 'art') => {
       if (!customer) return;
       
@@ -292,24 +292,6 @@ export default function CustomerDetails() {
       if (activeTab === 'open') return o.status === 'open' && !isOverdue(o);
       return o.status === 'paid';
   });
-
-  // Helper to check item types in an order
-  const hasService = (order: Order) => {
-      // Check if any item in the order corresponds to a service product
-      // We look up current product list, or we could store type in order item (not currently done)
-      // We will look up by ID
-      return order.items.some(item => {
-          const p = products.find(prod => prod.id === item.productId);
-          return p?.type === 'service';
-      });
-  };
-
-  const hasProduct = (order: Order) => {
-      return order.items.some(item => {
-          const p = products.find(prod => prod.id === item.productId);
-          return (p?.type === 'product' || !p?.type); // Default to product
-      });
-  };
 
   return (
     <div className="space-y-6 pb-20">
@@ -473,56 +455,33 @@ export default function CustomerDetails() {
                                     <td className="px-4 py-3 font-semibold text-white">R$ {order.totalValue.toFixed(2)}</td>
                                     {role === 'admin' && (
                                     <td className="px-4 py-3 text-right space-x-2">
-                                        {/* Simplified Actions for Mobile */}
                                         <div className="flex justify-end items-center gap-2">
-                                        
-                                        {/* WhatsApp Actions */}
-                                        {hasProduct(order) && (
-                                            <button
-                                                onClick={() => handleWhatsAppShare(order, 'art')}
-                                                title="Enviar Arte (WhatsApp)"
-                                                className="text-white hover:text-white p-1.5 bg-green-600/20 hover:bg-green-600 rounded transition"
-                                            >
-                                                <ImageIcon size={18} />
-                                            </button>
-                                        )}
-                                        {hasService(order) && (
-                                            <button
-                                                onClick={() => handleWhatsAppShare(order, 'service')}
-                                                title="Enviar Pedido (WhatsApp)"
-                                                className="text-white hover:text-white p-1.5 bg-green-600/20 hover:bg-green-600 rounded transition"
-                                            >
-                                                <Send size={18} />
-                                            </button>
-                                        )}
-
-                                        {order.status !== 'paid' && (
-                                            <>
-                                                {/* Edit Button */}
-                                                <button 
-                                                    onClick={() => handleOpenEditOrder(order)}
-                                                    title="Editar Pedido"
-                                                    className="text-zinc-400 hover:text-white p-1.5 bg-zinc-800 rounded hover:bg-zinc-700 transition"
-                                                >
-                                                    <Edit2 size={18} />
-                                                </button>
-                                                
-                                                <button 
-                                                    onClick={() => updateOrderStatus(order.id, 'paid')}
-                                                    title="Marcar como Pago"
-                                                    className="text-emerald-500 hover:text-emerald-400 p-1.5 bg-zinc-800 rounded hover:bg-zinc-700 transition"
-                                                >
-                                                    <DollarSign size={18} />
-                                                </button>
-                                                <button 
-                                                    onClick={() => updateOrderStatus(order.id, 'cancelled')}
-                                                    title="Cancelar Pedido"
-                                                    className="text-red-500 hover:text-red-400 p-1.5 bg-zinc-800 rounded hover:bg-zinc-700 transition"
-                                                >
-                                                    <XCircle size={18} />
-                                                </button>
-                                            </>
-                                        )}
+                                            {order.status !== 'paid' && (
+                                                <>
+                                                    <button 
+                                                        onClick={() => handleOpenEditOrder(order)}
+                                                        title="Editar Pedido"
+                                                        className="text-zinc-400 hover:text-white p-1.5 bg-zinc-800 rounded hover:bg-zinc-700 transition"
+                                                    >
+                                                        <Edit2 size={18} />
+                                                    </button>
+                                                    
+                                                    <button 
+                                                        onClick={() => updateOrderStatus(order.id, 'paid')}
+                                                        title="Marcar como Pago"
+                                                        className="text-emerald-500 hover:text-emerald-400 p-1.5 bg-zinc-800 rounded hover:bg-zinc-700 transition"
+                                                    >
+                                                        <DollarSign size={18} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => updateOrderStatus(order.id, 'cancelled')}
+                                                        title="Cancelar Pedido"
+                                                        className="text-red-500 hover:text-red-400 p-1.5 bg-zinc-800 rounded hover:bg-zinc-700 transition"
+                                                    >
+                                                        <XCircle size={18} />
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </td>
                                     )}

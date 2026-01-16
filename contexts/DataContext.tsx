@@ -8,7 +8,7 @@ interface DataContextType {
   addCustomer: (customer: Omit<Customer, 'id' | 'createdAt'>) => void;
   updateCustomer: (id: string, data: Partial<Customer>) => void;
   addProduct: (product: Omit<Product, 'id'>) => void;
-  addOrder: (order: Omit<Order, 'id' | 'orderNumber'>) => void;
+  addOrder: (order: Omit<Order, 'id' | 'orderNumber'>) => Order;
   updateOrder: (id: string, data: Partial<Order>) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   deleteProduct: (id: string) => void;
@@ -118,21 +118,20 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   const addOrder = (data: Omit<Order, 'id' | 'orderNumber'>) => {
-    setOrders((prev) => {
-      // Find the highest existing order number
-      const maxOrderNumber = prev.reduce((max, order) => {
+    // Synchronous calculation to return the object immediately
+    const maxOrderNumber = orders.reduce((max, order) => {
         const num = order.orderNumber || 0;
         return num > max ? num : max;
-      }, 0);
+    }, 0);
 
-      const newOrder: Order = {
+    const newOrder: Order = {
         ...data,
         id: crypto.randomUUID(),
-        orderNumber: maxOrderNumber + 1, // Auto-increment
-      };
-      
-      return [...prev, newOrder];
-    });
+        orderNumber: maxOrderNumber + 1,
+    };
+    
+    setOrders((prev) => [...prev, newOrder]);
+    return newOrder;
   };
 
   const updateOrder = (id: string, data: Partial<Order>) => {

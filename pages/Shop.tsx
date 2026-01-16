@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag, Wrench, Search, Star, LogIn, ShoppingCart, CheckCircle, AlertOctagon } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Wrench, Search, Star, LogIn, ShoppingCart, CheckCircle, AlertOctagon, Send, Image as ImageIcon, X } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Product } from '../types';
+import { Product, Order } from '../types';
 
 export default function Shop() {
   const [activeTab, setActiveTab] = useState<'product' | 'service'>('product');
@@ -12,6 +12,11 @@ export default function Shop() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  
+  // Success Modal State
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [lastOrder, setLastOrder] = useState<Order | null>(null);
+  const [lastItemType, setLastItemType] = useState<'product' | 'service'>('product');
 
   const filteredItems = products.filter(item => {
      // Handle items created before the 'type' field existed by defaulting them to 'product'
@@ -47,7 +52,7 @@ export default function Shop() {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 7);
 
-      addOrder({
+      const newItem = addOrder({
           customerId: currentCustomer.id,
           description: `Pedido via Loja: ${item.name}`,
           items: [{
@@ -63,8 +68,26 @@ export default function Shop() {
           dueDate: dueDate.toISOString(),
       });
 
-      setNotification({ message: 'Item adicionado aos seus pedidos!', type: 'success' });
-      setTimeout(() => setNotification(null), 3000);
+      setLastOrder(newItem);
+      setLastItemType(item.type || 'product');
+      setSuccessModalOpen(true);
+  };
+
+  const handleWhatsAppRedirect = () => {
+      if (!lastOrder || !currentCustomer) return;
+
+      const phoneNumber = '5516994142665';
+      let message = '';
+
+      if (lastItemType === 'service') {
+          message = `pedido nº ${lastOrder.orderNumber} , ${lastOrder.description || 'Sem descrição'}, de ${currentCustomer.name}`;
+      } else {
+          message = `arte para pedido nº ${lastOrder.orderNumber} , ${lastOrder.description || 'Sem descrição'}, de ${currentCustomer.name}`;
+      }
+
+      const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+      window.open(url, '_blank');
+      setSuccessModalOpen(false);
   };
 
   return (
@@ -196,6 +219,54 @@ export default function Shop() {
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">Nada encontrado</h3>
                 <p className="text-zinc-500">Tente buscar por outro termo ou mude a categoria. Se for administrador, cadastre novos itens.</p>
+            </div>
+        )}
+
+        {/* Success Modal */}
+        {successModalOpen && lastOrder && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm shadow-2xl relative p-6 text-center">
+                    <button 
+                        onClick={() => setSuccessModalOpen(false)}
+                        className="absolute top-3 right-3 text-zinc-500 hover:text-white"
+                    >
+                        <X size={20} />
+                    </button>
+                    
+                    <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-500">
+                        <CheckCircle size={32} />
+                    </div>
+                    
+                    <h2 className="text-xl font-bold text-white mb-2">Pedido Realizado!</h2>
+                    <p className="text-zinc-400 text-sm mb-6">
+                        Seu pedido <strong>#{lastOrder.orderNumber}</strong> foi criado com sucesso.
+                    </p>
+
+                    {lastItemType === 'service' ? (
+                        <button 
+                            onClick={handleWhatsAppRedirect}
+                            className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2"
+                        >
+                            <Send size={18} />
+                            Enviar Pedido via WhatsApp
+                        </button>
+                    ) : (
+                        <button 
+                            onClick={handleWhatsAppRedirect}
+                            className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2"
+                        >
+                            <ImageIcon size={18} />
+                            Enviar Arte via WhatsApp
+                        </button>
+                    )}
+                    
+                    <button 
+                        onClick={() => setSuccessModalOpen(false)}
+                        className="mt-3 text-sm text-zinc-500 hover:text-white transition"
+                    >
+                        Fechar e continuar comprando
+                    </button>
+                </div>
             </div>
         )}
 
