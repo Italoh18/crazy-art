@@ -30,7 +30,7 @@ export default function Home() {
       if (success) {
         setIsModalOpen(false);
         navigate('/customers');
-        window.location.reload(); // Recarregar para ativar DataContext
+        window.location.reload();
       } else {
         setError('Código de acesso inválido.');
       }
@@ -112,7 +112,7 @@ export default function Home() {
       </header>
 
       <main className="relative z-10 flex-1 flex flex-col items-center w-full pt-20">
-        <div className="w-full h-[60vh] md:h-[80vh] relative overflow-hidden bg-zinc-900 group mb-12 shadow-2xl">
+        <div className="w-full h-[60vh] md:h-[80vh] relative overflow-hidden bg-zinc-900 group shadow-2xl">
           <div className="w-full h-full flex transition-transform duration-1000 ease-in-out" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
              {[0, 1, 2, 3, 4].map((index) => (
                 <div key={index} className="w-full h-full flex-shrink-0 relative flex items-center justify-center bg-zinc-900">
@@ -125,12 +125,29 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Indicadores (Dots) do Carrossel */}
+        <div className="flex justify-center gap-2 mt-6 mb-12">
+            {[0, 1, 2, 3, 4].map((i) => (
+                <button
+                    key={i}
+                    onClick={() => setCurrentSlide(i)}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                        currentSlide === i ? 'w-8 bg-primary' : 'w-2 bg-zinc-800 hover:bg-zinc-700'
+                    }`}
+                    aria-label={`Ir para imagem ${i + 1}`}
+                />
+            ))}
+        </div>
+
         <div className="w-full max-w-6xl px-6 mb-20">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {sections.map((section) => (
               <div key={section.name} onClick={() => handleSectionClick(section)} className={`relative bg-zinc-900 border border-zinc-800 p-8 rounded-xl flex flex-col items-center justify-center gap-4 group transition duration-300 shadow-lg ${section.status === 'active' ? 'cursor-pointer hover:border-primary/50 hover:bg-zinc-800' : 'opacity-50'}`}>
                 <div className="p-4 rounded-full bg-primary/10 text-primary group-hover:scale-110 transition duration-300"><section.icon size={32} /></div>
                 <span className="text-lg font-medium text-white">{section.name}</span>
+                {section.status === 'soon' && (
+                    <span className="absolute top-2 right-2 text-[10px] bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded font-bold uppercase tracking-widest">Em Breve</span>
+                )}
               </div>
             ))}
           </div>

@@ -16,7 +16,18 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     const client: any = await env.DB.prepare('SELECT * FROM clients WHERE cpf = ?').bind(cpf).first();
     if (client) {
       const token = await createJWT({ role: 'client', clientId: client.id }, env.JWT_SECRET);
-      return Response.json({ token, role: 'client', customer: client });
+      
+      // Mapeia o endereço para o formato aninhado que o frontend espera
+      const formattedClient = {
+          ...client,
+          address: {
+              street: client.street || '',
+              number: client.number || '',
+              zipCode: client.zipCode || ''
+          }
+      };
+
+      return Response.json({ token, role: 'client', customer: formattedClient });
     }
   }
 
