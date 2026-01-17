@@ -9,8 +9,10 @@ const getHeaders = () => {
 
 const handleResponse = async (res: Response) => {
   if (!res.ok) {
-    const errorData = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(errorData.error || `Erro HTTP: ${res.status}`);
+    const errorData = await res.json().catch(() => ({ error: 'Erro de comunicação com o servidor' }));
+    // Log detalhado no console do navegador para ajudar a identificar erros de banco
+    console.error('API Error details:', errorData);
+    throw new Error(errorData.details || errorData.error || `Erro HTTP: ${res.status}`);
   }
   return res.json();
 };
@@ -28,6 +30,12 @@ export const api = {
         localStorage.setItem('user_role', data.role);
     }
     return data;
+  },
+
+  // Diagnóstico
+  async forceInsert() {
+    const res = await fetch('/api/force-insert');
+    return handleResponse(res);
   },
 
   // Clientes
