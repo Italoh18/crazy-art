@@ -12,6 +12,7 @@ import DRE from './pages/DRE';
 import FontFinder from './pages/FontFinder';
 import Programs from './pages/Programs';
 import Shop from './pages/Shop';
+import CarouselManager from './pages/CarouselManager';
 import { Loader2 } from 'lucide-react';
 
 const LoadingScreen = () => (
@@ -38,6 +39,7 @@ const AppContent = () => {
         <Route path="/customers/:id" element={<ProtectedRoute requiredRole="admin"><CustomerDetails /></ProtectedRoute>} />
         <Route path="/products" element={<ProtectedRoute requiredRole="admin"><Products /></ProtectedRoute>} />
         <Route path="/dre" element={<ProtectedRoute requiredRole="admin"><DRE /></ProtectedRoute>} />
+        <Route path="/carousel-manager" element={<ProtectedRoute requiredRole="admin"><CarouselManager /></ProtectedRoute>} />
       </Routes>
     </Layout>
   );

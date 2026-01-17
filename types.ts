@@ -1,3 +1,4 @@
+
 export interface Customer {
   id: string;
   name: string;
@@ -52,4 +53,10 @@ export interface DREData {
   grossRevenue: number;
   accountsReceivable: number;
   cancelledAmount: number;
+}
+
+export interface CarouselImage {
+  id: string;
+  url: string;
+  created_at: string;
 }

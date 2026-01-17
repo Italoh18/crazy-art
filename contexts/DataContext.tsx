@@ -1,11 +1,13 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Customer, Product, Order, OrderStatus } from '../types';
+import { Customer, Product, Order, OrderStatus, CarouselImage } from '../types';
 import { api } from '../src/services/api';
 
 interface DataContextType {
   customers: Customer[];
   products: Product[];
   orders: Order[];
+  carouselImages: CarouselImage[];
   isLoading: boolean;
   addCustomer: (customer: any) => Promise<void>;
   updateCustomer: (id: string, data: any) => Promise<void>;
@@ -15,16 +17,16 @@ interface DataContextType {
   addOrder: (order: any) => Promise<any>;
   updateOrder: (id: string, data: any) => Promise<void>;
   updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
+  addCarouselImage: (url: string) => Promise<void>;
+  deleteCarouselImage: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// Normalização para converter campos planos do DB para a estrutura de objetos do React
 const normalizeCustomer = (c: any): Customer => {
   if (!c) return c;
   return {
     ...c,
-    // Agrupa os campos que estão flat no banco de volta para o formato de objeto do frontend
     address: {
       street: c.street || '',
       number: c.number || '',
@@ -38,20 +40,18 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [carouselImages, setCarouselImages] = useState<CarouselImage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = async () => {
     const token = localStorage.getItem('auth_token');
-    if (!token) {
-        setIsLoading(false);
-        return;
-    }
     
     try {
-      const [clientsRes, productsRes, ordersRes] = await Promise.allSettled([
-        api.getClients(),
-        api.getProducts(),
-        api.getOrders()
+      const [clientsRes, productsRes, ordersRes, carouselRes] = await Promise.allSettled([
+        token ? api.getClients() : Promise.resolve([]),
+        token ? api.getProducts() : Promise.resolve([]),
+        token ? api.getOrders() : Promise.resolve([]),
+        api.getCarousel()
       ]);
 
       if (clientsRes.status === 'fulfilled') {
@@ -70,8 +70,12 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
         setOrders(Array.isArray(data) ? data : (data?.data || []));
       }
 
+      if (carouselRes.status === 'fulfilled') {
+        setCarouselImages(carouselRes.value || []);
+      }
+
     } catch (e) {
-      console.error("Erro crítico no processamento de dados:", e);
+      console.error("Erro no carregamento de dados:", e);
     } finally {
       setIsLoading(false);
     }
@@ -85,47 +89,37 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     try {
       await api.createClient(data);
       await loadData();
-    } catch (e: any) {
-      alert(e.message || "Erro ao salvar cliente.");
-    }
+    } catch (e: any) { alert(e.message); }
   };
 
   const updateCustomer = async (id: string, data: any) => {
     try {
       await api.updateClient(id, data);
       await loadData();
-    } catch (e: any) {
-      alert("Erro ao atualizar cliente: " + e.message);
-    }
+    } catch (e: any) { alert(e.message); }
   };
 
   const deleteCustomer = async (id: string) => {
     try {
-      if (confirm("Deseja realmente excluir este cliente?")) {
+      if (confirm("Excluir cliente?")) {
         await api.deleteClient(id);
         await loadData();
       }
-    } catch (e: any) {
-      alert("Erro ao excluir cliente: " + e.message);
-    }
+    } catch (e: any) { alert(e.message); }
   };
 
   const addProduct = async (data: any) => {
     try {
       await api.createProduct(data);
       await loadData();
-    } catch (e: any) {
-      alert("Erro ao salvar produto: " + e.message);
-    }
+    } catch (e: any) { alert(e.message); }
   };
 
   const deleteProduct = async (id: string) => {
     try {
       await api.deleteProduct(id);
       await loadData();
-    } catch (e: any) {
-      alert("Erro ao excluir produto: " + e.message);
-    }
+    } catch (e: any) { alert(e.message); }
   };
 
   const addOrder = async (data: any) => {
@@ -133,35 +127,43 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       const res = await api.createOrder(data);
       await loadData();
       return res;
-    } catch (e: any) {
-      alert("Erro ao criar pedido: " + e.message);
-      return null;
-    }
+    } catch (e: any) { alert(e.message); return null; }
   };
 
   const updateOrder = async (id: string, data: any) => {
     try {
       await api.updateOrder(id, data);
       await loadData();
-    } catch (e: any) {
-      alert("Erro ao atualizar pedido: " + e.message);
-    }
+    } catch (e: any) { alert(e.message); }
   };
 
   const updateOrderStatus = async (id: string, status: OrderStatus) => {
     try {
       await api.updateOrder(id, { status });
       await loadData();
-    } catch (e: any) {
-      alert("Erro ao atualizar status: " + e.message);
-    }
+    } catch (e: any) { alert(e.message); }
+  };
+
+  const addCarouselImage = async (url: string) => {
+    try {
+      await api.addCarouselImage(url);
+      await loadData();
+    } catch (e: any) { alert(e.message); }
+  };
+
+  const deleteCarouselImage = async (id: string) => {
+    try {
+      await api.deleteCarouselImage(id);
+      await loadData();
+    } catch (e: any) { alert(e.message); }
   };
 
   return (
     <DataContext.Provider value={{ 
-      customers, products, orders, isLoading, 
+      customers, products, orders, carouselImages, isLoading, 
       addCustomer, updateCustomer, deleteCustomer,
-      addProduct, deleteProduct, addOrder, updateOrder, updateOrderStatus
+      addProduct, deleteProduct, addOrder, updateOrder, updateOrderStatus,
+      addCarouselImage, deleteCarouselImage
     }}>
       {children}
     </DataContext.Provider>

@@ -14,17 +14,12 @@ const handleResponse = async (res: Response) => {
       const errorData = await res.json();
       errorMsg = errorData.details || errorData.error || errorMsg;
     } catch (e) {
-      // Se não for JSON, tenta pegar o texto
       const text = await res.text().catch(() => '');
       if (text) errorMsg = text;
     }
-    console.error('API Error:', errorMsg);
     throw new Error(errorMsg);
   }
-  
-  // Garante que tentamos ler o JSON apenas uma vez
-  const data = await res.json();
-  return data;
+  return res.json();
 };
 
 export const api = {
@@ -42,82 +37,60 @@ export const api = {
     return data;
   },
 
-  // Diagnóstico
-  async forceInsert() {
-    const res = await fetch('/api/force-insert');
-    return handleResponse(res);
-  },
-
-  // Clientes
   async getClients() {
     const res = await fetch('/api/clients', { headers: getHeaders() });
     return handleResponse(res);
   },
   async createClient(data: any) {
-    const res = await fetch('/api/clients', { 
-      method: 'POST', 
-      headers: getHeaders(), 
-      body: JSON.stringify(data) 
-    });
+    const res = await fetch('/api/clients', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
   async updateClient(id: string, data: any) {
-    const res = await fetch(`/api/clients?id=${id}`, { 
-      method: 'PUT', 
-      headers: getHeaders(), 
-      body: JSON.stringify(data) 
-    });
+    const res = await fetch(`/api/clients?id=${id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
   async deleteClient(id: string) {
-    const res = await fetch(`/api/clients?id=${id}`, { 
-      method: 'DELETE', 
-      headers: getHeaders() 
-    });
+    const res = await fetch(`/api/clients?id=${id}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   },
 
-  // Produtos
   async getProducts() {
     const res = await fetch('/api/products', { headers: getHeaders() });
     return handleResponse(res);
   },
   async createProduct(data: any) {
-    const res = await fetch('/api/products', { 
-      method: 'POST', 
-      headers: getHeaders(), 
-      body: JSON.stringify(data) 
-    });
+    const res = await fetch('/api/products', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
   async deleteProduct(id: string) {
-    const res = await fetch(`/api/products?id=${id}`, { 
-      method: 'DELETE', 
-      headers: getHeaders() 
-    });
+    const res = await fetch(`/api/products?id=${id}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   },
 
-  // Pedidos
   async getOrders(customerId?: string) {
     const url = customerId ? `/api/orders?customerId=${customerId}` : '/api/orders';
     const res = await fetch(url, { headers: getHeaders() });
     return handleResponse(res);
   },
   async createOrder(data: any) {
-    const res = await fetch('/api/orders', { 
-      method: 'POST', 
-      headers: getHeaders(), 
-      body: JSON.stringify(data) 
-    });
+    const res = await fetch('/api/orders', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
   async updateOrder(id: string, data: any) {
-    const res = await fetch(`/api/orders?id=${id}`, { 
-      method: 'PUT', 
-      headers: getHeaders(), 
-      body: JSON.stringify(data) 
-    });
+    const res = await fetch(`/api/orders?id=${id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
+    return handleResponse(res);
+  },
+
+  async getCarousel() {
+    const res = await fetch('/api/carousel');
+    return handleResponse(res);
+  },
+  async addCarouselImage(url: string) {
+    const res = await fetch('/api/carousel', { method: 'POST', headers: getHeaders(), body: JSON.stringify({ url }) });
+    return handleResponse(res);
+  },
+  async deleteCarouselImage(id: string) {
+    const res = await fetch(`/api/carousel?id=${id}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   }
 };
