@@ -1,14 +1,12 @@
--- SCRIPT DE MIGRAÇÃO - CRAZY ART D1
--- Execução: npx wrangler d1 execute crazyart-db --remote --file=./migrations.sql
+-- SCRIPT DE CORREÇÃO DE SCHEMA - CRAZY ART D1
+-- IMPORTANTE: Este comando deve ser executado via terminal para o banco de PRODUÇÃO.
+-- Comando sugerido: npx wrangler d1 execute crazyart-db --remote --file=./migrations.sql
 
--- Adiciona as colunas de endereço faltantes na tabela 'clients'
+-- Adiciona as colunas de endereço à tabela existente
 ALTER TABLE clients ADD COLUMN street TEXT;
 ALTER TABLE clients ADD COLUMN number TEXT;
 ALTER TABLE clients ADD COLUMN zipCode TEXT;
 
--- COMANDO DE VERIFICAÇÃO
--- Verifique se as colunas aparecem na saída deste comando
+-- Comando para verificar se as colunas foram aplicadas com sucesso
+-- A saída deve listar street, number e zipCode
 PRAGMA table_info(clients);
-
--- Teste de consistência (opcional)
-SELECT id, name, street, number, zipCode FROM clients LIMIT 5;
