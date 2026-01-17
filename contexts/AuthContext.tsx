@@ -1,45 +1,55 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { useData } from './DataContext';
+
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Customer } from '../types';
+import { api } from '../src/services/api';
 
 type UserRole = 'guest' | 'admin' | 'client';
 
 interface AuthContextType {
   role: UserRole;
   currentCustomer: Customer | null;
-  loginAdmin: (code: string) => boolean;
-  loginClient: (cpf: string) => boolean;
+  loginAdmin: (code: string) => Promise<boolean>;
+  loginClient: (cpf: string) => Promise<boolean>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children?: ReactNode }) => {
-  const [role, setRole] = useState<UserRole>('guest');
+  const [role, setRole] = useState<UserRole>((localStorage.getItem('user_role') as UserRole) || 'guest');
   const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
-  const { customers } = useData();
 
-  const loginAdmin = (code: string) => {
-    if (code === '79913061') {
-      setRole('admin');
-      setCurrentCustomer(null);
-      return true;
-    }
+  useEffect(() => {
+      const savedCustomer = localStorage.getItem('current_customer');
+      if (savedCustomer) setCurrentCustomer(JSON.parse(savedCustomer));
+  }, []);
+
+  const loginAdmin = async (code: string) => {
+    try {
+        const data = await api.auth({ code });
+        if (data.token) {
+            setRole('admin');
+            return true;
+        }
+    } catch (e) { console.error(e); }
     return false;
   };
 
-  const loginClient = (cpf: string) => {
-    // Normalize CPF for comparison (remove punctuation if needed, currently exact match)
-    const client = customers.find(c => c.cpf === cpf);
-    if (client) {
-      setRole('client');
-      setCurrentCustomer(client);
-      return true;
-    }
+  const loginClient = async (cpf: string) => {
+    try {
+        const data = await api.auth({ cpf });
+        if (data.token && data.customer) {
+            setRole('client');
+            setCurrentCustomer(data.customer);
+            localStorage.setItem('current_customer', JSON.stringify(data.customer));
+            return true;
+        }
+    } catch (e) { console.error(e); }
     return false;
   };
 
   const logout = () => {
+    localStorage.clear();
     setRole('guest');
     setCurrentCustomer(null);
   };
@@ -53,8 +63,6 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

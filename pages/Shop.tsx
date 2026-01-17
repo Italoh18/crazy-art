@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingBag, Wrench, Search, Star, LogIn, ShoppingCart, CheckCircle, AlertOctagon, Send, Image as ImageIcon, X } from 'lucide-react';
@@ -26,7 +27,8 @@ export default function Shop() {
      return matchesTab && matchesSearch;
   });
 
-  const handleOrder = (item: Product) => {
+  // Fixed: handleOrder must be async to await the result of addOrder (which is a Promise)
+  const handleOrder = async (item: Product) => {
       if (role !== 'client' || !currentCustomer) {
           setNotification({ message: 'Faça login para adicionar itens ao seu pedido.', type: 'error' });
           setTimeout(() => setNotification(null), 3000);
@@ -52,7 +54,8 @@ export default function Shop() {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 7);
 
-      const newItem = addOrder({
+      // Fixed: Added await because addOrder returns a Promise<Order | null>
+      const newItem = await addOrder({
           customerId: currentCustomer.id,
           description: `Pedido via Loja: ${item.name}`,
           items: [{

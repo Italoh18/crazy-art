@@ -1,171 +1,102 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Customer, Product, Order, OrderStatus } from '../types';
+import { api } from '../src/services/api';
 
 interface DataContextType {
   customers: Customer[];
   products: Product[];
   orders: Order[];
-  addCustomer: (customer: Omit<Customer, 'id' | 'createdAt'>) => void;
-  updateCustomer: (id: string, data: Partial<Customer>) => void;
-  addProduct: (product: Omit<Product, 'id'>) => void;
-  addOrder: (order: Omit<Order, 'id' | 'orderNumber'>) => Order;
-  updateOrder: (id: string, data: Partial<Order>) => void;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
-  deleteProduct: (id: string) => void;
-  deleteCustomer: (id: string) => void; 
+  isLoading: boolean;
+  addCustomer: (customer: any) => Promise<void>;
+  updateCustomer: (id: string, data: any) => Promise<void>;
+  deleteCustomer: (id: string) => Promise<void>;
+  addProduct: (product: any) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+  addOrder: (order: any) => Promise<any>;
+  updateOrder: (id: string, data: any) => Promise<void>;
+  updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children?: ReactNode }) => {
-  // Initialize with dummy data including Italo
-  const [customers, setCustomers] = useState<Customer[]>(() => {
-    const saved = localStorage.getItem('gestorbiz_customers');
-    if (saved) return JSON.parse(saved);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-    // Pre-seeded customer
-    return [{
-        id: 'italo-uuid-seed',
-        name: 'Italo Henrique da Silva Medeiros',
-        phone: '(16) 99195-4647',
-        email: 'johnmedeirosh18@gmail.com',
-        cpf: '062.353.737-08',
-        address: {
-            street: 'Av. Antônio Vanzella',
-            number: '1020',
-            zipCode: '14165-440'
-        },
-        creditLimit: 50.00,
-        createdAt: new Date().toISOString()
-    }];
-  });
-
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('gestorbiz_products');
-    if (saved) return JSON.parse(saved);
-    
-    // Seed Data requested by user
-    return [
-      {
-        id: 'seed-layout-camisa',
-        name: 'Layout Camisa',
-        price: 13.00,
-        costPrice: 1.00,
-        type: 'service',
-        description: 'Desenvolvimento de layout para estampa.'
-      },
-      {
-        id: 'seed-cartao-visitas',
-        name: 'Cartão de Visitas 500 un 4x1',
-        price: 80.00,
-        costPrice: 35.00,
-        type: 'product',
-        description: '500 unidades, verniz total frente.'
-      }
-    ];
-  });
-
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('gestorbiz_orders');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('gestorbiz_customers', JSON.stringify(customers));
-  }, [customers]);
-
-  useEffect(() => {
-    localStorage.setItem('gestorbiz_products', JSON.stringify(products));
-  }, [products]);
-
-  useEffect(() => {
-    localStorage.setItem('gestorbiz_orders', JSON.stringify(orders));
-  }, [orders]);
-
-  const addCustomer = (data: Omit<Customer, 'id' | 'createdAt'>) => {
-    const newCustomer: Customer = {
-      ...data,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      creditLimit: data.creditLimit || 50.00 // Ensure default if not provided
-    };
-    setCustomers((prev) => [...prev, newCustomer]);
+  const loadData = async () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+        setIsLoading(false);
+        return;
+    }
+    try {
+      const [clientsData, productsData, ordersData] = await Promise.all([
+        api.getClients(),
+        api.getProducts(),
+        api.getOrders()
+      ]);
+      setCustomers(clientsData);
+      setProducts(productsData);
+      setOrders(ordersData);
+    } catch (e) {
+      console.error("Erro ao carregar dados do D1:", e);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const updateCustomer = (id: string, data: Partial<Customer>) => {
-    setCustomers((prev) => 
-      prev.map((customer) => 
-        customer.id === id ? { ...customer, ...data } : customer
-      )
-    );
+  useEffect(() => { loadData(); }, []);
+
+  const addCustomer = async (data: any) => {
+    await api.createClient(data);
+    await loadData();
   };
 
-  const addProduct = (data: Omit<Product, 'id'>) => {
-    const newProduct: Product = {
-      ...data,
-      id: crypto.randomUUID(),
-    };
-    setProducts((prev) => [...prev, newProduct]);
+  const updateCustomer = async (id: string, data: any) => {
+    await api.updateClient(id, data);
+    await loadData();
   };
 
-  const deleteProduct = (id: string) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
+  const deleteCustomer = async (id: string) => {
+    await api.deleteClient(id);
+    await loadData();
   };
 
-  const deleteCustomer = (id: string) => {
-      setCustomers(prev => prev.filter(c => c.id !== id));
-      // Optionally cascade delete orders
+  const addProduct = async (data: any) => {
+    await api.createProduct(data);
+    await loadData();
   };
 
-  const addOrder = (data: Omit<Order, 'id' | 'orderNumber'>) => {
-    // Synchronous calculation to return the object immediately
-    const maxOrderNumber = orders.reduce((max, order) => {
-        const num = order.orderNumber || 0;
-        return num > max ? num : max;
-    }, 0);
-
-    const newOrder: Order = {
-        ...data,
-        id: crypto.randomUUID(),
-        orderNumber: maxOrderNumber + 1,
-    };
-    
-    setOrders((prev) => [...prev, newOrder]);
-    return newOrder;
+  const deleteProduct = async (id: string) => {
+    await api.deleteProduct(id);
+    await loadData();
   };
 
-  const updateOrder = (id: string, data: Partial<Order>) => {
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === id ? { ...order, ...data } : order
-      )
-    );
+  const addOrder = async (data: any) => {
+    const res = await api.createOrder(data);
+    await loadData();
+    return res;
   };
 
-  const updateOrderStatus = (orderId: string, status: OrderStatus) => {
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId ? { ...order, status } : order
-      )
-    );
+  const updateOrder = async (id: string, data: any) => {
+    await api.updateOrder(id, data);
+    await loadData();
+  };
+
+  const updateOrderStatus = async (id: string, status: OrderStatus) => {
+    await api.updateOrder(id, { status });
+    await loadData();
   };
 
   return (
-    <DataContext.Provider
-      value={{
-        customers,
-        products,
-        orders,
-        addCustomer,
-        updateCustomer,
-        addProduct,
-        addOrder,
-        updateOrder,
-        updateOrderStatus,
-        deleteProduct,
-        deleteCustomer
-      }}
-    >
+    <DataContext.Provider value={{ 
+      customers, products, orders, isLoading, 
+      addCustomer, updateCustomer, deleteCustomer,
+      addProduct, deleteProduct, addOrder, updateOrder, updateOrderStatus
+    }}>
       {children}
     </DataContext.Provider>
   );
@@ -173,8 +104,6 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
 
 export const useData = () => {
   const context = useContext(DataContext);
-  if (!context) {
-    throw new Error('useData must be used within a DataProvider');
-  }
+  if (!context) throw new Error('useData must be used within a DataProvider');
   return context;
 };

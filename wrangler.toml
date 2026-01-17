@@ -1,3 +1,9 @@
+
 name = "crazy-art"
 pages_build_output_dir = "dist"
 compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB" # Nome do binding usado no código
+database_name = "crazy_art_db"
+database_id = "SEU_ID_DO_D1_AQUI"
