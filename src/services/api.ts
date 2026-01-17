@@ -9,12 +9,22 @@ const getHeaders = () => {
 
 const handleResponse = async (res: Response) => {
   if (!res.ok) {
-    const errorData = await res.json().catch(() => ({ error: 'Erro de comunicação com o servidor' }));
-    // Log detalhado no console do navegador para ajudar a identificar erros de banco
-    console.error('API Error details:', errorData);
-    throw new Error(errorData.details || errorData.error || `Erro HTTP: ${res.status}`);
+    let errorMsg = `Erro HTTP: ${res.status}`;
+    try {
+      const errorData = await res.json();
+      errorMsg = errorData.details || errorData.error || errorMsg;
+    } catch (e) {
+      // Se não for JSON, tenta pegar o texto
+      const text = await res.text().catch(() => '');
+      if (text) errorMsg = text;
+    }
+    console.error('API Error:', errorMsg);
+    throw new Error(errorMsg);
   }
-  return res.json();
+  
+  // Garante que tentamos ler o JSON apenas uma vez
+  const data = await res.json();
+  return data;
 };
 
 export const api = {

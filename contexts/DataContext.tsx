@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Customer, Product, Order, OrderStatus } from '../types';
 import { api } from '../src/services/api';
@@ -19,18 +20,17 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// Normalização para garantir que o frontend tenha os campos necessários, mesmo que não existam no DB
+// Normalização ultra-segura para garantir que o frontend não quebre
 const normalizeCustomer = (c: any): Customer => {
   if (!c) return c;
   return {
     ...c,
-    // Garante que o objeto address sempre exista para evitar erros de leitura de propriedade
     address: c.address || {
       street: c.street || '',
       number: c.number || '',
       zipCode: c.zipCode || ''
     },
-    creditLimit: c.creditLimit || 0
+    creditLimit: typeof c.creditLimit === 'number' ? c.creditLimit : 0
   };
 };
 
@@ -48,40 +48,50 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     }
     
     try {
-      // Usamos execuções separadas ou tratamos erros individuais para que um erro em Pedidos não bloqueie a visualização de Clientes
-      const fetchClients = api.getClients().catch(e => { console.error("Erro ao carregar clientes:", e); return []; });
-      const fetchProducts = api.getProducts().catch(e => { console.error("Erro ao carregar produtos:", e); return []; });
-      const fetchOrders = api.getOrders().catch(e => { console.error("Erro ao carregar pedidos:", e); return []; });
-
-      const [clientsRes, productsRes, ordersRes] = await Promise.all([
-        fetchClients,
-        fetchProducts,
-        fetchOrders
+      // Buscas paralelas tratadas individualmente
+      const [clientsRes, productsRes, ordersRes] = await Promise.allSettled([
+        api.getClients(),
+        api.getProducts(),
+        api.getOrders()
       ]);
 
-      // Trata retorno tanto como array direto quanto como objeto {data: []}
-      const rawCustomers = Array.isArray(clientsRes) ? clientsRes : (clientsRes?.data || []);
-      const rawProducts = Array.isArray(productsRes) ? productsRes : (productsRes?.data || []);
-      const rawOrders = Array.isArray(ordersRes) ? ordersRes : (ordersRes?.data || []);
+      // Processa Clientes (Prioridade)
+      if (clientsRes.status === 'fulfilled') {
+        const data = clientsRes.value;
+        const customersList = Array.isArray(data) ? data : (data?.data || []);
+        console.log('Clientes carregados:', customersList.length);
+        setCustomers(customersList.map(normalizeCustomer));
+      } else {
+        console.error('Erro ao buscar clientes:', clientsRes.reason);
+      }
 
-      setCustomers(rawCustomers.map(normalizeCustomer));
-      setProducts(rawProducts);
-      setOrders(rawOrders);
+      // Processa Produtos
+      if (productsRes.status === 'fulfilled') {
+        const data = productsRes.value;
+        setProducts(Array.isArray(data) ? data : (data?.data || []));
+      }
+
+      // Processa Pedidos
+      if (ordersRes.status === 'fulfilled') {
+        const data = ordersRes.value;
+        setOrders(Array.isArray(data) ? data : (data?.data || []));
+      }
+
     } catch (e) {
-      console.error("Erro geral no carregamento de dados:", e);
+      console.error("Erro crítico no processamento de dados:", e);
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const addCustomer = async (data: any) => {
     try {
-      const res = await api.createClient(data);
-      if (res.success || res.id) {
-        await loadData();
-      }
+      await api.createClient(data);
+      await loadData();
     } catch (e: any) {
       alert(e.message || "Erro ao salvar cliente.");
     }
