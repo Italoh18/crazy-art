@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Customer, Product, Order, OrderStatus } from '../types';
 import { api } from '../src/services/api';
@@ -20,18 +19,16 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// Helper para garantir que o cliente tenha a estrutura esperada pelo frontend (objeto address)
-const normalizeCustomer = (c: any): Customer => {
-  if (!c) return c;
-  return {
-    ...c,
-    address: c.address || {
-      street: c.street || '',
-      number: c.number || '',
-      zipCode: c.zipCode || ''
-    }
-  };
-};
+// Garante que o frontend não quebre ao acessar campos de endereço não salvos no DB
+const normalizeCustomer = (c: any): Customer => ({
+  ...c,
+  address: c.address || {
+    street: c.street || '',
+    number: c.number || '',
+    zipCode: c.zipCode || ''
+  },
+  creditLimit: c.creditLimit || 0
+});
 
 export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -53,17 +50,15 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
         api.getOrders()
       ]);
 
-      // Extrai os dados lidando com array direto ou objeto { success, data }
       const rawCustomers = Array.isArray(clientsRes) ? clientsRes : (clientsRes?.data || []);
       const rawProducts = Array.isArray(productsRes) ? productsRes : (productsRes?.data || []);
       const rawOrders = Array.isArray(ordersRes) ? ordersRes : (ordersRes?.data || []);
 
-      // Normaliza clientes para garantir que o objeto 'address' exista para o renderizador
       setCustomers(rawCustomers.map(normalizeCustomer));
       setProducts(rawProducts);
       setOrders(rawOrders);
     } catch (e) {
-      console.error("Erro crítico ao carregar dados do D1:", e);
+      console.error("Erro ao carregar dados:", e);
     } finally {
       setIsLoading(false);
     }
@@ -73,10 +68,8 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
 
   const addCustomer = async (data: any) => {
     try {
-      const res = await api.createClient(data);
-      if (res.success || res.id) {
-        await loadData();
-      }
+      await api.createClient(data);
+      await loadData();
     } catch (e: any) {
       alert(e.message || "Erro ao salvar cliente.");
     }

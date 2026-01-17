@@ -4,13 +4,13 @@ export interface Customer {
   phone: string;
   email: string;
   cpf: string;
-  address: {
+  address?: {
     street: string;
     number: string;
     zipCode: string;
   };
-  creditLimit: number; // New field for credit limit
-  create_at: string;
+  creditLimit?: number;
+  created_at: string;
 }
 
 export type ItemType = 'product' | 'service';
@@ -19,7 +19,7 @@ export interface Product {
   id: string;
   name: string;
   price: number;
-  costPrice?: number; // New field for internal cost
+  costPrice?: number;
   description?: string;
   type: ItemType;
   imageUrl?: string;
@@ -37,19 +37,19 @@ export type OrderStatus = 'open' | 'paid' | 'cancelled';
 
 export interface Order {
   id: string;
-  orderNumber: number; // Added sequential order number
+  orderNumber: number;
   customerId: string;
   description: string;
   items: OrderItem[];
   totalValue: number;
-  requestDate: string; // ISO Date
-  dueDate: string; // ISO Date
+  requestDate: string;
+  dueDate: string;
   status: OrderStatus;
 }
 
 export interface DREData {
   month: string;
-  grossRevenue: number; // Receita Bruta (Paid orders)
-  accountsReceivable: number; // Contas a Receber (Open orders)
-  cancelledAmount: number; // Pedidos cancelados
+  grossRevenue: number;
+  accountsReceivable: number;
+  cancelledAmount: number;
 }
