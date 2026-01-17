@@ -7,6 +7,14 @@ const getHeaders = () => {
   };
 };
 
+const handleResponse = async (res: Response) => {
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(errorData.error || `Erro HTTP: ${res.status}`);
+  }
+  return res.json();
+};
+
 export const api = {
   async auth(payload: { code?: string, cpf?: string }) {
     const res = await fetch('/api/auth', {
@@ -14,8 +22,8 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    const data = await res.json();
-    if (res.ok) {
+    const data = await handleResponse(res);
+    if (data.token) {
         localStorage.setItem('auth_token', data.token);
         localStorage.setItem('user_role', data.role);
     }
@@ -25,40 +33,73 @@ export const api = {
   // Clientes
   async getClients() {
     const res = await fetch('/api/clients', { headers: getHeaders() });
-    return res.json();
+    return handleResponse(res);
   },
   async createClient(data: any) {
-    return fetch('/api/clients', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json());
+    const res = await fetch('/api/clients', { 
+      method: 'POST', 
+      headers: getHeaders(), 
+      body: JSON.stringify(data) 
+    });
+    return handleResponse(res);
   },
   async updateClient(id: string, data: any) {
-    return fetch(`/api/clients?id=${id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json());
+    const res = await fetch(`/api/clients?id=${id}`, { 
+      method: 'PUT', 
+      headers: getHeaders(), 
+      body: JSON.stringify(data) 
+    });
+    return handleResponse(res);
   },
   async deleteClient(id: string) {
-    return fetch(`/api/clients?id=${id}`, { method: 'DELETE', headers: getHeaders() }).then(r => r.json());
+    const res = await fetch(`/api/clients?id=${id}`, { 
+      method: 'DELETE', 
+      headers: getHeaders() 
+    });
+    return handleResponse(res);
   },
 
   // Produtos
   async getProducts() {
     const res = await fetch('/api/products', { headers: getHeaders() });
-    return res.json();
+    return handleResponse(res);
   },
   async createProduct(data: any) {
-    return fetch('/api/products', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json());
+    const res = await fetch('/api/products', { 
+      method: 'POST', 
+      headers: getHeaders(), 
+      body: JSON.stringify(data) 
+    });
+    return handleResponse(res);
   },
   async deleteProduct(id: string) {
-    return fetch(`/api/products?id=${id}`, { method: 'DELETE', headers: getHeaders() }).then(r => r.json());
+    const res = await fetch(`/api/products?id=${id}`, { 
+      method: 'DELETE', 
+      headers: getHeaders() 
+    });
+    return handleResponse(res);
   },
 
   // Pedidos
   async getOrders(customerId?: string) {
     const url = customerId ? `/api/orders?customerId=${customerId}` : '/api/orders';
     const res = await fetch(url, { headers: getHeaders() });
-    return res.json();
+    return handleResponse(res);
   },
   async createOrder(data: any) {
-    return fetch('/api/orders', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json());
+    const res = await fetch('/api/orders', { 
+      method: 'POST', 
+      headers: getHeaders(), 
+      body: JSON.stringify(data) 
+    });
+    return handleResponse(res);
   },
   async updateOrder(id: string, data: any) {
-    return fetch(`/api/orders?id=${id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json());
+    const res = await fetch(`/api/orders?id=${id}`, { 
+      method: 'PUT', 
+      headers: getHeaders(), 
+      body: JSON.stringify(data) 
+    });
+    return handleResponse(res);
   }
 };

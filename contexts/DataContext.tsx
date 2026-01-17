@@ -38,9 +38,9 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
         api.getProducts(),
         api.getOrders()
       ]);
-      setCustomers(clientsData);
-      setProducts(productsData);
-      setOrders(ordersData);
+      setCustomers(Array.isArray(clientsData) ? clientsData : []);
+      setProducts(Array.isArray(productsData) ? productsData : []);
+      setOrders(Array.isArray(ordersData) ? ordersData : []);
     } catch (e) {
       console.error("Erro ao carregar dados do D1:", e);
     } finally {
@@ -51,44 +51,79 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   useEffect(() => { loadData(); }, []);
 
   const addCustomer = async (data: any) => {
-    await api.createClient(data);
-    await loadData();
+    try {
+      await api.createClient(data);
+      await loadData();
+    } catch (e: any) {
+      alert("Erro ao salvar cliente: " + e.message);
+    }
   };
 
   const updateCustomer = async (id: string, data: any) => {
-    await api.updateClient(id, data);
-    await loadData();
+    try {
+      await api.updateClient(id, data);
+      await loadData();
+    } catch (e: any) {
+      alert("Erro ao atualizar cliente: " + e.message);
+    }
   };
 
   const deleteCustomer = async (id: string) => {
-    await api.deleteClient(id);
-    await loadData();
+    try {
+      if (confirm("Deseja realmente excluir este cliente?")) {
+        await api.deleteClient(id);
+        await loadData();
+      }
+    } catch (e: any) {
+      alert("Erro ao excluir cliente: " + e.message);
+    }
   };
 
   const addProduct = async (data: any) => {
-    await api.createProduct(data);
-    await loadData();
+    try {
+      await api.createProduct(data);
+      await loadData();
+    } catch (e: any) {
+      alert("Erro ao salvar produto: " + e.message);
+    }
   };
 
   const deleteProduct = async (id: string) => {
-    await api.deleteProduct(id);
-    await loadData();
+    try {
+      await api.deleteProduct(id);
+      await loadData();
+    } catch (e: any) {
+      alert("Erro ao excluir produto: " + e.message);
+    }
   };
 
   const addOrder = async (data: any) => {
-    const res = await api.createOrder(data);
-    await loadData();
-    return res;
+    try {
+      const res = await api.createOrder(data);
+      await loadData();
+      return res;
+    } catch (e: any) {
+      alert("Erro ao criar pedido: " + e.message);
+      return null;
+    }
   };
 
   const updateOrder = async (id: string, data: any) => {
-    await api.updateOrder(id, data);
-    await loadData();
+    try {
+      await api.updateOrder(id, data);
+      await loadData();
+    } catch (e: any) {
+      alert("Erro ao atualizar pedido: " + e.message);
+    }
   };
 
   const updateOrderStatus = async (id: string, status: OrderStatus) => {
-    await api.updateOrder(id, { status });
-    await loadData();
+    try {
+      await api.updateOrder(id, { status });
+      await loadData();
+    } catch (e: any) {
+      alert("Erro ao atualizar status: " + e.message);
+    }
   };
 
   return (
