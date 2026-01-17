@@ -4,6 +4,6 @@ pages_build_output_dir = "dist"
 compatibility_date = "2024-01-01"
 
 [[d1_databases]]
-binding = "DB" # Nome do binding usado no código
-database_name = "crazy_art_db"
-database_id = "SEU_ID_DO_D1_AQUI"
+binding = "DB"
+database_name = "crazyart-db"
+database_id = "f0a05c7b-af49-449a-a9d7-280e94e15865" # SUBSTITUA PELO ID REAL ENCONTRADO NO DASHBOARD
