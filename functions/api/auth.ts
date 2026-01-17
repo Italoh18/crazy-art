@@ -1,4 +1,3 @@
-
 import { Env, createJWT } from './_auth';
 
 export const onRequestPost: any = async ({ request, env }: { request: Request, env: Env }) => {
@@ -17,7 +16,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     if (client) {
       const token = await createJWT({ role: 'client', clientId: client.id }, env.JWT_SECRET);
       
-      // Mapeia o endereço para o formato aninhado que o frontend espera
+      // Mapeia o cliente para o formato aninhado que o frontend espera
       const formattedClient = {
           ...client,
           address: {
@@ -31,5 +30,8 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     }
   }
 
-  return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 401 });
+  return new Response(JSON.stringify({ error: 'Acesso negado. Verifique os dados e tente novamente.' }), { 
+    status: 401,
+    headers: { 'Content-Type': 'application/json' }
+  });
 };

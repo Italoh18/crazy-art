@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Customer, Product, Order, OrderStatus } from '../types';
 import { api } from '../src/services/api';
@@ -32,6 +31,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
         setIsLoading(false);
         return;
     }
+    
     try {
       const [clientsRes, productsRes, ordersRes] = await Promise.all([
         api.getClients(),
@@ -39,16 +39,16 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
         api.getOrders()
       ]);
 
-      // Suporta tanto o formato antigo (array direto) quanto o novo { success, data }
-      const customersList = clientsRes.data !== undefined ? clientsRes.data : clientsRes;
-      const productsList = productsRes.data !== undefined ? productsRes.data : productsRes;
-      const ordersList = ordersRes.data !== undefined ? ordersRes.data : ordersRes;
+      // Extrai os dados garantindo que sejam arrays
+      const customersList = clientsRes && clientsRes.success ? clientsRes.data : (Array.isArray(clientsRes) ? clientsRes : []);
+      const productsList = Array.isArray(productsRes) ? productsRes : (productsRes.data || []);
+      const ordersList = Array.isArray(ordersRes) ? ordersRes : (ordersRes.data || []);
 
-      setCustomers(Array.isArray(customersList) ? customersList : []);
-      setProducts(Array.isArray(productsList) ? productsList : []);
-      setOrders(Array.isArray(ordersList) ? ordersList : []);
+      setCustomers(customersList);
+      setProducts(productsList);
+      setOrders(ordersList);
     } catch (e) {
-      console.error("Erro ao carregar dados do D1:", e);
+      console.error("Erro crítico ao carregar dados do D1:", e);
     } finally {
       setIsLoading(false);
     }
@@ -58,10 +58,12 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
 
   const addCustomer = async (data: any) => {
     try {
-      await api.createClient(data);
-      await loadData();
+      const res = await api.createClient(data);
+      if (res.success) {
+        await loadData(); // Recarrega do banco para garantir sincronia
+      }
     } catch (e: any) {
-      alert("Erro ao salvar cliente: " + e.message);
+      alert(e.message || "Erro ao salvar cliente.");
     }
   };
 

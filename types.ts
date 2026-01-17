@@ -10,7 +10,7 @@ export interface Customer {
     zipCode: string;
   };
   creditLimit: number; // New field for credit limit
-  createdAt: string;
+  create_at: string;
 }
 
 export type ItemType = 'product' | 'service';
