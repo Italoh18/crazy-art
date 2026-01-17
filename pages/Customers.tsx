@@ -141,7 +141,7 @@ export default function Customers() {
         
         {filteredCustomers.length === 0 && (
           <div className="col-span-full text-center py-12 text-zinc-500">
-            Nenhum cliente encontrado.
+            Nenhum cliente encontrado na base de dados.
           </div>
         )}
       </div>

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Customer, Product, Order, OrderStatus } from '../types';
 import { api } from '../src/services/api';
@@ -19,6 +20,19 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
+// Helper para garantir que o cliente tenha a estrutura esperada pelo frontend (objeto address)
+const normalizeCustomer = (c: any): Customer => {
+  if (!c) return c;
+  return {
+    ...c,
+    address: c.address || {
+      street: c.street || '',
+      number: c.number || '',
+      zipCode: c.zipCode || ''
+    }
+  };
+};
+
 export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -39,14 +53,15 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
         api.getOrders()
       ]);
 
-      // Extrai os dados garantindo que sejam arrays
-      const customersList = clientsRes && clientsRes.success ? clientsRes.data : (Array.isArray(clientsRes) ? clientsRes : []);
-      const productsList = Array.isArray(productsRes) ? productsRes : (productsRes.data || []);
-      const ordersList = Array.isArray(ordersRes) ? ordersRes : (ordersRes.data || []);
+      // Extrai os dados lidando com array direto ou objeto { success, data }
+      const rawCustomers = Array.isArray(clientsRes) ? clientsRes : (clientsRes?.data || []);
+      const rawProducts = Array.isArray(productsRes) ? productsRes : (productsRes?.data || []);
+      const rawOrders = Array.isArray(ordersRes) ? ordersRes : (ordersRes?.data || []);
 
-      setCustomers(customersList);
-      setProducts(productsList);
-      setOrders(ordersList);
+      // Normaliza clientes para garantir que o objeto 'address' exista para o renderizador
+      setCustomers(rawCustomers.map(normalizeCustomer));
+      setProducts(rawProducts);
+      setOrders(rawOrders);
     } catch (e) {
       console.error("Erro crítico ao carregar dados do D1:", e);
     } finally {
@@ -59,8 +74,8 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const addCustomer = async (data: any) => {
     try {
       const res = await api.createClient(data);
-      if (res.success) {
-        await loadData(); // Recarrega do banco para garantir sincronia
+      if (res.success || res.id) {
+        await loadData();
       }
     } catch (e: any) {
       alert(e.message || "Erro ao salvar cliente.");
