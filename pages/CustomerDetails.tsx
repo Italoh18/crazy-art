@@ -1,18 +1,19 @@
+
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, Edit2, XCircle, CheckCircle, Plus, Clock, MapPin, Phone, Mail, AlertTriangle, CreditCard, DollarSign, Trash2, Package, Wrench, MessageCircle, Image as ImageIcon, Send } from 'lucide-react';
 import { Order, Product, ItemType } from '../types';
 
 export default function CustomerDetails() {
-  // If we are in "my-area" route, useParams won't have ID, so we rely on context
   const { id: paramId } = useParams<{ id: string }>();
   const { role, currentCustomer: authCustomer } = useAuth();
+  const navigate = useNavigate();
   
   const targetId = role === 'client' ? authCustomer?.id : paramId;
 
-  const { customers, orders, products, addOrder, updateOrder, updateOrderStatus, updateCustomer, addProduct } = useData();
+  const { customers, orders, products, addOrder, updateOrder, updateOrderStatus, updateCustomer, addProduct, deleteCustomer } = useData();
   const [activeTab, setActiveTab] = useState<'open' | 'paid' | 'overdue'>('open');
   
   // Modals State
@@ -115,6 +116,21 @@ export default function CustomerDetails() {
       creditLimit: role === 'admin' ? (parseFloat(editForm.creditLimit) || 0) : customer.creditLimit
     });
     setIsEditModalOpen(false);
+  };
+
+  const handleDeleteCustomer = async () => {
+    if (!customer) return;
+    try {
+        await deleteCustomer(customer.id);
+        // Após deletar, o loadData é chamado no DataContext.
+        // Se a deleção foi confirmada, navegamos de volta para a lista.
+        // Nota: a função deleteCustomer no contexto já faz o confirm()
+        if (role === 'admin') {
+            navigate('/customers');
+        }
+    } catch (e) {
+        console.error("Erro ao deletar cliente:", e);
+    }
   };
 
   // Add Item to Staging List
@@ -308,14 +324,25 @@ export default function CustomerDetails() {
             </h1>
         </div>
         
-        {/* Edit Button */}
-        <button 
-            onClick={() => setIsEditModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-lg transition text-sm font-medium border border-zinc-700"
-        >
-            <Edit2 size={16} />
-            <span>Editar Dados</span>
-        </button>
+        {/* Actions Bar */}
+        <div className="flex items-center gap-3">
+            {role === 'admin' && (
+                <button 
+                    onClick={handleDeleteCustomer}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition text-sm font-medium border border-red-500/20"
+                >
+                    <Trash2 size={16} />
+                    <span className="hidden sm:inline">Excluir</span>
+                </button>
+            )}
+            <button 
+                onClick={() => setIsEditModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-lg transition text-sm font-medium border border-zinc-700"
+            >
+                <Edit2 size={16} />
+                <span>{role === 'admin' ? 'Editar Dados' : 'Atualizar Perfil'}</span>
+            </button>
+        </div>
       </div>
 
       <div className="bg-surface border border-zinc-800 rounded-xl shadow-sm p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

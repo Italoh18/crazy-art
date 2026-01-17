@@ -1,11 +1,12 @@
+
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, ChevronRight, User, CreditCard } from 'lucide-react';
+import { Plus, Search, ChevronRight, User, CreditCard, Trash2 } from 'lucide-react';
 import { Customer } from '../types';
 
 export default function Customers() {
-  const { customers, addCustomer } = useData();
+  const { customers, addCustomer, deleteCustomer } = useData();
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -66,6 +67,11 @@ export default function Customers() {
     setIsModalOpen(false);
   };
 
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Evita navegar para detalhes ao clicar em excluir
+    deleteCustomer(id);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -97,7 +103,7 @@ export default function Customers() {
           <div 
             key={customer.id} 
             onClick={() => navigate(`/customers/${customer.id}`)}
-            className="bg-surface p-6 rounded-xl border border-zinc-800 shadow-sm hover:border-primary/50 transition cursor-pointer group"
+            className="bg-surface p-6 rounded-xl border border-zinc-800 shadow-sm hover:border-primary/50 transition cursor-pointer group relative"
           >
             <div className="flex justify-between items-start">
               <div className="flex items-center space-x-3">
@@ -109,7 +115,16 @@ export default function Customers() {
                   <p className="text-sm text-zinc-500">{customer.phone}</p>
                 </div>
               </div>
-              <ChevronRight className="text-zinc-600 group-hover:text-primary transition" size={20} />
+              <div className="flex items-center space-x-1">
+                <button 
+                  onClick={(e) => handleDelete(e, customer.id)}
+                  className="p-2 text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded-full transition opacity-0 group-hover:opacity-100"
+                  title="Excluir Cliente"
+                >
+                  <Trash2 size={18} />
+                </button>
+                <ChevronRight className="text-zinc-600 group-hover:text-primary transition" size={20} />
+              </div>
             </div>
             <div className="mt-4 pt-4 border-t border-zinc-800 text-sm text-zinc-500 space-y-1">
                <p className="truncate">{customer.email}</p>
