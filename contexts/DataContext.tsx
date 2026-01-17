@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Customer, Product, Order, OrderStatus } from '../types';
 import { api } from '../src/services/api';
@@ -20,12 +19,13 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// Normalização ultra-segura para garantir que o frontend não quebre
+// Normalização para converter campos planos do DB para a estrutura de objetos do React
 const normalizeCustomer = (c: any): Customer => {
   if (!c) return c;
   return {
     ...c,
-    address: c.address || {
+    // Agrupa os campos que estão flat no banco de volta para o formato de objeto do frontend
+    address: {
       street: c.street || '',
       number: c.number || '',
       zipCode: c.zipCode || ''
@@ -48,30 +48,23 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     }
     
     try {
-      // Buscas paralelas tratadas individualmente
       const [clientsRes, productsRes, ordersRes] = await Promise.allSettled([
         api.getClients(),
         api.getProducts(),
         api.getOrders()
       ]);
 
-      // Processa Clientes (Prioridade)
       if (clientsRes.status === 'fulfilled') {
         const data = clientsRes.value;
         const customersList = Array.isArray(data) ? data : (data?.data || []);
-        console.log('Clientes carregados:', customersList.length);
         setCustomers(customersList.map(normalizeCustomer));
-      } else {
-        console.error('Erro ao buscar clientes:', clientsRes.reason);
       }
 
-      // Processa Produtos
       if (productsRes.status === 'fulfilled') {
         const data = productsRes.value;
         setProducts(Array.isArray(data) ? data : (data?.data || []));
       }
 
-      // Processa Pedidos
       if (ordersRes.status === 'fulfilled') {
         const data = ordersRes.value;
         setOrders(Array.isArray(data) ? data : (data?.data || []));
