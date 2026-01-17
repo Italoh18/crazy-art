@@ -1,4 +1,3 @@
-
 import { Env } from './_auth';
 
 export const onRequest: any = async ({ env }: { env: Env }) => {
@@ -9,31 +8,27 @@ export const onRequest: any = async ({ env }: { env: Env }) => {
   try {
     console.log("Iniciando Force Insert de Diagnóstico...");
 
-    // 1. Inserção Hardcoded
+    // 1. Inserção Hardcoded apenas nas colunas que existem
     const insertResult = await env.DB.prepare(
-      'INSERT INTO clients (id, name, email, phone, cpf, street, number, zipCode, creditLimit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO clients (id, name, email, phone, cpf, created_at) VALUES (?, ?, ?, ?, ?, ?)'
     ).bind(
       testId, 
       `DEBUG_USER_${Date.now()}`, 
       "debug@crazyart.com", 
       "16999999999", 
       testCpf, 
-      "Rua de Debug", 
-      "0", 
-      "00000-000", 
-      999.99
+      ts
     ).run();
 
     console.log("Resultado do Insert Diagnóstico:", JSON.stringify(insertResult));
 
-    // 2. Seleção Imediata de Todos os Clientes
-    const { results } = await env.DB.prepare('SELECT * FROM clients ORDER BY createdAt DESC').all();
+    // 2. Seleção Imediata usando ORDER BY correto
+    const { results } = await env.DB.prepare('SELECT * FROM clients ORDER BY created_at DESC').all();
 
     return Response.json({
       persisted: results.some((r: any) => r.id === testId),
       message: "Se 'persisted' for true, o D1 está gravando corretamente.",
       test_id: testId,
-      insert_meta: insertResult.meta,
       db_count: results.length,
       rows: results
     });

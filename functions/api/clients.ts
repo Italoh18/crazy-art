@@ -13,11 +13,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
 
-    // GET - Listar
+    // GET - Listar ou buscar único
     if (request.method === 'GET') {
       if (id) {
         const client = await env.DB.prepare('SELECT * FROM clients WHERE id = ?').bind(id).first();
-        return Response.json(client);
+        return Response.json(client || null);
       }
       
       const { results } = await env.DB.prepare('SELECT * FROM clients ORDER BY created_at DESC').all();
@@ -30,16 +30,19 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       
       const body = await request.json() as any;
       
-      // Validação de duplicidade manual
+      // Verificação manual de duplicidade para CPF
       const existing = await env.DB.prepare('SELECT id FROM clients WHERE cpf = ?').bind(String(body.cpf)).first();
       if (existing) {
-        return new Response(JSON.stringify({ error: 'CPF já cadastrado.' }), { status: 400 });
+        return new Response(JSON.stringify({ error: 'Este CPF já está cadastrado no sistema.' }), { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
 
       const newId = crypto.randomUUID();
       const now = new Date().toISOString();
       
-      // Apenas colunas que REALMENTE existem no D1
+      // Apenas colunas que REALMENTE existem no D1 (id, name, email, phone, cpf, created_at)
       const params = [
         newId,
         String(body.name || '').trim(),
@@ -53,7 +56,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         'INSERT INTO clients (id, name, email, phone, cpf, created_at) VALUES (?, ?, ?, ?, ?, ?)'
       ).bind(...params).run();
 
-      if (!result.success) throw new Error('Erro ao inserir cliente');
+      if (!result.success) throw new Error('Falha técnica ao salvar o cliente no banco.');
       
       return Response.json({ success: true, id: newId });
     }
@@ -67,6 +70,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     return new Response(JSON.stringify({ error: 'Método não permitido' }), { status: 405 });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    console.error("Erro na API de Clientes:", e.message);
+    return new Response(JSON.stringify({ error: e.message }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 };

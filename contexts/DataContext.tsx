@@ -19,16 +19,20 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// Garante que o frontend não quebre ao acessar campos de endereço não salvos no DB
-const normalizeCustomer = (c: any): Customer => ({
-  ...c,
-  address: c.address || {
-    street: c.street || '',
-    number: c.number || '',
-    zipCode: c.zipCode || ''
-  },
-  creditLimit: c.creditLimit || 0
-});
+// Normalização para garantir que o frontend tenha os campos necessários, mesmo que não existam no DB
+const normalizeCustomer = (c: any): Customer => {
+  if (!c) return c;
+  return {
+    ...c,
+    // Garante que o objeto address sempre exista para evitar erros de leitura de propriedade
+    address: c.address || {
+      street: c.street || '',
+      number: c.number || '',
+      zipCode: c.zipCode || ''
+    },
+    creditLimit: c.creditLimit || 0
+  };
+};
 
 export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -44,12 +48,18 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     }
     
     try {
+      // Usamos execuções separadas ou tratamos erros individuais para que um erro em Pedidos não bloqueie a visualização de Clientes
+      const fetchClients = api.getClients().catch(e => { console.error("Erro ao carregar clientes:", e); return []; });
+      const fetchProducts = api.getProducts().catch(e => { console.error("Erro ao carregar produtos:", e); return []; });
+      const fetchOrders = api.getOrders().catch(e => { console.error("Erro ao carregar pedidos:", e); return []; });
+
       const [clientsRes, productsRes, ordersRes] = await Promise.all([
-        api.getClients(),
-        api.getProducts(),
-        api.getOrders()
+        fetchClients,
+        fetchProducts,
+        fetchOrders
       ]);
 
+      // Trata retorno tanto como array direto quanto como objeto {data: []}
       const rawCustomers = Array.isArray(clientsRes) ? clientsRes : (clientsRes?.data || []);
       const rawProducts = Array.isArray(productsRes) ? productsRes : (productsRes?.data || []);
       const rawOrders = Array.isArray(ordersRes) ? ordersRes : (ordersRes?.data || []);
@@ -58,7 +68,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       setProducts(rawProducts);
       setOrders(rawOrders);
     } catch (e) {
-      console.error("Erro ao carregar dados:", e);
+      console.error("Erro geral no carregamento de dados:", e);
     } finally {
       setIsLoading(false);
     }
@@ -68,8 +78,10 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
 
   const addCustomer = async (data: any) => {
     try {
-      await api.createClient(data);
-      await loadData();
+      const res = await api.createClient(data);
+      if (res.success || res.id) {
+        await loadData();
+      }
     } catch (e: any) {
       alert(e.message || "Erro ao salvar cliente.");
     }
