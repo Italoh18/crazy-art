@@ -12,8 +12,6 @@ const mapClient = (c: any) => ({
 });
 
 export const onRequest: any = async ({ request, env }: { request: Request, env: Env }) => {
-  const requestId = crypto.randomUUID().slice(0, 8);
-
   try {
     const user = await getAuth(request, env);
     if (!user) {
@@ -30,10 +28,17 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     if (request.method === 'GET') {
       if (id) {
         const client = await env.DB.prepare('SELECT * FROM clients WHERE id = ?').bind(id).first();
-        return Response.json(client ? mapClient(client) : null);
+        return Response.json({ 
+          success: true, 
+          data: client ? mapClient(client) : null 
+        });
       }
       const { results } = await env.DB.prepare('SELECT * FROM clients ORDER BY name ASC').all();
-      return Response.json((results || []).map(mapClient));
+      const mappedResults = (results || []).map(mapClient);
+      return Response.json({ 
+        success: true, 
+        data: mappedResults 
+      });
     }
 
     // POST - Criar
@@ -44,6 +49,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const newId = crypto.randomUUID();
       const now = new Date().toISOString();
       
+      // Sanitização básica
       const params = [
         newId,
         String(body.name || '').trim(),
@@ -54,16 +60,17 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         String(body.address?.number || body.number || '').trim() || null,
         String(body.address?.zipCode || body.zipCode || '').trim() || null,
         Number(body.creditLimit || 0),
-        now // createdAt
+        now
       ];
 
+      // Nota: As colunas street, number, zipCode devem existir via migrations.sql
       const result = await env.DB.prepare(
         'INSERT INTO clients (id, name, email, phone, cpf, street, number, zipCode, creditLimit, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(...params).run();
 
       if (!result.success) throw new Error(result.error || 'Falha no INSERT');
       
-      return Response.json({ id: newId, success: true });
+      return Response.json({ success: true, id: newId });
     }
 
     // PUT - Atualizar

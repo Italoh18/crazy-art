@@ -33,14 +33,20 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
         return;
     }
     try {
-      const [clientsData, productsData, ordersData] = await Promise.all([
+      const [clientsRes, productsRes, ordersRes] = await Promise.all([
         api.getClients(),
         api.getProducts(),
         api.getOrders()
       ]);
-      setCustomers(Array.isArray(clientsData) ? clientsData : []);
-      setProducts(Array.isArray(productsData) ? productsData : []);
-      setOrders(Array.isArray(ordersData) ? ordersData : []);
+
+      // Suporta tanto o formato antigo (array direto) quanto o novo { success, data }
+      const customersList = clientsRes.data !== undefined ? clientsRes.data : clientsRes;
+      const productsList = productsRes.data !== undefined ? productsRes.data : productsRes;
+      const ordersList = ordersRes.data !== undefined ? ordersRes.data : ordersRes;
+
+      setCustomers(Array.isArray(customersList) ? customersList : []);
+      setProducts(Array.isArray(productsList) ? productsList : []);
+      setOrders(Array.isArray(ordersList) ? ordersList : []);
     } catch (e) {
       console.error("Erro ao carregar dados do D1:", e);
     } finally {
