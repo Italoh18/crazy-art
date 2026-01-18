@@ -66,23 +66,6 @@ export default function CustomerDetails() {
     }
   }, [customer, isEditModalOpen]);
 
-  const handleUpdateCustomer = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateCustomer(customer?.id || '', {
-      name: editForm.name,
-      phone: editForm.phone,
-      email: editForm.email,
-      cpf: editForm.cpf,
-      address: {
-        street: editForm.street,
-        number: editForm.number,
-        zipCode: editForm.zipCode
-      },
-      creditLimit: role === 'admin' ? parseFloat(editForm.creditLimit) : customer?.creditLimit
-    });
-    setIsEditModalOpen(false);
-  };
-
   const handleAddItem = (product: Product) => {
     const newItem: OrderItem = {
       productId: product.id,
@@ -151,13 +134,13 @@ export default function CustomerDetails() {
               status: detailedOrder.status
           });
           
-          // Mapeia itens vindo do banco (que podem ter nomes de colunas diferentes) para o padrão do frontend
+          // Mapeia itens do schema D1 (catalog_id, name, price, subtotal) para o frontend
           const mappedItems = (detailedOrder.items || []).map((i: any) => ({
-              productId: i.item_id || i.productId,
-              productName: i.description || i.productName,
+              productId: i.catalog_id || i.item_id || i.productId,
+              productName: i.name || i.description || i.productName,
               quantity: i.quantity,
-              unitPrice: i.unit_price || i.unitPrice,
-              total: i.total
+              unitPrice: i.price || i.unit_price || i.unitPrice,
+              total: i.subtotal || i.total
           }));
           
           setOrderItems(mappedItems);
@@ -346,12 +329,6 @@ export default function CustomerDetails() {
                                                 <span>{p.name}</span><span className="text-emerald-500">R$ {p.price.toFixed(2)}</span>
                                             </button>
                                         ))}
-                                        {role === 'admin' && itemSearchTerm.length > 1 && (
-                                            <div className="p-2 bg-black border-t border-zinc-800 flex gap-2">
-                                                <button type="button" onClick={() => openQuickReg('product')} className="flex-1 text-[10px] bg-primary/10 text-primary p-1 rounded font-bold">+ Produto</button>
-                                                <button type="button" onClick={() => openQuickReg('service')} className="flex-1 text-[10px] bg-secondary/10 text-secondary p-1 rounded font-bold">+ Serviço</button>
-                                            </div>
-                                        )}
                                     </div>
                                 )}
                             </div>
@@ -391,22 +368,6 @@ export default function CustomerDetails() {
                 </form>
             </div>
         </div>
-      )}
-
-      {isQuickRegOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md p-4">
-              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
-                  <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
-                      <h3 className="text-lg font-bold text-white">Cadastro Rápido</h3>
-                      <button onClick={() => setIsQuickRegOpen(false)}><X size={20}/></button>
-                  </div>
-                  <form onSubmit={handleQuickRegisterSubmit} className="p-6 space-y-4">
-                      <input type="text" required autoFocus placeholder="Nome do item" className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2 text-white outline-none focus:border-primary transition" value={quickRegData.name} onChange={e => setQuickRegData({...quickRegData, name: e.target.value})} />
-                      <input type="text" required placeholder="Preço (R$)" className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2 text-white outline-none focus:border-primary transition" value={quickRegData.price} onChange={e => setQuickRegData({...quickRegData, price: e.target.value})} />
-                      <button type="submit" className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-zinc-200 transition">Salvar e Adicionar</button>
-                  </form>
-              </div>
-          </div>
       )}
     </div>
   );

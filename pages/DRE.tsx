@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useData } from '../contexts/DataContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -10,19 +11,23 @@ export default function DRE() {
     const data: Record<string, { name: string; revenue: number; receivable: number; cancelled: number }> = {};
 
     orders.forEach(order => {
-      const date = new Date(order.requestDate);
-      const monthKey = `${date.getMonth() + 1}/${date.getFullYear()}`; // e.g., "10/2023"
+      if (!order.order_date) return;
+      
+      const date = new Date(order.order_date);
+      const monthKey = `${date.getMonth() + 1}/${date.getFullYear()}`;
 
       if (!data[monthKey]) {
         data[monthKey] = { name: monthKey, revenue: 0, receivable: 0, cancelled: 0 };
       }
 
+      const val = Number(order.total || 0);
+
       if (order.status === 'paid') {
-        data[monthKey].revenue += order.totalValue;
+        data[monthKey].revenue += val;
       } else if (order.status === 'open') {
-        data[monthKey].receivable += order.totalValue;
+        data[monthKey].receivable += val;
       } else if (order.status === 'cancelled') {
-        data[monthKey].cancelled += order.totalValue;
+        data[monthKey].cancelled += val;
       }
     });
 
@@ -32,8 +37,8 @@ export default function DRE() {
   const chartData = getDataByMonth();
 
   // Summary Totals
-  const totalRevenue = orders.filter(o => o.status === 'paid').reduce((acc, c) => acc + c.totalValue, 0);
-  const totalReceivable = orders.filter(o => o.status === 'open').reduce((acc, c) => acc + c.totalValue, 0);
+  const totalRevenue = orders.filter(o => o.status === 'paid').reduce((acc, c) => acc + Number(c.total || 0), 0);
+  const totalReceivable = orders.filter(o => o.status === 'open').reduce((acc, c) => acc + Number(c.total || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -49,7 +54,6 @@ export default function DRE() {
           <p className="text-3xl font-bold text-white mt-2">R$ {totalReceivable.toFixed(2)}</p>
         </div>
         <div className="bg-surface p-6 rounded-xl border border-zinc-800 shadow-sm border-l-4 border-l-indigo-500">
-           {/* Simple Profit Calculation (assuming 0 cost for this demo, or just total volume) */}
           <p className="text-zinc-400 font-medium">Volume Total de Vendas</p>
           <p className="text-3xl font-bold text-white mt-2">R$ {(totalRevenue + totalReceivable).toFixed(2)}</p>
         </div>
