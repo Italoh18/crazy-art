@@ -12,7 +12,7 @@ interface DataContextType {
   addCustomer: (customer: any) => Promise<void>;
   updateCustomer: (id: string, data: any) => Promise<void>;
   deleteCustomer: (id: string) => Promise<void>;
-  addProduct: (product: any) => Promise<void>;
+  addProduct: (product: any) => Promise<any>;
   deleteProduct: (id: string) => Promise<void>;
   addOrder: (order: any) => Promise<any>;
   updateOrder: (id: string, data: any) => Promise<void>;
@@ -110,9 +110,13 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
 
   const addProduct = async (data: any) => {
     try {
-      await api.createProduct(data);
+      const res = await api.createProduct(data);
       await loadData();
-    } catch (e: any) { alert(e.message); }
+      return res;
+    } catch (e: any) { 
+      alert(e.message); 
+      throw e;
+    }
   };
 
   const deleteProduct = async (id: string) => {
@@ -127,7 +131,10 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       const res = await api.createOrder(data);
       await loadData();
       return res;
-    } catch (e: any) { alert(e.message); return null; }
+    } catch (e: any) { 
+      alert(e.message); 
+      throw e;
+    }
   };
 
   const updateOrder = async (id: string, data: any) => {

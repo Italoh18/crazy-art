@@ -90,6 +90,7 @@ export default function CustomerDetails() {
   };
 
   const handleAddItem = (product: Product | any) => {
+    if (!product) return;
     const newItem = {
       productId: product.id,
       productName: product.name,
@@ -143,16 +144,19 @@ export default function CustomerDetails() {
       dueDate: orderForm.dueDate
     };
 
-    if (editingOrderId) {
-        await updateOrder(editingOrderId, orderData);
-    } else {
-        await addOrder(orderData);
+    try {
+        if (editingOrderId) {
+            await updateOrder(editingOrderId, orderData);
+        } else {
+            await addOrder(orderData);
+        }
+        setIsOrderModalOpen(false);
+        setEditingOrderId(null);
+        setOrderItems([]);
+        setOrderForm({ description: '', requestDate: getToday(), dueDate: getDateIn15Days() });
+    } catch (err) {
+        console.error(err);
     }
-
-    setIsOrderModalOpen(false);
-    setEditingOrderId(null);
-    setOrderItems([]);
-    setOrderForm({ description: '', requestDate: getToday(), dueDate: getDateIn15Days() });
   };
 
   const openQuickReg = (type: ItemType) => {
@@ -170,9 +174,9 @@ export default function CustomerDetails() {
               description: `Cadastrado rapidamente via pedido de ${customer?.name}`
           });
           
-          // O addProduct do DataContext recarrega o catálogo, mas precisamos do objeto para adicionar ao pedido agora
-          const productObj = {
-              id: (res as any)?.id || Date.now().toString(),
+          // Se o cadastro retornar o objeto do servidor, usamos ele
+          const productObj = res ? res : {
+              id: Date.now().toString(),
               name: quickRegData.name,
               price: parseFloat(quickRegData.price) || 0,
               type: quickRegData.type
@@ -181,7 +185,7 @@ export default function CustomerDetails() {
           handleAddItem(productObj);
           setIsQuickRegOpen(false);
       } catch (err) {
-          alert("Erro ao cadastrar produto. Tente novamente.");
+          console.error(err);
       }
   };
 
@@ -438,8 +442,8 @@ export default function CustomerDetails() {
                                                 </button>
                                             ))}
                                             
-                                            {/* Quick Register Option at the end of results */}
-                                            {itemSearchTerm.length > 1 && (
+                                            {/* Opções de Cadastro Rápido ao final dos resultados */}
+                                            {itemSearchTerm.length > 1 && role === 'admin' && (
                                                 <div className="p-3 bg-zinc-950 border-t border-zinc-800">
                                                     <p className="text-[10px] text-zinc-500 text-center mb-2 uppercase tracking-widest font-bold">Não encontrou? Cadastre Agora:</p>
                                                     <div className="grid grid-cols-2 gap-2">
@@ -517,8 +521,8 @@ export default function CustomerDetails() {
 
       {/* QUICK REGISTER MODAL (FLOATING) */}
       {isQuickRegOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md p-4 animate-in fade-in duration-300">
-              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden scale-in-center">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md p-4">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in duration-200">
                   <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
                       <h3 className="text-lg font-bold text-white flex items-center gap-2">
                           {quickRegData.type === 'service' ? <Wrench className="text-secondary" size={18} /> : <Package className="text-primary" size={18} />}
@@ -557,7 +561,7 @@ export default function CustomerDetails() {
                             type="submit"
                             className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-zinc-200 transition"
                           >
-                              Salvar e Adicionar
+                              Salvar e Adicionar ao Pedido
                           </button>
                           <button 
                             type="button"
