@@ -19,6 +19,7 @@ export default function CustomerDetails() {
   // Modals State
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
   // Helper for Date Defaulting
   const getToday = () => new Date().toISOString().split('T')[0];
@@ -120,11 +121,22 @@ export default function CustomerDetails() {
     setOrderItems(orderItems.filter((_, i) => i !== index));
   };
 
+  const openEditOrder = (order: Order) => {
+    setEditingOrderId(order.id);
+    setOrderForm({
+        description: order.description,
+        requestDate: order.requestDate.split('T')[0],
+        dueDate: order.dueDate.split('T')[0]
+    });
+    setOrderItems(order.items || []);
+    setIsOrderModalOpen(true);
+  };
+
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     const totalValue = orderItems.reduce((sum, item) => sum + item.total, 0);
 
-    if (totalValue > availableCredit && role === 'client') {
+    if (totalValue > availableCredit && role === 'client' && !editingOrderId) {
         alert(`Limite insuficiente! Seu saldo disponível é R$ ${availableCredit.toFixed(2)}`);
         return;
     }
@@ -134,17 +146,24 @@ export default function CustomerDetails() {
         return;
     }
 
-    await addOrder({
+    const orderData = {
       customerId: customer.id,
       description: orderForm.description || `Pedido de ${orderItems.map(i => i.productName).join(', ')}`,
       items: orderItems,
       totalValue: totalValue,
-      status: 'open',
+      status: 'open' as const,
       requestDate: orderForm.requestDate,
       dueDate: orderForm.dueDate
-    });
+    };
+
+    if (editingOrderId) {
+        await updateOrder(editingOrderId, orderData);
+    } else {
+        await addOrder(orderData);
+    }
 
     setIsOrderModalOpen(false);
+    setEditingOrderId(null);
     setOrderItems([]);
     setOrderForm({ description: '', requestDate: getToday(), dueDate: getDateIn15Days() });
   };
@@ -176,7 +195,12 @@ export default function CustomerDetails() {
         
         <div className="flex items-center gap-2">
             <button 
-                onClick={() => setIsOrderModalOpen(true)}
+                onClick={() => {
+                    setEditingOrderId(null);
+                    setOrderItems([]);
+                    setOrderForm({ description: '', requestDate: getToday(), dueDate: getDateIn15Days() });
+                    setIsOrderModalOpen(true);
+                }}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500 to-red-600 text-white rounded-lg hover:shadow-lg hover:shadow-orange-500/20 transition text-sm font-medium whitespace-nowrap"
             >
                 <Plus size={16} />
@@ -269,7 +293,7 @@ export default function CustomerDetails() {
                             <th className="px-4 py-3">Solicitação</th>
                             <th className="px-4 py-3">Vencimento</th>
                             <th className="px-4 py-3">Total</th>
-                            {role === 'admin' && activeTab !== 'paid' && <th className="px-4 py-3 text-right">Ações</th>}
+                            <th className="px-4 py-3 text-right">Ações</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800">
@@ -291,13 +315,18 @@ export default function CustomerDetails() {
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 font-semibold text-white">R$ {order.totalValue.toFixed(2)}</td>
-                                    {role === 'admin' && activeTab !== 'paid' && (
                                     <td className="px-4 py-3 text-right space-x-2">
-                                        <button onClick={() => updateOrderStatus(order.id, 'paid')} className="text-emerald-500 p-1.5 bg-zinc-800 rounded hover:bg-emerald-500/10" title="Marcar como Pago">
-                                            <CheckCircle size={18} />
-                                        </button>
+                                        {order.status === 'open' && (
+                                            <button onClick={() => openEditOrder(order)} className="text-zinc-400 p-1.5 bg-zinc-800 rounded hover:bg-zinc-700 hover:text-white" title="Editar Pedido">
+                                                <Edit2 size={18} />
+                                            </button>
+                                        )}
+                                        {role === 'admin' && order.status === 'open' && (
+                                            <button onClick={() => updateOrderStatus(order.id, 'paid')} className="text-emerald-500 p-1.5 bg-zinc-800 rounded hover:bg-emerald-500/10" title="Marcar como Pago">
+                                                <CheckCircle size={18} />
+                                            </button>
+                                        )}
                                     </td>
-                                    )}
                                 </tr>
                             ))
                         )}
@@ -307,13 +336,13 @@ export default function CustomerDetails() {
         </div>
       </div>
 
-      {/* NEW ORDER MODAL */}
+      {/* NEW/EDIT ORDER MODAL */}
       {isOrderModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
             <div className="bg-surface border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center p-6 border-b border-zinc-800 sticky top-0 bg-surface z-10">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        <ShoppingCart className="text-primary" /> Novo Pedido
+                        <ShoppingCart className="text-primary" /> {editingOrderId ? 'Editar Pedido' : 'Novo Pedido'}
                     </h2>
                     <button onClick={() => setIsOrderModalOpen(false)} className="text-zinc-500 hover:text-white transition">
                         <X size={24} />
@@ -349,30 +378,44 @@ export default function CustomerDetails() {
 
                     <div className="border-t border-zinc-800 pt-6">
                         <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Plus size={18} className="text-primary" /> Adicionar Itens do Catálogo</h3>
-                        <div className="flex gap-2">
-                            <select 
-                                className="flex-1 bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none focus:border-primary"
-                                value={selectedProductId}
-                                onChange={e => setSelectedProductId(e.target.value)}
-                            >
-                                <option value="">Selecione um item...</option>
-                                {products.map(p => (
-                                    <option key={p.id} value={p.id}>{p.name} - R$ {p.price.toFixed(2)}</option>
-                                ))}
-                            </select>
-                            <input 
-                                type="number" 
-                                min="1" 
-                                className="w-20 bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none" 
-                                value={itemQty} 
-                                onChange={e => setItemQty(parseInt(e.target.value) || 1)}
-                            />
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                                <div className="sm:col-span-9">
+                                    <select 
+                                        className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none focus:border-primary"
+                                        value={selectedProductId}
+                                        onChange={e => setSelectedProductId(e.target.value)}
+                                    >
+                                        <option value="">Selecione um Produto ou Serviço...</option>
+                                        <optgroup label="PRODUTOS" className="bg-surface text-primary">
+                                            {products.filter(p => p.type === 'product' || !p.type).map(p => (
+                                                <option key={p.id} value={p.id} className="text-white">{p.name} - R$ {p.price.toFixed(2)}</option>
+                                            ))}
+                                        </optgroup>
+                                        <optgroup label="SERVIÇOS" className="bg-surface text-secondary">
+                                            {products.filter(p => p.type === 'service').map(p => (
+                                                <option key={p.id} value={p.id} className="text-white">{p.name} - R$ {p.price.toFixed(2)}</option>
+                                            ))}
+                                        </optgroup>
+                                    </select>
+                                </div>
+                                <div className="sm:col-span-3">
+                                    <input 
+                                        type="number" 
+                                        min="1" 
+                                        placeholder="Qtd"
+                                        className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none" 
+                                        value={itemQty} 
+                                        onChange={e => setItemQty(parseInt(e.target.value) || 1)}
+                                    />
+                                </div>
+                            </div>
                             <button 
                                 type="button" 
                                 onClick={handleAddItem}
-                                className="bg-primary text-white p-2 rounded-xl hover:bg-amber-600 transition"
+                                className="w-full flex items-center justify-center gap-2 bg-zinc-800 border border-zinc-700 text-white py-2 rounded-xl hover:bg-zinc-700 transition font-bold"
                             >
-                                <Plus />
+                                <Plus size={18} /> Incluir no Pedido
                             </button>
                         </div>
                     </div>
@@ -394,16 +437,16 @@ export default function CustomerDetails() {
                         </div>
                     )}
 
-                    <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 flex justify-between items-center">
-                        <div>
+                    <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <div className="text-center sm:text-left">
                             <p className="text-zinc-500 text-xs uppercase tracking-widest font-bold">Valor Total do Pedido</p>
                             <p className="text-3xl font-bold text-white">R$ {orderItems.reduce((sum, i) => sum + i.total, 0).toFixed(2)}</p>
                         </div>
                         <button 
                             type="submit" 
-                            className="bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-amber-600 transition shadow-xl"
+                            className="w-full sm:w-auto bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-amber-600 transition shadow-xl"
                         >
-                            Finalizar Pedido
+                            {editingOrderId ? 'Salvar Alterações' : 'Finalizar Pedido'}
                         </button>
                     </div>
                 </form>
@@ -411,7 +454,7 @@ export default function CustomerDetails() {
         </div>
       )}
 
-      {/* EDIT MODAL (EXISTING) */}
+      {/* EDIT CUSTOMER MODAL (EXISTING) */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
           <div className="bg-surface border border-zinc-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">

@@ -1,12 +1,14 @@
+
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, DollarSign } from 'lucide-react';
+import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, DollarSign, Search } from 'lucide-react';
 import { Product, ItemType } from '../types';
 
 export default function Products() {
   const { products, addProduct, deleteProduct } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<ItemType>('product');
+  const [searchTerm, setSearchTerm] = useState('');
   
   const [formData, setFormData] = useState({ 
     name: '', 
@@ -16,12 +18,13 @@ export default function Products() {
     imageUrl: '' 
   });
 
-  // Filter list based on active tab
-  const filteredItems = products.filter(p => 
-    activeTab === 'product' 
-      ? (p.type === 'product' || !p.type) // Handle legacy items as products
-      : p.type === 'service'
-  );
+  // Filter list based on active tab and search term
+  const filteredItems = products.filter(p => {
+    const itemType = p.type || 'product';
+    const matchesTab = itemType === activeTab;
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesTab && matchesSearch;
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,12 +42,16 @@ export default function Products() {
     setIsModalOpen(false);
   };
 
+  const openModalWithTab = (type: ItemType) => {
+      setActiveTab(type);
+      setIsModalOpen(true);
+  };
+
   return (
     <div className="space-y-6 pb-20">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <h1 className="text-2xl font-bold text-white">Gerenciar Catálogo</h1>
         
-        {/* Toggle Button for Admin View */}
         <div className="bg-zinc-900 p-1 rounded-full flex items-center border border-zinc-800 shadow-sm">
             <button
                 onClick={() => setActiveTab('product')}
@@ -79,6 +86,18 @@ export default function Products() {
         </button>
       </div>
 
+      {/* Search Bar */}
+      <div className="relative">
+          <input
+            type="text"
+            placeholder={`Buscar por nome de ${activeTab === 'product' ? 'produto' : 'serviço'}...`}
+            className="w-full bg-surface border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none shadow-sm placeholder-zinc-500"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Search className="absolute left-3 top-3.5 text-zinc-500" size={20} />
+      </div>
+
       <div className="bg-surface border border-zinc-800 rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-zinc-400">
@@ -98,7 +117,7 @@ export default function Products() {
                   <td colSpan={6} className="px-6 py-12 text-center text-zinc-600">
                     <div className="flex flex-col items-center">
                       {activeTab === 'product' ? <Package size={48} className="mb-2 opacity-20" /> : <Wrench size={48} className="mb-2 opacity-20" />}
-                      <p>Nenhum {activeTab === 'product' ? 'produto' : 'serviço'} cadastrado.</p>
+                      <p>Nenhum {activeTab === 'product' ? 'produto' : 'serviço'} encontrado.</p>
                     </div>
                   </td>
                 </tr>
@@ -135,6 +154,33 @@ export default function Products() {
           </table>
         </div>
       </div>
+
+      {/* Quick Add Buttons when searching */}
+      {searchTerm.length > 0 && (
+          <div className="flex flex-col items-center gap-4 py-6 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/30">
+              <p className="text-zinc-500 text-sm">Não encontrou o que procurava?</p>
+              <div className="flex flex-wrap justify-center gap-3">
+                  <button 
+                    onClick={() => {
+                        setFormData({...formData, name: searchTerm});
+                        openModalWithTab('product');
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition text-sm border border-zinc-700"
+                  >
+                      <Plus size={16} /> Cadastrar Novo Produto
+                  </button>
+                  <button 
+                    onClick={() => {
+                        setFormData({...formData, name: searchTerm});
+                        openModalWithTab('service');
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition text-sm border border-zinc-700"
+                  >
+                      <Plus size={16} /> Cadastrar Novo Serviço
+                  </button>
+              </div>
+          </div>
+      )}
 
       {/* Add Item Modal */}
       {isModalOpen && (
