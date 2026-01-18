@@ -12,6 +12,20 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     // GET /api/orders
     if (request.method === 'GET') {
+      if (id) {
+        // Busca pedido específico + itens
+        const order: any = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
+        if (!order) return new Response(JSON.stringify({ error: 'Pedido não encontrado' }), { status: 404 });
+        
+        const { results: items } = await env.DB.prepare('SELECT * FROM order_items WHERE order_id = ?').bind(id).all();
+        
+        return Response.json({
+          ...order,
+          items: items || [],
+          formattedOrderNumber: String(order.order_number || 0).padStart(5, '0')
+        });
+      }
+
       let query = 'SELECT * FROM orders';
       let params: any[] = [];
       
@@ -39,12 +53,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const now = new Date().toISOString();
       const newId = crypto.randomUUID();
 
-      // 1. Gerar número do pedido sequencial
       const { results: maxResults } = await env.DB.prepare('SELECT MAX(order_number) as last FROM orders').all();
       const lastNum = (maxResults as any)[0]?.last;
       const nextOrderNumber = (Number(lastNum) || 0) + 1;
 
-      // 2. Normalização dos dados do cabeçalho
       const client_id = String(body.client_id || '').trim();
       const description = String(body.description || '').trim();
       const order_date = String(body.order_date || now.split('T')[0]);
@@ -53,7 +65,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
       if (!client_id) return new Response(JSON.stringify({ error: 'client_id é obrigatório' }), { status: 400 });
 
-      // 3. Inserir Cabeçalho (9 campos -> 9 placeholders)
+      // Inserir Cabeçalho
       await env.DB.prepare(
         'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
@@ -63,39 +75,39 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         description,
         order_date,
         due_date,
-        0, // Total inicial
+        0, 
         status,
         now
       ).run();
 
-      // 4. Inserir Itens na tabela order_items
+      // Inserir Itens
       const items = Array.isArray(body.items) ? body.items : [];
+      let calculatedTotal = 0;
       if (items.length > 0) {
         for (const item of items) {
           const itemId = crypto.randomUUID();
-          // Colunas: id, order_id, item_type, item_id, description, unit_price, cost_price, quantity, total
+          const itemTotal = Number(item.total || (Number(item.unitPrice || item.unit_price || 0) * Number(item.quantity || 1)));
+          calculatedTotal += itemTotal;
+
           await env.DB.prepare(
             'INSERT INTO order_items (id, order_id, item_type, item_id, description, unit_price, cost_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
           ).bind(
             itemId,
             newId,
             String(item.type || 'product'),
-            String(item.productId || 'manual'),
+            String(item.productId || item.item_id || 'manual'),
             String(item.productName || item.description || 'Item'),
-            Number(item.unitPrice || 0),
+            Number(item.unitPrice || item.unit_price || 0),
             Number(item.cost_price || item.costPrice || 0),
             Number(item.quantity || 1),
-            Number(item.total || (Number(item.unitPrice || 0) * Number(item.quantity || 1)))
+            itemTotal
           ).run();
         }
 
-        // 5. Atualizar Total do Pedido via Subquery (2 placeholders)
-        await env.DB.prepare(
-          'UPDATE orders SET total = (SELECT COALESCE(SUM(total), 0) FROM order_items WHERE order_id = ?) WHERE id = ?'
-        ).bind(newId, newId).run();
+        // Atualizar Total do Pedido
+        await env.DB.prepare('UPDATE orders SET total = ? WHERE id = ?').bind(calculatedTotal, newId).run();
       }
 
-      // 6. Retornar pedido completo
       const fullOrder: any = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(newId).first();
       return Response.json({ 
         ...fullOrder,
@@ -104,15 +116,59 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       });
     }
 
-    // PUT /api/orders (Status)
+    // PUT /api/orders (Status ou Edição Completa)
     if (request.method === 'PUT' && id) {
+      if (user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso restrito' }), { status: 403 });
+      
       const body = await request.json() as any;
-      if (body.status) {
+
+      // Se for apenas atualização de status
+      if (Object.keys(body).length === 1 && body.status) {
         await env.DB.prepare('UPDATE orders SET status = ? WHERE id = ?')
           .bind(String(body.status), String(id))
           .run();
         return Response.json({ success: true });
       }
+
+      // Edição completa (Descrição, Datas, Itens)
+      const description = String(body.description || '').trim();
+      const order_date = String(body.order_date || '');
+      const due_date = String(body.due_date || '');
+      const status = String(body.status || 'open');
+
+      await env.DB.prepare(
+        'UPDATE orders SET description = ?, order_date = ?, due_date = ?, status = ? WHERE id = ?'
+      ).bind(description, order_date, due_date, status, id).run();
+
+      // Atualizar itens: Deletar antigos e inserir novos
+      if (Array.isArray(body.items)) {
+        await env.DB.prepare('DELETE FROM order_items WHERE order_id = ?').bind(id).run();
+        
+        let calculatedTotal = 0;
+        for (const item of body.items) {
+          const itemId = crypto.randomUUID();
+          const itemTotal = Number(item.total || (Number(item.unitPrice || item.unit_price || 0) * Number(item.quantity || 1)));
+          calculatedTotal += itemTotal;
+
+          await env.DB.prepare(
+            'INSERT INTO order_items (id, order_id, item_type, item_id, description, unit_price, cost_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+          ).bind(
+            itemId,
+            id,
+            String(item.type || 'product'),
+            String(item.productId || item.item_id || 'manual'),
+            String(item.productName || item.description || 'Item'),
+            Number(item.unitPrice || item.unit_price || 0),
+            Number(item.cost_price || item.costPrice || 0),
+            Number(item.quantity || 1),
+            itemTotal
+          ).run();
+        }
+        
+        await env.DB.prepare('UPDATE orders SET total = ? WHERE id = ?').bind(calculatedTotal, id).run();
+      }
+
+      return Response.json({ success: true });
     }
 
     return new Response(JSON.stringify({ error: 'Método não permitido' }), { status: 405 });

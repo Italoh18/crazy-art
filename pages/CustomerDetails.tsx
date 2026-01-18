@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Edit2, CheckCircle, Plus, MapPin, Phone, Mail, CreditCard, Trash2, ShoppingCart, X, Search, Package, Wrench } from 'lucide-react';
+import { ArrowLeft, Edit2, CheckCircle, Plus, MapPin, Phone, Mail, CreditCard, Trash2, ShoppingCart, X, Search, Package, Wrench, FileEdit } from 'lucide-react';
 import { Order, Product, ItemType, OrderItem } from '../types';
+import { api } from '../src/services/api';
 
 export default function CustomerDetails() {
   const { id: paramId } = useParams<{ id: string }>();
@@ -12,12 +13,13 @@ export default function CustomerDetails() {
   
   const targetId = role === 'client' ? authCustomer?.id : paramId;
 
-  const { customers, orders, products, addOrder, updateOrderStatus, updateCustomer, deleteCustomer, addProduct } = useData();
+  const { customers, orders, products, addOrder, updateOrderStatus, updateCustomer, deleteCustomer, addProduct, updateOrder } = useData();
   const [activeTab, setActiveTab] = useState<'open' | 'paid' | 'overdue'>('open');
   
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isQuickRegOpen, setIsQuickRegOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
 
   const [itemSearchTerm, setItemSearchTerm] = useState('');
   const [showItemResults, setShowItemResults] = useState(false);
@@ -34,7 +36,8 @@ export default function CustomerDetails() {
   const [orderForm, setOrderForm] = useState({
     description: '',
     order_date: getToday(),
-    due_date: getDateIn15Days()
+    due_date: getDateIn15Days(),
+    status: 'open' as any
   });
 
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
@@ -94,7 +97,7 @@ export default function CustomerDetails() {
     setItemQty(1);
   };
 
-  const handleCreateOrder = async (e: React.FormEvent) => {
+  const handleCreateOrUpdateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     const total = orderItems.reduce((sum, item) => sum + (item.total || 0), 0);
 
@@ -103,32 +106,63 @@ export default function CustomerDetails() {
         return;
     }
 
-    if (total > availableCredit && role === 'client') {
+    if (total > availableCredit && role === 'client' && !editingOrder) {
         alert(`Limite insuficiente! Seu saldo disponível é R$ ${availableCredit.toFixed(2)}`);
         return;
     }
 
-    // Como não há coluna 'items', concatenamos os itens na descrição para não perder informação
-    const itemsSummary = orderItems.map(i => `${i.quantity}x ${i.productName}`).join(', ');
-    const finalDescription = `${orderForm.description}${orderForm.description ? ' | ' : ''}Itens: ${itemsSummary}`;
-
     const payload = {
       client_id: customer.id,
-      description: finalDescription,
+      description: orderForm.description,
       order_date: orderForm.order_date,
       due_date: orderForm.due_date,
       total: total,
-      status: "open"
+      status: orderForm.status,
+      items: orderItems
     };
 
     try {
-        await addOrder(payload);
-        setIsOrderModalOpen(false);
-        setOrderItems([]);
-        setOrderForm({ description: '', order_date: getToday(), due_date: getDateIn15Days() });
+        if (editingOrder) {
+            await updateOrder(editingOrder.id, payload);
+        } else {
+            await addOrder(payload);
+        }
+        closeOrderModal();
     } catch (err) {
         console.error("Erro ao salvar pedido:", err);
     }
+  };
+
+  const openOrderEdit = async (order: Order) => {
+      try {
+          // Precisamos buscar os itens do pedido que não vêm no listão
+          const detailedOrder = await api.getOrders(undefined).then(async () => {
+              // Aqui chamamos uma função específica que buscará por ID (precisamos atualizar o api.ts ou usar fetch direto)
+              const res = await fetch(`/api/orders?id=${order.id}`, {
+                  headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+              });
+              return res.json();
+          });
+
+          setEditingOrder(detailedOrder);
+          setOrderForm({
+              description: detailedOrder.description || '',
+              order_date: detailedOrder.order_date,
+              due_date: detailedOrder.due_date,
+              status: detailedOrder.status
+          });
+          setOrderItems(detailedOrder.items || []);
+          setIsOrderModalOpen(true);
+      } catch (e) {
+          alert("Erro ao carregar detalhes do pedido.");
+      }
+  };
+
+  const closeOrderModal = () => {
+      setIsOrderModalOpen(false);
+      setEditingOrder(null);
+      setOrderItems([]);
+      setOrderForm({ description: '', order_date: getToday(), due_date: getDateIn15Days(), status: 'open' });
   };
 
   const openQuickReg = (type: ItemType) => {
@@ -227,11 +261,16 @@ export default function CustomerDetails() {
                             <tr key={order.id} className="hover:bg-zinc-800/50">
                                 <td className="px-4 py-3"><span className="text-primary font-bold">#{order.formattedOrderNumber || order.order_number}</span></td>
                                 <td className="px-4 py-3">{new Date(order.order_date).toLocaleDateString()}</td>
-                                <td className="px-4 py-3 font-semibold text-white">R$ {(order.total || 0).toFixed(2)}</td>
-                                <td className="px-4 py-3 text-right">
+                                <td className="px-4 py-3 font-semibold text-white">R$ {Number(order.total || 0).toFixed(2)}</td>
+                                <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
+                                    {role === 'admin' && (
+                                        <button onClick={() => openOrderEdit(order)} className="text-zinc-400 p-1.5 bg-zinc-800 rounded hover:text-white transition" title="Editar Pedido">
+                                            <FileEdit size={16} />
+                                        </button>
+                                    )}
                                     {role === 'admin' && order.status === 'open' && (
-                                        <button onClick={() => updateOrderStatus(order.id, 'paid')} className="text-emerald-500 p-1.5 bg-zinc-800 rounded hover:bg-emerald-500/10">
-                                            <CheckCircle size={18} />
+                                        <button onClick={() => updateOrderStatus(order.id, 'paid')} className="text-emerald-500 p-1.5 bg-zinc-800 rounded hover:bg-emerald-500/10" title="Marcar como Pago">
+                                            <CheckCircle size={16} />
                                         </button>
                                     )}
                                 </td>
@@ -247,31 +286,49 @@ export default function CustomerDetails() {
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
             <div className="bg-surface border border-zinc-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center p-6 border-b border-zinc-800 sticky top-0 bg-surface">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2"><ShoppingCart className="text-primary" /> Novo Pedido</h2>
-                    <button onClick={() => setIsOrderModalOpen(false)} className="text-zinc-500 hover:text-white"><X size={24} /></button>
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <ShoppingCart className="text-primary" /> 
+                        {editingOrder ? `Editar Pedido #${editingOrder.formattedOrderNumber || editingOrder.order_number}` : 'Novo Pedido'}
+                    </h2>
+                    <button onClick={closeOrderModal} className="text-zinc-500 hover:text-white"><X size={24} /></button>
                 </div>
-                <form onSubmit={handleCreateOrder} className="p-6 space-y-6">
+                <form onSubmit={handleCreateOrUpdateOrder} className="p-6 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="col-span-full">
-                            <label className="block text-sm font-medium text-zinc-400 mb-1">Observações</label>
+                            <label className="block text-sm font-medium text-zinc-400 mb-1">Observações / Descrição</label>
                             <textarea className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none" rows={2} value={orderForm.description} onChange={e => setOrderForm({...orderForm, description: e.target.value})} />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-zinc-400 mb-1">Data</label>
+                            <label className="block text-sm font-medium text-zinc-400 mb-1">Data do Pedido</label>
                             <input type="date" value={orderForm.order_date} className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none" onChange={e => setOrderForm({...orderForm, order_date: e.target.value})} />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-zinc-400 mb-1">Vencimento</label>
                             <input type="date" value={orderForm.due_date} className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none" onChange={e => setOrderForm({...orderForm, due_date: e.target.value})} />
                         </div>
+                        {editingOrder && (
+                            <div className="col-span-full">
+                                <label className="block text-sm font-medium text-zinc-400 mb-1">Status</label>
+                                <select 
+                                    className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none"
+                                    value={orderForm.status}
+                                    onChange={e => setOrderForm({...orderForm, status: e.target.value})}
+                                >
+                                    <option value="open">Aberto</option>
+                                    <option value="paid">Pago</option>
+                                    <option value="cancelled">Cancelado</option>
+                                </select>
+                            </div>
+                        )}
                     </div>
                     <div className="border-t border-zinc-800 pt-6">
+                        <h3 className="text-sm font-bold text-zinc-500 mb-4 uppercase tracking-wider">Itens do Pedido</h3>
                         <div className="flex items-center gap-2 mb-4">
                             <div className="relative flex-1">
                                 <input type="text" placeholder="Buscar no catálogo..." className="w-full bg-black/50 border border-zinc-700 rounded-xl pl-10 pr-4 py-2 text-white" value={itemSearchTerm} onFocus={() => setShowItemResults(true)} onChange={e => setItemSearchTerm(e.target.value)} />
                                 <Search className="absolute left-3 top-2.5 text-zinc-500" size={18} />
                                 {showItemResults && itemSearchTerm.length > 0 && (
-                                    <div className="absolute top-full left-0 w-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl z-50 max-h-40 overflow-y-auto">
+                                    <div className="absolute top-full left-0 w-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl z-50 max-h-40 overflow-y-auto shadow-2xl">
                                         {products.filter(p => p.name.toLowerCase().includes(itemSearchTerm.toLowerCase())).map(p => (
                                             <button key={p.id} type="button" onClick={() => handleAddItem(p)} className="w-full text-left px-4 py-2 hover:bg-zinc-800 border-b border-zinc-800 last:border-0 flex justify-between">
                                                 <span>{p.name}</span><span className="text-emerald-500">R$ {p.price.toFixed(2)}</span>
@@ -279,8 +336,8 @@ export default function CustomerDetails() {
                                         ))}
                                         {role === 'admin' && itemSearchTerm.length > 1 && (
                                             <div className="p-2 bg-black border-t border-zinc-800 flex gap-2">
-                                                <button type="button" onClick={() => openQuickReg('product')} className="flex-1 text-[10px] bg-primary/10 text-primary p-1 rounded">+ Produto</button>
-                                                <button type="button" onClick={() => openQuickReg('service')} className="flex-1 text-[10px] bg-secondary/10 text-secondary p-1 rounded">+ Serviço</button>
+                                                <button type="button" onClick={() => openQuickReg('product')} className="flex-1 text-[10px] bg-primary/10 text-primary p-1 rounded font-bold">+ Produto</button>
+                                                <button type="button" onClick={() => openQuickReg('service')} className="flex-1 text-[10px] bg-secondary/10 text-secondary p-1 rounded font-bold">+ Serviço</button>
                                             </div>
                                         )}
                                     </div>
@@ -288,17 +345,36 @@ export default function CustomerDetails() {
                             </div>
                             <input type="number" min="1" className="w-20 bg-black/50 border border-zinc-700 rounded-xl px-2 py-2 text-white" value={itemQty} onChange={e => setItemQty(parseInt(e.target.value) || 1)} />
                         </div>
-                        {orderItems.map((item, idx) => (
-                            <div key={idx} className="flex justify-between items-center bg-zinc-900 p-3 rounded-xl mb-2 border border-zinc-800">
-                                <div><p className="text-white font-medium">{item.productName}</p><p className="text-xs text-zinc-500">{item.quantity}x R$ {item.unitPrice.toFixed(2)}</p></div>
-                                <div className="flex items-center gap-4"><span className="text-primary font-bold">R$ {item.total.toFixed(2)}</span>
-                                <button type="button" onClick={() => setOrderItems(orderItems.filter((_, i) => i !== idx))} className="text-red-500 p-1"><Trash2 size={16} /></button></div>
-                            </div>
-                        ))}
+                        <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                            {orderItems.map((item, idx) => (
+                                <div key={idx} className="flex justify-between items-center bg-zinc-900/50 p-3 rounded-xl border border-zinc-800">
+                                    <div className="flex-1">
+                                        <p className="text-white font-medium text-sm">{item.productName || item.description}</p>
+                                        <p className="text-xs text-zinc-500">{item.quantity}x R$ {Number(item.unitPrice || item.unit_price || 0).toFixed(2)}</p>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-primary font-bold text-sm">R$ {Number(item.total).toFixed(2)}</span>
+                                        <button type="button" onClick={() => setOrderItems(orderItems.filter((_, i) => i !== idx))} className="text-red-500 p-1 hover:bg-red-500/10 rounded transition">
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                            {orderItems.length === 0 && (
+                                <div className="text-center py-8 border-2 border-dashed border-zinc-800 rounded-xl text-zinc-600 text-xs">
+                                    Nenhum item adicionado ao pedido.
+                                </div>
+                            )}
+                        </div>
                     </div>
-                    <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 flex justify-between items-center">
-                        <div><p className="text-zinc-500 text-xs uppercase font-bold">Total</p><p className="text-3xl font-bold text-white">R$ {orderItems.reduce((sum, i) => sum + i.total, 0).toFixed(2)}</p></div>
-                        <button type="submit" className="bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-amber-600">Finalizar Pedido</button>
+                    <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 flex justify-between items-center mt-6">
+                        <div>
+                            <p className="text-zinc-500 text-xs uppercase font-bold tracking-widest">Total Geral</p>
+                            <p className="text-3xl font-bold text-white">R$ {orderItems.reduce((sum, i) => sum + Number(i.total || 0), 0).toFixed(2)}</p>
+                        </div>
+                        <button type="submit" className="bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-amber-600 transition shadow-lg shadow-primary/10">
+                            {editingOrder ? 'Salvar Alterações' : 'Finalizar Pedido'}
+                        </button>
                     </div>
                 </form>
             </div>
@@ -307,15 +383,15 @@ export default function CustomerDetails() {
 
       {isQuickRegOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md p-4">
-              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm overflow-hidden">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
                   <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
                       <h3 className="text-lg font-bold text-white">Cadastro Rápido</h3>
                       <button onClick={() => setIsQuickRegOpen(false)}><X size={20}/></button>
                   </div>
                   <form onSubmit={handleQuickRegisterSubmit} className="p-6 space-y-4">
-                      <input type="text" required autoFocus placeholder="Nome" className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2 text-white" value={quickRegData.name} onChange={e => setQuickRegData({...quickRegData, name: e.target.value})} />
-                      <input type="text" required placeholder="Preço (R$)" className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2 text-white" value={quickRegData.price} onChange={e => setQuickRegData({...quickRegData, price: e.target.value})} />
-                      <button type="submit" className="w-full bg-white text-black font-bold py-3 rounded-xl">Salvar e Adicionar</button>
+                      <input type="text" required autoFocus placeholder="Nome do item" className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2 text-white outline-none focus:border-primary transition" value={quickRegData.name} onChange={e => setQuickRegData({...quickRegData, name: e.target.value})} />
+                      <input type="text" required placeholder="Preço (R$)" className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2 text-white outline-none focus:border-primary transition" value={quickRegData.price} onChange={e => setQuickRegData({...quickRegData, price: e.target.value})} />
+                      <button type="submit" className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-zinc-200 transition">Salvar e Adicionar</button>
                   </form>
               </div>
           </div>
