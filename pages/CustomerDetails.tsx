@@ -135,14 +135,13 @@ export default function CustomerDetails() {
 
   const openOrderEdit = async (order: Order) => {
       try {
-          // Precisamos buscar os itens do pedido que não vêm no listão
-          const detailedOrder = await api.getOrders(undefined).then(async () => {
-              // Aqui chamamos uma função específica que buscará por ID (precisamos atualizar o api.ts ou usar fetch direto)
-              const res = await fetch(`/api/orders?id=${order.id}`, {
-                  headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
-              });
-              return res.json();
+          const res = await fetch(`/api/orders?id=${order.id}`, {
+              headers: { 
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+                'Cache-Control': 'no-cache'
+              }
           });
+          const detailedOrder = await res.json();
 
           setEditingOrder(detailedOrder);
           setOrderForm({
@@ -151,7 +150,17 @@ export default function CustomerDetails() {
               due_date: detailedOrder.due_date,
               status: detailedOrder.status
           });
-          setOrderItems(detailedOrder.items || []);
+          
+          // Mapeia itens vindo do banco (que podem ter nomes de colunas diferentes) para o padrão do frontend
+          const mappedItems = (detailedOrder.items || []).map((i: any) => ({
+              productId: i.item_id || i.productId,
+              productName: i.description || i.productName,
+              quantity: i.quantity,
+              unitPrice: i.unit_price || i.unitPrice,
+              total: i.total
+          }));
+          
+          setOrderItems(mappedItems);
           setIsOrderModalOpen(true);
       } catch (e) {
           alert("Erro ao carregar detalhes do pedido.");
@@ -189,7 +198,10 @@ export default function CustomerDetails() {
   const availableCredit = creditLimit - totalOpen;
   const creditPercentage = Math.min(100, (totalOpen / creditLimit) * 100);
 
-  const isOverdue = (order: Order) => new Date(order.due_date) < new Date() && order.status === 'open';
+  const isOverdue = (order: Order) => {
+      if (!order.due_date || order.status !== 'open') return false;
+      return new Date(order.due_date) < new Date();
+  };
 
   const filteredOrders = customerOrders.filter(o => {
       if (activeTab === 'overdue') return isOverdue(o);
@@ -260,7 +272,7 @@ export default function CustomerDetails() {
                         filteredOrders.map(order => (
                             <tr key={order.id} className="hover:bg-zinc-800/50">
                                 <td className="px-4 py-3"><span className="text-primary font-bold">#{order.formattedOrderNumber || order.order_number}</span></td>
-                                <td className="px-4 py-3">{new Date(order.order_date).toLocaleDateString()}</td>
+                                <td className="px-4 py-3">{order.order_date ? new Date(order.order_date).toLocaleDateString() : '-'}</td>
                                 <td className="px-4 py-3 font-semibold text-white">R$ {Number(order.total || 0).toFixed(2)}</td>
                                 <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
                                     {role === 'admin' && (
