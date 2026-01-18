@@ -42,17 +42,17 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
       const name = String(body.name || '').trim();
       const price = parseFloat(String(body.price || '0').replace(',', '.')) || 0;
-      const costPrice = body.costPrice ? parseFloat(String(body.costPrice).replace(',', '.')) || 0 : 0;
+      const cost_price = body.cost_price || body.costPrice ? parseFloat(String(body.cost_price || body.costPrice).replace(',', '.')) || 0 : 0;
       const description = body.description ? String(body.description).trim() : null;
       const itemType = (body.type === 'service' ? 'service' : 'product');
       const imageUrl = body.imageUrl ? String(body.imageUrl).trim() : null;
 
       if (!name) return new Response(JSON.stringify({ error: 'O nome é obrigatório' }), { status: 400 });
 
-      // 8 campos -> 8 placeholders
+      // 8 campos -> 8 placeholders (Uso de cost_price conforme solicitado)
       await env.DB.prepare(
-        'INSERT INTO catalog (id, name, price, costPrice, description, type, imageUrl, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-      ).bind(newId, name, price, costPrice, description, itemType, imageUrl, now).run();
+        'INSERT INTO catalog (id, name, price, cost_price, description, type, imageUrl, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(newId, name, price, cost_price, description, itemType, imageUrl, now).run();
 
       return Response.json({ success: true, id: newId });
     }

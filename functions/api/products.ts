@@ -20,24 +20,22 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const p = await request.json() as any;
       const newId = crypto.randomUUID();
       
-      // Sanitização para evitar NaN no D1
       const price = parseFloat(String(p.price || '0').replace(',', '.')) || 0;
-      const costPrice = (p.costPrice !== undefined && p.costPrice !== null && p.costPrice !== "") 
-        ? parseFloat(String(p.costPrice).replace(',', '.')) || 0 
-        : null;
+      const cost_price = (p.cost_price || p.costPrice) 
+        ? parseFloat(String(p.cost_price || p.costPrice).replace(',', '.')) || 0 
+        : 0;
 
-      const params = [
+      // 7 campos -> 7 placeholders
+      await env.DB.prepare('INSERT INTO products (id, name, price, cost_price, description, type, imageUrl) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .bind(
           newId,
           String(p.name || '').trim(),
           price,
-          costPrice,
-          p.description || null,
-          p.type || 'product',
-          p.imageUrl || null
-      ];
-
-      await env.DB.prepare('INSERT INTO products (id, name, price, costPrice, description, type, imageUrl) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .bind(...params)
+          cost_price,
+          p.description ? String(p.description).trim() : null,
+          String(p.type || 'product'),
+          p.imageUrl ? String(p.imageUrl).trim() : null
+        )
         .run();
         
       return Response.json({ id: newId, name: p.name, price, type: p.type });
@@ -45,7 +43,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     if (request.method === 'DELETE' && id) {
       if (user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso restrito' }), { status: 403 });
-      await env.DB.prepare('DELETE FROM products WHERE id = ?').bind(id).run();
+      await env.DB.prepare('DELETE FROM products WHERE id = ?').bind(String(id)).run();
       return Response.json({ success: true });
     }
 

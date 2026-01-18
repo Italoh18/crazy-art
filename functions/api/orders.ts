@@ -44,17 +44,16 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const lastNum = (maxResults as any)[0]?.last;
       const nextOrderNumber = (Number(lastNum) || 0) + 1;
 
-      // 2. Extração e Normalização (Zero Undefined)
+      // 2. Normalização dos dados do cabeçalho
       const client_id = String(body.client_id || '').trim();
       const description = String(body.description || '').trim();
       const order_date = String(body.order_date || now.split('T')[0]);
       const due_date = String(body.due_date || order_date);
-      const initialTotal = 0; // Será recalculado via itens
       const status = String(body.status || 'open');
 
       if (!client_id) return new Response(JSON.stringify({ error: 'client_id é obrigatório' }), { status: 400 });
 
-      // 3. Inserir Cabeçalho do Pedido (9 campos -> 9 placeholders)
+      // 3. Inserir Cabeçalho (9 campos -> 9 placeholders)
       await env.DB.prepare(
         'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
@@ -64,12 +63,12 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         description,
         order_date,
         due_date,
-        initialTotal,
+        0, // Total inicial
         status,
         now
       ).run();
 
-      // 4. Inserir Itens do Pedido (se houver)
+      // 4. Inserir Itens na tabela order_items
       const items = Array.isArray(body.items) ? body.items : [];
       if (items.length > 0) {
         for (const item of items) {
@@ -84,7 +83,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             String(item.productId || 'manual'),
             String(item.productName || item.description || 'Item'),
             Number(item.unitPrice || 0),
-            Number(item.costPrice || 0),
+            Number(item.cost_price || item.costPrice || 0),
             Number(item.quantity || 1),
             Number(item.total || (Number(item.unitPrice || 0) * Number(item.quantity || 1)))
           ).run();
@@ -96,11 +95,12 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         ).bind(newId, newId).run();
       }
 
+      // 6. Retornar pedido completo
+      const fullOrder: any = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(newId).first();
       return Response.json({ 
-        success: true, 
-        id: newId, 
-        order_number: nextOrderNumber,
-        formattedOrderNumber: nextOrderNumber.toString().padStart(5, '0')
+        ...fullOrder,
+        success: true,
+        formattedOrderNumber: String(fullOrder.order_number).padStart(5, '0')
       });
     }
 
