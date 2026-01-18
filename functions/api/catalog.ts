@@ -12,7 +12,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     const search = url.searchParams.get('search');
 
     if (request.method === 'GET') {
-      let query = 'SELECT * FROM catalog';
+      // Mapeamos as colunas do banco para os nomes que o frontend espera
+      let query = 'SELECT id, type, name, price, cost_price as costPrice, image_url as imageUrl, description, created_at FROM catalog';
       let params: any[] = [];
       let conditions: string[] = [];
 
@@ -37,37 +38,32 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       if (user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
 
       const body = await request.json() as any;
-      const newId = crypto.randomUUID();
-      const now = new Date().toISOString();
 
+      // Extração e cast seguro dos 6 campos solicitados
+      const itemType = String(body.type || 'product');
       const name = String(body.name || '').trim();
-      const price = parseFloat(String(body.price || '0').replace(',', '.')) || 0;
-      
-      // Proteção total contra undefined e tipos errados
-      const rawCost = body.cost_price || body.costPrice || '0';
-      const cost_price = parseFloat(String(rawCost).replace(',', '.')) || 0;
-      
+      const price = Number(parseFloat(String(body.price || '0').replace(',', '.')) || 0);
+      const cost_price = Number(parseFloat(String(body.cost_price || body.costPrice || '0').replace(',', '.')) || 0);
+      const image_url = body.imageUrl || body.image_url ? String(body.imageUrl || body.image_url).trim() : null;
       const description = body.description ? String(body.description).trim() : null;
-      const itemType = (body.type === 'service' ? 'service' : 'product');
-      const imageUrl = body.imageUrl ? String(body.imageUrl).trim() : null;
 
       if (!name) return new Response(JSON.stringify({ error: 'O nome é obrigatório' }), { status: 400 });
 
-      // 8 campos -> 8 placeholders
-      try {
-        await env.DB.prepare(
-          'INSERT INTO catalog (id, name, price, cost_price, description, type, imageUrl, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-        ).bind(newId, name, price, cost_price, description, itemType, imageUrl, now).run();
-      } catch (sqlError: any) {
-        if (sqlError.message.includes('no column named cost_price')) {
-           return new Response(JSON.stringify({ 
-             error: "Erro de Banco: A coluna 'cost_price' não existe. Por favor, execute o script migrations.sql no seu console do Cloudflare." 
-           }), { status: 500 });
-        }
-        throw sqlError;
-      }
+      // INSERT com exatamente 6 placeholders conforme a especificação do prompt
+      // Nota: Assume-se que 'id' e 'created_at' possuem valores padrão no banco (ex: UUID() e CURRENT_TIMESTAMP)
+      // Caso contrário, adicione-os ao SQL e ao bind.
+      await env.DB.prepare(
+        'INSERT INTO catalog (type, name, price, cost_price, image_url, description) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(
+        itemType,
+        name,
+        price,
+        cost_price,
+        image_url,
+        description
+      ).run();
 
-      return Response.json({ success: true, id: newId });
+      return Response.json({ success: true });
     }
 
     if (request.method === 'DELETE' && id) {

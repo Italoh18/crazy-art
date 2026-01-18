@@ -136,9 +136,9 @@ export default function Products() {
                     <td className="px-6 py-4 font-medium text-white">{item.name}</td>
                     <td className="px-6 py-4 max-w-xs truncate">{item.description || '-'}</td>
                     <td className="px-6 py-4 text-zinc-500">
-                        {item.costPrice ? `R$ ${item.costPrice.toFixed(2)}` : '-'}
+                        {item.costPrice ? `R$ ${Number(item.costPrice).toFixed(2)}` : '-'}
                     </td>
-                    <td className="px-6 py-4 text-primary font-medium">R$ {item.price.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-primary font-medium">R$ {Number(item.price).toFixed(2)}</td>
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => deleteProduct(item.id)}
@@ -154,33 +154,6 @@ export default function Products() {
           </table>
         </div>
       </div>
-
-      {/* Quick Add Buttons when searching */}
-      {searchTerm.length > 0 && (
-          <div className="flex flex-col items-center gap-4 py-6 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/30">
-              <p className="text-zinc-500 text-sm">Não encontrou o que procurava?</p>
-              <div className="flex flex-wrap justify-center gap-3">
-                  <button 
-                    onClick={() => {
-                        setFormData({...formData, name: searchTerm});
-                        openModalWithTab('product');
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition text-sm border border-zinc-700"
-                  >
-                      <Plus size={16} /> Cadastrar Novo Produto
-                  </button>
-                  <button 
-                    onClick={() => {
-                        setFormData({...formData, name: searchTerm});
-                        openModalWithTab('service');
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition text-sm border border-zinc-700"
-                  >
-                      <Plus size={16} /> Cadastrar Novo Serviço
-                  </button>
-              </div>
-          </div>
-      )}
 
       {/* Add Item Modal */}
       {isModalOpen && (
@@ -207,25 +180,22 @@ export default function Products() {
                 <div>
                     <label className="block text-sm font-medium text-zinc-400 mb-1">Preço Venda (R$)</label>
                     <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
                     required
                     className="w-full bg-black/50 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none"
                     value={formData.price}
+                    placeholder="0.00"
                     onChange={e => setFormData({ ...formData, price: e.target.value })}
                     />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-zinc-400 mb-1">Custo (Opcional)</label>
                     <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
                     className="w-full bg-black/50 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 outline-none"
                     value={formData.costPrice}
                     onChange={e => setFormData({ ...formData, costPrice: e.target.value })}
-                    placeholder="R$ 0,00"
+                    placeholder="0.00"
                     />
                 </div>
               </div>
