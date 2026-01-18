@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Edit2, XCircle, CheckCircle, Plus, Clock, MapPin, Phone, Mail, AlertTriangle, CreditCard, DollarSign, Trash2, Package, Wrench, MessageCircle, Image as ImageIcon, Send, X, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Edit2, CheckCircle, Plus, MapPin, Phone, Mail, AlertTriangle, CreditCard, Trash2, ShoppingCart, X, Search, Package, Wrench } from 'lucide-react';
 import { Order, Product, ItemType } from '../types';
 
 export default function CustomerDetails() {
@@ -13,13 +13,17 @@ export default function CustomerDetails() {
   
   const targetId = role === 'client' ? authCustomer?.id : paramId;
 
-  const { customers, orders, products, addOrder, updateOrder, updateOrderStatus, updateCustomer, deleteCustomer } = useData();
+  const { customers, orders, products, addOrder, updateOrder, updateOrderStatus, updateCustomer, deleteCustomer, addProduct } = useData();
   const [activeTab, setActiveTab] = useState<'open' | 'paid' | 'overdue'>('open');
   
   // Modals State
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+
+  // Search State for Order Items
+  const [itemSearchTerm, setItemSearchTerm] = useState('');
+  const [showItemResults, setShowItemResults] = useState(false);
 
   // Helper for Date Defaulting
   const getToday = () => new Date().toISOString().split('T')[0];
@@ -38,7 +42,6 @@ export default function CustomerDetails() {
 
   // Order Items Staging
   const [orderItems, setOrderItems] = useState<Array<{ productId: string, productName: string, quantity: number, unitPrice: number, total: number }>>([]);
-  const [selectedProductId, setSelectedProductId] = useState('');
   const [itemQty, setItemQty] = useState(1);
 
   // Edit Customer Form State
@@ -100,10 +103,7 @@ export default function CustomerDetails() {
     setIsEditModalOpen(false);
   };
 
-  const handleAddItem = () => {
-    const product = products.find(p => p.id === selectedProductId);
-    if (!product) return;
-
+  const handleAddItem = (product: Product) => {
     const newItem = {
       productId: product.id,
       productName: product.name,
@@ -113,7 +113,8 @@ export default function CustomerDetails() {
     };
 
     setOrderItems([...orderItems, newItem]);
-    setSelectedProductId('');
+    setItemSearchTerm('');
+    setShowItemResults(false);
     setItemQty(1);
   };
 
@@ -167,6 +168,35 @@ export default function CustomerDetails() {
     setOrderItems([]);
     setOrderForm({ description: '', requestDate: getToday(), dueDate: getDateIn15Days() });
   };
+
+  const handleQuickRegister = async (type: ItemType) => {
+      const priceStr = prompt(`Informe o preço de venda para "${itemSearchTerm}":`, "0.00");
+      if (priceStr === null) return;
+      const price = parseFloat(priceStr) || 0;
+
+      const newProduct = await addProduct({
+          name: itemSearchTerm,
+          price: price,
+          type: type,
+          description: `Cadastrado rapidamente via pedido de ${customer.name}`
+      });
+
+      // Se o retorno da API não for o objeto completo, tentamos encontrar no useData atualizado
+      // ou esperamos o próximo ciclo. Como addProduct recarrega os dados, o melhor é simular a seleção
+      // Mas para ser imediato, vamos apenas processar a inclusão.
+      const productObj = {
+          id: (newProduct as any)?.id || 'temp-' + Date.now(),
+          name: itemSearchTerm,
+          price: price,
+          type: type
+      } as Product;
+
+      handleAddItem(productObj);
+  };
+
+  const filteredCatalog = products.filter(p => 
+    p.name.toLowerCase().includes(itemSearchTerm.toLowerCase())
+  );
 
   const isOverdue = (order: Order) => new Date(order.dueDate) < new Date() && order.status === 'open';
 
@@ -377,27 +407,70 @@ export default function CustomerDetails() {
                     </div>
 
                     <div className="border-t border-zinc-800 pt-6">
-                        <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Plus size={18} className="text-primary" /> Adicionar Itens do Catálogo</h3>
-                        <div className="space-y-4">
+                        <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Plus size={18} className="text-primary" /> Adicionar Itens</h3>
+                        <div className="space-y-4 relative">
                             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
-                                <div className="sm:col-span-9">
-                                    <select 
-                                        className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none focus:border-primary"
-                                        value={selectedProductId}
-                                        onChange={e => setSelectedProductId(e.target.value)}
-                                    >
-                                        <option value="">Selecione um Produto ou Serviço...</option>
-                                        <optgroup label="PRODUTOS" className="bg-surface text-primary">
-                                            {products.filter(p => p.type === 'product' || !p.type).map(p => (
-                                                <option key={p.id} value={p.id} className="text-white">{p.name} - R$ {p.price.toFixed(2)}</option>
+                                <div className="sm:col-span-9 relative">
+                                    <div className="relative">
+                                        <input 
+                                            type="text" 
+                                            placeholder="Buscar item no catálogo..."
+                                            className="w-full bg-black/50 border border-zinc-700 rounded-xl px-10 py-2 text-white outline-none focus:border-primary"
+                                            value={itemSearchTerm}
+                                            onFocus={() => setShowItemResults(true)}
+                                            onChange={e => {
+                                                setItemSearchTerm(e.target.value);
+                                                setShowItemResults(true);
+                                            }}
+                                        />
+                                        <Search className="absolute left-3 top-2.5 text-zinc-500" size={18} />
+                                    </div>
+                                    
+                                    {showItemResults && (itemSearchTerm.length > 0 || filteredCatalog.length > 0) && (
+                                        <div className="absolute top-full left-0 w-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto">
+                                            {filteredCatalog.map(p => (
+                                                <button 
+                                                    key={p.id} 
+                                                    type="button"
+                                                    onClick={() => handleAddItem(p)}
+                                                    className="w-full text-left px-4 py-3 hover:bg-zinc-800 flex items-center justify-between border-b border-zinc-800 last:border-0"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        {p.type === 'service' ? <Wrench size={16} className="text-secondary" /> : <Package size={16} className="text-primary" />}
+                                                        <span className="text-white font-medium">{p.name}</span>
+                                                    </div>
+                                                    <span className="text-emerald-500 font-bold text-xs">R$ {p.price.toFixed(2)}</span>
+                                                </button>
                                             ))}
-                                        </optgroup>
-                                        <optgroup label="SERVIÇOS" className="bg-surface text-secondary">
-                                            {products.filter(p => p.type === 'service').map(p => (
-                                                <option key={p.id} value={p.id} className="text-white">{p.name} - R$ {p.price.toFixed(2)}</option>
-                                            ))}
-                                        </optgroup>
-                                    </select>
+                                            
+                                            {/* Quick Register Option at the end of results */}
+                                            {itemSearchTerm.length > 1 && (
+                                                <div className="p-2 bg-zinc-950 border-t border-zinc-800">
+                                                    <p className="text-[10px] text-zinc-500 text-center mb-2 uppercase tracking-widest font-bold">Não encontrou? Cadastre Agora:</p>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => handleQuickRegister('product')}
+                                                            className="flex items-center justify-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary py-2 rounded-lg text-[10px] font-bold uppercase transition border border-primary/20"
+                                                        >
+                                                            <Package size={14} /> + Produto
+                                                        </button>
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => handleQuickRegister('service')}
+                                                            className="flex items-center justify-center gap-1.5 bg-secondary/10 hover:bg-secondary/20 text-secondary py-2 rounded-lg text-[10px] font-bold uppercase transition border border-secondary/20"
+                                                        >
+                                                            <Wrench size={14} /> + Serviço
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {filteredCatalog.length === 0 && itemSearchTerm.length <= 1 && (
+                                                <div className="p-6 text-center text-zinc-500 text-sm">Digite para buscar...</div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="sm:col-span-3">
                                     <input 
@@ -410,13 +483,6 @@ export default function CustomerDetails() {
                                     />
                                 </div>
                             </div>
-                            <button 
-                                type="button" 
-                                onClick={handleAddItem}
-                                className="w-full flex items-center justify-center gap-2 bg-zinc-800 border border-zinc-700 text-white py-2 rounded-xl hover:bg-zinc-700 transition font-bold"
-                            >
-                                <Plus size={18} /> Incluir no Pedido
-                            </button>
                         </div>
                     </div>
 
@@ -430,7 +496,7 @@ export default function CustomerDetails() {
                                     </div>
                                     <div className="flex items-center gap-4">
                                         <span className="text-primary font-bold">R$ {item.total.toFixed(2)}</span>
-                                        <button type="button" onClick={() => handleRemoveItem(idx)} className="text-red-500 hover:bg-red-500/10 p-1.5 rounded-full"><Trash2 size={16} /></button>
+                                        <button type="button" onClick={() => handleRemoveItem(idx)} className="text-red-500 hover:bg-red-500/10 p-1.5 rounded-full transition"><Trash2 size={16} /></button>
                                     </div>
                                 </div>
                             ))}
@@ -460,7 +526,7 @@ export default function CustomerDetails() {
           <div className="bg-surface border border-zinc-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b border-zinc-800 sticky top-0 bg-surface z-10">
               <h2 className="text-xl font-bold text-white">{role === 'admin' ? 'Editar Cliente' : 'Meu Perfil'}</h2>
-              <button onClick={() => setIsEditModalOpen(false)} className="text-zinc-500 hover:text-white"><X size={24} /></button>
+              <button onClick={() => setIsEditModalOpen(false)} className="text-zinc-500 hover:text-white transition"><X size={24} /></button>
             </div>
             <form onSubmit={handleUpdateCustomer} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

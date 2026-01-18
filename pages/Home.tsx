@@ -110,7 +110,7 @@ export default function Home() {
           </div>
           <div className="ml-auto relative group z-10">
               <div className="absolute -inset-0.5 bg-crazy-gradient rounded-full blur opacity-75 group-hover:opacity-100 animate-pulse transition duration-200"></div>
-              <button onClick={handleHeaderButtonClick} className="relative bg-black text-white px-4 py-1.5 rounded-full border border-zinc-800 hover:text-white transition duration-200 text-xs font-medium tracking-wide flex items-center justify-center min-w-[80px]">
+              <button onClick={handleHeaderButtonClick} className="relative bg-black text-white px-3 py-1.5 rounded-full border border-zinc-800 hover:text-white transition duration-200 text-[10px] font-bold tracking-widest flex items-center justify-center min-w-[70px] uppercase">
                   Login
               </button>
           </div>
