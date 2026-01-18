@@ -54,21 +54,30 @@ export const api = {
     return handleResponse(res);
   },
 
-  async getProducts() {
-    const res = await fetch('/api/products', { headers: getHeaders() });
+  // Catálogo (Produtos e Serviços)
+  async getProducts(type?: 'product' | 'service', search?: string) {
+    let url = '/api/catalog';
+    const params = new URLSearchParams();
+    if (type) params.append('type', type);
+    if (search) params.append('search', search);
+    
+    const queryString = params.toString();
+    if (queryString) url += `?${queryString}`;
+
+    const res = await fetch(url, { headers: getHeaders() });
     return handleResponse(res);
   },
   async createProduct(data: any) {
-    const res = await fetch('/api/products', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+    const res = await fetch('/api/catalog', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
   async deleteProduct(id: string) {
-    const res = await fetch(`/api/products?id=${id}`, { method: 'DELETE', headers: getHeaders() });
+    const res = await fetch(`/api/catalog?id=${id}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   },
 
   async getOrders(customerId?: string) {
-    const url = customerId ? `/api/orders?customerId=${customerId}` : '/api/orders';
+    const url = customerId ? `/api/orders?clientId=${customerId}` : '/api/orders';
     const res = await fetch(url, { headers: getHeaders() });
     return handleResponse(res);
   },

@@ -49,7 +49,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     try {
       const [clientsRes, productsRes, ordersRes, carouselRes] = await Promise.allSettled([
         token ? api.getClients() : Promise.resolve([]),
-        token ? api.getProducts() : Promise.resolve([]),
+        token ? api.getProducts() : Promise.resolve([]), // Agora busca do /api/catalog
         token ? api.getOrders() : Promise.resolve([]),
         api.getCarousel()
       ]);
@@ -62,6 +62,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
 
       if (productsRes.status === 'fulfilled') {
         const data = productsRes.value;
+        // Agora o catálogo unificado retorna tanto produtos quanto serviços
         setProducts(Array.isArray(data) ? data : (data?.data || []));
       }
 
@@ -110,6 +111,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
 
   const addProduct = async (data: any) => {
     try {
+      // Agora o createProduct chama /api/catalog e aceita data.type
       const res = await api.createProduct(data);
       await loadData();
       return res;
