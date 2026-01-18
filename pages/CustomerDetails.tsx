@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Edit2, XCircle, CheckCircle, Plus, Clock, MapPin, Phone, Mail, AlertTriangle, CreditCard, DollarSign, Trash2, Package, Wrench, MessageCircle, Image as ImageIcon, Send } from 'lucide-react';
+import { ArrowLeft, Edit2, XCircle, CheckCircle, Plus, Clock, MapPin, Phone, Mail, AlertTriangle, CreditCard, DollarSign, Trash2, Package, Wrench, MessageCircle, Image as ImageIcon, Send, X, ShoppingCart } from 'lucide-react';
 import { Order, Product, ItemType } from '../types';
 
 export default function CustomerDetails() {
@@ -12,14 +13,12 @@ export default function CustomerDetails() {
   
   const targetId = role === 'client' ? authCustomer?.id : paramId;
 
-  const { customers, orders, products, addOrder, updateOrder, updateOrderStatus, updateCustomer, addProduct, deleteCustomer } = useData();
+  const { customers, orders, products, addOrder, updateOrder, updateOrderStatus, updateCustomer, deleteCustomer } = useData();
   const [activeTab, setActiveTab] = useState<'open' | 'paid' | 'overdue'>('open');
   
   // Modals State
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
-  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isQuickProductModalOpen, setIsQuickProductModalOpen] = useState(false);
 
   // Helper for Date Defaulting
   const getToday = () => new Date().toISOString().split('T')[0];
@@ -37,16 +36,9 @@ export default function CustomerDetails() {
   });
 
   // Order Items Staging
-  const [orderItems, setOrderItems] = useState<Array<{ product: Product, quantity: number }>>([]);
-  const [currentItemId, setCurrentItemId] = useState('');
-  const [currentItemQty, setCurrentItemQty] = useState(1);
-
-  // Quick Product Form
-  const [quickProductForm, setQuickProductForm] = useState({
-    name: '',
-    price: '',
-    type: 'product' as ItemType
-  });
+  const [orderItems, setOrderItems] = useState<Array<{ productId: string, productName: string, quantity: number, unitPrice: number, total: number }>>([]);
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [itemQty, setItemQty] = useState(1);
 
   // Edit Customer Form State
   const [editForm, setEditForm] = useState({
@@ -75,8 +67,6 @@ export default function CustomerDetails() {
 
   // Totals Calculation
   const totalOpen = customerOrders.filter(o => o.status === 'open').reduce((sum, o) => sum + o.totalValue, 0);
-  const totalPaid = customerOrders.filter(o => o.status === 'paid').reduce((sum, o) => sum + o.totalValue, 0);
-  
   const creditLimit = customer?.creditLimit || 50;
   const displayUsedCredit = totalOpen;
   const creditPercentage = Math.min(100, (displayUsedCredit / creditLimit) * 100);
@@ -91,12 +81,6 @@ export default function CustomerDetails() {
         </div>
     );
   }
-
-  // Máscaras e Handlers omitidos para brevidade, mantendo os originais corrigidos com optional chaining...
-  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let { name, value } = e.target;
-    setEditForm({ ...editForm, [name]: value });
-  };
 
   const handleUpdateCustomer = (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +99,56 @@ export default function CustomerDetails() {
     setIsEditModalOpen(false);
   };
 
+  const handleAddItem = () => {
+    const product = products.find(p => p.id === selectedProductId);
+    if (!product) return;
+
+    const newItem = {
+      productId: product.id,
+      productName: product.name,
+      quantity: itemQty,
+      unitPrice: product.price,
+      total: product.price * itemQty
+    };
+
+    setOrderItems([...orderItems, newItem]);
+    setSelectedProductId('');
+    setItemQty(1);
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setOrderItems(orderItems.filter((_, i) => i !== index));
+  };
+
+  const handleCreateOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const totalValue = orderItems.reduce((sum, item) => sum + item.total, 0);
+
+    if (totalValue > availableCredit && role === 'client') {
+        alert(`Limite insuficiente! Seu saldo disponível é R$ ${availableCredit.toFixed(2)}`);
+        return;
+    }
+
+    if (orderItems.length === 0 && !orderForm.description) {
+        alert("Adicione itens ou uma descrição ao pedido.");
+        return;
+    }
+
+    await addOrder({
+      customerId: customer.id,
+      description: orderForm.description || `Pedido de ${orderItems.map(i => i.productName).join(', ')}`,
+      items: orderItems,
+      totalValue: totalValue,
+      status: 'open',
+      requestDate: orderForm.requestDate,
+      dueDate: orderForm.dueDate
+    });
+
+    setIsOrderModalOpen(false);
+    setOrderItems([]);
+    setOrderForm({ description: '', requestDate: getToday(), dueDate: getDateIn15Days() });
+  };
+
   const isOverdue = (order: Order) => new Date(order.dueDate) < new Date() && order.status === 'open';
 
   const filteredOrders = customerOrders.filter(o => {
@@ -123,14 +157,16 @@ export default function CustomerDetails() {
       return o.status === 'paid';
   });
 
+  const headerFont = { fontFamily: '"Times New Roman", Times, serif' };
+
   return (
     <div className="space-y-6 pb-20">
       {/* Header & Info */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <div className="flex items-center space-x-4">
             {role === 'admin' && (
                 <Link to="/customers" className="p-2 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-full transition">
-                <ArrowLeft size={20} />
+                    <ArrowLeft size={20} />
                 </Link>
             )}
             <h1 className="text-2xl font-bold text-white flex items-center gap-3">
@@ -138,23 +174,31 @@ export default function CustomerDetails() {
             </h1>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+            <button 
+                onClick={() => setIsOrderModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500 to-red-600 text-white rounded-lg hover:shadow-lg hover:shadow-orange-500/20 transition text-sm font-medium whitespace-nowrap"
+            >
+                <Plus size={16} />
+                <span>Novo Pedido</span>
+            </button>
+
+            <button 
+                onClick={() => setIsEditModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-lg transition text-sm font-medium border border-zinc-700 whitespace-nowrap"
+            >
+                <Edit2 size={16} />
+                <span>{role === 'admin' ? 'Editar' : 'Perfil'}</span>
+            </button>
+            
             {role === 'admin' && (
                 <button 
                     onClick={() => deleteCustomer(customer.id)}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition text-sm font-medium border border-red-500/20"
+                    className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition border border-red-500/20"
                 >
                     <Trash2 size={16} />
-                    <span className="hidden sm:inline">Excluir</span>
                 </button>
             )}
-            <button 
-                onClick={() => setIsEditModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-lg transition text-sm font-medium border border-zinc-700"
-            >
-                <Edit2 size={16} />
-                <span>{role === 'admin' ? 'Editar Dados' : 'Atualizar Perfil'}</span>
-            </button>
         </div>
       </div>
 
@@ -169,13 +213,13 @@ export default function CustomerDetails() {
         </div>
         <div className="col-span-1 md:col-span-2 flex items-start space-x-3 text-zinc-400">
           <MapPin size={20} className="mt-1 flex-shrink-0 text-primary" />
-          <span>
-            {customer?.address?.street ? `${customer.address.street}, ${customer.address.number}` : 'Endereço não cadastrado'}
+          <span className="text-sm">
+            {customer?.address?.street ? `${customer.address.street}, ${customer.address.number} - CEP: ${customer.address.zipCode}` : 'Endereço não cadastrado'}
           </span>
         </div>
       </div>
 
-      {/* Seções financeiras e pedidos permanecem as mesmas, garantindo proteção contra undefined... */}
+      {/* Credit Section */}
       <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl">
           <div className="flex justify-between items-end mb-2">
               <div>
@@ -198,6 +242,7 @@ export default function CustomerDetails() {
           </div>
       </div>
 
+      {/* Orders Tabs */}
       <div className="bg-surface border border-zinc-800 rounded-xl shadow-sm overflow-hidden min-h-[400px]">
         <div className="flex border-b border-zinc-800 overflow-x-auto">
           {['open', 'overdue', 'paid'].map((tab) => (
@@ -224,35 +269,198 @@ export default function CustomerDetails() {
                             <th className="px-4 py-3">Solicitação</th>
                             <th className="px-4 py-3">Vencimento</th>
                             <th className="px-4 py-3">Total</th>
-                            {role === 'admin' && <th className="px-4 py-3 text-right">Ações</th>}
+                            {role === 'admin' && activeTab !== 'paid' && <th className="px-4 py-3 text-right">Ações</th>}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800">
-                        {filteredOrders.map(order => (
-                            <tr key={order.id} className="hover:bg-zinc-800/50 transition">
-                                <td className="px-4 py-3">
-                                    <div className="font-bold text-lg text-primary">#{String(order.orderNumber || 0).padStart(5, '0')}</div>
-                                    <div className="text-xs text-zinc-500 truncate max-w-[200px]">{order.description}</div>
-                                </td>
-                                <td className="px-4 py-3">{new Date(order.requestDate).toLocaleDateString()}</td>
-                                <td className="px-4 py-3">
-                                    <span className={isOverdue(order) ? 'text-red-500 font-bold' : ''}>
-                                        {new Date(order.dueDate).toLocaleDateString()}
-                                    </span>
-                                </td>
-                                <td className="px-4 py-3 font-semibold text-white">R$ {order.totalValue.toFixed(2)}</td>
-                                {role === 'admin' && (
-                                <td className="px-4 py-3 text-right space-x-2">
-                                    <button onClick={() => updateOrderStatus(order.id, 'paid')} className="text-emerald-500 p-1.5 bg-zinc-800 rounded"><CheckCircle size={18} /></button>
-                                </td>
-                                )}
+                        {filteredOrders.length === 0 ? (
+                            <tr>
+                                <td colSpan={5} className="px-4 py-12 text-center text-zinc-600 italic">Nenhum pedido nesta categoria.</td>
                             </tr>
-                        ))}
+                        ) : (
+                            filteredOrders.map(order => (
+                                <tr key={order.id} className="hover:bg-zinc-800/50 transition">
+                                    <td className="px-4 py-3">
+                                        <div className="font-bold text-lg text-primary">#{String(order.orderNumber || 0).padStart(5, '0')}</div>
+                                        <div className="text-xs text-zinc-500 truncate max-w-[200px]">{order.description}</div>
+                                    </td>
+                                    <td className="px-4 py-3">{new Date(order.requestDate).toLocaleDateString()}</td>
+                                    <td className="px-4 py-3">
+                                        <span className={isOverdue(order) ? 'text-red-500 font-bold' : ''}>
+                                            {new Date(order.dueDate).toLocaleDateString()}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3 font-semibold text-white">R$ {order.totalValue.toFixed(2)}</td>
+                                    {role === 'admin' && activeTab !== 'paid' && (
+                                    <td className="px-4 py-3 text-right space-x-2">
+                                        <button onClick={() => updateOrderStatus(order.id, 'paid')} className="text-emerald-500 p-1.5 bg-zinc-800 rounded hover:bg-emerald-500/10" title="Marcar como Pago">
+                                            <CheckCircle size={18} />
+                                        </button>
+                                    </td>
+                                    )}
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
             </div>
         </div>
       </div>
+
+      {/* NEW ORDER MODAL */}
+      {isOrderModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
+            <div className="bg-surface border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center p-6 border-b border-zinc-800 sticky top-0 bg-surface z-10">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <ShoppingCart className="text-primary" /> Novo Pedido
+                    </h2>
+                    <button onClick={() => setIsOrderModalOpen(false)} className="text-zinc-500 hover:text-white transition">
+                        <X size={24} />
+                    </button>
+                </div>
+
+                <form onSubmit={handleCreateOrder} className="p-6 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="col-span-full">
+                            <label className="block text-sm font-medium text-zinc-400 mb-1">Descrição Geral / Observações</label>
+                            <textarea 
+                                className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none focus:border-primary"
+                                placeholder="Descreva detalhes do que você precisa..."
+                                rows={2}
+                                value={orderForm.description}
+                                onChange={e => setOrderForm({...orderForm, description: e.target.value})}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-zinc-400 mb-1">Data do Pedido</label>
+                            <input type="date" value={orderForm.requestDate} readOnly className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-2 text-zinc-500 cursor-not-allowed" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-zinc-400 mb-1">Data de Vencimento/Entrega</label>
+                            <input 
+                                type="date" 
+                                value={orderForm.dueDate} 
+                                className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none focus:border-primary" 
+                                onChange={e => setOrderForm({...orderForm, dueDate: e.target.value})}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="border-t border-zinc-800 pt-6">
+                        <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Plus size={18} className="text-primary" /> Adicionar Itens do Catálogo</h3>
+                        <div className="flex gap-2">
+                            <select 
+                                className="flex-1 bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none focus:border-primary"
+                                value={selectedProductId}
+                                onChange={e => setSelectedProductId(e.target.value)}
+                            >
+                                <option value="">Selecione um item...</option>
+                                {products.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name} - R$ {p.price.toFixed(2)}</option>
+                                ))}
+                            </select>
+                            <input 
+                                type="number" 
+                                min="1" 
+                                className="w-20 bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none" 
+                                value={itemQty} 
+                                onChange={e => setItemQty(parseInt(e.target.value) || 1)}
+                            />
+                            <button 
+                                type="button" 
+                                onClick={handleAddItem}
+                                className="bg-primary text-white p-2 rounded-xl hover:bg-amber-600 transition"
+                            >
+                                <Plus />
+                            </button>
+                        </div>
+                    </div>
+
+                    {orderItems.length > 0 && (
+                        <div className="space-y-2">
+                            {orderItems.map((item, idx) => (
+                                <div key={idx} className="flex justify-between items-center bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+                                    <div>
+                                        <p className="text-white font-medium">{item.productName}</p>
+                                        <p className="text-xs text-zinc-500">{item.quantity}x R$ {item.unitPrice.toFixed(2)}</p>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-primary font-bold">R$ {item.total.toFixed(2)}</span>
+                                        <button type="button" onClick={() => handleRemoveItem(idx)} className="text-red-500 hover:bg-red-500/10 p-1.5 rounded-full"><Trash2 size={16} /></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 flex justify-between items-center">
+                        <div>
+                            <p className="text-zinc-500 text-xs uppercase tracking-widest font-bold">Valor Total do Pedido</p>
+                            <p className="text-3xl font-bold text-white">R$ {orderItems.reduce((sum, i) => sum + i.total, 0).toFixed(2)}</p>
+                        </div>
+                        <button 
+                            type="submit" 
+                            className="bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-amber-600 transition shadow-xl"
+                        >
+                            Finalizar Pedido
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+      )}
+
+      {/* EDIT MODAL (EXISTING) */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
+          <div className="bg-surface border border-zinc-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-6 border-b border-zinc-800 sticky top-0 bg-surface z-10">
+              <h2 className="text-xl font-bold text-white">{role === 'admin' ? 'Editar Cliente' : 'Meu Perfil'}</h2>
+              <button onClick={() => setIsEditModalOpen(false)} className="text-zinc-500 hover:text-white"><X size={24} /></button>
+            </div>
+            <form onSubmit={handleUpdateCustomer} className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="col-span-full">
+                    <label className="block text-sm font-medium text-zinc-400 mb-1">Nome Completo</label>
+                    <input name="name" required value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full bg-black/50 border border-zinc-700 rounded-lg px-4 py-2 text-white outline-none focus:border-primary" />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-zinc-400 mb-1">Telefone</label>
+                    <input name="phone" value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} className="w-full bg-black/50 border border-zinc-700 rounded-lg px-4 py-2 text-white outline-none focus:border-primary" />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-zinc-400 mb-1">Email</label>
+                    <input name="email" type="email" value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="w-full bg-black/50 border border-zinc-700 rounded-lg px-4 py-2 text-white outline-none focus:border-primary" />
+                </div>
+                {role === 'admin' && (
+                    <div className="col-span-full">
+                        <label className="block text-sm font-medium text-zinc-400 mb-1">Limite de Crédito (R$)</label>
+                        <input name="creditLimit" type="number" step="0.01" value={editForm.creditLimit} onChange={e => setEditForm({...editForm, creditLimit: e.target.value})} className="w-full bg-black/50 border border-zinc-700 rounded-lg px-4 py-2 text-white outline-none focus:border-primary" />
+                    </div>
+                )}
+                <div className="col-span-full border-t border-zinc-800 pt-4"><h3 className="font-bold text-zinc-400">Endereço</h3></div>
+                <div className="col-span-full">
+                    <label className="block text-sm font-medium text-zinc-400 mb-1">Rua/Logradouro</label>
+                    <input name="street" value={editForm.street} onChange={e => setEditForm({...editForm, street: e.target.value})} className="w-full bg-black/50 border border-zinc-700 rounded-lg px-4 py-2 text-white outline-none focus:border-primary" />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-zinc-400 mb-1">Número</label>
+                    <input name="number" value={editForm.number} onChange={e => setEditForm({...editForm, number: e.target.value})} className="w-full bg-black/50 border border-zinc-700 rounded-lg px-4 py-2 text-white outline-none focus:border-primary" />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-zinc-400 mb-1">CEP</label>
+                    <input name="zipCode" value={editForm.zipCode} onChange={e => setEditForm({...editForm, zipCode: e.target.value})} className="w-full bg-black/50 border border-zinc-700 rounded-lg px-4 py-2 text-white outline-none focus:border-primary" />
+                </div>
+              </div>
+              <div className="pt-4 flex justify-end space-x-3">
+                <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-zinc-400 hover:text-white transition">Cancelar</button>
+                <button type="submit" className="px-6 py-2 bg-primary text-white font-bold rounded-lg hover:bg-amber-600 transition">Salvar Alterações</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
