@@ -16,10 +16,23 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
   if (request.method === 'POST' && user.role === 'admin') {
     const p = await request.json() as any;
     const newId = crypto.randomUUID();
+    
+    // Prevenção de erro 500: garantir que campos indefinidos sejam NULL
+    const params = [
+        newId,
+        p.name || '',
+        parseFloat(p.price) || 0,
+        p.costPrice !== undefined && p.costPrice !== "" ? parseFloat(p.costPrice) : null,
+        p.description || null,
+        p.type || 'product',
+        p.imageUrl || null
+    ];
+
     await env.DB.prepare('INSERT INTO products (id, name, price, costPrice, description, type, imageUrl) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(newId, p.name, p.price, p.costPrice, p.description, p.type, p.imageUrl)
+      .bind(...params)
       .run();
-    return Response.json({ id: newId });
+      
+    return Response.json({ id: newId, name: p.name, price: p.price, type: p.type });
   }
 
   if (request.method === 'DELETE' && user.role === 'admin' && id) {

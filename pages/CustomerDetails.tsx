@@ -19,11 +19,15 @@ export default function CustomerDetails() {
   // Modals State
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isQuickRegOpen, setIsQuickRegOpen] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
   // Search State for Order Items
   const [itemSearchTerm, setItemSearchTerm] = useState('');
   const [showItemResults, setShowItemResults] = useState(false);
+
+  // Quick Register Form State
+  const [quickRegData, setQuickRegData] = useState({ name: '', price: '', type: 'product' as ItemType });
 
   // Helper for Date Defaulting
   const getToday = () => new Date().toISOString().split('T')[0];
@@ -53,7 +57,6 @@ export default function CustomerDetails() {
   const customer = customers.find(c => c.id === targetId);
   const customerOrders = orders.filter(o => o.customerId === targetId);
 
-  // Initialize edit form when customer data is available
   useEffect(() => {
     if (customer && isEditModalOpen) {
       setEditForm({
@@ -68,23 +71,6 @@ export default function CustomerDetails() {
       });
     }
   }, [customer, isEditModalOpen]);
-
-  // Totals Calculation
-  const totalOpen = customerOrders.filter(o => o.status === 'open').reduce((sum, o) => sum + o.totalValue, 0);
-  const creditLimit = customer?.creditLimit || 50;
-  const displayUsedCredit = totalOpen;
-  const creditPercentage = Math.min(100, (displayUsedCredit / creditLimit) * 100);
-  const availableCredit = creditLimit - displayUsedCredit;
-
-  if (!customer) {
-    return (
-        <div className="flex flex-col items-center justify-center p-12 text-zinc-500">
-            <AlertTriangle size={48} className="mb-4 opacity-20" />
-            <p>Dados do cliente não carregados ou não encontrados.</p>
-            <Link to="/" className="mt-4 text-primary underline">Voltar para o início</Link>
-        </div>
-    );
-  }
 
   const handleUpdateCustomer = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +89,7 @@ export default function CustomerDetails() {
     setIsEditModalOpen(false);
   };
 
-  const handleAddItem = (product: Product) => {
+  const handleAddItem = (product: Product | any) => {
     const newItem = {
       productId: product.id,
       productName: product.name,
@@ -169,34 +155,45 @@ export default function CustomerDetails() {
     setOrderForm({ description: '', requestDate: getToday(), dueDate: getDateIn15Days() });
   };
 
-  const handleQuickRegister = async (type: ItemType) => {
-      const priceStr = prompt(`Informe o preço de venda para "${itemSearchTerm}":`, "0.00");
-      if (priceStr === null) return;
-      const price = parseFloat(priceStr) || 0;
+  const openQuickReg = (type: ItemType) => {
+      setQuickRegData({ name: itemSearchTerm, price: '', type });
+      setIsQuickRegOpen(true);
+  };
 
-      const newProduct = await addProduct({
-          name: itemSearchTerm,
-          price: price,
-          type: type,
-          description: `Cadastrado rapidamente via pedido de ${customer.name}`
-      });
+  const handleQuickRegisterSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      try {
+          const res = await addProduct({
+              name: quickRegData.name,
+              price: parseFloat(quickRegData.price) || 0,
+              type: quickRegData.type,
+              description: `Cadastrado rapidamente via pedido de ${customer?.name}`
+          });
+          
+          // O addProduct do DataContext recarrega o catálogo, mas precisamos do objeto para adicionar ao pedido agora
+          const productObj = {
+              id: (res as any)?.id || Date.now().toString(),
+              name: quickRegData.name,
+              price: parseFloat(quickRegData.price) || 0,
+              type: quickRegData.type
+          };
 
-      // Se o retorno da API não for o objeto completo, tentamos encontrar no useData atualizado
-      // ou esperamos o próximo ciclo. Como addProduct recarrega os dados, o melhor é simular a seleção
-      // Mas para ser imediato, vamos apenas processar a inclusão.
-      const productObj = {
-          id: (newProduct as any)?.id || 'temp-' + Date.now(),
-          name: itemSearchTerm,
-          price: price,
-          type: type
-      } as Product;
-
-      handleAddItem(productObj);
+          handleAddItem(productObj);
+          setIsQuickRegOpen(false);
+      } catch (err) {
+          alert("Erro ao cadastrar produto. Tente novamente.");
+      }
   };
 
   const filteredCatalog = products.filter(p => 
     p.name.toLowerCase().includes(itemSearchTerm.toLowerCase())
   );
+
+  const totalOpen = customerOrders.filter(o => o.status === 'open').reduce((sum, o) => sum + o.totalValue, 0);
+  const creditLimit = customer?.creditLimit || 50;
+  const displayUsedCredit = totalOpen;
+  const creditPercentage = Math.min(100, (displayUsedCredit / creditLimit) * 100);
+  const availableCredit = creditLimit - displayUsedCredit;
 
   const isOverdue = (order: Order) => new Date(order.dueDate) < new Date() && order.status === 'open';
 
@@ -205,8 +202,6 @@ export default function CustomerDetails() {
       if (activeTab === 'open') return o.status === 'open' && !isOverdue(o);
       return o.status === 'paid';
   });
-
-  const headerFont = { fontFamily: '"Times New Roman", Times, serif' };
 
   return (
     <div className="space-y-6 pb-20">
@@ -368,7 +363,7 @@ export default function CustomerDetails() {
 
       {/* NEW/EDIT ORDER MODAL */}
       {isOrderModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
             <div className="bg-surface border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center p-6 border-b border-zinc-800 sticky top-0 bg-surface z-10">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -445,19 +440,19 @@ export default function CustomerDetails() {
                                             
                                             {/* Quick Register Option at the end of results */}
                                             {itemSearchTerm.length > 1 && (
-                                                <div className="p-2 bg-zinc-950 border-t border-zinc-800">
+                                                <div className="p-3 bg-zinc-950 border-t border-zinc-800">
                                                     <p className="text-[10px] text-zinc-500 text-center mb-2 uppercase tracking-widest font-bold">Não encontrou? Cadastre Agora:</p>
                                                     <div className="grid grid-cols-2 gap-2">
                                                         <button 
                                                             type="button" 
-                                                            onClick={() => handleQuickRegister('product')}
+                                                            onClick={() => openQuickReg('product')}
                                                             className="flex items-center justify-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary py-2 rounded-lg text-[10px] font-bold uppercase transition border border-primary/20"
                                                         >
                                                             <Package size={14} /> + Produto
                                                         </button>
                                                         <button 
                                                             type="button" 
-                                                            onClick={() => handleQuickRegister('service')}
+                                                            onClick={() => openQuickReg('service')}
                                                             className="flex items-center justify-center gap-1.5 bg-secondary/10 hover:bg-secondary/20 text-secondary py-2 rounded-lg text-[10px] font-bold uppercase transition border border-secondary/20"
                                                         >
                                                             <Wrench size={14} /> + Serviço
@@ -518,6 +513,63 @@ export default function CustomerDetails() {
                 </form>
             </div>
         </div>
+      )}
+
+      {/* QUICK REGISTER MODAL (FLOATING) */}
+      {isQuickRegOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md p-4 animate-in fade-in duration-300">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden scale-in-center">
+                  <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                          {quickRegData.type === 'service' ? <Wrench className="text-secondary" size={18} /> : <Package className="text-primary" size={18} />}
+                          Cadastro Rápido
+                      </h3>
+                      <button onClick={() => setIsQuickRegOpen(false)} className="text-zinc-500 hover:text-white transition">
+                          <X size={20} />
+                      </button>
+                  </div>
+                  <form onSubmit={handleQuickRegisterSubmit} className="p-6 space-y-4">
+                      <div>
+                          <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">Nome do Item</label>
+                          <input 
+                              type="text" 
+                              required
+                              autoFocus
+                              className="w-full bg-black/50 border border-zinc-800 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition"
+                              value={quickRegData.name}
+                              onChange={e => setQuickRegData({...quickRegData, name: e.target.value})}
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">Preço de Venda (R$)</label>
+                          <input 
+                              type="number" 
+                              step="0.01"
+                              required
+                              placeholder="0,00"
+                              className="w-full bg-black/50 border border-zinc-800 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition"
+                              value={quickRegData.price}
+                              onChange={e => setQuickRegData({...quickRegData, price: e.target.value})}
+                          />
+                      </div>
+                      <div className="pt-4 flex flex-col gap-2">
+                          <button 
+                            type="submit"
+                            className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-zinc-200 transition"
+                          >
+                              Salvar e Adicionar
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => setIsQuickRegOpen(false)}
+                            className="w-full text-zinc-500 py-2 text-sm hover:text-white transition"
+                          >
+                              Cancelar
+                          </button>
+                      </div>
+                  </form>
+              </div>
+          </div>
       )}
 
       {/* EDIT CUSTOMER MODAL (EXISTING) */}
