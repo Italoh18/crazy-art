@@ -38,14 +38,15 @@ export type OrderStatus = 'open' | 'paid' | 'cancelled';
 
 export interface Order {
   id: string;
-  orderNumber: number;
-  customerId: string;
+  order_number: number;
+  client_id: string;
   description: string;
-  items: OrderItem[];
-  totalValue: number;
-  requestDate: string;
-  dueDate: string;
+  total: number;
+  order_date: string;
+  due_date: string;
   status: OrderStatus;
+  created_at?: string;
+  formattedOrderNumber?: string;
 }
 
 export interface DREData {

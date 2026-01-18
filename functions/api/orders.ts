@@ -10,22 +10,24 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     const id = url.searchParams.get('id');
     const clientIdParam = url.searchParams.get('clientId');
 
-    // GET /api/orders?clientId=...
+    // GET /api/orders
     if (request.method === 'GET') {
       let query = 'SELECT * FROM orders';
       let params: any[] = [];
       
       if (clientIdParam) {
-        query += ' WHERE customerId = ?';
+        query += ' WHERE client_id = ?';
         params.push(clientIdParam);
       }
       
       query += ' ORDER BY created_at DESC';
       
       const { results } = await env.DB.prepare(query).bind(...params).all();
+      
+      // Adiciona o número formatado para a UI
       const orders = (results || []).map((o: any) => ({
         ...o,
-        items: JSON.parse(o.items || '[]')
+        formattedOrderNumber: String(o.order_number || 0).padStart(5, '0')
       }));
       
       return Response.json(orders);
@@ -35,66 +37,55 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     if (request.method === 'POST') {
       const body = await request.json() as any;
       
-      // Normalização e extração segura de dados conforme requisitos
-      const client_id = String(body.client_id || body.customerId || '').trim();
+      // 1. Gerar número do pedido sequencial
+      const { results: maxResults } = await env.DB.prepare('SELECT MAX(order_number) as last FROM orders').all();
+      const lastNum = (maxResults as any)[0]?.last;
+      const nextOrderNumber = (Number(lastNum) || 0) + 1;
+
+      // 2. Extração e Normalização (Garantindo no-undefined para o bind)
+      const newId = crypto.randomUUID();
+      const client_id = String(body.client_id || '').trim();
       const description = String(body.description || '').trim();
-      const order_date = body.order_date || body.requestDate || new Date().toISOString();
-      const due_date = body.due_date || body.dueDate || order_date;
-      const total = parseFloat(String(body.total || body.totalValue || '0')) || 0;
-      const status = String(body.status || 'open').trim();
-      const items = body.items || [];
-      
+      const order_date = String(body.order_date || new Date().toISOString().split('T')[0]);
+      const due_date = String(body.due_date || order_date);
+      const total = parseFloat(String(body.total || '0')) || 0;
+      const status = String(body.status || 'open');
+
       if (!client_id) {
         return new Response(JSON.stringify({ error: 'client_id é obrigatório' }), { status: 400 });
       }
 
-      const newId = crypto.randomUUID();
-      const created_at = new Date().toISOString();
-      
-      // Obter próximo número do pedido
-      const { results: maxResults } = await env.DB.prepare('SELECT MAX(orderNumber) as maxNum FROM orders').all();
-      const orderNumber = (Number((maxResults as any)[0]?.maxNum) || 0) + 1;
-
-      // Bind normalizado: string, number ou null
-      const params = [
+      // 3. Inserção usando o schema real
+      await env.DB.prepare(
+        'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(
         newId,
-        orderNumber,
+        nextOrderNumber,
         client_id,
         description,
-        total,
         order_date,
         due_date,
-        status,
-        JSON.stringify(items),
-        created_at
-      ];
+        total,
+        status
+      ).run();
 
-      await env.DB.prepare(
-        'INSERT INTO orders (id, orderNumber, customerId, description, totalValue, requestDate, dueDate, status, items, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-      ).bind(...params).run();
-
-      return Response.json({ success: true, id: newId, orderNumber });
+      return Response.json({ 
+        success: true, 
+        id: newId, 
+        order_number: nextOrderNumber,
+        formattedOrderNumber: nextOrderNumber.toString().padStart(5, '0')
+      });
     }
 
-    // PUT para atualização (Status ou Dados)
+    // PUT /api/orders?id=... (Atualização de Status)
     if (request.method === 'PUT' && id) {
       const body = await request.json() as any;
       if (body.status) {
-        await env.DB.prepare('UPDATE orders SET status = ? WHERE id = ?').bind(body.status, id).run();
-      } else {
-        const total = parseFloat(String(body.total || body.totalValue || '0')) || 0;
-        await env.DB.prepare(
-          'UPDATE orders SET description=?, totalValue=?, requestDate=?, dueDate=?, items=? WHERE id=?'
-        ).bind(
-          String(body.description || '').trim(),
-          total,
-          body.order_date || body.requestDate,
-          body.due_date || body.dueDate,
-          JSON.stringify(body.items || []),
-          id
-        ).run();
+        await env.DB.prepare('UPDATE orders SET status = ? WHERE id = ?')
+          .bind(body.status, id)
+          .run();
+        return Response.json({ success: true });
       }
-      return Response.json({ success: true });
     }
 
     return new Response(JSON.stringify({ error: 'Método não permitido' }), { status: 405 });
