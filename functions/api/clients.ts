@@ -22,7 +22,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       if (user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
       const body = await request.json() as any;
       
-      const existing = await env.DB.prepare('SELECT id FROM clients WHERE cpf = ?').bind(String(body.cpf)).first();
+      const cpf = String(body.cpf || '').trim();
+      const existing = await env.DB.prepare('SELECT id FROM clients WHERE cpf = ?').bind(cpf).first();
       if (existing) return new Response(JSON.stringify({ error: 'CPF já cadastrado.' }), { status: 400 });
 
       const newId = crypto.randomUUID();
@@ -36,7 +37,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         String(body.name || '').trim(),
         body.email ? String(body.email).trim() : null,
         body.phone ? String(body.phone).trim() : null,
-        String(body.cpf || '').trim(),
+        cpf,
         body.address?.street ? String(body.address.street).trim() : null,
         body.address?.number ? String(body.address.number).trim() : null,
         body.address?.zipCode ? String(body.address.zipCode).trim() : null,

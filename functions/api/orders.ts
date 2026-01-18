@@ -44,39 +44,53 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const lastNum = (maxResults as any)[0]?.last;
       const nextOrderNumber = (Number(lastNum) || 0) + 1;
 
-      // 2. Normalização de dados do cabeçalho
+      // 2. Extração e Normalização (Zero Undefined)
       const client_id = String(body.client_id || '').trim();
       const description = String(body.description || '').trim();
       const order_date = String(body.order_date || now.split('T')[0]);
       const due_date = String(body.due_date || order_date);
-      const totalInitial = parseFloat(String(body.total || '0')) || 0;
+      const initialTotal = 0; // Será recalculado via itens
       const status = String(body.status || 'open');
 
       if (!client_id) return new Response(JSON.stringify({ error: 'client_id é obrigatório' }), { status: 400 });
 
-      // 3. Inserção do Cabeçalho (8 campos -> 8 placeholders)
+      // 3. Inserir Cabeçalho do Pedido (9 campos -> 9 placeholders)
       await env.DB.prepare(
         'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-      ).bind(newId, nextOrderNumber, client_id, description, order_date, due_date, totalInitial, status, now).run();
+      ).bind(
+        newId,
+        nextOrderNumber,
+        client_id,
+        description,
+        order_date,
+        due_date,
+        initialTotal,
+        status,
+        now
+      ).run();
 
-      // 4. Inserção de Itens (se existirem)
-      if (Array.isArray(body.items) && body.items.length > 0) {
-        for (const item of body.items) {
+      // 4. Inserir Itens do Pedido (se houver)
+      const items = Array.isArray(body.items) ? body.items : [];
+      if (items.length > 0) {
+        for (const item of items) {
           const itemId = crypto.randomUUID();
+          // Colunas: id, order_id, item_type, item_id, description, unit_price, cost_price, quantity, total
           await env.DB.prepare(
-            'INSERT INTO order_items (id, order_id, product_id, product_name, quantity, unit_price, total) VALUES (?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO order_items (id, order_id, item_type, item_id, description, unit_price, cost_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
           ).bind(
             itemId,
             newId,
+            String(item.type || 'product'),
             String(item.productId || 'manual'),
-            String(item.productName || 'Item'),
-            Number(item.quantity || 1),
+            String(item.productName || item.description || 'Item'),
             Number(item.unitPrice || 0),
-            Number(item.total || 0)
+            Number(item.costPrice || 0),
+            Number(item.quantity || 1),
+            Number(item.total || (Number(item.unitPrice || 0) * Number(item.quantity || 1)))
           ).run();
         }
 
-        // 5. Recálculo do Total via Subquery (2 placeholders: order_id e id)
+        // 5. Atualizar Total do Pedido via Subquery (2 placeholders)
         await env.DB.prepare(
           'UPDATE orders SET total = (SELECT COALESCE(SUM(total), 0) FROM order_items WHERE order_id = ?) WHERE id = ?'
         ).bind(newId, newId).run();
@@ -90,7 +104,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       });
     }
 
-    // PUT /api/orders?id=... (Atualização de Status)
+    // PUT /api/orders (Status)
     if (request.method === 'PUT' && id) {
       const body = await request.json() as any;
       if (body.status) {
