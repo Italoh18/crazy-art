@@ -89,10 +89,21 @@ export default function Shop() {
       setSuccessModalOpen(false);
   };
 
-  const handleDelete = (e: React.MouseEvent, id: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
       e.preventDefault();
       e.stopPropagation();
-      deleteProduct(id);
+      
+      if (!id) {
+          alert("Este item não possui um ID válido no banco de dados e não pode ser excluído por aqui. Exclua-o manualmente no painel D1.");
+          return;
+      }
+
+      try {
+          await deleteProduct(id);
+      } catch (err: any) {
+          setNotification({ message: 'Erro ao excluir item: ' + err.message, type: 'error' });
+          setTimeout(() => setNotification(null), 3000);
+      }
   };
 
   return (
@@ -184,7 +195,7 @@ export default function Shop() {
         {/* Grid Content */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredItems.map((item) => (
-                <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-zinc-700 transition group flex flex-col shadow-lg relative">
+                <div key={item.id || Math.random()} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-zinc-700 transition group flex flex-col shadow-lg relative">
                     <div className="h-48 bg-zinc-800 relative overflow-hidden">
                         {/* Image */}
                         {item.imageUrl ? (
@@ -205,7 +216,7 @@ export default function Shop() {
                         {role === 'admin' && (
                             <button 
                                 onClick={(e) => handleDelete(e, item.id)}
-                                className="absolute top-3 left-3 z-20 bg-red-600/80 hover:bg-red-600 backdrop-blur-md p-2 rounded-lg text-white border border-white/10 transition"
+                                className="absolute top-3 left-3 z-30 bg-red-600/80 hover:bg-red-600 backdrop-blur-md p-2 rounded-lg text-white border border-white/10 transition flex items-center justify-center"
                                 title="Excluir do catálogo"
                             >
                                 <Trash2 size={16} />

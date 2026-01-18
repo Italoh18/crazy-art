@@ -46,11 +46,11 @@ export const api = {
     return handleResponse(res);
   },
   async updateClient(id: string, data: any) {
-    const res = await fetch(`/api/clients?id=${id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
+    const res = await fetch(`/api/clients?id=${encodeURIComponent(id)}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
   async deleteClient(id: string) {
-    const res = await fetch(`/api/clients?id=${id}`, { method: 'DELETE', headers: getHeaders() });
+    const res = await fetch(`/api/clients?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   },
 
@@ -72,12 +72,12 @@ export const api = {
     return handleResponse(res);
   },
   async deleteProduct(id: string) {
-    const res = await fetch(`/api/catalog?id=${id}`, { method: 'DELETE', headers: getHeaders() });
+    const res = await fetch(`/api/catalog?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   },
 
   async getOrders(customerId?: string) {
-    const url = customerId ? `/api/orders?clientId=${customerId}` : '/api/orders';
+    const url = customerId ? `/api/orders?clientId=${encodeURIComponent(customerId)}` : '/api/orders';
     const res = await fetch(url, { headers: getHeaders() });
     return handleResponse(res);
   },
@@ -86,7 +86,7 @@ export const api = {
     return handleResponse(res);
   },
   async updateOrder(id: string, data: any) {
-    const res = await fetch(`/api/orders?id=${id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
+    const res = await fetch(`/api/orders?id=${encodeURIComponent(id)}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
 
@@ -99,7 +99,7 @@ export const api = {
     return handleResponse(res);
   },
   async deleteCarouselImage(id: string) {
-    const res = await fetch(`/api/carousel?id=${id}`, { method: 'DELETE', headers: getHeaders() });
+    const res = await fetch(`/api/carousel?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   }
 };
