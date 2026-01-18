@@ -22,7 +22,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
         {/* Esquerda */}
         <div className="flex flex-col text-center md:text-left">
-          <h2 className="text-xl md:text-2xl font-bold text-white mb-1 uppercase" style={headerStyle}>CRAZY ART</h2>
+          <h2 className="text-lg md:text-xl font-bold text-white mb-1 uppercase" style={headerStyle}>CRAZY ART</h2>
           <p className="text-muted text-sm italic">transformando ideias em realidade</p>
         </div>
         
@@ -85,7 +85,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                         <ArrowLeft size={20} />
                      </Link>
                      <div className="flex items-center">
-                        <span className="font-bold text-xl bg-clip-text text-transparent bg-crazy-gradient hidden sm:block uppercase" style={headerStyle}>CRAZY ART</span>
+                        <span className="font-bold text-sm bg-clip-text text-transparent bg-crazy-gradient hidden sm:block uppercase" style={headerStyle}>CRAZY ART</span>
                      </div>
                 </div>
                 <div className="flex items-center space-x-4">
@@ -120,7 +120,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
       `}>
         <div className="flex items-center justify-between h-16 px-6 border-b border-zinc-800">
           <div className="flex items-center">
-             <span className="text-xl font-bold bg-clip-text text-transparent bg-crazy-gradient uppercase" style={headerStyle}>CRAZY ART</span>
+             <span className="text-sm font-bold bg-clip-text text-transparent bg-crazy-gradient uppercase" style={headerStyle}>CRAZY ART</span>
              <span className="ml-2 text-[10px] text-zinc-500 uppercase tracking-widest bg-zinc-800 px-1 rounded">ADM</span>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-zinc-400 hover:text-white">
@@ -164,7 +164,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             </button>
             <span className="text-zinc-400 text-sm hidden sm:block">Olá, <span className="text-white font-medium">Administrador</span></span>
             <div className="flex items-center lg:hidden">
-              <span className="font-bold text-xl bg-clip-text text-transparent bg-crazy-gradient uppercase" style={headerStyle}>CRAZY ART</span>
+              <span className="font-bold text-sm bg-clip-text text-transparent bg-crazy-gradient uppercase" style={headerStyle}>CRAZY ART</span>
             </div>
             <div className="w-8 lg:hidden"></div>
         </header>

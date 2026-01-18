@@ -77,10 +77,10 @@ export default function Home() {
   };
 
   const sections = [
-    { name: 'Loja', icon: ShoppingBag, status: 'active', path: '/shop' },
+    { name: 'Minha Área', icon: User, status: 'active', path: '/my-area' },
     { name: 'Blog', icon: BookOpen, status: 'soon', path: '' },
     { name: 'Programas', icon: Tv, status: 'active', path: '/programs' },
-    { name: 'Minha Área', icon: User, status: 'active', path: '/my-area' },
+    { name: 'Loja', icon: ShoppingBag, status: 'active', path: '/shop' },
   ];
 
   const handleSectionClick = (section: any) => {
@@ -104,13 +104,13 @@ export default function Home() {
       {role === 'guest' && (
         <header className="fixed top-0 left-0 w-full z-40 h-20 px-6 flex items-center justify-between bg-black/80 backdrop-blur-md border-b border-zinc-900 shadow-md">
           <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <h1 className="text-2xl md:text-4xl font-bold tracking-[0.1em] bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap uppercase" style={headerFont}>
+            <h1 className="text-lg md:text-2xl font-bold tracking-[0.1em] bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap uppercase" style={headerFont}>
               CRAZY ART
             </h1>
           </div>
           <div className="ml-auto relative group z-10">
               <div className="absolute -inset-0.5 bg-crazy-gradient rounded-full blur opacity-75 group-hover:opacity-100 animate-pulse transition duration-200"></div>
-              <button onClick={handleHeaderButtonClick} className="relative bg-black text-white px-6 py-2 rounded-full border border-zinc-800 hover:text-white transition duration-200 text-sm font-medium tracking-wide flex items-center justify-center min-w-[100px]">
+              <button onClick={handleHeaderButtonClick} className="relative bg-black text-white px-4 py-1.5 rounded-full border border-zinc-800 hover:text-white transition duration-200 text-xs font-medium tracking-wide flex items-center justify-center min-w-[80px]">
                   Login
               </button>
           </div>

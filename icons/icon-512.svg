@@ -1,0 +1,11 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" fill="black"/>
+  <defs>
+    <linearGradient id="gradIcon512" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#F59E0B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#DC2626;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <text x="50%" y="245" font-family="Times New Roman, serif" font-size="76" font-weight="bold" fill="url(#gradIcon512)" text-anchor="middle" dominant-baseline="middle">CRAZY ART</text>
+  <text x="50%" y="315" font-family="Arial, sans-serif" font-size="32" fill="url(#gradIcon512)" text-anchor="middle" dominant-baseline="middle">app</text>
+</svg>
