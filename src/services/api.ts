@@ -91,6 +91,10 @@ export const api = {
     const res = await fetch(`/api/orders?id=${encodeURIComponent(id)}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
+  async deleteOrder(id: string) {
+    const res = await fetch(`/api/orders?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
+    return handleResponse(res);
+  },
 
   async getCarousel() {
     const res = await fetch(`/api/carousel?_t=${Date.now()}`);

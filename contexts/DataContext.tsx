@@ -16,6 +16,7 @@ interface DataContextType {
   deleteProduct: (id: string) => Promise<void>;
   addOrder: (order: any) => Promise<any>;
   updateOrder: (id: string, data: any) => Promise<void>;
+  deleteOrder: (id: string) => Promise<void>;
   updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
   addCarouselImage: (url: string) => Promise<void>;
   deleteCarouselImage: (id: string) => Promise<void>;
@@ -127,16 +128,11 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const deleteProduct = async (id: string) => {
     try {
       if (confirm("Deseja realmente excluir este item do catálogo?")) {
-        // ATUALIZAÇÃO OTIMISTA: Removemos da tela ANTES mesmo da API responder
         setProducts(prev => prev.filter(p => p.id !== id));
-        
         await api.deleteProduct(id);
-        
-        // Carrega dados novos para garantir sincronia
         await loadData();
       }
     } catch (e: any) { 
-      // Se der erro, recarregamos tudo para o item "voltar" para a tela
       await loadData();
       alert("Erro ao excluir: " + e.message); 
     }
@@ -158,6 +154,19 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       await api.updateOrder(id, data);
       await loadData();
     } catch (e: any) { alert(e.message); }
+  };
+
+  const deleteOrder = async (id: string) => {
+    try {
+      if (confirm("Deseja realmente excluir este pedido? Esta ação não pode ser desfeita.")) {
+        setOrders(prev => prev.filter(o => o.id !== id));
+        await api.deleteOrder(id);
+        await loadData();
+      }
+    } catch (e: any) {
+      await loadData();
+      alert(e.message);
+    }
   };
 
   const updateOrderStatus = async (id: string, status: OrderStatus) => {
@@ -191,7 +200,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     <DataContext.Provider value={{ 
       customers, products, orders, carouselImages, isLoading, 
       addCustomer, updateCustomer, deleteCustomer,
-      addProduct, deleteProduct, addOrder, updateOrder, updateOrderStatus,
+      addProduct, deleteProduct, addOrder, updateOrder, deleteOrder, updateOrderStatus,
       addCarouselImage, deleteCarouselImage
     }}>
       {children}

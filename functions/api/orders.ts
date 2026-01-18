@@ -81,7 +81,6 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       ).run();
 
       // Inserir Itens do Pedido com o schema real do D1
-      // id, order_id, catalog_id, name, type, price, cost, quantity, subtotal
       const items = Array.isArray(body.items) ? body.items : [];
       let calculatedTotal = 0;
       
@@ -175,6 +174,16 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         await env.DB.prepare('UPDATE orders SET total = ? WHERE id = ?').bind(calculatedTotal, id).run();
       }
 
+      return Response.json({ success: true });
+    }
+
+    // DELETE /api/orders
+    if (request.method === 'DELETE' && id) {
+      if (user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso restrito' }), { status: 403 });
+      
+      // A exclusão de order_items ocorre automaticamente via ON DELETE CASCADE no DB
+      await env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(id).run();
+      
       return Response.json({ success: true });
     }
 

@@ -13,7 +13,7 @@ export default function CustomerDetails() {
   
   const targetId = role === 'client' ? authCustomer?.id : paramId;
 
-  const { customers, orders, products, addOrder, updateOrderStatus, updateCustomer, deleteCustomer, addProduct, updateOrder } = useData();
+  const { customers, orders, products, addOrder, updateOrderStatus, updateCustomer, deleteCustomer, addProduct, updateOrder, deleteOrder } = useData();
   const [activeTab, setActiveTab] = useState<'open' | 'paid' | 'overdue'>('open');
   
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -261,6 +261,11 @@ export default function CustomerDetails() {
                                     {role === 'admin' && (
                                         <button onClick={() => openOrderEdit(order)} className="text-zinc-400 p-1.5 bg-zinc-800 rounded hover:text-white transition" title="Editar Pedido">
                                             <FileEdit size={16} />
+                                        </button>
+                                    )}
+                                    {role === 'admin' && (
+                                        <button onClick={() => deleteOrder(order.id)} className="text-zinc-600 p-1.5 hover:text-red-500 hover:bg-red-500/10 rounded transition" title="Excluir Pedido">
+                                            <Trash2 size={16} />
                                         </button>
                                     )}
                                     {role === 'admin' && order.status === 'open' && (
