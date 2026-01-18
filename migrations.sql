@@ -13,11 +13,11 @@ ALTER TABLE catalog ADD COLUMN cost_price REAL DEFAULT 0;
 -- 3. Produtos (Tabela legada se ainda em uso)
 ALTER TABLE products ADD COLUMN cost_price REAL DEFAULT 0;
 
--- 4. Criação da Tabela de Itens de Pedido (Necessária para a nova lógica de pedidos)
+-- 4. Criação da Tabela de Itens de Pedido 
+-- ATENÇÃO: Se a tabela já existir e der erro, você pode ignorar ou renomeá-la antes.
 CREATE TABLE IF NOT EXISTS order_items (
     id TEXT PRIMARY KEY,
     order_id TEXT NOT NULL,
-    item_type TEXT DEFAULT 'product',
     item_id TEXT,
     description TEXT,
     unit_price REAL DEFAULT 0,

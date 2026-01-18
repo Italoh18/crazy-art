@@ -65,7 +65,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
       if (!client_id) return new Response(JSON.stringify({ error: 'client_id é obrigatório' }), { status: 400 });
 
-      // Inserir Cabeçalho
+      // Inserir Cabeçalho do Pedido
       await env.DB.prepare(
         'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
@@ -75,36 +75,39 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         description,
         order_date,
         due_date,
-        0, 
+        0, // Inicialmente 0, atualizaremos após somar os itens
         status,
         now
       ).run();
 
-      // Inserir Itens
+      // Inserir Itens do Pedido
       const items = Array.isArray(body.items) ? body.items : [];
       let calculatedTotal = 0;
+      
       if (items.length > 0) {
         for (const item of items) {
           const itemId = crypto.randomUUID();
-          const itemTotal = Number(item.total || (Number(item.unitPrice || item.unit_price || 0) * Number(item.quantity || 1)));
+          const q = Number(item.quantity || 1);
+          const up = Number(item.unitPrice || item.unit_price || 0);
+          const itemTotal = Number(item.total || (up * q));
           calculatedTotal += itemTotal;
 
+          // SQL sem a coluna item_type que causava erro
           await env.DB.prepare(
-            'INSERT INTO order_items (id, order_id, item_type, item_id, description, unit_price, cost_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO order_items (id, order_id, item_id, description, unit_price, cost_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
           ).bind(
             itemId,
             newId,
-            String(item.type || 'product'),
             String(item.productId || item.item_id || 'manual'),
             String(item.productName || item.description || 'Item'),
-            Number(item.unitPrice || item.unit_price || 0),
+            up,
             Number(item.cost_price || item.costPrice || 0),
-            Number(item.quantity || 1),
+            q,
             itemTotal
           ).run();
         }
 
-        // Atualizar Total do Pedido
+        // Persistir o total calculado no cabeçalho do pedido
         await env.DB.prepare('UPDATE orders SET total = ? WHERE id = ?').bind(calculatedTotal, newId).run();
       }
 
@@ -130,7 +133,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         return Response.json({ success: true });
       }
 
-      // Edição completa (Descrição, Datas, Itens)
+      // Edição completa
       const description = String(body.description || '').trim();
       const order_date = String(body.order_date || '');
       const due_date = String(body.due_date || '');
@@ -147,20 +150,21 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         let calculatedTotal = 0;
         for (const item of body.items) {
           const itemId = crypto.randomUUID();
-          const itemTotal = Number(item.total || (Number(item.unitPrice || item.unit_price || 0) * Number(item.quantity || 1)));
+          const q = Number(item.quantity || 1);
+          const up = Number(item.unitPrice || item.unit_price || 0);
+          const itemTotal = Number(item.total || (up * q));
           calculatedTotal += itemTotal;
 
           await env.DB.prepare(
-            'INSERT INTO order_items (id, order_id, item_type, item_id, description, unit_price, cost_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO order_items (id, order_id, item_id, description, unit_price, cost_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
           ).bind(
             itemId,
             id,
-            String(item.type || 'product'),
             String(item.productId || item.item_id || 'manual'),
             String(item.productName || item.description || 'Item'),
-            Number(item.unitPrice || item.unit_price || 0),
+            up,
             Number(item.cost_price || item.costPrice || 0),
-            Number(item.quantity || 1),
+            q,
             itemTotal
           ).run();
         }
@@ -173,6 +177,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     return new Response(JSON.stringify({ error: 'Método não permitido' }), { status: 405 });
   } catch (e: any) {
+    console.error("Erro na API de Pedidos:", e.message);
     return new Response(JSON.stringify({ error: e.message }), { status: 500 });
   }
 };
