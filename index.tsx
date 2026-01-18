@@ -1,12 +1,15 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-// PWA Service Worker Registration
-if ('serviceWorker' in navigator) {
+// PWA Service Worker Registration Seguro
+if (
+  'serviceWorker' in navigator &&
+  !window.location.hostname.includes("ai.studio") &&
+  !window.location.hostname.includes("usercontent.goog")
+) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
+    navigator.serviceWorker.register('/sw.js')
       .then(registration => {
         console.log('SW registered: ', registration);
       })
