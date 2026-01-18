@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useNavigate } from 'react-router-dom';
-import { X, User, Lock, ShoppingBag, BookOpen, Tv, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, User, Lock, ShoppingBag, BookOpen, Tv, LogOut, ChevronLeft, ChevronRight, Paintbrush } from 'lucide-react';
 
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -18,10 +18,10 @@ export default function Home() {
 
   useEffect(() => {
     if (carouselImages.length > 0) {
-      const timer = setInterval(() => {
-        setCurrentSlide((prev) => (prev + 1) % carouselImages.length);
-      }, 5000);
-      return () => clearInterval(timer);
+        const timer = setInterval(() => {
+            setCurrentSlide((prev) => (prev + 1) % carouselImages.length);
+        }, 5000);
+        return () => clearInterval(timer);
     }
   }, [carouselImages]);
 
@@ -48,6 +48,23 @@ export default function Home() {
         setError('CPF não encontrado.');
       }
     }
+  };
+
+  const maskCPF = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+      .replace(/(-\d{2})\d+?$/, '$1');
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (loginMode === 'client') {
+          setInputValue(maskCPF(e.target.value));
+      } else {
+          setInputValue(e.target.value);
+      }
   };
 
   const handleHeaderButtonClick = () => {
@@ -79,47 +96,69 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-text flex flex-col relative overflow-x-hidden">
-      <header className="fixed top-0 left-0 w-full z-40 h-20 px-6 flex items-center justify-between bg-black border-b border-zinc-900 shadow-md">
-        <h1 className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl md:text-3xl font-bold tracking-wide bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap" style={headerFont}>CRAZY ART</h1>
-        <div className="ml-auto relative group z-10">
-            <div className="absolute -inset-0.5 bg-crazy-gradient rounded-full blur opacity-75 group-hover:opacity-100 animate-pulse transition duration-200"></div>
-            <button onClick={handleHeaderButtonClick} className="relative bg-black text-white px-6 py-2 rounded-full border border-zinc-800 hover:text-white transition duration-200 text-sm font-medium tracking-wide flex items-center justify-center min-w-[100px]">
-                {role === 'guest' ? 'Login' : <span className="flex items-center gap-2"><LogOut size={14} /> Sair</span>}
-            </button>
-        </div>
-      </header>
+      <div className="fixed top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
+        <div className="absolute top-[-20%] left-[20%] w-[60%] h-[60%] bg-yellow-500/5 rounded-full blur-[150px]"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-red-600/5 rounded-full blur-[150px]"></div>
+      </div>
 
-      <main className="relative z-10 flex-1 flex flex-col items-center w-full pt-20">
+      {/* Header visível apenas para Visitantes ou na Home quando não há layout sidebar */}
+      {role === 'guest' && (
+        <header className="fixed top-0 left-0 w-full z-40 h-20 px-6 flex items-center justify-between bg-black/80 backdrop-blur-md border-b border-zinc-900 shadow-md">
+          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center gap-2">
+            <Paintbrush className="text-primary hidden sm:block" size={24} />
+            <h1 className="text-2xl md:text-3xl font-bold tracking-wide bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap" style={headerFont}>
+              Crazy Art
+            </h1>
+          </div>
+          <div className="ml-auto relative group z-10">
+              <div className="absolute -inset-0.5 bg-crazy-gradient rounded-full blur opacity-75 group-hover:opacity-100 animate-pulse transition duration-200"></div>
+              <button onClick={handleHeaderButtonClick} className="relative bg-black text-white px-6 py-2 rounded-full border border-zinc-800 hover:text-white transition duration-200 text-sm font-medium tracking-wide flex items-center justify-center min-w-[100px]">
+                  Login
+              </button>
+          </div>
+        </header>
+      )}
+
+      <main className={`relative z-10 flex-1 flex flex-col items-center w-full ${role === 'guest' ? 'pt-20' : 'pt-0'}`}>
         <div className="w-full h-[60vh] md:h-[80vh] relative overflow-hidden bg-zinc-900 group shadow-2xl">
           <div className="w-full h-full flex transition-transform duration-1000 ease-in-out" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
              {carouselImages.length > 0 ? (
                 carouselImages.map((img) => (
                     <div key={img.id} className="w-full h-full flex-shrink-0 relative">
-                        <img src={img.url} alt="Banner" className="w-full h-full object-cover" />
+                        <img 
+                            src={img.url} 
+                            alt="Carousel Banner" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&q=80&w=1920';
+                            }}
+                        />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                     </div>
                 ))
              ) : (
-                <div className="w-full h-full flex-shrink-0 relative flex items-center justify-center bg-zinc-900">
-                    <div className="text-center p-12 border-4 border-dashed border-zinc-800 rounded-3xl bg-black/40 backdrop-blur-sm z-10">
-                        <h3 className="text-4xl md:text-6xl font-bold text-white" style={headerFont}>Crazy Art Studio</h3>
-                        <p className="text-zinc-500 mt-4">Nenhuma imagem carregada no carrossel</p>
+                [0, 1].map((index) => (
+                    <div key={index} className="w-full h-full flex-shrink-0 relative flex items-center justify-center bg-zinc-900">
+                        <div className="text-center p-12 border-4 border-dashed border-zinc-800 rounded-3xl bg-black/40 backdrop-blur-sm z-10">
+                            <span className="text-zinc-500 text-xl md:text-3xl font-light tracking-[0.2em] uppercase block mb-4">Em Construção</span>
+                            <h3 className="text-4xl md:text-6xl font-bold text-white" style={headerFont}>Crazy Art Studio</h3>
+                        </div>
                     </div>
-                </div>
+                 ))
              )}
           </div>
-          
+
           {carouselImages.length > 1 && (
             <>
                 <button 
-                  onClick={() => setCurrentSlide(prev => (prev - 1 + carouselImages.length) % carouselImages.length)}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/80 rounded-full transition opacity-0 group-hover:opacity-100"
+                    onClick={() => setCurrentSlide((prev) => (prev - 1 + carouselImages.length) % carouselImages.length)}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 text-white rounded-full hover:bg-black transition opacity-0 group-hover:opacity-100"
                 >
                     <ChevronLeft size={24} />
                 </button>
                 <button 
-                  onClick={() => setCurrentSlide(prev => (prev + 1) % carouselImages.length)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 hover:bg-black/80 rounded-full transition opacity-0 group-hover:opacity-100"
+                    onClick={() => setCurrentSlide((prev) => (prev + 1) % carouselImages.length)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 text-white rounded-full hover:bg-black transition opacity-0 group-hover:opacity-100"
                 >
                     <ChevronRight size={24} />
                 </button>
@@ -127,19 +166,22 @@ export default function Home() {
           )}
         </div>
 
-        <div className="flex justify-center gap-2 mt-6 mb-12">
-            {carouselImages.map((_, i) => (
-                <button
-                    key={i}
-                    onClick={() => setCurrentSlide(i)}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
-                        currentSlide === i ? 'w-8 bg-primary' : 'w-2 bg-zinc-800 hover:bg-zinc-700'
-                    }`}
-                />
-            ))}
-        </div>
+        {carouselImages.length > 0 && (
+            <div className="flex justify-center gap-2 mt-6 mb-12">
+                {carouselImages.map((_, i) => (
+                    <button
+                        key={i}
+                        onClick={() => setCurrentSlide(i)}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${
+                            currentSlide === i ? 'w-8 bg-primary' : 'w-2 bg-zinc-800 hover:bg-zinc-700'
+                        }`}
+                        aria-label={`Ir para imagem ${i + 1}`}
+                    />
+                ))}
+            </div>
+        )}
 
-        <div className="w-full max-w-6xl px-6 mb-20">
+        <div className="w-full max-w-6xl px-6 mb-20 mt-10">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {sections.map((section) => (
               <div key={section.name} onClick={() => handleSectionClick(section)} className={`relative bg-zinc-900 border border-zinc-800 p-8 rounded-xl flex flex-col items-center justify-center gap-4 group transition duration-300 shadow-lg ${section.status === 'active' ? 'cursor-pointer hover:border-primary/50 hover:bg-zinc-800' : 'opacity-50'}`}>
@@ -165,7 +207,7 @@ export default function Home() {
                  <h2 className="text-2xl font-bold text-white" style={headerFont}>{loginMode === 'client' ? 'Área do Cliente' : 'Acesso Adm'}</h2>
               </div>
               <form onSubmit={handleLogin} className="space-y-4">
-                <input type={loginMode === 'client' ? "text" : "password"} placeholder={loginMode === 'client' ? "CPF" : "Código"} className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary outline-none" value={inputValue} onChange={(e) => setInputValue(e.target.value)} autoFocus />
+                <input type={loginMode === 'client' ? "text" : "password"} placeholder={loginMode === 'client' ? "CPF" : "Código"} className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary outline-none" value={inputValue} onChange={handleInputChange} autoFocus />
                 {error && <div className="text-red-500 text-sm text-center">{error}</div>}
                 <button type="submit" className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-zinc-200 transition">Entrar</button>
               </form>

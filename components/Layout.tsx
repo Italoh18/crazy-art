@@ -18,28 +18,37 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const headerStyle = { fontFamily: '"Times New Roman", Times, serif' };
 
   const Footer = () => (
-    <footer className="bg-surface border-t border-zinc-800 py-8 px-6 mt-auto">
+    <footer className="bg-surface border-t border-zinc-800 py-10 px-6 mt-auto w-full">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
         {/* Esquerda */}
         <div className="flex flex-col text-center md:text-left">
-          <h2 className="text-xl font-bold text-white mb-1" style={headerStyle}>CRAZY ART</h2>
-          <p className="text-muted text-sm">transformando ideias em realidade</p>
+          <h2 className="text-xl font-bold text-white mb-1" style={headerStyle}>Crazy Art</h2>
+          <p className="text-muted text-sm italic">transformando ideias em realidade</p>
         </div>
         
         {/* Meio */}
         <div className="flex flex-col items-center">
-          <span className="text-white font-medium mb-3 uppercase tracking-widest text-xs">contato</span>
-          <div className="flex space-x-5">
-            <a href="https://wa.me/5516994142665" target="_blank" className="text-muted hover:text-primary transition"><MessageCircle size={22} /></a>
-            <a href="#" className="text-muted hover:text-primary transition"><Instagram size={22} /></a>
-            <a href="#" className="text-muted hover:text-primary transition"><Facebook size={22} /></a>
-            <a href="#" className="text-muted hover:text-primary transition"><Mail size={22} /></a>
+          <span className="text-white font-medium mb-4 uppercase tracking-widest text-xs opacity-50">formas de contato</span>
+          <div className="flex space-x-6">
+            <a href="https://wa.me/5516994142665" target="_blank" rel="noopener noreferrer" className="text-muted hover:text-primary transition-all hover:scale-110" title="WhatsApp">
+              <MessageCircle size={26} />
+            </a>
+            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-muted hover:text-primary transition-all hover:scale-110" title="Instagram">
+              <Instagram size={26} />
+            </a>
+            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-muted hover:text-primary transition-all hover:scale-110" title="Facebook">
+              <Facebook size={26} />
+            </a>
+            <a href="mailto:contato@crazyart.com" className="text-muted hover:text-primary transition-all hover:scale-110" title="Email">
+              <Mail size={26} />
+            </a>
           </div>
         </div>
 
         {/* Direita */}
         <div className="flex flex-col items-center md:items-end">
-          <p className="text-muted text-xs font-semibold tracking-widest uppercase">crazy art ®</p>
+          <p className="text-muted text-xs font-semibold tracking-widest uppercase">crazy art ® 2024</p>
+          <p className="text-[10px] text-zinc-600 mt-1 uppercase">todos os direitos reservados</p>
         </div>
       </div>
     </footer>
@@ -155,7 +164,10 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
               <Menu size={24} />
             </button>
             <span className="text-zinc-400 text-sm hidden sm:block">Olá, <span className="text-white font-medium">Administrador</span></span>
-            <span className="font-bold text-lg bg-clip-text text-transparent bg-crazy-gradient lg:hidden" style={headerStyle}>Crazy Art</span>
+            <div className="flex items-center gap-2 lg:hidden">
+              <Paintbrush className="text-primary" size={20} />
+              <span className="font-bold text-lg bg-clip-text text-transparent bg-crazy-gradient" style={headerStyle}>Crazy Art</span>
+            </div>
             <div className="w-8 lg:hidden"></div>
         </header>
 
