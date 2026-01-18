@@ -74,7 +74,7 @@ export default function CustomerDetails() {
 
   const handleUpdateCustomer = (e: React.FormEvent) => {
     e.preventDefault();
-    updateCustomer(customer.id, {
+    updateCustomer(customer?.id || '', {
       name: editForm.name,
       phone: editForm.phone,
       email: editForm.email,
@@ -84,7 +84,7 @@ export default function CustomerDetails() {
         number: editForm.number,
         zipCode: editForm.zipCode
       },
-      creditLimit: role === 'admin' ? parseFloat(editForm.creditLimit) : customer.creditLimit
+      creditLimit: role === 'admin' ? parseFloat(editForm.creditLimit) : customer?.creditLimit
     });
     setIsEditModalOpen(false);
   };
@@ -113,8 +113,8 @@ export default function CustomerDetails() {
     setEditingOrderId(order.id);
     setOrderForm({
         description: order.description,
-        requestDate: order.requestDate.split('T')[0],
-        dueDate: order.dueDate.split('T')[0]
+        requestDate: order.requestDate?.split('T')[0] || getToday(),
+        dueDate: order.dueDate?.split('T')[0] || getDateIn15Days()
     });
     setOrderItems(order.items || []);
     setIsOrderModalOpen(true);
@@ -122,41 +122,63 @@ export default function CustomerDetails() {
 
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    const totalValue = orderItems.reduce((sum, item) => sum + item.total, 0);
+    
+    // Cálculo do total
+    const totalValue = orderItems.reduce((sum, item) => sum + (item.total || 0), 0);
 
+    // Validações obrigatórias
+    if (!customer?.id) {
+        alert("Erro: Cliente não identificado.");
+        return;
+    }
+
+    if (totalValue <= 0) {
+        alert("Erro: O valor total do pedido deve ser maior que zero.");
+        return;
+    }
+
+    if (!orderForm.requestDate) {
+        alert("Erro: A data do pedido é obrigatória.");
+        return;
+    }
+
+    // Validação de crédito para clientes
     if (totalValue > availableCredit && role === 'client' && !editingOrderId) {
         alert(`Limite insuficiente! Seu saldo disponível é R$ ${availableCredit.toFixed(2)}`);
         return;
     }
 
-    if (orderItems.length === 0 && !orderForm.description) {
-        alert("Adicione itens ou uma descrição ao pedido.");
-        return;
-    }
-
-    // Usando nomes de campos que o novo endpoint functions/api/orders.ts aceita
-    const orderData = {
+    // Payload EXATAMENTE como esperado pelo backend conforme requisitos do prompt
+    const payload = {
       client_id: customer.id,
-      description: orderForm.description || `Pedido de ${orderItems.map(i => i.productName).join(', ')}`,
-      items: orderItems,
-      total: totalValue,
-      status: 'open',
+      description: orderForm.description || `Pedido de ${orderItems.map(i => i.productName).join(', ') || 'itens diversos'}`,
       order_date: orderForm.requestDate,
-      due_date: orderForm.dueDate
+      due_date: orderForm.dueDate,
+      total: totalValue,
+      status: "open",
+      items: orderItems // Mantendo items para garantir persistência completa
     };
 
     try {
         if (editingOrderId) {
-            await updateOrder(editingOrderId, orderData);
+            await updateOrder(editingOrderId, payload);
         } else {
-            await addOrder(orderData);
+            await addOrder(payload);
         }
+        
+        // Sucesso: Resetar UI
         setIsOrderModalOpen(false);
         setEditingOrderId(null);
         setOrderItems([]);
-        setOrderForm({ description: '', requestDate: getToday(), dueDate: getDateIn15Days() });
+        setOrderForm({ 
+            description: '', 
+            requestDate: getToday(), 
+            dueDate: getDateIn15Days() 
+        });
+        
     } catch (err) {
         console.error("Erro ao salvar pedido:", err);
+        alert("Falha ao salvar o pedido. Por favor, tente novamente.");
     }
   };
 
@@ -189,7 +211,7 @@ export default function CustomerDetails() {
     p.name.toLowerCase().includes(itemSearchTerm.toLowerCase())
   );
 
-  const totalOpen = customerOrders.filter(o => o.status === 'open').reduce((sum, o) => sum + o.totalValue, 0);
+  const totalOpen = customerOrders.filter(o => o.status === 'open').reduce((sum, o) => sum + (o.totalValue || 0), 0);
   const creditLimit = customer?.creditLimit || 50;
   const displayUsedCredit = totalOpen;
   const creditPercentage = Math.min(100, (displayUsedCredit / creditLimit) * 100);
@@ -242,7 +264,7 @@ export default function CustomerDetails() {
             
             {role === 'admin' && (
                 <button 
-                    onClick={() => deleteCustomer(customer.id)}
+                    onClick={() => deleteCustomer(customer?.id || '')}
                     className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition border border-red-500/20"
                 >
                     <Trash2 size={16} />
@@ -333,13 +355,13 @@ export default function CustomerDetails() {
                                         <div className="font-bold text-lg text-primary">#{String(order.orderNumber || 0).padStart(5, '0')}</div>
                                         <div className="text-xs text-zinc-500 truncate max-w-[200px]">{order.description}</div>
                                     </td>
-                                    <td className="px-4 py-3">{new Date(order.requestDate).toLocaleDateString()}</td>
+                                    <td className="px-4 py-3">{order.requestDate ? new Date(order.requestDate).toLocaleDateString() : '-'}</td>
                                     <td className="px-4 py-3">
                                         <span className={isOverdue(order) ? 'text-red-500 font-bold' : ''}>
-                                            {new Date(order.dueDate).toLocaleDateString()}
+                                            {order.dueDate ? new Date(order.dueDate).toLocaleDateString() : '-'}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-3 font-semibold text-white">R$ {order.totalValue.toFixed(2)}</td>
+                                    <td className="px-4 py-3 font-semibold text-white">R$ {(order.totalValue || 0).toFixed(2)}</td>
                                     <td className="px-4 py-3 text-right space-x-2">
                                         {order.status === 'open' && (
                                             <button onClick={() => openEditOrder(order)} className="text-zinc-400 p-1.5 bg-zinc-800 rounded hover:bg-zinc-700 hover:text-white" title="Editar Pedido">
@@ -388,7 +410,7 @@ export default function CustomerDetails() {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-zinc-400 mb-1">Data do Pedido</label>
-                            <input type="date" value={orderForm.requestDate} readOnly className="w-full bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-2 text-zinc-500 cursor-not-allowed" />
+                            <input type="date" value={orderForm.requestDate} className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none focus:border-primary" onChange={e => setOrderForm({...orderForm, requestDate: e.target.value})} />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-zinc-400 mb-1">Data de Vencimento/Entrega</label>
@@ -434,7 +456,7 @@ export default function CustomerDetails() {
                                                         {p.type === 'service' ? <Wrench size={16} className="text-secondary" /> : <Package size={16} className="text-primary" />}
                                                         <span className="text-white font-medium">{p.name}</span>
                                                     </div>
-                                                    <span className="text-emerald-500 font-bold text-xs">R$ {p.price.toFixed(2)}</span>
+                                                    <span className="text-emerald-500 font-bold text-xs">R$ {(p.price || 0).toFixed(2)}</span>
                                                 </button>
                                             ))}
                                             
@@ -487,10 +509,10 @@ export default function CustomerDetails() {
                                 <div key={idx} className="flex justify-between items-center bg-zinc-900 p-3 rounded-xl border border-zinc-800">
                                     <div>
                                         <p className="text-white font-medium">{item.productName}</p>
-                                        <p className="text-xs text-zinc-500">{item.quantity}x R$ {item.unitPrice.toFixed(2)}</p>
+                                        <p className="text-xs text-zinc-500">{item.quantity}x R$ {(item.unitPrice || 0).toFixed(2)}</p>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <span className="text-primary font-bold">R$ {item.total.toFixed(2)}</span>
+                                        <span className="text-primary font-bold">R$ {(item.total || 0).toFixed(2)}</span>
                                         <button type="button" onClick={() => handleRemoveItem(idx)} className="text-red-500 hover:bg-red-500/10 p-1.5 rounded-full transition"><Trash2 size={16} /></button>
                                     </div>
                                 </div>
@@ -501,7 +523,7 @@ export default function CustomerDetails() {
                     <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div className="text-center sm:text-left">
                             <p className="text-zinc-500 text-xs uppercase tracking-widest font-bold">Valor Total do Pedido</p>
-                            <p className="text-3xl font-bold text-white">R$ {orderItems.reduce((sum, i) => sum + i.total, 0).toFixed(2)}</p>
+                            <p className="text-3xl font-bold text-white">R$ {orderItems.reduce((sum, i) => sum + (i.total || 0), 0).toFixed(2)}</p>
                         </div>
                         <button 
                             type="submit" 
