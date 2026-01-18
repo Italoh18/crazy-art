@@ -38,7 +38,7 @@ export const api = {
   },
 
   async getClients() {
-    const res = await fetch('/api/clients', { headers: getHeaders() });
+    const res = await fetch(`/api/clients?_t=${Date.now()}`, { headers: getHeaders() });
     return handleResponse(res);
   },
   async createClient(data: any) {
@@ -56,14 +56,12 @@ export const api = {
 
   // Catálogo (Produtos e Serviços)
   async getProducts(type?: 'product' | 'service', search?: string) {
-    let url = '/api/catalog';
     const params = new URLSearchParams();
     if (type) params.append('type', type);
     if (search) params.append('search', search);
+    params.append('_t', Date.now().toString()); // Cache buster
     
-    const queryString = params.toString();
-    if (queryString) url += `?${queryString}`;
-
+    const url = `/api/catalog?${params.toString()}`;
     const res = await fetch(url, { headers: getHeaders() });
     return handleResponse(res);
   },
@@ -77,7 +75,11 @@ export const api = {
   },
 
   async getOrders(customerId?: string) {
-    const url = customerId ? `/api/orders?clientId=${encodeURIComponent(customerId)}` : '/api/orders';
+    const params = new URLSearchParams();
+    if (customerId) params.append('clientId', customerId);
+    params.append('_t', Date.now().toString());
+    
+    const url = `/api/orders?${params.toString()}`;
     const res = await fetch(url, { headers: getHeaders() });
     return handleResponse(res);
   },
@@ -91,7 +93,7 @@ export const api = {
   },
 
   async getCarousel() {
-    const res = await fetch('/api/carousel');
+    const res = await fetch(`/api/carousel?_t=${Date.now()}`);
     return handleResponse(res);
   },
   async addCarouselImage(url: string) {

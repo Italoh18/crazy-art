@@ -29,15 +29,24 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
       const stmt = env.DB.prepare(query);
       const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
-      return Response.json(results || []);
+      
+      // Retornamos com headers que PROÍBEM o cache
+      return new Response(JSON.stringify(results || []), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
     }
 
-    // POST - Cadastro (Respeitando a ordem e campos solicitados)
+    // POST - Cadastro
     if (request.method === 'POST') {
       if (!user || user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
 
       const body = await request.json() as any;
-      const newId = crypto.randomUUID(); // Garantimos o ID aqui para viabilizar o DELETE futuro
+      const newId = crypto.randomUUID();
 
       const itemType = String(body.type || 'product');
       const name = String(body.name || '').trim();
@@ -48,7 +57,6 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
       if (!name) return new Response(JSON.stringify({ error: 'O nome é obrigatório' }), { status: 400 });
 
-      // Inserimos incluindo o ID gerado pelo código para evitar registros órfãos sem chave primária
       await env.DB.prepare(
         'INSERT INTO catalog (id, type, name, price, cost_price, image_url, description) VALUES (?, ?, ?, ?, ?, ?, ?)'
       ).bind(
@@ -72,11 +80,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
       const result = await env.DB.prepare('DELETE FROM catalog WHERE id = ?').bind(String(id)).run();
       
-      if (result.success) {
-        return Response.json({ success: true });
-      } else {
-        return new Response(JSON.stringify({ error: 'Falha ao excluir item' }), { status: 500 });
-      }
+      return Response.json({ success: result.success });
     }
 
     return new Response(JSON.stringify({ error: 'Método não permitido' }), { status: 405 });

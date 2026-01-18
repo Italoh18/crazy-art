@@ -102,10 +102,15 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const deleteCustomer = async (id: string) => {
     try {
       if (confirm("Deseja realmente excluir este cliente? Esta ação não pode ser desfeita.")) {
+        // Atualização Otimista
+        setCustomers(prev => prev.filter(c => c.id !== id));
         await api.deleteClient(id);
         await loadData();
       }
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) { 
+      await loadData(); // Reverte se falhar
+      alert(e.message); 
+    }
   };
 
   const addProduct = async (data: any) => {
@@ -122,10 +127,19 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const deleteProduct = async (id: string) => {
     try {
       if (confirm("Deseja realmente excluir este item do catálogo?")) {
+        // ATUALIZAÇÃO OTIMISTA: Removemos da tela ANTES mesmo da API responder
+        setProducts(prev => prev.filter(p => p.id !== id));
+        
         await api.deleteProduct(id);
+        
+        // Carrega dados novos para garantir sincronia
         await loadData();
       }
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) { 
+      // Se der erro, recarregamos tudo para o item "voltar" para a tela
+      await loadData();
+      alert("Erro ao excluir: " + e.message); 
+    }
   };
 
   const addOrder = async (data: any) => {
@@ -163,10 +177,14 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const deleteCarouselImage = async (id: string) => {
     try {
       if (confirm("Deseja remover esta imagem do carrossel?")) {
+        setCarouselImages(prev => prev.filter(img => img.id !== id));
         await api.deleteCarouselImage(id);
         await loadData();
       }
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) { 
+      await loadData();
+      alert(e.message); 
+    }
   };
 
   return (
