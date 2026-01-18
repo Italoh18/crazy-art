@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useNavigate } from 'react-router-dom';
-import { X, User, Lock, ShoppingBag, BookOpen, Tv, LogOut, ChevronLeft, ChevronRight, Paintbrush } from 'lucide-react';
+import { X, User, Lock, ShoppingBag, BookOpen, Tv, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -101,13 +101,11 @@ export default function Home() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-red-600/5 rounded-full blur-[150px]"></div>
       </div>
 
-      {/* Header visível apenas para Visitantes ou na Home quando não há layout sidebar */}
       {role === 'guest' && (
         <header className="fixed top-0 left-0 w-full z-40 h-20 px-6 flex items-center justify-between bg-black/80 backdrop-blur-md border-b border-zinc-900 shadow-md">
-          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center gap-2">
-            <Paintbrush className="text-primary hidden sm:block" size={24} />
-            <h1 className="text-2xl md:text-3xl font-bold tracking-wide bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap" style={headerFont}>
-              Crazy Art
+          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+            <h1 className="text-2xl md:text-4xl font-bold tracking-[0.1em] bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap uppercase" style={headerFont}>
+              CRAZY ART
             </h1>
           </div>
           <div className="ml-auto relative group z-10">
@@ -141,7 +139,7 @@ export default function Home() {
                     <div key={index} className="w-full h-full flex-shrink-0 relative flex items-center justify-center bg-zinc-900">
                         <div className="text-center p-12 border-4 border-dashed border-zinc-800 rounded-3xl bg-black/40 backdrop-blur-sm z-10">
                             <span className="text-zinc-500 text-xl md:text-3xl font-light tracking-[0.2em] uppercase block mb-4">Em Construção</span>
-                            <h3 className="text-4xl md:text-6xl font-bold text-white" style={headerFont}>Crazy Art Studio</h3>
+                            <h3 className="text-4xl md:text-6xl font-bold text-white uppercase" style={headerFont}>CRAZY ART STUDIO</h3>
                         </div>
                     </div>
                  ))
@@ -186,7 +184,7 @@ export default function Home() {
             {sections.map((section) => (
               <div key={section.name} onClick={() => handleSectionClick(section)} className={`relative bg-zinc-900 border border-zinc-800 p-8 rounded-xl flex flex-col items-center justify-center gap-4 group transition duration-300 shadow-lg ${section.status === 'active' ? 'cursor-pointer hover:border-primary/50 hover:bg-zinc-800' : 'opacity-50'}`}>
                 <div className="p-4 rounded-full bg-primary/10 text-primary group-hover:scale-110 transition duration-300"><section.icon size={32} /></div>
-                <span className="text-lg font-medium text-white" style={headerFont}>{section.name}</span>
+                <span className="text-lg font-medium text-white uppercase" style={headerFont}>{section.name}</span>
                 {section.status === 'soon' && (
                     <span className="absolute top-2 right-2 text-[10px] bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded font-bold uppercase tracking-widest">Em Breve</span>
                 )}
@@ -204,7 +202,7 @@ export default function Home() {
                  <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mb-4 ring-1 ring-zinc-800">
                     {loginMode === 'client' ? <User className="text-primary" size={32} /> : <Lock className="text-secondary" size={32} />}
                  </div>
-                 <h2 className="text-2xl font-bold text-white" style={headerFont}>{loginMode === 'client' ? 'Área do Cliente' : 'Acesso Adm'}</h2>
+                 <h2 className="text-2xl font-bold text-white uppercase" style={headerFont}>{loginMode === 'client' ? 'Área do Cliente' : 'Acesso Adm'}</h2>
               </div>
               <form onSubmit={handleLogin} className="space-y-4">
                 <input type={loginMode === 'client' ? "text" : "password"} placeholder={loginMode === 'client' ? "CPF" : "Código"} className="w-full bg-black border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary outline-none" value={inputValue} onChange={handleInputChange} autoFocus />

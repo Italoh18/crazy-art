@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, Paintbrush, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export const Layout = ({ children }: { children?: React.ReactNode }) => {
@@ -15,14 +15,14 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     navigate('/');
   };
 
-  const headerStyle = { fontFamily: '"Times New Roman", Times, serif' };
+  const headerStyle = { fontFamily: '"Times New Roman", Times, serif', letterSpacing: '0.05em' };
 
   const Footer = () => (
     <footer className="bg-surface border-t border-zinc-800 py-10 px-6 mt-auto w-full">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
         {/* Esquerda */}
         <div className="flex flex-col text-center md:text-left">
-          <h2 className="text-xl font-bold text-white mb-1" style={headerStyle}>Crazy Art</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-white mb-1 uppercase" style={headerStyle}>CRAZY ART</h2>
           <p className="text-muted text-sm italic">transformando ideias em realidade</p>
         </div>
         
@@ -47,7 +47,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
         {/* Direita */}
         <div className="flex flex-col items-center md:items-end">
-          <p className="text-muted text-xs font-semibold tracking-widest uppercase">crazy art ® 2024</p>
+          <p className="text-muted text-xs font-semibold tracking-widest uppercase">CRAZY ART ® 2024</p>
           <p className="text-[10px] text-zinc-600 mt-1 uppercase">todos os direitos reservados</p>
         </div>
       </div>
@@ -84,9 +84,8 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                      <Link to="/" className="text-zinc-400 hover:text-white transition p-2 hover:bg-zinc-800 rounded-full">
                         <ArrowLeft size={20} />
                      </Link>
-                     <div className="flex items-center space-x-2">
-                        <Paintbrush className="text-primary" size={24} />
-                        <span className="font-bold text-lg bg-clip-text text-transparent bg-crazy-gradient hidden sm:block" style={headerStyle}>Crazy Art</span>
+                     <div className="flex items-center">
+                        <span className="font-bold text-xl bg-clip-text text-transparent bg-crazy-gradient hidden sm:block uppercase" style={headerStyle}>CRAZY ART</span>
                      </div>
                 </div>
                 <div className="flex items-center space-x-4">
@@ -120,9 +119,9 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="flex items-center justify-between h-16 px-6 border-b border-zinc-800">
-          <div className="flex items-center space-x-2">
-             <span className="text-xl font-bold bg-clip-text text-transparent bg-crazy-gradient" style={headerStyle}>Crazy Art</span>
-             <span className="text-xs text-zinc-500 uppercase tracking-widest bg-zinc-800 px-1 rounded">ADM</span>
+          <div className="flex items-center">
+             <span className="text-xl font-bold bg-clip-text text-transparent bg-crazy-gradient uppercase" style={headerStyle}>CRAZY ART</span>
+             <span className="ml-2 text-[10px] text-zinc-500 uppercase tracking-widest bg-zinc-800 px-1 rounded">ADM</span>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-zinc-400 hover:text-white">
             <X size={24} />
@@ -164,9 +163,8 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
               <Menu size={24} />
             </button>
             <span className="text-zinc-400 text-sm hidden sm:block">Olá, <span className="text-white font-medium">Administrador</span></span>
-            <div className="flex items-center gap-2 lg:hidden">
-              <Paintbrush className="text-primary" size={20} />
-              <span className="font-bold text-lg bg-clip-text text-transparent bg-crazy-gradient" style={headerStyle}>Crazy Art</span>
+            <div className="flex items-center lg:hidden">
+              <span className="font-bold text-xl bg-clip-text text-transparent bg-crazy-gradient uppercase" style={headerStyle}>CRAZY ART</span>
             </div>
             <div className="w-8 lg:hidden"></div>
         </header>
