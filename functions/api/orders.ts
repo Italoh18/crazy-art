@@ -8,65 +8,91 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
-    const customerId = url.searchParams.get('customerId');
+    const clientIdParam = url.searchParams.get('clientId');
 
+    // GET /api/orders?clientId=...
     if (request.method === 'GET') {
       let query = 'SELECT * FROM orders';
       let params: any[] = [];
-      if (customerId) {
-          query += ' WHERE customerId = ?';
-          params.push(customerId);
+      
+      if (clientIdParam) {
+        query += ' WHERE customerId = ?';
+        params.push(clientIdParam);
       }
+      
+      query += ' ORDER BY created_at DESC';
+      
       const { results } = await env.DB.prepare(query).bind(...params).all();
-      const orders = (results || []).map((o: any) => ({ ...o, items: JSON.parse(o.items || '[]') }));
+      const orders = (results || []).map((o: any) => ({
+        ...o,
+        items: JSON.parse(o.items || '[]')
+      }));
+      
       return Response.json(orders);
     }
 
+    // POST /api/orders
     if (request.method === 'POST') {
-      const o = await request.json() as any;
-      const newId = crypto.randomUUID();
+      const body = await request.json() as any;
       
-      // Busca segura do próximo número do pedido
-      const { results } = await env.DB.prepare('SELECT MAX(orderNumber) as maxNum FROM orders').all();
-      const orderNumber = (Number(results[0]?.maxNum) || 0) + 1;
+      // Normalização e extração segura de dados conforme requisitos
+      const client_id = String(body.client_id || body.customerId || '').trim();
+      const description = String(body.description || '').trim();
+      const order_date = body.order_date || body.requestDate || new Date().toISOString();
+      const due_date = body.due_date || body.dueDate || order_date;
+      const total = parseFloat(String(body.total || body.totalValue || '0')) || 0;
+      const status = String(body.status || 'open').trim();
+      const items = body.items || [];
       
-      const totalValue = parseFloat(String(o.totalValue || '0').replace(',', '.')) || 0;
-      const requestDate = o.requestDate || new Date().toISOString();
-      const dueDate = o.dueDate || requestDate;
+      if (!client_id) {
+        return new Response(JSON.stringify({ error: 'client_id é obrigatório' }), { status: 400 });
+      }
 
-      await env.DB.prepare('INSERT INTO orders (id, orderNumber, customerId, description, totalValue, requestDate, dueDate, status, items) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(
-          newId, 
-          orderNumber, 
-          o.customerId || '', 
-          String(o.description || '').trim(), 
-          totalValue, 
-          requestDate, 
-          dueDate, 
-          o.status || 'open', 
-          JSON.stringify(o.items || [])
-        )
-        .run();
+      const newId = crypto.randomUUID();
+      const created_at = new Date().toISOString();
       
-      return Response.json({ id: newId, orderNumber, totalValue, description: o.description, items: o.items });
+      // Obter próximo número do pedido
+      const { results: maxResults } = await env.DB.prepare('SELECT MAX(orderNumber) as maxNum FROM orders').all();
+      const orderNumber = (Number((maxResults as any)[0]?.maxNum) || 0) + 1;
+
+      // Bind normalizado: string, number ou null
+      const params = [
+        newId,
+        orderNumber,
+        client_id,
+        description,
+        total,
+        order_date,
+        due_date,
+        status,
+        JSON.stringify(items),
+        created_at
+      ];
+
+      await env.DB.prepare(
+        'INSERT INTO orders (id, orderNumber, customerId, description, totalValue, requestDate, dueDate, status, items, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(...params).run();
+
+      return Response.json({ success: true, id: newId, orderNumber });
     }
 
+    // PUT para atualização (Status ou Dados)
     if (request.method === 'PUT' && id) {
       const body = await request.json() as any;
       if (body.status) {
-          await env.DB.prepare('UPDATE orders SET status = ? WHERE id = ?').bind(body.status, id).run();
+        await env.DB.prepare('UPDATE orders SET status = ? WHERE id = ?').bind(body.status, id).run();
       } else {
-          const totalValue = parseFloat(String(body.totalValue || '0').replace(',', '.')) || 0;
-          await env.DB.prepare('UPDATE orders SET description=?, totalValue=?, requestDate=?, dueDate=?, items=? WHERE id=?')
-            .bind(
-              String(body.description || '').trim(), 
-              totalValue, 
-              body.requestDate, 
-              body.dueDate, 
-              JSON.stringify(body.items || []), 
-              id
-            )
-            .run();
+        const total = parseFloat(String(body.total || body.totalValue || '0')) || 0;
+        await env.DB.prepare(
+          'UPDATE orders SET description=?, totalValue=?, requestDate=?, dueDate=?, items=? WHERE id=?'
+        ).bind(
+          String(body.description || '').trim(),
+          total,
+          body.order_date || body.requestDate,
+          body.due_date || body.dueDate,
+          JSON.stringify(body.items || []),
+          id
+        ).run();
       }
       return Response.json({ success: true });
     }

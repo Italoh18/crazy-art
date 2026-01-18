@@ -20,7 +20,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const p = await request.json() as any;
       const newId = crypto.randomUUID();
       
-      // Sanitização rigorosa para evitar NaN que causa Erro 500 no D1
+      // Sanitização para evitar NaN no D1
       const price = parseFloat(String(p.price || '0').replace(',', '.')) || 0;
       const costPrice = (p.costPrice !== undefined && p.costPrice !== null && p.costPrice !== "") 
         ? parseFloat(String(p.costPrice).replace(',', '.')) || 0 

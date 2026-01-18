@@ -134,14 +134,15 @@ export default function CustomerDetails() {
         return;
     }
 
+    // Usando nomes de campos que o novo endpoint functions/api/orders.ts aceita
     const orderData = {
-      customerId: customer.id,
+      client_id: customer.id,
       description: orderForm.description || `Pedido de ${orderItems.map(i => i.productName).join(', ')}`,
       items: orderItems,
-      totalValue: totalValue,
-      status: 'open' as const,
-      requestDate: orderForm.requestDate,
-      dueDate: orderForm.dueDate
+      total: totalValue,
+      status: 'open',
+      order_date: orderForm.requestDate,
+      due_date: orderForm.dueDate
     };
 
     try {
@@ -155,7 +156,7 @@ export default function CustomerDetails() {
         setOrderItems([]);
         setOrderForm({ description: '', requestDate: getToday(), dueDate: getDateIn15Days() });
     } catch (err) {
-        console.error(err);
+        console.error("Erro ao salvar pedido:", err);
     }
   };
 
@@ -169,23 +170,18 @@ export default function CustomerDetails() {
       try {
           const res = await addProduct({
               name: quickRegData.name,
-              price: parseFloat(quickRegData.price) || 0,
+              price: parseFloat(quickRegData.price.replace(',', '.')) || 0,
               type: quickRegData.type,
-              description: `Cadastrado rapidamente via pedido de ${customer?.name}`
+              description: `Cadastrado via pedido de ${customer?.name}`
           });
           
-          // Se o cadastro retornar o objeto do servidor, usamos ele
-          const productObj = res ? res : {
-              id: Date.now().toString(),
-              name: quickRegData.name,
-              price: parseFloat(quickRegData.price) || 0,
-              type: quickRegData.type
-          };
-
-          handleAddItem(productObj);
+          if (res) {
+              handleAddItem(res);
+          }
           setIsQuickRegOpen(false);
       } catch (err) {
-          console.error(err);
+          console.error("Erro no cadastro rápido:", err);
+          alert("Verifique os valores. Preço deve ser um número.");
       }
   };
 
@@ -519,11 +515,11 @@ export default function CustomerDetails() {
         </div>
       )}
 
-      {/* QUICK REGISTER MODAL (FLOATING) */}
+      {/* QUICK REGISTER MODAL (FLOATING WINDOW) */}
       {isQuickRegOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md p-4">
-              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in duration-200">
-                  <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-md p-4 animate-in fade-in duration-200">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden scale-in-center">
+                  <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
                       <h3 className="text-lg font-bold text-white flex items-center gap-2">
                           {quickRegData.type === 'service' ? <Wrench className="text-secondary" size={18} /> : <Package className="text-primary" size={18} />}
                           Cadastro Rápido
@@ -547,8 +543,7 @@ export default function CustomerDetails() {
                       <div>
                           <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">Preço de Venda (R$)</label>
                           <input 
-                              type="number" 
-                              step="0.01"
+                              type="text" 
                               required
                               placeholder="0,00"
                               className="w-full bg-black/50 border border-zinc-800 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition"
@@ -561,7 +556,7 @@ export default function CustomerDetails() {
                             type="submit"
                             className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-zinc-200 transition"
                           >
-                              Salvar e Adicionar ao Pedido
+                              Salvar e Adicionar
                           </button>
                           <button 
                             type="button"
