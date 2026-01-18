@@ -42,17 +42,30 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
       const name = String(body.name || '').trim();
       const price = parseFloat(String(body.price || '0').replace(',', '.')) || 0;
-      const cost_price = body.cost_price || body.costPrice ? parseFloat(String(body.cost_price || body.costPrice).replace(',', '.')) || 0 : 0;
+      
+      // Proteção total contra undefined e tipos errados
+      const rawCost = body.cost_price || body.costPrice || '0';
+      const cost_price = parseFloat(String(rawCost).replace(',', '.')) || 0;
+      
       const description = body.description ? String(body.description).trim() : null;
       const itemType = (body.type === 'service' ? 'service' : 'product');
       const imageUrl = body.imageUrl ? String(body.imageUrl).trim() : null;
 
       if (!name) return new Response(JSON.stringify({ error: 'O nome é obrigatório' }), { status: 400 });
 
-      // 8 campos -> 8 placeholders (Uso de cost_price conforme solicitado)
-      await env.DB.prepare(
-        'INSERT INTO catalog (id, name, price, cost_price, description, type, imageUrl, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-      ).bind(newId, name, price, cost_price, description, itemType, imageUrl, now).run();
+      // 8 campos -> 8 placeholders
+      try {
+        await env.DB.prepare(
+          'INSERT INTO catalog (id, name, price, cost_price, description, type, imageUrl, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(newId, name, price, cost_price, description, itemType, imageUrl, now).run();
+      } catch (sqlError: any) {
+        if (sqlError.message.includes('no column named cost_price')) {
+           return new Response(JSON.stringify({ 
+             error: "Erro de Banco: A coluna 'cost_price' não existe. Por favor, execute o script migrations.sql no seu console do Cloudflare." 
+           }), { status: 500 });
+        }
+        throw sqlError;
+      }
 
       return Response.json({ success: true, id: newId });
     }
