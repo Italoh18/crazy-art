@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
   <head>
@@ -28,6 +29,22 @@
             },
             backgroundImage: {
               'crazy-gradient': 'linear-gradient(to right, #F59E0B, #DC2626)',
+              'crazy-gradient-hover': 'linear-gradient(to right, #D97706, #B91C1C)',
+            },
+            animation: {
+              'fade-in-up': 'fadeInUp 0.5s ease-out forwards',
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'float': 'float 6s ease-in-out infinite',
+            },
+            keyframes: {
+              fadeInUp: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
+              }
             }
           }
         }
@@ -40,6 +57,13 @@
       ::-webkit-scrollbar-track { background: #18181b; }
       ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
       ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+      
+      .glass {
+        background: rgba(24, 24, 27, 0.7);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
     </style>
   <script type="importmap">
 {

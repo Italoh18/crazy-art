@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Edit2, CheckCircle, Plus, MapPin, Phone, Mail, CreditCard, Trash2, ShoppingCart, X, Search, Package, Wrench, FileEdit, Minus, Plus as PlusIcon } from 'lucide-react';
+import { ArrowLeft, Edit2, CheckCircle, Plus, MapPin, Phone, Mail, CreditCard, Trash2, ShoppingCart, X, Search, Package, Wrench, FileEdit, Minus, Plus as PlusIcon, AlertTriangle, Wallet, TrendingUp } from 'lucide-react';
 import { Order, Product, ItemType, OrderItem } from '../types';
 import { api } from '../src/services/api';
 
@@ -150,6 +149,28 @@ export default function CustomerDetails() {
     }
   };
 
+  const handleUpdateCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customer) return;
+
+    try {
+      await updateCustomer(customer.id, {
+        name: editForm.name,
+        phone: editForm.phone,
+        email: editForm.email,
+        address: {
+          street: editForm.street,
+          number: editForm.number,
+          zipCode: editForm.zipCode
+        },
+        creditLimit: parseFloat(editForm.creditLimit) || customer.creditLimit
+      });
+      setIsEditModalOpen(false);
+    } catch (err: any) {
+      alert("Erro ao atualizar cliente: " + err.message);
+    }
+  };
+
   const openOrderEdit = async (order: Order) => {
       try {
           const res = await fetch(`/api/orders?id=${order.id}`, {
@@ -190,15 +211,19 @@ export default function CustomerDetails() {
       setOrderForm({ description: '', order_date: getToday(), due_date: getDateIn15Days(), status: 'open' });
   };
 
-  const totalOpen = customerOrders.filter(o => o.status === 'open').reduce((sum, o) => sum + (o.total || 0), 0);
-  const creditLimit = customer?.creditLimit || 50;
-  const availableCredit = creditLimit - totalOpen;
-  const creditPercentage = Math.min(100, (totalOpen / creditLimit) * 100);
-
   const isOverdue = (order: Order) => {
       if (!order.due_date || order.status !== 'open') return false;
       return new Date(order.due_date) < new Date();
   };
+
+  // Calculations for Dashboard
+  const totalOpen = customerOrders.filter(o => o.status === 'open').reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalOverdue = customerOrders.filter(o => o.status === 'open' && isOverdue(o)).reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalPaid = customerOrders.filter(o => o.status === 'paid').reduce((sum, o) => sum + (o.total || 0), 0);
+
+  const creditLimit = customer?.creditLimit || 50;
+  const availableCredit = creditLimit - totalOpen;
+  const creditPercentage = Math.min(100, (totalOpen / creditLimit) * 100);
 
   const filteredOrders = customerOrders.filter(o => {
       if (activeTab === 'overdue') return isOverdue(o);
@@ -218,9 +243,11 @@ export default function CustomerDetails() {
             <h1 className="text-2xl font-bold text-white">{customer?.name}</h1>
         </div>
         <div className="flex items-center gap-2">
-            <button onClick={() => setIsOrderModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500 to-red-600 text-white rounded-lg transition text-sm font-medium">
-                <Plus size={16} /> Novo Pedido
-            </button>
+            {role === 'admin' && (
+                <button onClick={() => setIsOrderModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500 to-red-600 text-white rounded-lg transition text-sm font-medium">
+                    <Plus size={16} /> Novo Pedido
+                </button>
+            )}
             <button onClick={() => setIsEditModalOpen(true)} className="px-4 py-2 bg-zinc-800 text-zinc-300 rounded-lg transition text-sm font-medium">
                 <Edit2 size={16} className="inline mr-2"/> {role === 'admin' ? 'Editar' : 'Perfil'}
             </button>
@@ -230,6 +257,49 @@ export default function CustomerDetails() {
                 </button>
             )}
         </div>
+      </div>
+
+      {/* DASHBOARD FINANCEIRO */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Card: Total Devendo (Em Aberto) */}
+          <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl relative overflow-hidden group hover:border-amber-500/30 transition-all">
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><Wallet size={64} /></div>
+              <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-1">Total em Aberto</p>
+              <div className="flex items-baseline gap-1">
+                  <p className={`text-3xl font-bold ${totalOpen > 0 ? 'text-white' : 'text-zinc-600'}`}>
+                      R$ {totalOpen.toFixed(2)}
+                  </p>
+              </div>
+              <p className="text-[10px] text-zinc-500 mt-2">Soma de todos pedidos pendentes</p>
+          </div>
+
+          {/* Card: Vencido (Atrasado) */}
+          <div className={`bg-zinc-900 border p-6 rounded-2xl relative overflow-hidden group transition-all ${totalOverdue > 0 ? 'border-red-500/50 bg-red-500/5' : 'border-zinc-800'}`}>
+               <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity ${totalOverdue > 0 ? 'text-red-500' : 'text-zinc-500'}`}><AlertTriangle size={64} /></div>
+              <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${totalOverdue > 0 ? 'text-red-400' : 'text-zinc-400'}`}>
+                  Valor Vencido
+              </p>
+              <div className="flex items-baseline gap-1">
+                  <p className={`text-3xl font-bold ${totalOverdue > 0 ? 'text-red-500' : 'text-zinc-600'}`}>
+                      R$ {totalOverdue.toFixed(2)}
+                  </p>
+              </div>
+               <p className="text-[10px] text-zinc-500 mt-2">
+                  {totalOverdue > 0 ? 'Pagamentos fora do prazo' : 'Nenhuma pendência vencida'}
+              </p>
+          </div>
+
+           {/* Card: Total Gasto (Histórico) */}
+           <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl relative overflow-hidden group hover:border-emerald-500/30 transition-all">
+              <div className="absolute top-0 right-0 p-4 opacity-10 text-emerald-500 group-hover:opacity-20 transition-opacity"><TrendingUp size={64} /></div>
+              <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-1">Total Já Gasto</p>
+              <div className="flex items-baseline gap-1">
+                  <p className="text-3xl font-bold text-emerald-400">
+                      R$ {totalPaid.toFixed(2)}
+                  </p>
+              </div>
+              <p className="text-[10px] text-zinc-500 mt-2">Histórico de pedidos pagos</p>
+          </div>
       </div>
 
       <div className="bg-surface border border-zinc-800 rounded-xl p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -242,12 +312,12 @@ export default function CustomerDetails() {
 
       <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl">
           <div className="flex justify-between items-end mb-2">
-              <div><h3 className="text-white font-bold flex items-center gap-2"><CreditCard size={18} /> Crédito</h3>
-              <p className="text-sm text-zinc-500">Disponível: <span className="text-emerald-500 font-bold">R$ {availableCredit.toFixed(2)}</span></p></div>
+              <div><h3 className="text-white font-bold flex items-center gap-2"><CreditCard size={18} /> Limite de Crédito</h3>
+              <p className="text-sm text-zinc-500 mt-1">Disponível para compras: <span className="text-emerald-500 font-bold">R$ {availableCredit.toFixed(2)}</span></p></div>
               <span className="text-xs text-zinc-500">Usado: R$ {totalOpen.toFixed(2)} / R$ {creditLimit.toFixed(2)}</span>
           </div>
           <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-              <div className="h-full bg-primary transition-all" style={{ width: `${creditPercentage}%` }}></div>
+              <div className={`h-full transition-all ${creditPercentage > 90 ? 'bg-red-500' : 'bg-primary'}`} style={{ width: `${creditPercentage}%` }}></div>
           </div>
       </div>
 
@@ -396,8 +466,8 @@ export default function CustomerDetails() {
                             {orderItems.map((item, idx) => (
                                 <div key={idx} className="flex justify-between items-center bg-zinc-900/50 p-3 rounded-xl border border-zinc-800">
                                     <div className="flex-1">
-                                        <p className="text-white font-medium text-sm">{item.productName || item.description}</p>
-                                        <p className="text-xs text-zinc-500">{item.quantity}x R$ {Number(item.unitPrice || item.unit_price || 0).toFixed(2)}</p>
+                                        <p className="text-white font-medium text-sm">{item.productName}</p>
+                                        <p className="text-xs text-zinc-500">{item.quantity}x R$ {Number(item.unitPrice || 0).toFixed(2)}</p>
                                     </div>
                                     <div className="flex items-center gap-4">
                                         <span className="text-primary font-bold text-sm">R$ {Number(item.total).toFixed(2)}</span>
@@ -452,6 +522,59 @@ export default function CustomerDetails() {
                   </form>
               </div>
           </div>
+      )}
+
+      {/* Modal de Edição de Cliente */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
+            <div className="bg-surface border border-zinc-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center p-6 border-b border-zinc-800 sticky top-0 bg-surface">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <Edit2 className="text-primary" /> 
+                        Editar Dados
+                    </h2>
+                    <button onClick={() => setIsEditModalOpen(false)} className="text-zinc-500 hover:text-white"><X size={24} /></button>
+                </div>
+                <form onSubmit={handleUpdateCustomer} className="p-6 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="col-span-full">
+                            <label className="block text-sm font-medium text-zinc-400 mb-1">Nome</label>
+                            <input type="text" className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-zinc-400 mb-1">Telefone</label>
+                            <input type="text" className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none" value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-zinc-400 mb-1">Email</label>
+                            <input type="email" className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none" value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-zinc-400 mb-1">Rua</label>
+                            <input type="text" className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none" value={editForm.street} onChange={e => setEditForm({...editForm, street: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-zinc-400 mb-1">Número</label>
+                            <input type="text" className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none" value={editForm.number} onChange={e => setEditForm({...editForm, number: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-zinc-400 mb-1">CEP</label>
+                            <input type="text" className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none" value={editForm.zipCode} onChange={e => setEditForm({...editForm, zipCode: e.target.value})} />
+                        </div>
+                        {role === 'admin' && (
+                            <div className="col-span-full">
+                                <label className="block text-sm font-medium text-zinc-400 mb-1">Limite de Crédito</label>
+                                <input type="number" className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-2 text-white outline-none" value={editForm.creditLimit} onChange={e => setEditForm({...editForm, creditLimit: e.target.value})} />
+                            </div>
+                        )}
+                    </div>
+                    <div className="pt-4 flex justify-end gap-2">
+                        <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-zinc-400 hover:text-white">Cancelar</button>
+                        <button type="submit" className="bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-amber-600 transition">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
       )}
     </div>
   );

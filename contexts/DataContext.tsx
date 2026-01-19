@@ -126,15 +126,15 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   const deleteProduct = async (id: string) => {
+    if (!confirm("Deseja realmente excluir este item do catálogo?")) return;
+    
     try {
-      if (confirm("Deseja realmente excluir este item do catálogo?")) {
-        setProducts(prev => prev.filter(p => p.id !== id));
-        await api.deleteProduct(id);
-        await loadData();
-      }
+      setProducts(prev => prev.filter(p => p.id !== id));
+      await api.deleteProduct(id);
+      await loadData();
     } catch (e: any) { 
       await loadData();
-      alert("Erro ao excluir: " + e.message); 
+      throw e;
     }
   };
 
