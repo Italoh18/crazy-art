@@ -108,7 +108,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       if (confirm("Deseja realmente excluir este cliente? Esta ação não pode ser desfeita.")) {
         setCustomers(prev => prev.filter(c => c.id !== id));
         await api.deleteClient(id);
-        await loadData(true);
+        // await loadData(true); // Removido para evitar race condition
       }
     } catch (e: any) { 
       await loadData(true); 
@@ -143,8 +143,9 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       // Execute Delete on API
       await api.deleteProduct(id);
       
-      // Reload Data Silently (Active=0 check on backend)
-      await loadData(true);
+      // NÃO recarregamos os dados aqui. 
+      // O D1 tem consistência eventual, então se lermos agora, o item ainda pode estar lá.
+      // Como já removemos da UI via setProducts, confiamos nisso.
     } catch (e: any) { 
       // Revert Optimistic Update
       setProducts(previousProducts);
@@ -176,7 +177,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       if (confirm("Deseja realmente excluir este pedido? Esta ação não pode ser desfeita.")) {
         setOrders(prev => prev.filter(o => o.id !== id));
         await api.deleteOrder(id);
-        await loadData(true);
+        // await loadData(true); // Removido para evitar race condition
       }
     } catch (e: any) {
       await loadData(true);
@@ -203,7 +204,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       if (confirm("Deseja remover esta imagem do carrossel?")) {
         setCarouselImages(prev => prev.filter(img => img.id !== id));
         await api.deleteCarouselImage(id);
-        await loadData(true);
+        // await loadData(true); // Removido para evitar race condition
       }
     } catch (e: any) { 
       await loadData(true);
