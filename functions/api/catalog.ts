@@ -69,7 +69,15 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         description
       ).run();
 
-      return Response.json({ success: true, id: newId });
+      // Retorna o objeto completo para uso imediato no frontend
+      return Response.json({ 
+        id: newId, 
+        name, 
+        price, 
+        type: itemType, 
+        description, 
+        costPrice: cost_price 
+      });
     }
 
     // DELETE - Exclusão por ID

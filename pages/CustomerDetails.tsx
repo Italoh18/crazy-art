@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Edit2, CheckCircle, Plus, MapPin, Phone, Mail, CreditCard, Trash2, ShoppingCart, X, Search, Package, Wrench, FileEdit } from 'lucide-react';
+import { ArrowLeft, Edit2, CheckCircle, Plus, MapPin, Phone, Mail, CreditCard, Trash2, ShoppingCart, X, Search, Package, Wrench, FileEdit, Minus, Plus as PlusIcon } from 'lucide-react';
 import { Order, Product, ItemType, OrderItem } from '../types';
 import { api } from '../src/services/api';
 
@@ -23,7 +23,9 @@ export default function CustomerDetails() {
 
   const [itemSearchTerm, setItemSearchTerm] = useState('');
   const [showItemResults, setShowItemResults] = useState(false);
-
+  const [searchQuantities, setSearchQuantities] = useState<Record<string, number>>({});
+  
+  // Quick Reg Data
   const [quickRegData, setQuickRegData] = useState({ name: '', price: '', type: 'product' as ItemType });
 
   const getToday = () => new Date().toISOString().split('T')[0];
@@ -41,7 +43,6 @@ export default function CustomerDetails() {
   });
 
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  const [itemQty, setItemQty] = useState(1);
 
   const [editForm, setEditForm] = useState({
     name: '', phone: '', email: '', cpf: '',
@@ -67,17 +68,50 @@ export default function CustomerDetails() {
   }, [customer, isEditModalOpen]);
 
   const handleAddItem = (product: Product) => {
+    const qty = searchQuantities[product.id] || 1;
     const newItem: OrderItem = {
       productId: product.id,
       productName: product.name,
-      quantity: itemQty,
+      quantity: qty,
       unitPrice: product.price,
-      total: product.price * itemQty
+      total: product.price * qty
     };
     setOrderItems([...orderItems, newItem]);
     setItemSearchTerm('');
     setShowItemResults(false);
-    setItemQty(1);
+    // Reset individual qty after adding
+    setSearchQuantities(prev => ({ ...prev, [product.id]: 1 }));
+  };
+
+  const updateSearchQty = (id: string, delta: number) => {
+    setSearchQuantities(prev => ({
+      ...prev,
+      [id]: Math.max(1, (prev[id] || 1) + delta)
+    }));
+  };
+
+  const openQuickReg = (type: ItemType) => {
+      setQuickRegData({ name: itemSearchTerm, price: '', type });
+      setIsQuickRegOpen(true);
+      setShowItemResults(false);
+  };
+
+  const handleQuickRegisterSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      try {
+          const res = await addProduct({
+              name: quickRegData.name,
+              price: parseFloat(quickRegData.price.replace(',', '.')) || 0,
+              type: quickRegData.type,
+              description: `Cadastrado via pedido`
+          });
+          
+          if (res && res.id) {
+            handleAddItem(res);
+          }
+          
+          setIsQuickRegOpen(false);
+      } catch (err) { alert("Verifique os valores."); }
   };
 
   const handleCreateOrUpdateOrder = async (e: React.FormEvent) => {
@@ -134,7 +168,6 @@ export default function CustomerDetails() {
               status: detailedOrder.status
           });
           
-          // Mapeia itens do schema D1 (catalog_id, name, price, subtotal) para o frontend
           const mappedItems = (detailedOrder.items || []).map((i: any) => ({
               productId: i.catalog_id || i.item_id || i.productId,
               productName: i.name || i.description || i.productName,
@@ -155,25 +188,6 @@ export default function CustomerDetails() {
       setEditingOrder(null);
       setOrderItems([]);
       setOrderForm({ description: '', order_date: getToday(), due_date: getDateIn15Days(), status: 'open' });
-  };
-
-  const openQuickReg = (type: ItemType) => {
-      setQuickRegData({ name: itemSearchTerm, price: '', type });
-      setIsQuickRegOpen(true);
-  };
-
-  const handleQuickRegisterSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
-      try {
-          const res = await addProduct({
-              name: quickRegData.name,
-              price: parseFloat(quickRegData.price.replace(',', '.')) || 0,
-              type: quickRegData.type,
-              description: `Cadastrado via pedido`
-          });
-          if (res) handleAddItem(res);
-          setIsQuickRegOpen(false);
-      } catch (err) { alert("Verifique os valores."); }
   };
 
   const totalOpen = customerOrders.filter(o => o.status === 'open').reduce((sum, o) => sum + (o.total || 0), 0);
@@ -323,21 +337,60 @@ export default function CustomerDetails() {
                     </div>
                     <div className="border-t border-zinc-800 pt-6">
                         <h3 className="text-sm font-bold text-zinc-500 mb-4 uppercase tracking-wider">Itens do Pedido</h3>
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="relative flex-1">
-                                <input type="text" placeholder="Buscar no catálogo..." className="w-full bg-black/50 border border-zinc-700 rounded-xl pl-10 pr-4 py-2 text-white" value={itemSearchTerm} onFocus={() => setShowItemResults(true)} onChange={e => setItemSearchTerm(e.target.value)} />
-                                <Search className="absolute left-3 top-2.5 text-zinc-500" size={18} />
-                                {showItemResults && itemSearchTerm.length > 0 && (
-                                    <div className="absolute top-full left-0 w-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl z-50 max-h-40 overflow-y-auto shadow-2xl">
-                                        {products.filter(p => p.name.toLowerCase().includes(itemSearchTerm.toLowerCase())).map(p => (
-                                            <button key={p.id} type="button" onClick={() => handleAddItem(p)} className="w-full text-left px-4 py-2 hover:bg-zinc-800 border-b border-zinc-800 last:border-0 flex justify-between">
-                                                <span>{p.name}</span><span className="text-emerald-500">R$ {p.price.toFixed(2)}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                            <input type="number" min="1" className="w-20 bg-black/50 border border-zinc-700 rounded-xl px-2 py-2 text-white" value={itemQty} onChange={e => setItemQty(parseInt(e.target.value) || 1)} />
+                        <div className="relative mb-4">
+                            <input type="text" placeholder="Buscar no catálogo..." className="w-full bg-black/50 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white" value={itemSearchTerm} onFocus={() => setShowItemResults(true)} onChange={e => setItemSearchTerm(e.target.value)} />
+                            <Search className="absolute left-3 top-3.5 text-zinc-500" size={18} />
+                            
+                            {showItemResults && itemSearchTerm.length > 0 && (
+                                <div className="absolute top-full left-0 w-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl z-50 max-h-60 overflow-y-auto shadow-2xl">
+                                    {products.filter(p => p.name.toLowerCase().includes(itemSearchTerm.toLowerCase())).map(p => (
+                                        <div key={p.id} className="p-3 border-b border-zinc-800 last:border-0 hover:bg-zinc-800/50 flex items-center justify-between gap-4">
+                                            <div className="flex-1">
+                                                <p className="text-white font-medium">{p.name}</p>
+                                                <p className="text-xs text-emerald-500 font-bold">R$ {p.price.toFixed(2)}</p>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex items-center bg-black/40 rounded-lg border border-zinc-700 p-1">
+                                                    <button type="button" onClick={() => updateSearchQty(p.id, -1)} className="p-1 text-zinc-500 hover:text-white transition"><Minus size={14} /></button>
+                                                    <span className="w-8 text-center text-xs font-bold text-white">{searchQuantities[p.id] || 1}</span>
+                                                    <button type="button" onClick={() => updateSearchQty(p.id, 1)} className="p-1 text-zinc-500 hover:text-white transition"><PlusIcon size={14} /></button>
+                                                </div>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleAddItem(p)} 
+                                                    className="bg-primary text-white p-2 rounded-lg hover:bg-amber-600 transition"
+                                                >
+                                                    <Plus size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    
+                                    {/* Opção de Cadastro Rápido ao Final da Busca */}
+                                    {role === 'admin' && (
+                                        <div className="p-3 bg-black border-t border-zinc-700">
+                                            <p className="text-xs text-zinc-500 mb-2">Não encontrou? Cadastre agora:</p>
+                                            <div className="flex gap-2">
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => openQuickReg('product')} 
+                                                    className="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-xs text-white rounded flex items-center justify-center gap-1 transition"
+                                                >
+                                                    <Package size={14} /> + Produto
+                                                </button>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => openQuickReg('service')} 
+                                                    className="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 text-xs text-white rounded flex items-center justify-center gap-1 transition"
+                                                >
+                                                    <Wrench size={14} /> + Serviço
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                         <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                             {orderItems.map((item, idx) => (
@@ -366,13 +419,39 @@ export default function CustomerDetails() {
                             <p className="text-zinc-500 text-xs uppercase font-bold tracking-widest">Total Geral</p>
                             <p className="text-3xl font-bold text-white">R$ {orderItems.reduce((sum, i) => sum + Number(i.total || 0), 0).toFixed(2)}</p>
                         </div>
-                        <button type="submit" className="bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-amber-600 transition shadow-lg shadow-primary/10">
+                        <button type="submit" className="bg-crazy-gradient text-white px-8 py-3 rounded-xl font-bold hover:opacity-90 transition shadow-lg shadow-primary/10">
                             {editingOrder ? 'Salvar Alterações' : 'Finalizar Pedido'}
                         </button>
                     </div>
                 </form>
             </div>
         </div>
+      )}
+
+      {/* Modal de Cadastro Rápido */}
+      {isQuickRegOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-fade-in">
+                  <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-950">
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                          <Plus size={18} className="text-primary" /> 
+                          Novo {quickRegData.type === 'product' ? 'Produto' : 'Serviço'}
+                      </h3>
+                      <button onClick={() => setIsQuickRegOpen(false)} className="text-zinc-500 hover:text-white"><X size={20}/></button>
+                  </div>
+                  <form onSubmit={handleQuickRegisterSubmit} className="p-6 space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-500 mb-1 uppercase">Nome</label>
+                        <input type="text" required autoFocus className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition" value={quickRegData.name} onChange={e => setQuickRegData({...quickRegData, name: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-500 mb-1 uppercase">Preço (R$)</label>
+                        <input type="text" required placeholder="0.00" className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition" value={quickRegData.price} onChange={e => setQuickRegData({...quickRegData, price: e.target.value})} />
+                      </div>
+                      <button type="submit" className="w-full bg-primary text-white font-bold py-3 rounded-xl hover:bg-amber-600 transition shadow-lg shadow-primary/20">Salvar e Adicionar</button>
+                  </form>
+              </div>
+          </div>
       )}
     </div>
   );
