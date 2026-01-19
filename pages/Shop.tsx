@@ -96,9 +96,16 @@ export default function Shop() {
           alert("Este item não possui um ID válido.");
           return;
       }
+      
+      // Manual confirmation since context no longer handles it
+      if (!window.confirm("Deseja realmente excluir este item da loja?")) {
+        return;
+      }
 
       try {
           await deleteProduct(id);
+          setNotification({ message: 'Item removido com sucesso.', type: 'success' });
+          setTimeout(() => setNotification(null), 3000);
       } catch (err: any) {
           setNotification({ message: 'Erro ao excluir item: ' + err.message, type: 'error' });
           setTimeout(() => setNotification(null), 3000);

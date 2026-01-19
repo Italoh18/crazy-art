@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, DollarSign, Search, CheckCircle, AlertOctagon } from 'lucide-react';
+import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, DollarSign, Search, CheckCircle, AlertOctagon, X, AlertTriangle } from 'lucide-react';
 import { Product, ItemType } from '../types';
 
 export default function Products() {
@@ -11,6 +11,9 @@ export default function Products() {
   const [searchTerm, setSearchTerm] = useState('');
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   
+  // Delete Modal State
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({ 
     name: '', 
     price: '', 
@@ -50,14 +53,21 @@ export default function Products() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const confirmDelete = (id: string) => {
+    setDeleteId(id);
+  };
+
+  const executeDelete = async () => {
+    if (!deleteId) return;
     try {
-      await deleteProduct(id);
+      await deleteProduct(deleteId);
       setNotification({ message: 'Item removido com sucesso!', type: 'success' });
       setTimeout(() => setNotification(null), 3000);
     } catch (err: any) {
       setNotification({ message: 'Erro ao remover: ' + err.message, type: 'error' });
       setTimeout(() => setNotification(null), 3000);
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -178,7 +188,7 @@ export default function Products() {
                     <td className="px-6 py-4 text-emerald-400 font-bold font-mono">R$ {Number(item.price).toFixed(2)}</td>
                     <td className="px-6 py-4 text-right">
                       <button
-                        onClick={() => handleDelete(item.id)}
+                        onClick={() => confirmDelete(item.id)}
                         className="text-zinc-600 hover:text-red-500 p-2 rounded-lg hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0"
                         title="Remover Item"
                       >
@@ -281,6 +291,35 @@ export default function Products() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-scale-in">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl">
+            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500">
+               <AlertTriangle size={32} />
+            </div>
+            <h2 className="text-xl font-bold text-white text-center mb-2">Excluir Item?</h2>
+            <p className="text-zinc-400 text-center text-sm mb-6">
+              Esta ação removerá o item permanentemente do catálogo. Deseja continuar?
+            </p>
+            <div className="flex space-x-3">
+               <button 
+                  onClick={() => setDeleteId(null)} 
+                  className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl transition font-medium"
+               >
+                 Cancelar
+               </button>
+               <button 
+                  onClick={executeDelete} 
+                  className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition shadow-lg shadow-red-600/20"
+               >
+                 Sim, Excluir
+               </button>
+            </div>
           </div>
         </div>
       )}

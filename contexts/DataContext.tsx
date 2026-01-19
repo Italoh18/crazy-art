@@ -126,8 +126,8 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   const deleteProduct = async (id: string) => {
-    if (!confirm("Deseja realmente excluir este item do catálogo?")) return;
-    
+    // Confirmação removida daqui para evitar violação de thread (blocking alert).
+    // A confirmação deve ser feita no componente UI.
     try {
       setProducts(prev => prev.filter(p => p.id !== id));
       await api.deleteProduct(id);
