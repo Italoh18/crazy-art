@@ -44,9 +44,12 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [carouselImages, setCarouselImages] = useState<CarouselImage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadData = async () => {
+  // loadData now accepts a silent flag to prevent UI blocking
+  const loadData = async (silent = false) => {
     const token = localStorage.getItem('auth_token');
     
+    if (!silent) setIsLoading(true);
+
     try {
       const [clientsRes, productsRes, ordersRes, carouselRes] = await Promise.allSettled([
         token ? api.getClients() : Promise.resolve([]),
@@ -78,7 +81,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     } catch (e) {
       console.error("Erro no carregamento de dados:", e);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
@@ -89,14 +92,14 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const addCustomer = async (data: any) => {
     try {
       await api.createClient(data);
-      await loadData();
+      await loadData(true);
     } catch (e: any) { alert(e.message); }
   };
 
   const updateCustomer = async (id: string, data: any) => {
     try {
       await api.updateClient(id, data);
-      await loadData();
+      await loadData(true);
     } catch (e: any) { alert(e.message); }
   };
 
@@ -105,10 +108,10 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       if (confirm("Deseja realmente excluir este cliente? Esta ação não pode ser desfeita.")) {
         setCustomers(prev => prev.filter(c => c.id !== id));
         await api.deleteClient(id);
-        await loadData();
+        await loadData(true);
       }
     } catch (e: any) { 
-      await loadData(); 
+      await loadData(true); 
       alert(e.message); 
     }
   };
@@ -116,7 +119,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const addProduct = async (data: any) => {
     try {
       const res = await api.createProduct(data);
-      await loadData();
+      await loadData(true);
       return res;
     } catch (e: any) { 
       alert(e.message); 
@@ -125,15 +128,27 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   const deleteProduct = async (id: string) => {
-    // Atualização otimista: remove da UI imediatamente
+    if (!id) {
+        console.error("ID inválido para exclusão");
+        return;
+    }
+
+    // Backup state for rollback
+    const previousProducts = [...products];
+
+    // Optimistic Update: Remove immediately from UI
     setProducts(prev => prev.filter(p => p.id !== id));
     
     try {
+      // Execute Delete on API
       await api.deleteProduct(id);
-      // NÃO recarrega tudo (await loadData()) aqui para evitar freeze da UI
+      
+      // Reload Data Silently (Active=0 check on backend)
+      await loadData(true);
     } catch (e: any) { 
-      // Em caso de erro real (rede, etc), reverte a UI e avisa
-      await loadData(); 
+      // Revert Optimistic Update
+      setProducts(previousProducts);
+      console.error("Failed to delete product:", e);
       throw e; 
     }
   };
@@ -141,7 +156,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const addOrder = async (data: any) => {
     try {
       const res = await api.createOrder(data);
-      await loadData();
+      await loadData(true);
       return res;
     } catch (e: any) { 
       alert(e.message); 
@@ -152,7 +167,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const updateOrder = async (id: string, data: any) => {
     try {
       await api.updateOrder(id, data);
-      await loadData();
+      await loadData(true);
     } catch (e: any) { alert(e.message); }
   };
 
@@ -161,10 +176,10 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       if (confirm("Deseja realmente excluir este pedido? Esta ação não pode ser desfeita.")) {
         setOrders(prev => prev.filter(o => o.id !== id));
         await api.deleteOrder(id);
-        await loadData();
+        await loadData(true);
       }
     } catch (e: any) {
-      await loadData();
+      await loadData(true);
       alert(e.message);
     }
   };
@@ -172,14 +187,14 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const updateOrderStatus = async (id: string, status: OrderStatus) => {
     try {
       await api.updateOrder(id, { status });
-      await loadData();
+      await loadData(true);
     } catch (e: any) { alert(e.message); }
   };
 
   const addCarouselImage = async (url: string) => {
     try {
       await api.addCarouselImage(url);
-      await loadData();
+      await loadData(true);
     } catch (e: any) { alert(e.message); }
   };
 
@@ -188,10 +203,10 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       if (confirm("Deseja remover esta imagem do carrossel?")) {
         setCarouselImages(prev => prev.filter(img => img.id !== id));
         await api.deleteCarouselImage(id);
-        await loadData();
+        await loadData(true);
       }
     } catch (e: any) { 
-      await loadData();
+      await loadData(true);
       alert(e.message); 
     }
   };

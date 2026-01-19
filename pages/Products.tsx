@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, DollarSign, Search, CheckCircle, AlertOctagon, AlertTriangle, Loader2 } from 'lucide-react';
-import { Product, ItemType } from '../types';
+import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, Search, CheckCircle, AlertOctagon, AlertTriangle, Loader2 } from 'lucide-react';
+import { ItemType } from '../types';
 
 export default function Products() {
   const { products, addProduct, deleteProduct } = useData();
@@ -28,7 +28,8 @@ export default function Products() {
     const itemType = p.type || 'product';
     const matchesTab = itemType === activeTab;
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesTab && matchesSearch;
+    // Ensure we are not rendering invalid items without IDs
+    return matchesTab && matchesSearch && p.id;
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,6 +56,7 @@ export default function Products() {
   };
 
   const confirmDelete = (id: string) => {
+    if (!id) return;
     setDeleteId(id);
   };
 
@@ -65,19 +67,13 @@ export default function Products() {
       await deleteProduct(deleteId);
       setNotification({ message: 'Item removido com sucesso!', type: 'success' });
       setTimeout(() => setNotification(null), 3000);
-      setDeleteId(null); // Close modal only on success
+      setDeleteId(null); 
     } catch (err: any) {
       setNotification({ message: 'Erro ao remover: ' + err.message, type: 'error' });
       setTimeout(() => setNotification(null), 3000);
-      // Mantém modal aberto em caso de erro para retry ou cancelamento
     } finally {
       setIsDeleting(false);
     }
-  };
-
-  const openModalWithTab = (type: ItemType) => {
-      setActiveTab(type);
-      setIsModalOpen(true);
   };
 
   return (
