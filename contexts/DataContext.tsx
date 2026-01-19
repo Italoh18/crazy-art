@@ -103,13 +103,12 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const deleteCustomer = async (id: string) => {
     try {
       if (confirm("Deseja realmente excluir este cliente? Esta ação não pode ser desfeita.")) {
-        // Atualização Otimista
         setCustomers(prev => prev.filter(c => c.id !== id));
         await api.deleteClient(id);
         await loadData();
       }
     } catch (e: any) { 
-      await loadData(); // Reverte se falhar
+      await loadData(); 
       alert(e.message); 
     }
   };
@@ -126,15 +125,16 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   const deleteProduct = async (id: string) => {
+    // Atualização otimista: remove da UI imediatamente
+    setProducts(prev => prev.filter(p => p.id !== id));
+    
     try {
-      if (confirm("Deseja realmente excluir este item?")) {
-        setProducts(prev => prev.filter(p => p.id !== id));
-        await api.deleteProduct(id);
-        await loadData();
-      }
+      await api.deleteProduct(id);
+      // NÃO recarrega tudo (await loadData()) aqui para evitar freeze da UI
     } catch (e: any) { 
-      await loadData();
-      alert(e.message); 
+      // Em caso de erro real (rede, etc), reverte a UI e avisa
+      await loadData(); 
+      throw e; 
     }
   };
 

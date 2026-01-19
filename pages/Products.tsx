@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, DollarSign, Search, CheckCircle, AlertOctagon } from 'lucide-react';
+import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, DollarSign, Search, CheckCircle, AlertOctagon, AlertTriangle, Loader2 } from 'lucide-react';
 import { Product, ItemType } from '../types';
 
 export default function Products() {
@@ -10,6 +10,10 @@ export default function Products() {
   const [activeTab, setActiveTab] = useState<ItemType>('product');
   const [searchTerm, setSearchTerm] = useState('');
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  
+  // Delete Modal State
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [formData, setFormData] = useState({ 
     name: '', 
@@ -47,6 +51,27 @@ export default function Products() {
     } catch (err: any) {
       setNotification({ message: 'Erro ao adicionar: ' + err.message, type: 'error' });
       setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
+  const confirmDelete = (id: string) => {
+    setDeleteId(id);
+  };
+
+  const executeDelete = async () => {
+    if (!deleteId) return;
+    setIsDeleting(true);
+    try {
+      await deleteProduct(deleteId);
+      setNotification({ message: 'Item removido com sucesso!', type: 'success' });
+      setTimeout(() => setNotification(null), 3000);
+      setDeleteId(null); // Close modal only on success
+    } catch (err: any) {
+      setNotification({ message: 'Erro ao remover: ' + err.message, type: 'error' });
+      setTimeout(() => setNotification(null), 3000);
+      // Mantém modal aberto em caso de erro para retry ou cancelamento
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -167,8 +192,8 @@ export default function Products() {
                     <td className="px-6 py-4 text-emerald-400 font-bold font-mono">R$ {Number(item.price).toFixed(2)}</td>
                     <td className="px-6 py-4 text-right">
                       <button
-                        onClick={() => deleteProduct(item.id)}
-                        className="text-zinc-600 hover:text-red-500 p-2 rounded-lg hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 transform translate-x-2 group-hover:translate-x-0"
+                        onClick={() => confirmDelete(item.id)}
+                        className="text-zinc-600 hover:text-red-500 p-2 rounded-lg hover:bg-red-500/10 transition-all hover:scale-110"
                         title="Remover Item"
                       >
                         <Trash2 size={18} />
@@ -270,6 +295,44 @@ export default function Products() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-scale-in">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl">
+            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500">
+               <AlertTriangle size={32} />
+            </div>
+            <h2 className="text-xl font-bold text-white text-center mb-2">Excluir Item?</h2>
+            <p className="text-zinc-400 text-center text-sm mb-6">
+              Esta ação removerá o item da visualização, mas manterá o histórico em pedidos existentes.
+            </p>
+            <div className="flex space-x-3">
+               <button 
+                  onClick={() => setDeleteId(null)} 
+                  className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl transition font-medium"
+                  disabled={isDeleting}
+               >
+                 Cancelar
+               </button>
+               <button 
+                  onClick={executeDelete} 
+                  disabled={isDeleting}
+                  className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition shadow-lg shadow-red-600/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+               >
+                 {isDeleting ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Excluindo...
+                    </>
+                 ) : (
+                    'Sim, Excluir'
+                 )}
+               </button>
+            </div>
           </div>
         </div>
       )}

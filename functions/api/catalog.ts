@@ -11,26 +11,24 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     // GET - Listagem com mapeamento para camelCase
     if (request.method === 'GET') {
-      let query = 'SELECT id, type, name, price, cost_price as costPrice, image_url as imageUrl, description, created_at FROM catalog';
+      // Filtrar apenas itens ATIVOS (active = 1)
+      let query = 'SELECT id, type, name, price, cost_price as costPrice, image_url as imageUrl, description, created_at FROM catalog WHERE active = 1';
       let params: any[] = [];
-      let conditions: string[] = [];
 
       if (type && type !== 'undefined') {
-        conditions.push('type = ?');
+        query += ' AND type = ?';
         params.push(String(type));
       }
       if (search && search !== 'undefined') {
-        conditions.push('name LIKE ?');
+        query += ' AND name LIKE ?';
         params.push(`%${String(search)}%`);
       }
 
-      if (conditions.length > 0) query += ' WHERE ' + conditions.join(' AND ');
       query += ' ORDER BY created_at DESC';
 
       const stmt = env.DB.prepare(query);
       const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
       
-      // Retornamos com headers que PROÍBEM o cache
       return new Response(JSON.stringify(results || []), {
         headers: {
           'Content-Type': 'application/json',
@@ -57,8 +55,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
       if (!name) return new Response(JSON.stringify({ error: 'O nome é obrigatório' }), { status: 400 });
 
+      // Inserir novo item (active default é 1 via banco ou explícito aqui)
       await env.DB.prepare(
-        'INSERT INTO catalog (id, type, name, price, cost_price, image_url, description) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO catalog (id, type, name, price, cost_price, image_url, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)'
       ).bind(
         newId,
         itemType,
@@ -69,7 +68,6 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         description
       ).run();
 
-      // Retorna o objeto completo para uso imediato no frontend
       return Response.json({ 
         id: newId, 
         name, 
@@ -80,13 +78,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       });
     }
 
-    // DELETE - Exclusão por ID
+    // DELETE - Agora executa SOFT DELETE (Update active = 0)
     if (request.method === 'DELETE') {
       if (!user || user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
       
       if (!id) return new Response(JSON.stringify({ error: 'ID é obrigatório para exclusão' }), { status: 400 });
 
-      const result = await env.DB.prepare('DELETE FROM catalog WHERE id = ?').bind(String(id)).run();
+      // Ao invés de DELETE FROM..., usamos UPDATE para manter histórico nos pedidos
+      const result = await env.DB.prepare('UPDATE catalog SET active = 0 WHERE id = ?').bind(String(id)).run();
       
       return Response.json({ success: result.success });
     }

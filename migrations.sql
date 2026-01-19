@@ -14,7 +14,6 @@ ALTER TABLE catalog ADD COLUMN cost_price REAL DEFAULT 0;
 ALTER TABLE products ADD COLUMN cost_price REAL DEFAULT 0;
 
 -- 4. Criação da Tabela de Itens de Pedido 
--- ATENÇÃO: Se a tabela já existir e der erro, você pode ignorar ou renomeá-la antes.
 CREATE TABLE IF NOT EXISTS order_items (
     id TEXT PRIMARY KEY,
     order_id TEXT NOT NULL,
@@ -26,6 +25,11 @@ CREATE TABLE IF NOT EXISTS order_items (
     total REAL DEFAULT 0,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
+
+-- 5. Soft Delete para Catálogo
+ALTER TABLE catalog ADD COLUMN active INTEGER DEFAULT 1;
+-- Garante que itens existentes sejam marcados como ativos
+UPDATE catalog SET active = 1 WHERE active IS NULL;
 
 -- Verificação
 PRAGMA table_info(catalog);
