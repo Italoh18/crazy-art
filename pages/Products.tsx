@@ -1,16 +1,20 @@
 
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, Search, CheckCircle, AlertOctagon, AlertTriangle, Loader2 } from 'lucide-react';
-import { ItemType } from '../types';
+import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, Search, CheckCircle, AlertOctagon, AlertTriangle, Loader2, Edit, X } from 'lucide-react';
+import { ItemType, Product } from '../types';
 
 export default function Products() {
-  const { products, addProduct, deleteProduct } = useData();
+  const { products, addProduct, updateProduct, deleteProduct } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<ItemType>('product');
   const [searchTerm, setSearchTerm] = useState('');
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   
+  // State de Edição
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+
   // Delete Modal State
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -32,25 +36,53 @@ export default function Products() {
     return matchesTab && matchesSearch && p.id;
   });
 
+  const openNewModal = () => {
+      setIsEditMode(false);
+      setEditId(null);
+      setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '' });
+      setIsModalOpen(true);
+  };
+
+  const handleEdit = (item: Product) => {
+      setIsEditMode(true);
+      setEditId(item.id);
+      setFormData({
+          name: item.name,
+          price: item.price.toString(),
+          costPrice: item.costPrice ? item.costPrice.toString() : '',
+          description: item.description || '',
+          imageUrl: item.imageUrl || ''
+      });
+      setIsModalOpen(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.price) return;
 
-    try {
-      await addProduct({
+    const payload = {
         name: formData.name,
         price: parseFloat(formData.price.replace(',', '.')),
         costPrice: formData.costPrice ? parseFloat(formData.costPrice.replace(',', '.')) : 0,
         description: formData.description,
         type: activeTab,
         imageUrl: formData.imageUrl
-      });
+    };
+
+    try {
+      if (isEditMode && editId) {
+          await updateProduct(editId, payload);
+          setNotification({ message: 'Item atualizado com sucesso!', type: 'success' });
+      } else {
+          await addProduct(payload);
+          setNotification({ message: `${activeTab === 'product' ? 'Produto' : 'Serviço'} adicionado com sucesso!`, type: 'success' });
+      }
+      
       setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '' });
       setIsModalOpen(false);
-      setNotification({ message: `${activeTab === 'product' ? 'Produto' : 'Serviço'} adicionado com sucesso!`, type: 'success' });
       setTimeout(() => setNotification(null), 3000);
     } catch (err: any) {
-      setNotification({ message: 'Erro ao adicionar: ' + err.message, type: 'error' });
+      setNotification({ message: 'Erro: ' + err.message, type: 'error' });
       setTimeout(() => setNotification(null), 3000);
     }
   };
@@ -121,7 +153,7 @@ export default function Products() {
             </div>
 
             <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={openNewModal}
             className="flex items-center justify-center space-x-2 bg-primary text-white w-12 h-12 md:w-auto md:h-auto md:px-5 md:py-3 rounded-xl hover:bg-amber-600 hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95"
             >
             <Plus size={20} />
@@ -187,13 +219,22 @@ export default function Products() {
                     </td>
                     <td className="px-6 py-4 text-emerald-400 font-bold font-mono">R$ {Number(item.price).toFixed(2)}</td>
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => confirmDelete(item.id)}
-                        className="text-zinc-600 hover:text-red-500 p-2 rounded-lg hover:bg-red-500/10 transition-all hover:scale-110"
-                        title="Remover Item"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                            onClick={() => handleEdit(item)}
+                            className="text-zinc-600 hover:text-white p-2 rounded-lg hover:bg-zinc-800 transition-all hover:scale-110"
+                            title="Editar Item"
+                        >
+                            <Edit size={18} />
+                        </button>
+                        <button
+                            onClick={() => confirmDelete(item.id)}
+                            className="text-zinc-600 hover:text-red-500 p-2 rounded-lg hover:bg-red-500/10 transition-all hover:scale-110"
+                            title="Remover Item"
+                        >
+                            <Trash2 size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -203,17 +244,17 @@ export default function Products() {
         </div>
       </div>
 
-      {/* Add Item Modal */}
+      {/* Add/Edit Item Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in-up">
           <div className="bg-surface border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-md relative">
             <div className="flex justify-between items-center p-6 border-b border-zinc-800 bg-surface/95 backdrop-blur rounded-t-2xl">
               <h2 className="text-xl font-bold text-white capitalize flex items-center gap-2">
-                  {activeTab === 'product' ? <Package className="text-primary" size={20} /> : <Wrench className="text-primary" size={20} />}
-                  Novo {activeTab === 'product' ? 'Produto' : 'Serviço'}
+                  {isEditMode ? <Edit className="text-primary" size={20} /> : (activeTab === 'product' ? <Package className="text-primary" size={20} /> : <Wrench className="text-primary" size={20} />)}
+                  {isEditMode ? 'Editar' : 'Novo'} {activeTab === 'product' ? 'Produto' : 'Serviço'}
               </h2>
               <button onClick={() => setIsModalOpen(false)} className="text-zinc-500 hover:text-white transition-transform hover:rotate-90">
-                <Plus size={24} className="transform rotate-45" />
+                <X size={24} />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-8 space-y-5">
@@ -287,7 +328,7 @@ export default function Products() {
                   type="submit"
                   className="px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-amber-600 transition shadow-lg shadow-primary/20"
                 >
-                  Salvar
+                  {isEditMode ? 'Salvar Alterações' : 'Criar Item'}
                 </button>
               </div>
             </form>

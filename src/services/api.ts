@@ -83,6 +83,10 @@ export const api = {
     const res = await fetch('/api/catalog', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
+  async updateProduct(id: string, data: any) {
+    const res = await fetch(`/api/catalog?id=${encodeURIComponent(id)}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
+    return handleResponse(res);
+  },
   async deleteProduct(id: string) {
     const res = await fetch(`/api/catalog?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);

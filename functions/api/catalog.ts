@@ -92,6 +92,34 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       });
     }
 
+    // PUT - Atualização
+    if (request.method === 'PUT') {
+      if (!user || user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
+      
+      if (!id) return new Response(JSON.stringify({ error: 'ID é obrigatório para atualização' }), { status: 400 });
+
+      const body = await request.json() as any;
+      
+      const name = String(body.name || '').trim();
+      const price = Number(parseFloat(String(body.price || '0').replace(',', '.')) || 0);
+      const cost_price = Number(parseFloat(String(body.cost_price || body.costPrice || '0').replace(',', '.')) || 0);
+      const image_url = body.imageUrl || body.image_url ? String(body.imageUrl || body.image_url).trim() : null;
+      const description = body.description ? String(body.description).trim() : null;
+
+      await env.DB.prepare(
+        'UPDATE catalog SET name=?, price=?, cost_price=?, image_url=?, description=? WHERE id=?'
+      ).bind(
+        name,
+        price,
+        cost_price,
+        image_url,
+        description,
+        String(id)
+      ).run();
+
+      return Response.json({ success: true });
+    }
+
     // DELETE - Executa SOFT DELETE (Update active = 0)
     if (request.method === 'DELETE') {
       if (!user || user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });

@@ -13,6 +13,7 @@ interface DataContextType {
   updateCustomer: (id: string, data: any) => Promise<void>;
   deleteCustomer: (id: string) => Promise<void>;
   addProduct: (product: any) => Promise<any>;
+  updateProduct: (id: string, data: any) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   addOrder: (order: any) => Promise<any>;
   updateOrder: (id: string, data: any) => Promise<void>;
@@ -127,6 +128,16 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     }
   };
 
+  const updateProduct = async (id: string, data: any) => {
+    try {
+      await api.updateProduct(id, data);
+      await loadData(true);
+    } catch (e: any) { 
+      alert(e.message); 
+      throw e;
+    }
+  };
+
   const deleteProduct = async (id: string) => {
     if (!id) {
         console.error("ID inválido para exclusão");
@@ -216,7 +227,8 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     <DataContext.Provider value={{ 
       customers, products, orders, carouselImages, isLoading, 
       addCustomer, updateCustomer, deleteCustomer,
-      addProduct, deleteProduct, addOrder, updateOrder, deleteOrder, updateOrderStatus,
+      addProduct, updateProduct, deleteProduct, 
+      addOrder, updateOrder, deleteOrder, updateOrderStatus,
       addCarouselImage, deleteCarouselImage
     }}>
       {children}
