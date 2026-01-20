@@ -1,9 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useNavigate } from 'react-router-dom';
-import { X, User, Lock, ShoppingBag, BookOpen, Tv, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, User, Lock, ShoppingBag, BookOpen, Tv, LogOut, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { GalaxyGame } from '../components/GalaxyGame';
 
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -11,10 +12,47 @@ export default function Home() {
   const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState('');
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [gameMode, setGameMode] = useState(false);
+  const [scrollY, setScrollY] = useState(0); // Para efeito parallax na Galáxia
   
   const { loginAdmin, loginClient, role, logout } = useAuth();
   const { carouselImages } = useData();
   const navigate = useNavigate();
+
+  // Scroll Listener para Parallax (Mantido apenas para a Galáxia)
+  useEffect(() => {
+    const handleScroll = () => setScrollY(window.scrollY);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Gerar estrelas com animação de FLUTUAÇÃO (Bounce) para efeito de navegação
+  const stars = useMemo(() => {
+    return Array.from({ length: 150 }).map((_, i) => ({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      size: Math.random() * 2 + 1, // 1px a 3px
+      opacity: Math.random(),
+      // Configuração do Piscar (Twinkle)
+      twinkleDuration: `${Math.random() * 3 + 2}s`,
+      twinkleDelay: `${Math.random() * 2}s`,
+      // Configuração do Bounce/Navegação (Float)
+      floatDuration: `${Math.random() * 10 + 10}s`, // Lento e espacial (10s a 20s)
+      floatDelay: `${Math.random() * 10}s` // Descompasso grande para parecer orgânico
+    }));
+  }, []);
+
+  // Gerar meteoros
+  const meteors = useMemo(() => {
+    return Array.from({ length: 4 }).map((_, i) => ({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 50}%`, // Apenas na metade superior
+      animationDelay: `${Math.random() * 10 + 1}s`, // Delay aleatório grande
+      animationDuration: `${Math.random() * 2 + 3}s`
+    }));
+  }, []);
 
   useEffect(() => {
     if (carouselImages.length > 0) {
@@ -24,6 +62,18 @@ export default function Home() {
         return () => clearInterval(timer);
     }
   }, [carouselImages]);
+
+  // Listener para Ctrl + G
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+            e.preventDefault();
+            setGameMode(prev => !prev);
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,14 +146,14 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-text flex flex-col relative overflow-x-hidden">
-      {/* Background Animated Blobs */}
+      {/* Background Animated Blobs (Global) */}
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[10%] w-[500px] h-[500px] bg-yellow-500/10 rounded-full blur-[120px] animate-pulse-slow"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-red-600/10 rounded-full blur-[150px] animate-float"></div>
+        <div className="absolute top-[-10%] left-[10%] w-[500px] h-[500px] bg-yellow-500/5 rounded-full blur-[120px] animate-pulse-slow"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-red-600/5 rounded-full blur-[150px] animate-float"></div>
       </div>
 
       {role === 'guest' && (
-        <header className="fixed top-0 left-0 w-full z-40 h-20 px-6 flex items-center justify-between bg-black/60 backdrop-blur-lg border-b border-white/5 transition-all duration-300">
+        <header className="fixed top-0 left-0 w-full z-40 h-20 px-6 flex items-center justify-between bg-black/30 backdrop-blur-lg border-b border-white/5 transition-all duration-300">
           <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
             <h1 className="text-xl md:text-2xl font-bold tracking-[0.15em] bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap uppercase drop-shadow-sm" style={headerFont}>
               CRAZY ART
@@ -119,91 +169,235 @@ export default function Home() {
       )}
 
       <main className={`relative z-10 flex-1 flex flex-col items-center w-full ${role === 'guest' ? 'pt-20' : 'pt-0'}`}>
-        {/* Carousel */}
-        <div className="w-full h-[60vh] md:h-[75vh] relative overflow-hidden bg-zinc-900 group shadow-2xl">
-          <div className="w-full h-full flex transition-transform duration-1000 ease-in-out" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
-             {carouselImages.length > 0 ? (
-                carouselImages.map((img) => (
-                    <div key={img.id} className="w-full h-full flex-shrink-0 relative">
-                        <img 
-                            src={img.url} 
-                            alt="Carousel Banner" 
-                            className="w-full h-full object-cover brightness-75 hover:brightness-90 transition duration-1000 transform hover:scale-105"
-                            onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&q=80&w=1920';
+        
+        {/* HERO SECTION: Galaxy + Mini Carousel + GAME LAYER */}
+        <div className="w-full h-[70vh] md:h-[80vh] relative overflow-hidden bg-black group shadow-2xl perspective-1000">
+          
+          {/* 1. GALAXY ANIMATION LAYER (Always Visible as Background) */}
+          <div className="absolute inset-0 z-0 overflow-hidden bg-black">
+             {/* Deepest Space (Base) */}
+             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#1e1b4b_0%,_#000000_100%)] opacity-60"></div>
+
+             {/* Rotating Nebulas (Layers of Depth) - COM PARALAX */}
+             <div 
+               className="absolute inset-0 pointer-events-none"
+               style={{ transform: `translateY(${scrollY * 0.3}px)` }}
+             >
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[180vw] h-[180vw] bg-flare-gradient opacity-10 blur-[120px] animate-spin-slow mix-blend-screen"></div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140vw] h-[140vw] bg-conic-gradient(from 90deg, #4c1d95, #000, #4c1d95) opacity-20 blur-[90px] animate-spin-reverse-slow mix-blend-color-dodge"></div>
+             </div>
+             
+             {/* Stars Layer - COM PARALAX + BOUNCE/FLOAT Effect */}
+             <div 
+               className="absolute inset-0 z-10"
+               style={{ transform: `translateY(${scrollY * 0.5}px)` }}
+             >
+                {stars.map((star) => (
+                    // Wrapper para o movimento de flutuação (Bounce/Navigate)
+                    <div
+                        key={star.id}
+                        className="absolute animate-float"
+                        style={{
+                            left: star.left,
+                            top: star.top,
+                            animationDuration: star.floatDuration,
+                            animationDelay: star.floatDelay,
+                        }}
+                    >
+                        {/* Estrela interna para o brilho (Twinkle) */}
+                        <div
+                            className="rounded-full bg-white animate-twinkle"
+                            style={{
+                                width: `${star.size}px`,
+                                height: `${star.size}px`,
+                                opacity: star.opacity,
+                                animationDuration: star.twinkleDuration,
+                                animationDelay: star.twinkleDelay,
+                                boxShadow: `0 0 ${star.size * 2}px rgba(255,255,255,0.8)`
                             }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent"></div>
                     </div>
-                ))
-             ) : (
-                [0, 1].map((index) => (
-                    <div key={index} className="w-full h-full flex-shrink-0 relative flex items-center justify-center bg-zinc-900">
-                        <div className="text-center p-12 border border-white/10 rounded-3xl bg-black/40 backdrop-blur-md z-10 animate-fade-in-up">
-                            <span className="text-zinc-400 text-lg md:text-2xl font-light tracking-[0.3em] uppercase block mb-4">Em Construção</span>
-                            <h3 className="text-4xl md:text-6xl font-bold text-white uppercase drop-shadow-xl" style={headerFont}>CRAZY ART STUDIO</h3>
-                        </div>
-                    </div>
-                 ))
+                ))}
+             </div>
+
+             {/* Shooting Stars (Meteors) - Only show if Game NOT active (Game has its own meteors) */}
+             {!gameMode && (
+                <div className="absolute inset-0 z-10 pointer-events-none">
+                    {meteors.map((meteor) => (
+                        <div
+                           key={meteor.id}
+                           className="absolute h-0.5 w-[150px] bg-gradient-to-r from-transparent via-white to-transparent animate-meteor opacity-0"
+                           style={{
+                               top: meteor.top,
+                               left: meteor.left,
+                               animationDelay: meteor.animationDelay,
+                               animationDuration: meteor.animationDuration
+                           }}
+                        ></div>
+                    ))}
+                </div>
              )}
+             
+             {/* Noise Texture Overlay for Gritty Realism */}
+             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay"></div>
+             
+             {/* Vignette */}
+             <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-black opacity-90 z-20"></div>
           </div>
 
-          {carouselImages.length > 1 && (
-            <>
-                <button 
-                    onClick={() => setCurrentSlide((prev) => (prev - 1 + carouselImages.length) % carouselImages.length)}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 p-4 bg-black/30 backdrop-blur-md text-white rounded-full hover:bg-black/80 transition-all opacity-0 group-hover:opacity-100 border border-white/10 hover:scale-110"
+          {/* 1.5 GAME LAYER (Conditionally Rendered) */}
+          {gameMode && (
+              <div className="absolute inset-0 z-50">
+                  <GalaxyGame onClose={() => setGameMode(false)} />
+              </div>
+          )}
+
+          {/* 2. CENTRAL CONTENT (Logo/Slogan in the Galaxy) - HIDDEN IF GAME MODE - SEM PARALAX */}
+          {!gameMode && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-30 pointer-events-none pb-[20vh]">
+                <div 
+                    className="relative"
                 >
-                    <ChevronLeft size={24} />
-                </button>
-                <button 
-                    onClick={() => setCurrentSlide((prev) => (prev + 1) % carouselImages.length)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-4 bg-black/30 backdrop-blur-md text-white rounded-full hover:bg-black/80 transition-all opacity-0 group-hover:opacity-100 border border-white/10 hover:scale-110"
-                >
-                    <ChevronRight size={24} />
-                </button>
-            </>
+                    {/* Back glow behind text */}
+                    <div className="absolute inset-0 bg-primary/10 blur-[60px] rounded-full animate-pulse-slow"></div>
+                    
+                    <h2 className="text-5xl md:text-7xl font-bold text-white tracking-[0.2em] font-heading text-center drop-shadow-[0_0_25px_rgba(255,255,255,0.3)] animate-fade-in-up" style={headerFont}>
+                        CRAZY ART
+                    </h2>
+                    <div className="h-px w-24 bg-gradient-to-r from-transparent via-zinc-500 to-transparent mx-auto my-6"></div>
+                    <p className="text-zinc-300 text-sm md:text-lg tracking-[0.5em] text-center uppercase animate-fade-in-up font-light" style={{ animationDelay: '200ms' }}>
+                        transformando ideias
+                    </p>
+                </div>
+            </div>
+          )}
+
+          {/* 3. CAROUSEL STRIP (Bottom 1/5) - HIDDEN IF GAME MODE */}
+          {!gameMode && (
+            <div className="absolute bottom-0 left-0 w-full h-[20%] z-40 bg-black/60 backdrop-blur-md border-t border-white/10 shadow-[0_-10px_50px_rgba(0,0,0,0.8)]">
+                <div className="w-full h-full flex transition-transform duration-1000 ease-in-out" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
+                    {carouselImages.length > 0 ? (
+                        carouselImages.map((img) => (
+                            <div key={img.id} className="w-full h-full flex-shrink-0 relative group/slide">
+                                <img 
+                                    src={img.url} 
+                                    alt="Carousel Banner" 
+                                    className="w-full h-full object-cover opacity-70 group-hover/slide:opacity-100 transition-opacity duration-500 scale-105"
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&q=80&w=1920';
+                                    }}
+                                />
+                                {/* Overlay Gradient for text readability */}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+                            </div>
+                        ))
+                    ) : (
+                        [0, 1].map((index) => (
+                            <div key={index} className="w-full h-full flex-shrink-0 relative flex items-center justify-center bg-zinc-900/50">
+                                <div className="flex items-center gap-3 opacity-50">
+                                    <Sparkles size={16} />
+                                    <span className="text-xs uppercase tracking-widest text-zinc-400">Destaques em Breve</span>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                {/* Carousel Controls (Miniaturized) */}
+                {carouselImages.length > 1 && (
+                    <>
+                        <button 
+                            onClick={() => setCurrentSlide((prev) => (prev - 1 + carouselImages.length) % carouselImages.length)}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-black/60 text-white rounded-full hover:bg-white/20 transition-all border border-white/10 backdrop-blur-sm group hover:scale-110"
+                        >
+                            <ChevronLeft size={16} />
+                        </button>
+                        <button 
+                            onClick={() => setCurrentSlide((prev) => (prev + 1) % carouselImages.length)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-black/60 text-white rounded-full hover:bg-white/20 transition-all border border-white/10 backdrop-blur-sm group hover:scale-110"
+                        >
+                            <ChevronRight size={16} />
+                        </button>
+                        
+                        {/* Dots Indicators */}
+                        <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-2">
+                            {carouselImages.map((_, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => setCurrentSlide(i)}
+                                    className={`h-1 rounded-full transition-all duration-500 ${
+                                        currentSlide === i ? 'w-8 bg-primary shadow-[0_0_10px_#f59e0b]' : 'w-2 bg-zinc-600 hover:bg-zinc-400'
+                                    }`}
+                                />
+                            ))}
+                        </div>
+                    </>
+                )}
+            </div>
           )}
         </div>
 
-        {/* Carousel Indicators */}
-        {carouselImages.length > 0 && (
-            <div className="flex justify-center gap-3 mt-8 mb-12">
-                {carouselImages.map((_, i) => (
-                    <button
-                        key={i}
-                        onClick={() => setCurrentSlide(i)}
-                        className={`h-1.5 rounded-full transition-all duration-500 ease-out ${
-                            currentSlide === i ? 'w-10 bg-gradient-to-r from-yellow-500 to-red-600 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'w-2 bg-zinc-800 hover:bg-zinc-600'
-                        }`}
-                        aria-label={`Ir para imagem ${i + 1}`}
-                    />
-                ))}
-            </div>
-        )}
-
-        {/* Navigation Cards */}
-        <div className="w-full max-w-7xl px-6 mb-24 mt-4">
+        {/* Navigation Cards - SEM PARALAX (Efeito estático) */}
+        <div className="w-full max-w-7xl px-6 mb-24 mt-8 relative z-50">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {sections.map((section, idx) => (
               <div 
                 key={section.name} 
                 onClick={() => handleSectionClick(section)} 
-                className={`relative bg-zinc-900/50 border border-zinc-800/50 p-8 rounded-2xl flex flex-col items-center justify-center gap-6 group transition-all duration-500 backdrop-blur-sm overflow-hidden 
-                ${section.status === 'active' ? 'cursor-pointer hover:border-primary/50 hover:-translate-y-2 hover:shadow-[0_10px_40px_-15px_rgba(0,0,0,0.5)]' : 'opacity-60 cursor-not-allowed grayscale'}`}
-                style={{ animationDelay: `${idx * 100}ms` }}
+                className="h-full"
               >
-                {/* Hover Glow Effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div 
+                    className={`h-64 rounded-2xl seasonal-target transition-all duration-200 group relative
+                    ${section.status === 'active' 
+                        ? 'cursor-pointer active:scale-95 active:shadow-[0_0_30px_rgba(245,158,11,0.4)]' 
+                        : 'opacity-60 cursor-not-allowed grayscale'
+                    }`}
+                >
+                    {/* Camada Base (Fundo): Mantém o GLOW BORDER */}
+                    <div className="absolute inset-0 bg-zinc-900/40 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden transition-all duration-500 group-hover:border-primary/60 group-hover:shadow-[0_0_25px_-5px_rgba(245,158,11,0.6),inset_0_0_15px_-5px_rgba(245,158,11,0.3)]">
+                        {/* Efeito Hover Fundo */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/20 transition-colors duration-500"></div>
+                    </div>
 
-                <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 text-zinc-400 group-hover:text-primary group-hover:border-primary/30 group-hover:scale-110 transition duration-500 shadow-lg relative z-10">
-                    <section.icon size={36} strokeWidth={1.5} />
+                    {/* Conteúdo (Sem transform 3D) */}
+                    <div className="relative h-full flex flex-col items-center justify-center gap-6 p-8">
+                        
+                        {/* Ícone */}
+                        <div 
+                            className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 text-zinc-400 group-hover:text-primary group-hover:border-primary/50 group-hover:shadow-[0_0_20px_rgba(245,158,11,0.2)] transition duration-300 shadow-xl"
+                        >
+                            <section.icon size={36} strokeWidth={1.5} />
+                        </div>
+                        
+                        {/* Texto */}
+                        <span 
+                            className="text-lg font-bold text-zinc-300 group-hover:text-white uppercase tracking-wider transition-colors" 
+                            style={{ 
+                                fontFamily: '"Times New Roman", Times, serif',
+                                textShadow: '0 10px 20px rgba(0,0,0,0.8)'
+                            }}
+                        >
+                            {section.name}
+                        </span>
+                        
+                        {/* Badge 'Em Breve' */}
+                        {section.status === 'soon' && (
+                            <div 
+                                className="absolute top-4 right-4"
+                            >
+                                <span className="text-[10px] bg-zinc-950 border border-zinc-800 text-zinc-500 px-3 py-1 rounded-full font-bold uppercase tracking-widest shadow-lg">
+                                    Em Breve
+                                </span>
+                            </div>
+                        )}
+
+                        {/* Partícula Decorativa */}
+                        <div 
+                            className="absolute bottom-6 right-6 w-2 h-2 bg-primary/60 rounded-full blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity delay-100"
+                        ></div>
+                    </div>
                 </div>
-                <span className="text-lg font-bold text-zinc-300 group-hover:text-white uppercase tracking-wider transition-colors relative z-10" style={headerFont}>{section.name}</span>
-                
-                {section.status === 'soon' && (
-                    <span className="absolute top-4 right-4 text-[10px] bg-zinc-950 border border-zinc-800 text-zinc-500 px-3 py-1 rounded-full font-bold uppercase tracking-widest">Em Breve</span>
-                )}
               </div>
             ))}
           </div>
@@ -237,7 +431,7 @@ export default function Home() {
                     autoFocus 
                 />
                 {error && <div className="text-red-500 text-sm text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20 animate-pulse">{error}</div>}
-                <button type="submit" className="w-full bg-gradient-to-r from-white to-zinc-300 text-black font-bold py-4 rounded-xl hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-[1.02] transition-all transform active:scale-95 uppercase tracking-wider text-sm">Entrar</button>
+                <button type="submit" className="w-full bg-gradient-to-r from-white to-zinc-300 text-black font-bold py-4 rounded-xl hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-[1.02] transition-all transform active:scale-95 uppercase tracking-wider text-sm btn-active-effect">Entrar</button>
               </form>
               <div className="mt-8 text-center relative z-10">
                 <button onClick={() => setLoginMode(loginMode === 'client' ? 'admin' : 'client')} className="text-xs text-zinc-500 hover:text-white transition-colors border-b border-dashed border-zinc-700 hover:border-white pb-0.5">{loginMode === 'client' ? 'Acesso Administrativo' : 'Voltar para Login de Cliente'}</button>

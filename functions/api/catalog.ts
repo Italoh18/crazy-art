@@ -9,10 +9,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     const type = url.searchParams.get('type');
     const search = url.searchParams.get('search');
 
-    // GET - Listagem com mapeamento para camelCase
+    // GET - Listagem com mapeamento robusto
     if (request.method === 'GET') {
-      // Filtrar apenas itens ATIVOS (active = 1)
-      let query = 'SELECT id, type, name, price, cost_price as costPrice, image_url as imageUrl, description, created_at FROM catalog WHERE active = 1';
+      // Usamos SELECT * para garantir que pegamos as colunas originais do banco (snake_case)
+      // e evitamos problemas com aliases SQL diretos que podem falhar em drivers específicos
+      let query = 'SELECT * FROM catalog WHERE active = 1';
       let params: any[] = [];
 
       if (type && type !== 'undefined') {
@@ -29,7 +30,19 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const stmt = env.DB.prepare(query);
       const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
       
-      return new Response(JSON.stringify(results || []), {
+      // Mapeamento Explícito: Garante que o frontend receba exatamente o que espera
+      const mappedResults = (results || []).map((row: any) => ({
+        id: String(row.id), // Força string para evitar problemas se o D1 retornar número ou objeto
+        type: row.type || 'product',
+        name: row.name,
+        price: Number(row.price),
+        costPrice: Number(row.cost_price || 0), // Mapeia snake_case para camelCase
+        imageUrl: row.image_url || row.imageUrl || null, // Suporta ambos os casos por segurança
+        description: row.description || null,
+        created_at: row.created_at
+      }));
+      
+      return new Response(JSON.stringify(mappedResults), {
         headers: {
           'Content-Type': 'application/json',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -74,11 +87,12 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         price, 
         type: itemType, 
         description, 
-        costPrice: cost_price 
+        costPrice: cost_price,
+        imageUrl: image_url
       });
     }
 
-    // DELETE - Agora executa SOFT DELETE (Update active = 0)
+    // DELETE - Executa SOFT DELETE (Update active = 0)
     if (request.method === 'DELETE') {
       if (!user || user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
       

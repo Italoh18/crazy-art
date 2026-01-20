@@ -33,23 +33,40 @@
               'crazy-gradient-hover': 'linear-gradient(135deg, #D97706 0%, #B91C1C 100%)',
               'glass-gradient': 'linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%)',
               'glow-conic': 'conic-gradient(from 180deg at 50% 50%, #2a8af6 0deg, #a853ba 180deg, #e92a67 360deg)',
+              'flare-gradient': 'conic-gradient(from 0deg at 50% 50%, #DC2626 0deg, #F59E0B 120deg, #7C3AED 240deg, #DC2626 360deg)',
             },
             animation: {
-              'fade-in-up': 'fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-              'fade-in': 'fadeIn 0.5s ease-out forwards',
+              'fade-in-up': 'fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              'fade-in': 'fadeIn 1s ease-out forwards',
+              'fade-out': 'fadeOut 1s ease-in forwards',
+              'page-enter': 'pageEnter 0.9s cubic-bezier(0.19, 1, 0.22, 1) forwards',
               'pulse-slow': 'pulse 6s cubic-bezier(0.4, 0, 0.6, 1) infinite',
               'float': 'float 8s ease-in-out infinite',
               'shine': 'shine 2s linear infinite',
-              'scale-in': 'scaleIn 0.2s ease-out forwards',
+              'scale-in': 'scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              'spin-slow': 'spin 20s linear infinite',
+              'spin-reverse-slow': 'spin 25s linear infinite reverse',
+              'meteor': 'meteor 5s linear infinite',
+              'twinkle': 'twinkle 4s ease-in-out infinite',
+              'letter-slam': 'letterSlam 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
+              'zoom-pulse': 'zoomPulse 2s ease-in-out infinite',
             },
             keyframes: {
               fadeInUp: {
-                '0%': { opacity: '0', transform: 'translateY(20px)' },
-                '100%': { opacity: '1', transform: 'translateY(0)' },
+                '0%': { opacity: '0', transform: 'translateY(30px)', filter: 'blur(4px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)', filter: 'blur(0px)' },
               },
               fadeIn: {
                 '0%': { opacity: '0' },
                 '100%': { opacity: '1' },
+              },
+              fadeOut: {
+                '0%': { opacity: '1' },
+                '100%': { opacity: '0' },
+              },
+              pageEnter: {
+                '0%': { opacity: '0', transform: 'translateY(15px) scale(0.98)', filter: 'blur(8px)' },
+                '100%': { opacity: '1', transform: 'translateY(0) scale(1)', filter: 'blur(0px)' },
               },
               float: {
                 '0%, 100%': { transform: 'translateY(0)' },
@@ -60,8 +77,26 @@
                 '100%': { backgroundPosition: '-200% center' },
               },
               scaleIn: {
-                '0%': { transform: 'scale(0.95)', opacity: '0' },
-                '100%': { transform: 'scale(1)', opacity: '1' },
+                '0%': { transform: 'scale(0.92)', opacity: '0', filter: 'blur(4px)' },
+                '100%': { transform: 'scale(1)', opacity: '1', filter: 'blur(0px)' },
+              },
+              meteor: {
+                '0%': { transform: 'rotate(215deg) translateX(0)', opacity: '1' },
+                '70%': { opacity: '1' },
+                '100%': { transform: 'rotate(215deg) translateX(-500px)', opacity: '0' },
+              },
+              twinkle: {
+                '0%, 100%': { opacity: '1' },
+                '50%': { opacity: '0.3' },
+              },
+              letterSlam: {
+                '0%': { opacity: '0', transform: 'scale(10) translateZ(0)', filter: 'blur(10px)' },
+                '40%': { opacity: '1' },
+                '100%': { opacity: '1', transform: 'scale(1) translateZ(0)', filter: 'blur(0px)' }
+              },
+              zoomPulse: {
+                '0%, 100%': { transform: 'scale(1)' },
+                '50%': { transform: 'scale(1.1)' }
               }
             },
             boxShadow: {
@@ -72,7 +107,7 @@
         }
       }
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
       body { 
         font-family: 'Inter', sans-serif; 
@@ -95,22 +130,43 @@
       /* Utilities */
       .glass-panel {
         background: rgba(18, 18, 21, 0.6);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
         border: 1px solid rgba(255, 255, 255, 0.08);
         box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
       }
       
       .bg-grid-pattern {
-        background-size: 40px 40px;
+        background-size: 50px 50px;
         background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
                           linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-        mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
-        -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+        mask-image: linear-gradient(to bottom, black 20%, transparent 95%);
+        -webkit-mask-image: linear-gradient(to bottom, black 20%, transparent 95%);
       }
 
       .text-glow {
         text-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
+      }
+
+      /* FEATURE: Button Response & Pulse */
+      button:not(:disabled):active, 
+      a[role="button"]:not(:disabled):active,
+      .btn-active-effect:active {
+        transform: scale(0.96);
+        transition: transform 0.05s ease-out;
+        /* Leve brilho na borda ao clicar */
+        box-shadow: 0 0 15px rgba(245, 158, 11, 0.3), inset 0 0 10px rgba(255,255,255,0.1);
+        border-color: rgba(245, 158, 11, 0.6) !important;
+      }
+
+      /* Classe utilitária para conteúdo interno do TiltCard */
+      .tilt-content-float {
+        transform: translateZ(20px);
+        transition: transform 0.3s;
+      }
+      .tilt-content-deep {
+        transform: translateZ(40px);
+        transition: transform 0.3s;
       }
     </style>
   <script type="importmap">
