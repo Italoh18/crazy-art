@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +18,10 @@ export default function Home() {
   const { loginAdmin, loginClient, role, logout } = useAuth();
   const { carouselImages } = useData();
   const navigate = useNavigate();
+
+  // Refs para Triple Tap (Mobile Game Activation)
+  const tapCountRef = useRef(0);
+  const resetTapTimeoutRef = useRef<any>(null);
 
   // Scroll Listener para Parallax (Mantido apenas para a Galáxia)
   useEffect(() => {
@@ -74,6 +78,31 @@ export default function Home() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Handler para Triple Tap (3 cliques na galáxia)
+  const handleGalaxyTap = () => {
+    // Se o jogo já estiver aberto, não faz nada (o jogo tem seu próprio botão de fechar)
+    if (gameMode) return;
+
+    tapCountRef.current += 1;
+
+    if (resetTapTimeoutRef.current) {
+        clearTimeout(resetTapTimeoutRef.current);
+    }
+
+    if (tapCountRef.current === 3) {
+        setGameMode(true);
+        tapCountRef.current = 0;
+        // Feedback tátil se disponível (Mobile)
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate(100);
+        }
+    } else {
+        resetTapTimeoutRef.current = setTimeout(() => {
+            tapCountRef.current = 0;
+        }, 500); // 500ms para resetar a contagem
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,7 +200,11 @@ export default function Home() {
       <main className={`relative z-10 flex-1 flex flex-col items-center w-full ${role === 'guest' ? 'pt-20' : 'pt-0'}`}>
         
         {/* HERO SECTION: Galaxy + Mini Carousel + GAME LAYER */}
-        <div className="w-full h-[70vh] md:h-[80vh] relative overflow-hidden bg-black group shadow-2xl perspective-1000">
+        {/* Adicionado onClick={handleGalaxyTap} para o clique triplo */}
+        <div 
+            onClick={handleGalaxyTap}
+            className="w-full h-[70vh] md:h-[80vh] relative overflow-hidden bg-black group shadow-2xl perspective-1000 cursor-pointer select-none"
+        >
           
           {/* 1. GALAXY ANIMATION LAYER (Always Visible as Background) */}
           <div className="absolute inset-0 z-0 overflow-hidden bg-black">
@@ -274,7 +307,10 @@ export default function Home() {
 
           {/* 3. CAROUSEL STRIP (Bottom 1/5) - HIDDEN IF GAME MODE */}
           {!gameMode && (
-            <div className="absolute bottom-0 left-0 w-full h-[20%] z-40 bg-black/60 backdrop-blur-md border-t border-white/10 shadow-[0_-10px_50px_rgba(0,0,0,0.8)]">
+            <div 
+                className="absolute bottom-0 left-0 w-full h-[20%] z-40 bg-black/60 backdrop-blur-md border-t border-white/10 shadow-[0_-10px_50px_rgba(0,0,0,0.8)]"
+                onClick={(e) => e.stopPropagation()} // Impede que cliques no carrossel contem para o triple tap
+            >
                 <div className="w-full h-full flex transition-transform duration-1000 ease-in-out" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
                     {carouselImages.length > 0 ? (
                         carouselImages.map((img) => (
