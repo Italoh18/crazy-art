@@ -193,14 +193,22 @@ export default function Shop() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredItems.map((item) => (
                 <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-zinc-700 transition group flex flex-col shadow-lg relative">
-                    <div className="h-48 bg-zinc-800 relative overflow-hidden">
-                        {item.imageUrl ? (
-                            <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition duration-700 group-hover:scale-110" />
-                        ) : (
-                            <div className="absolute inset-0 flex items-center justify-center text-zinc-700">
-                                {activeTab === 'product' ? <ShoppingBag size={48} /> : <Wrench size={48} />}
-                            </div>
+                    <div className="h-48 bg-zinc-800 relative overflow-hidden flex items-center justify-center">
+                        {/* Fallback Icon (Behind Image) */}
+                        <div className="absolute inset-0 flex items-center justify-center text-zinc-700">
+                             {activeTab === 'product' ? <ShoppingBag size={48} /> : <Wrench size={48} />}
+                        </div>
+                        
+                        {/* Image */}
+                        {item.imageUrl && (
+                            <img 
+                                src={item.imageUrl} 
+                                alt={item.name} 
+                                className="w-full h-full object-cover transition duration-700 group-hover:scale-110 relative z-10" 
+                                onError={(e) => e.currentTarget.style.display = 'none'} // Hides image if broken, revealing the icon
+                            />
                         )}
+                        
                         <div className="absolute top-3 right-3 z-20 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-xs font-bold text-white border border-white/10 uppercase">
                             {activeTab === 'product' ? 'Produto' : 'Serviço'}
                         </div>

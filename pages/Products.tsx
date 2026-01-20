@@ -205,10 +205,18 @@ export default function Products() {
                   <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="px-6 py-4">
                         <div className="w-12 h-12 rounded-lg bg-zinc-900 overflow-hidden flex items-center justify-center border border-zinc-800 group-hover:border-zinc-700 transition-colors shadow-sm relative">
-                            {item.imageUrl ? (
-                                <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" />
-                            ) : (
-                                <ImageIcon size={18} className="text-zinc-700" />
+                            {/* Fundo com Ícone (Fallback) */}
+                            <div className="absolute inset-0 flex items-center justify-center text-zinc-700">
+                                <ImageIcon size={18} />
+                            </div>
+                            {/* Imagem Real (Cobre o ícone se carregar) */}
+                            {item.imageUrl && (
+                                <img 
+                                    src={item.imageUrl} 
+                                    alt={item.name} 
+                                    className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500 relative z-10"
+                                    onError={(e) => e.currentTarget.style.display = 'none'} // Esconde a imagem se quebrar, revelando o ícone
+                                />
                             )}
                         </div>
                     </td>

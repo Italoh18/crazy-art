@@ -171,7 +171,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
              </div>
              <div>
                 <span className="text-xl font-bold text-white uppercase tracking-wider font-heading block leading-none bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400" style={timesFont}>CRAZY ART</span>
-                <span className="text-[10px] text-primary font-bold uppercase tracking-[0.3em]">Studio</span>
              </div>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-zinc-400 hover:text-white transition-transform hover:rotate-90">
