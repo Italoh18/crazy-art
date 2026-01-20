@@ -8,6 +8,20 @@ const getHeaders = () => {
 };
 
 const handleResponse = async (res: Response) => {
+  // Se o token for inválido (mudança de chave secreta no deploy), limpa e recarrega
+  if (res.status === 401 || res.status === 403) {
+    const isLoginEndpoint = res.url.includes('/api/auth');
+    // Não força logout se o erro for na própria tentativa de login (senha errada)
+    if (!isLoginEndpoint) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_role');
+        localStorage.removeItem('current_customer');
+        // Redireciona para home para forçar novo login
+        window.location.href = '/';
+        throw new Error('Sessão expirada. Faça login novamente.');
+    }
+  }
+
   if (!res.ok) {
     let errorMsg = `Erro HTTP: ${res.status}`;
     try {
