@@ -3,10 +3,6 @@ name = "crazy-art"
 pages_build_output_dir = "dist"
 compatibility_date = "2024-01-01"
 
-# Variáveis de Ambiente para Produção
-[vars]
-JWT_SECRET = "crazy-art-secret-key-2024-production"
-
 [[d1_databases]]
 binding = "DB"
 database_name = "crazyart-db"
