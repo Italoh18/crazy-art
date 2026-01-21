@@ -8,27 +8,16 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     const body = await request.json() as any;
     const { orderId, title, amount, payerEmail, payerName } = body;
 
-    // 1. Validação de Ambiente
+    // orderId aqui pode ser uma string simples "ID1" ou composta "ID1,ID2,ID3"
     if (!env.MP_ACCESS_TOKEN) {
-      console.error("[CreatePayment] ERRO: MP_ACCESS_TOKEN ausente.");
-      return new Response(JSON.stringify({ error: 'Configuração de pagamento incompleta (Token ausente).' }), { status: 500 });
+      return new Response(JSON.stringify({ error: 'Token ausente.' }), { status: 500 });
     }
 
-    // 2. Validação de Dados Básicos
     if (!orderId || !amount) {
-      console.error("[CreatePayment] ERRO: Dados inválidos recebidos.", body);
-      return new Response(JSON.stringify({ error: 'Dados do pedido incompletos.' }), { status: 400 });
+      return new Response(JSON.stringify({ error: 'Dados incompletos.' }), { status: 400 });
     }
 
-    // 3. Normalização Estrita de Tipos (Requisito MP)
     const cleanAmount = parseFloat(String(amount));
-    
-    if (isNaN(cleanAmount) || cleanAmount <= 0) {
-       console.error("[CreatePayment] ERRO: Valor inválido.", amount);
-       return new Response(JSON.stringify({ error: 'Valor do pedido inválido.' }), { status: 400 });
-    }
-
-    // Email de fallback seguro caso o cliente não tenha email cadastrado
     const validEmail = (payerEmail && String(payerEmail).includes('@')) 
       ? String(payerEmail).trim() 
       : 'cliente_sem_email@crazyart.com';
@@ -37,20 +26,18 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     const [firstName, ...lastNameParts] = validName.split(' ');
     const lastName = lastNameParts.join(' ') || 'Cliente';
 
-    // Recupera origem para URLs de retorno
     const urlObj = new URL(request.url);
     const origin = urlObj.origin;
 
-    // 4. Montagem do Payload da Preferência
     const preferencePayload = {
       items: [
         {
-          id: String(orderId),
+          id: String(orderId), // Aqui passamos a string de IDs
           title: String(title || 'Pedido Crazy Art').substring(0, 255),
-          description: String(title || 'Pedido Crazy Art').substring(0, 255),
-          quantity: 1, // Obrigatório ser int
-          currency_id: 'BRL', // Obrigatório
-          unit_price: Number(cleanAmount.toFixed(2)) // Obrigatório ser number com 2 casas
+          description: "Pagamento de faturas Crazy Art Studio",
+          quantity: 1,
+          currency_id: 'BRL',
+          unit_price: Number(cleanAmount.toFixed(2))
         }
       ],
       payer: {
@@ -58,7 +45,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
         surname: lastName,
         email: validEmail
       },
-      external_reference: String(orderId),
+      external_reference: String(orderId), // Referência enviada para o webhook
       back_urls: {
         success: `${origin}/my-area?status=success`,
         failure: `${origin}/my-area?status=failure`,
@@ -66,13 +53,11 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
       },
       auto_return: "approved",
       statement_descriptor: "CRAZYART",
-      binary_mode: false // false = aceita pendente (boleto), true = apenas cartão aprovado na hora
+      binary_mode: false
     };
 
-    // LOG OBRIGATÓRIO
-    console.log("[CreatePayment] Payload Enviado ao MP:", JSON.stringify(preferencePayload, null, 2));
+    console.log("[BatchPayment] Iniciando para:", orderId);
 
-    // 5. Chamada à API do Mercado Pago
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
@@ -84,19 +69,13 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
 
     if (!mpResponse.ok) {
       const errorText = await mpResponse.text();
-      console.error("[CreatePayment] Erro na API do MP:", errorText);
-      throw new Error(`Falha ao criar preferência: ${errorText}`);
+      throw new Error(`Erro MP: ${errorText}`);
     }
 
     const mpData: any = await mpResponse.json();
     
-    // LOG OBRIGATÓRIO
-    console.log("[CreatePayment] Resposta MP Sucesso. ID:", mpData.id);
-    console.log("[CreatePayment] Link de Redirecionamento (init_point):", mpData.init_point);
-
-    // 6. Retorno para o Frontend
     return new Response(JSON.stringify({ 
-      init_point: mpData.init_point, // URL para redirecionamento
+      init_point: mpData.init_point,
       preferenceId: mpData.id 
     }), {
       headers: { 'Content-Type': 'application/json' }
