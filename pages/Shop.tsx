@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag, Wrench, Search, Star, LogIn, ShoppingCart, CheckCircle, AlertOctagon, Send, Image as ImageIcon, X, Trash2, Minus, Plus as PlusIcon } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Wrench, Search, Star, LogIn, ShoppingCart, CheckCircle, AlertOctagon, Send, Image as ImageIcon, X, Trash2, Minus, Plus as PlusIcon, CreditCard, Loader2 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Product, Order } from '../types';
+import { api } from '../src/services/api';
 
 export default function Shop() {
   const [activeTab, setActiveTab] = useState<'product' | 'service'>('product');
@@ -21,6 +22,7 @@ export default function Shop() {
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
   const [lastItemType, setLastItemType] = useState<'product' | 'service'>('product');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const filteredItems = products.filter(item => {
      const itemType = item.type || 'product';
@@ -122,6 +124,29 @@ export default function Shop() {
     const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
     setSuccessModalOpen(false);
+  };
+
+  const handlePayment = async () => {
+    if (!lastOrder) return;
+    setIsProcessingPayment(true);
+    try {
+        const title = `Pedido #${lastOrder.formattedOrderNumber || lastOrder.order_number} - ${lastOrder.description || 'Loja Crazy Art'}`;
+        const res = await api.createPayment({
+            orderId: lastOrder.id,
+            title: title.substring(0, 255),
+            amount: lastOrder.total
+        });
+        
+        if (res.init_point) {
+            window.location.href = res.init_point;
+        } else {
+            alert('Erro ao gerar link de pagamento.');
+        }
+    } catch (e: any) {
+        alert('Erro: ' + e.message);
+    } finally {
+        setIsProcessingPayment(false);
+    }
   };
 
   return (
@@ -275,6 +300,12 @@ export default function Shop() {
                     <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-500"><CheckCircle size={32} /></div>
                     <h2 className="text-xl font-bold text-white mb-2">Pedido Realizado!</h2>
                     <p className="text-zinc-400 text-sm mb-6">Pedido <strong>#{lastOrder.formattedOrderNumber || lastOrder.order_number}</strong> criado.</p>
+                    
+                    <button onClick={handlePayment} disabled={isProcessingPayment} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 mb-3 shadow-lg shadow-blue-500/20">
+                        {isProcessingPayment ? <Loader2 className="animate-spin" size={18} /> : <CreditCard size={18} />}
+                        Pagar Agora
+                    </button>
+
                     <button onClick={handleWhatsAppRedirect} className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2">
                         <Send size={18} /> Enviar via WhatsApp
                     </button>

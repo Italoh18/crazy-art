@@ -114,6 +114,16 @@ export const api = {
     return handleResponse(res);
   },
 
+  // Pagamentos
+  async createPayment(paymentData: { orderId: string, title: string, amount: number }) {
+    const res = await fetch('/api/create-payment', { 
+        method: 'POST', 
+        headers: getHeaders(), 
+        body: JSON.stringify(paymentData) 
+    });
+    return handleResponse(res);
+  },
+
   async getCarousel() {
     const res = await fetch(`/api/carousel?_t=${Date.now()}`);
     return handleResponse(res);

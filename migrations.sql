@@ -31,6 +31,10 @@ ALTER TABLE catalog ADD COLUMN active INTEGER DEFAULT 1;
 -- Garante que itens existentes sejam marcados como ativos
 UPDATE catalog SET active = 1 WHERE active IS NULL;
 
+-- 6. Coluna de Data de Pagamento
+ALTER TABLE orders ADD COLUMN paid_at TEXT;
+
 -- Verificação
 PRAGMA table_info(catalog);
 PRAGMA table_info(order_items);
+PRAGMA table_info(orders);

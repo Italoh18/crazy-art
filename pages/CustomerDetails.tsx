@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Edit2, CheckCircle, Plus, MapPin, Phone, Mail, CreditCard, Trash2, ShoppingCart, X, Search, Package, Wrench, FileEdit, Minus, Plus as PlusIcon, AlertTriangle, Wallet, TrendingUp, Calendar, Clock } from 'lucide-react';
+import { ArrowLeft, Edit2, CheckCircle, Plus, MapPin, Phone, Mail, CreditCard, Trash2, ShoppingCart, X, Search, Package, Wrench, FileEdit, Minus, Plus as PlusIcon, AlertTriangle, Wallet, TrendingUp, Calendar, Clock, DollarSign, Loader2 } from 'lucide-react';
 import { Order, Product, ItemType, OrderItem } from '../types';
+import { api } from '../src/services/api';
 
 export default function CustomerDetails() {
   const { id: paramId } = useParams<{ id: string }>();
@@ -18,6 +20,7 @@ export default function CustomerDetails() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isQuickRegOpen, setIsQuickRegOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
 
   const [itemSearchTerm, setItemSearchTerm] = useState('');
   const [showItemResults, setShowItemResults] = useState(false);
@@ -213,6 +216,29 @@ export default function CustomerDetails() {
   const isOverdue = (order: Order) => {
       if (!order.due_date || order.status !== 'open') return false;
       return new Date(order.due_date) < new Date();
+  };
+
+  // Payment Function
+  const handlePayment = async (order: Order) => {
+    setPayingOrderId(order.id);
+    try {
+        const title = `Pedido #${order.formattedOrderNumber || order.order_number} - ${order.description || 'Crazy Art'}`;
+        const res = await api.createPayment({
+            orderId: order.id,
+            title: title.substring(0, 255),
+            amount: order.total
+        });
+        
+        if (res.init_point) {
+            window.location.href = res.init_point;
+        } else {
+            alert('Erro ao gerar link de pagamento.');
+        }
+    } catch (e: any) {
+        alert('Erro: ' + e.message);
+    } finally {
+        setPayingOrderId(null);
+    }
   };
 
   // Calculations for Dashboard
@@ -472,6 +498,19 @@ export default function CustomerDetails() {
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex items-center justify-end gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
+                                        
+                                        {/* Botão de Pagamento para Clientes em pedidos Abertos */}
+                                        {role === 'client' && order.status === 'open' && (
+                                            <button 
+                                                onClick={() => handlePayment(order)} 
+                                                disabled={payingOrderId === order.id}
+                                                className="text-white p-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition shadow-lg shadow-blue-500/20" 
+                                                title="Pagar com Mercado Pago"
+                                            >
+                                                {payingOrderId === order.id ? <Loader2 size={16} className="animate-spin" /> : <DollarSign size={16} />}
+                                            </button>
+                                        )}
+
                                         {role === 'admin' && (
                                             <button onClick={() => openOrderEdit(order)} className="text-zinc-400 p-2 hover:bg-white/10 rounded-lg hover:text-white transition" title="Editar">
                                                 <FileEdit size={16} />
@@ -509,6 +548,7 @@ export default function CustomerDetails() {
                 </div>
                 
                 <form onSubmit={handleCreateOrUpdateOrder} className="p-8 space-y-8">
+                    {/* ... (rest of the form remains unchanged) ... */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="col-span-full">
                             <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Descrição do Pedido</label>
@@ -652,6 +692,7 @@ export default function CustomerDetails() {
                       <button onClick={() => setIsQuickRegOpen(false)} className="text-zinc-500 hover:text-white"><X size={18}/></button>
                   </div>
                   <form onSubmit={handleQuickRegisterSubmit} className="p-6 space-y-4">
+                      {/* ... (rest of the form remains unchanged) ... */}
                       <div>
                         <label className="block text-xs font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">Nome</label>
                         <input type="text" required autoFocus className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition" value={quickRegData.name} onChange={e => setQuickRegData({...quickRegData, name: e.target.value})} />
@@ -670,6 +711,7 @@ export default function CustomerDetails() {
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-scale-in">
             <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                {/* ... (rest of the modal remains unchanged) ... */}
                 <div className="flex justify-between items-center p-6 border-b border-white/10 sticky top-0 bg-[#121215]/95 backdrop-blur z-20">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2 font-heading">
                         <Edit2 className="text-primary" size={20} /> 
