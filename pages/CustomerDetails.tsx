@@ -361,7 +361,7 @@ export default function CustomerDetails() {
           </div>
       </div>
 
-      {/* ÁREA DE INFORMAÇÕES DO CLIENTE E LIMITE DE CRÉDITO (RESTAURADA) */}
+      {/* ÁREA DE INFORMAÇÕES DO CLIENTE E LIMITE DE CRÉDITO */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
          {/* Info Card */}
          <div className="glass-panel rounded-2xl p-6 relative group">
@@ -497,22 +497,37 @@ export default function CustomerDetails() {
             </table>
         </div>
 
-        {/* BARRA FLUTUANTE DE PAGAMENTO EM LOTE */}
+        {/* POP UP CENTRALIZADO DE PAGAMENTO EM LOTE */}
         {selectedOrderIds.length > 1 && (
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] animate-fade-in-up w-[90%] max-w-lg">
-                <div className="bg-zinc-900 border border-primary/50 shadow-2xl shadow-primary/20 p-4 rounded-2xl flex items-center justify-between backdrop-blur-xl">
-                    <div className="flex flex-col">
-                        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-widest">{selectedOrderIds.length} Itens Selecionados</span>
-                        <span className="text-xl font-black text-white">R$ {selectedTotal.toFixed(2)}</span>
+            <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                <div className="bg-zinc-900 border border-primary/50 shadow-2xl shadow-primary/20 p-8 rounded-3xl flex flex-col items-center text-center gap-6 max-w-sm w-full animate-scale-in">
+                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                        <CreditCard size={32} />
                     </div>
-                    <button 
-                        onClick={() => handlePayment(selectedOrderIds)} 
-                        disabled={isBatchProcessing}
-                        className="bg-crazy-gradient text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:scale-105 transition disabled:opacity-50"
-                    >
-                        {isBatchProcessing ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
-                        Pagar Lote
-                    </button>
+                    <div>
+                        <h3 className="text-xl font-bold text-white mb-1">Pagamento em Lote</h3>
+                        <p className="text-zinc-400 text-sm">{selectedOrderIds.length} faturas selecionadas</p>
+                    </div>
+                    <div className="flex flex-col items-center">
+                        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-widest mb-1">Total a Pagar</span>
+                        <span className="text-3xl font-black text-white">R$ {selectedTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex flex-col w-full gap-3">
+                        <button 
+                            onClick={() => handlePayment(selectedOrderIds)} 
+                            disabled={isBatchProcessing}
+                            className="w-full bg-crazy-gradient text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:scale-105 transition disabled:opacity-50"
+                        >
+                            {isBatchProcessing ? <Loader2 size={18} className="animate-spin" /> : <DollarSign size={18} />}
+                            Confirmar e Pagar
+                        </button>
+                        <button 
+                            onClick={() => setSelectedOrderIds([])}
+                            className="w-full py-3 text-zinc-500 hover:text-white transition text-sm font-medium"
+                        >
+                            Cancelar Seleção
+                        </button>
+                    </div>
                 </div>
             </div>
         )}
