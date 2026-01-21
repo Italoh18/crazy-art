@@ -5,22 +5,44 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
   try {
     const user = await getAuth(request, env);
     const url = new URL(request.url);
-    const id = url.searchParams.get('id');
-    const type = url.searchParams.get('type');
-    const search = url.searchParams.get('search');
+    const idParam = url.searchParams.get('id');
+    const typeParam = url.searchParams.get('type');
+    const searchParam = url.searchParams.get('search');
+
+    // --- Helpers de Normalização (Tipagem Estrita) ---
+    // Garante retorno String ou null (nunca undefined)
+    const toText = (val: any): string | null => {
+      if (val === undefined || val === null || val === 'null' || val === '') return null;
+      return String(val).trim();
+    };
+
+    // Garante retorno Number (nunca string, nunca NaN)
+    const toNum = (val: any): number => {
+      if (val === undefined || val === null || val === '') return 0;
+      // Trata inputs como "10,50" ou "R$ 10.00"
+      const s = String(val).replace(',', '.').replace(/[^0-9.-]/g, '');
+      const n = parseFloat(s);
+      return isFinite(n) ? n : 0;
+    };
+
+    // Garante INTEGER 0 ou 1
+    const toIntBool = (val: any): number => {
+      if (val === true || val === 'true' || val === 1 || val === '1') return 1;
+      return 0;
+    };
 
     // --- GET: Listagem ---
     if (request.method === 'GET') {
       let query = 'SELECT * FROM catalog WHERE active = 1';
-      let params: any[] = [];
+      const params: any[] = [];
 
-      if (type && type !== 'undefined') {
+      if (typeParam && typeParam !== 'undefined') {
         query += ' AND type = ?';
-        params.push(String(type));
+        params.push(String(typeParam));
       }
-      if (search && search !== 'undefined') {
+      if (searchParam && searchParam !== 'undefined') {
         query += ' AND name LIKE ?';
-        params.push(`%${String(search)}%`);
+        params.push(`%${String(searchParam)}%`);
       }
 
       query += ' ORDER BY created_at DESC';
@@ -29,11 +51,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
       
       const mappedResults = (results || []).map((row: any) => ({
-        id: String(row.id),
+        id: String(row.id), // Converte ID numérico do banco para string pro React
         type: row.type || 'product',
         name: row.name,
         price: Number(row.price),
-        costPrice: Number(row.cost_price || 0),
+        costPrice: Number(row.cost_price || row.cost || 0),
         imageUrl: row.image_url || row.imageUrl || null,
         description: row.description || null,
         active: row.active === 1,
@@ -48,96 +70,83 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       });
     }
 
-    // --- Verificação de Permissão para Escrita ---
+    // --- Verificação de Permissão ---
     if (!user || user.role !== 'admin') {
       return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
     }
 
-    // --- Helpers de Normalização (Sanitização) ---
-    // Garante TEXT ou NULL (nunca undefined)
-    const toText = (val: any): string | null => {
-      if (val === undefined || val === null) return null;
-      const s = String(val).trim();
-      return s === '' ? null : s;
-    };
-
-    // Garante REAL (nunca string ou undefined)
-    const toNum = (val: any): number => {
-      if (val === undefined || val === null) return 0;
-      const s = String(val).replace(',', '.').trim();
-      const n = parseFloat(s);
-      return isNaN(n) ? 0 : n;
-    };
-
-    // Garante INTEGER (0 ou 1)
-    const toIntBool = (val: any): number => {
-      return val ? 1 : 0;
-    };
-
     // --- POST: Criação ---
     if (request.method === 'POST') {
       const body = await request.json() as any;
-      const newId = crypto.randomUUID();
 
-      // Normalização Estrita dos Inputs
-      const val_id = String(newId);
+      // Normalização dos dados
       const val_type = String(body.type || 'product');
-      const val_name = String(body.name || '').trim(); // Obrigatório
+      const val_name = String(body.name || '').trim();
       const val_price = toNum(body.price);
-      const val_cost = toNum(body.cost_price || body.costPrice);
+      // Pega o custo de qualquer um dos campos possíveis
+      const val_cost_base = toNum(body.costPrice || body.cost_price || body.cost);
       const val_image = toText(body.imageUrl || body.image_url);
       const val_desc = toText(body.description);
-      const val_active = 1; // Default na criação é sempre ativo (INTEGER)
+      const val_active = 1; // Sempre 1 (INTEGER) ao criar
 
       if (!val_name) {
         return new Response(JSON.stringify({ error: 'O nome é obrigatório' }), { status: 400 });
       }
 
-      // Array de bind final (8 valores para 8 placeholders)
-      const bindValues = [val_id, val_type, val_name, val_price, val_cost, val_image, val_desc, val_active];
-      
-      console.log('POST /catalog BIND:', JSON.stringify(bindValues));
+      // Query exata solicitada: 8 placeholders
+      // Colunas: type, name, price, cost, cost_price, image_url, description, active
+      const query = `INSERT INTO catalog (type, name, price, cost, cost_price, image_url, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
-      await env.DB.prepare(
-        'INSERT INTO catalog (id, type, name, price, cost_price, image_url, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-      ).bind(...bindValues).run();
+      const bindValues = [
+        val_type,      // TEXT
+        val_name,      // TEXT
+        val_price,     // REAL
+        val_cost_base, // REAL (coluna cost)
+        val_cost_base, // REAL (coluna cost_price) - duplicado intencionalmente
+        val_image,     // TEXT (ou null)
+        val_desc,      // TEXT (ou null)
+        val_active     // INTEGER
+      ];
+
+      // LOG DIAGNÓSTICO
+      console.log('POST /catalog TYPES:', bindValues.map(v => v === null ? 'null' : typeof v));
+      console.log('POST /catalog VALUES:', JSON.stringify(bindValues));
+
+      const result = await env.DB.prepare(query).bind(...bindValues).run();
 
       return Response.json({ 
-        id: val_id, 
-        name: val_name, 
-        price: val_price, 
-        type: val_type,
-        active: true
+        success: true,
+        id: String(result.meta.last_row_id), // Retorna o ID gerado pelo AutoIncrement
+        name: val_name,
+        type: val_type
       });
     }
 
     // --- PUT: Atualização ---
     if (request.method === 'PUT') {
-      if (!id) return new Response(JSON.stringify({ error: 'ID obrigatório' }), { status: 400 });
+      if (!idParam) return new Response(JSON.stringify({ error: 'ID obrigatório' }), { status: 400 });
 
       const body = await request.json() as any;
 
-      // Normalização Estrita
       const val_name = String(body.name || '').trim();
       const val_price = toNum(body.price);
-      const val_cost = toNum(body.cost_price || body.costPrice);
+      const val_cost_base = toNum(body.costPrice || body.cost_price || body.cost);
       const val_image = toText(body.imageUrl || body.image_url);
       const val_desc = toText(body.description);
       
-      // Construção Dinâmica da Query
-      let query = 'UPDATE catalog SET name=?, price=?, cost_price=?, image_url=?, description=?';
-      const args = [val_name, val_price, val_cost, val_image, val_desc];
+      // Atualiza ambos os campos de custo para manter consistência
+      let query = 'UPDATE catalog SET name=?, price=?, cost=?, cost_price=?, image_url=?, description=?';
+      const args = [val_name, val_price, val_cost_base, val_cost_base, val_image, val_desc];
 
-      // Se 'active' vier no payload, atualiza também
       if (body.active !== undefined) {
         query += ', active=?';
         args.push(toIntBool(body.active));
       }
 
       query += ' WHERE id=?';
-      args.push(String(id));
+      args.push(Number(idParam)); // ID é INTEGER no DB
 
-      console.log('PUT /catalog BIND:', JSON.stringify(args));
+      console.log('PUT /catalog ARGS:', JSON.stringify(args));
 
       await env.DB.prepare(query).bind(...args).run();
 
@@ -146,13 +155,12 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     // --- DELETE: Soft Delete ---
     if (request.method === 'DELETE') {
-      if (!id) return new Response(JSON.stringify({ error: 'ID obrigatório' }), { status: 400 });
+      if (!idParam) return new Response(JSON.stringify({ error: 'ID obrigatório' }), { status: 400 });
 
-      console.log('DELETE /catalog ID:', id);
+      console.log('DELETE /catalog ID:', idParam);
       
-      // Soft Delete: active = 0 (INTEGER)
       await env.DB.prepare('UPDATE catalog SET active = 0 WHERE id = ?')
-        .bind(String(id))
+        .bind(Number(idParam)) // ID é INTEGER
         .run();
       
       return Response.json({ success: true });
@@ -162,6 +170,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
   } catch (e: any) {
     console.error('API Error:', e.message);
-    return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500 });
+    return new Response(JSON.stringify({ 
+      error: e.message, 
+      stack: e.stack,
+      hint: "Erro SQLITE_MISMATCH? Verifique se os tipos REAL e INTEGER estão corretos."
+    }), { status: 500 });
   }
 };
