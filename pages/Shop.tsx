@@ -131,18 +131,28 @@ export default function Shop() {
     setIsProcessingPayment(true);
     try {
         const title = `Pedido #${lastOrder.formattedOrderNumber || lastOrder.order_number} - ${lastOrder.description || 'Loja Crazy Art'}`;
+        
+        console.log("Iniciando pagamento...", { orderId: lastOrder.id, amount: lastOrder.total });
+
         const res = await api.createPayment({
             orderId: lastOrder.id,
             title: title.substring(0, 255),
-            amount: lastOrder.total
+            amount: lastOrder.total,
+            payerEmail: currentCustomer?.email, // Obrigatório para evitar botão desabilitado
+            payerName: currentCustomer?.name
         });
         
+        console.log("Resposta createPayment:", res);
+
         if (res.init_point) {
+            console.log("Redirecionando para Mercado Pago:", res.init_point);
             window.location.href = res.init_point;
         } else {
-            alert('Erro ao gerar link de pagamento.');
+            console.error("init_point não encontrado na resposta");
+            alert('Erro ao gerar link de pagamento. Tente novamente.');
         }
     } catch (e: any) {
+        console.error("Erro no fluxo de pagamento:", e);
         alert('Erro: ' + e.message);
     } finally {
         setIsProcessingPayment(false);

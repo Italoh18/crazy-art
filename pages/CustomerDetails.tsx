@@ -220,21 +220,31 @@ export default function CustomerDetails() {
 
   // Payment Function
   const handlePayment = async (order: Order) => {
+    if (!customer) return;
     setPayingOrderId(order.id);
+    
+    console.log("Iniciando pagamento customer details...", order.id);
+
     try {
         const title = `Pedido #${order.formattedOrderNumber || order.order_number} - ${order.description || 'Crazy Art'}`;
         const res = await api.createPayment({
             orderId: order.id,
             title: title.substring(0, 255),
-            amount: order.total
+            amount: order.total,
+            payerEmail: customer.email, // Obrigatório
+            payerName: customer.name
         });
         
+        console.log("Resposta MP (Details):", res);
+
         if (res.init_point) {
             window.location.href = res.init_point;
         } else {
+            console.error("init_point missing", res);
             alert('Erro ao gerar link de pagamento.');
         }
     } catch (e: any) {
+        console.error("Erro pagamento:", e);
         alert('Erro: ' + e.message);
     } finally {
         setPayingOrderId(null);

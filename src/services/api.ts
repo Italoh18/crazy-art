@@ -114,8 +114,8 @@ export const api = {
     return handleResponse(res);
   },
 
-  // Pagamentos
-  async createPayment(paymentData: { orderId: string, title: string, amount: number }) {
+  // Pagamentos - Atualizado com payer info
+  async createPayment(paymentData: { orderId: string, title: string, amount: number, payerEmail?: string, payerName?: string }) {
     const res = await fetch('/api/create-payment', { 
         method: 'POST', 
         headers: getHeaders(), 
