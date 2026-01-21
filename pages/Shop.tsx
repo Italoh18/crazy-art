@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag, Wrench, Search, Star, LogIn, ShoppingCart, CheckCircle, AlertOctagon, Send, Image as ImageIcon, X, Trash2, Minus, Plus as PlusIcon, CreditCard, Loader2 } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Wrench, Search, ShoppingCart, CheckCircle, AlertOctagon, Send, X, Trash2, Minus, Plus as PlusIcon, CreditCard, Loader2 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Product, Order } from '../types';
@@ -99,7 +99,6 @@ export default function Shop() {
           return;
       }
       
-      // Manual confirmation since context no longer handles it
       if (!window.confirm("Deseja realmente excluir este item da loja?")) {
         return;
       }
@@ -129,32 +128,39 @@ export default function Shop() {
   const handlePayment = async () => {
     if (!lastOrder) return;
     setIsProcessingPayment(true);
+    
     try {
-        const title = `Pedido #${lastOrder.formattedOrderNumber || lastOrder.order_number} - ${lastOrder.description || 'Loja Crazy Art'}`;
+        const title = `Pedido #${lastOrder.formattedOrderNumber || lastOrder.order_number} - Crazy Art`;
         
-        console.log("Iniciando pagamento...", { orderId: lastOrder.id, amount: lastOrder.total });
+        // Log para diagnóstico
+        console.log("[Shop] Iniciando checkout...", { 
+            orderId: lastOrder.id, 
+            amount: lastOrder.total,
+            email: currentCustomer?.email 
+        });
 
         const res = await api.createPayment({
             orderId: lastOrder.id,
-            title: title.substring(0, 255),
+            title: title,
             amount: lastOrder.total,
-            payerEmail: currentCustomer?.email, // Obrigatório para evitar botão desabilitado
+            payerEmail: currentCustomer?.email,
             payerName: currentCustomer?.name
         });
         
-        console.log("Resposta createPayment:", res);
+        console.log("[Shop] Resposta createPayment:", res);
 
-        if (res.init_point) {
-            console.log("Redirecionando para Mercado Pago:", res.init_point);
+        if (res && res.init_point) {
+            console.log("[Shop] Redirecionando para:", res.init_point);
+            // REDIRECIONAMENTO PURO PARA CHECKOUT PRO
             window.location.href = res.init_point;
         } else {
-            console.error("init_point não encontrado na resposta");
+            console.error("[Shop] init_point não encontrado.");
             alert('Erro ao gerar link de pagamento. Tente novamente.');
+            setIsProcessingPayment(false);
         }
     } catch (e: any) {
-        console.error("Erro no fluxo de pagamento:", e);
+        console.error("[Shop] Erro no fluxo de pagamento:", e);
         alert('Erro: ' + e.message);
-    } finally {
         setIsProcessingPayment(false);
     }
   };
@@ -229,7 +235,7 @@ export default function Shop() {
             {filteredItems.map((item) => (
                 <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-zinc-700 transition group flex flex-col shadow-lg relative">
                     <div className="h-48 bg-zinc-800 relative overflow-hidden flex items-center justify-center">
-                        {/* Fallback Icon (Behind Image) */}
+                        {/* Fallback Icon */}
                         <div className="absolute inset-0 flex items-center justify-center text-zinc-700">
                              {activeTab === 'product' ? <ShoppingBag size={48} /> : <Wrench size={48} />}
                         </div>
@@ -240,7 +246,7 @@ export default function Shop() {
                                 src={item.imageUrl} 
                                 alt={item.name} 
                                 className="w-full h-full object-cover transition duration-700 group-hover:scale-110 relative z-10" 
-                                onError={(e) => e.currentTarget.style.display = 'none'} // Hides image if broken, revealing the icon
+                                onError={(e) => e.currentTarget.style.display = 'none'} 
                             />
                         )}
                         
@@ -311,9 +317,13 @@ export default function Shop() {
                     <h2 className="text-xl font-bold text-white mb-2">Pedido Realizado!</h2>
                     <p className="text-zinc-400 text-sm mb-6">Pedido <strong>#{lastOrder.formattedOrderNumber || lastOrder.order_number}</strong> criado.</p>
                     
-                    <button onClick={handlePayment} disabled={isProcessingPayment} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 mb-3 shadow-lg shadow-blue-500/20">
+                    <button 
+                        onClick={handlePayment} 
+                        disabled={isProcessingPayment} 
+                        className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 mb-3 shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                         {isProcessingPayment ? <Loader2 className="animate-spin" size={18} /> : <CreditCard size={18} />}
-                        Pagar Agora
+                        {isProcessingPayment ? 'Gerando Link...' : 'Pagar Agora'}
                     </button>
 
                     <button onClick={handleWhatsAppRedirect} className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2">

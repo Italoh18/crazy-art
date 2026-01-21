@@ -223,28 +223,29 @@ export default function CustomerDetails() {
     if (!customer) return;
     setPayingOrderId(order.id);
     
-    console.log("Iniciando pagamento customer details...", order.id);
+    console.log("[Details] Iniciando pagamento...", { orderId: order.id, amount: order.total });
 
     try {
-        const title = `Pedido #${order.formattedOrderNumber || order.order_number} - ${order.description || 'Crazy Art'}`;
+        const title = `Pedido #${order.formattedOrderNumber || order.order_number} - Crazy Art`;
         const res = await api.createPayment({
             orderId: order.id,
-            title: title.substring(0, 255),
+            title: title,
             amount: order.total,
-            payerEmail: customer.email, // Obrigatório
+            payerEmail: customer.email,
             payerName: customer.name
         });
         
-        console.log("Resposta MP (Details):", res);
+        console.log("[Details] Resposta MP:", res);
 
-        if (res.init_point) {
+        if (res && res.init_point) {
+            // REDIRECIONAMENTO PURO
             window.location.href = res.init_point;
         } else {
-            console.error("init_point missing", res);
+            console.error("[Details] init_point missing", res);
             alert('Erro ao gerar link de pagamento.');
         }
     } catch (e: any) {
-        console.error("Erro pagamento:", e);
+        console.error("[Details] Erro pagamento:", e);
         alert('Erro: ' + e.message);
     } finally {
         setPayingOrderId(null);
@@ -311,7 +312,6 @@ export default function CustomerDetails() {
 
       {/* DASHBOARD FINANCEIRO (HUD Style) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
-          
           {/* Card: Total Devendo */}
           <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-black border border-white/10 p-6 rounded-2xl relative overflow-hidden group shadow-xl hover:border-amber-500/30 transition-all duration-500">
               <div className="absolute inset-0 bg-grid-pattern opacity-30"></div>
@@ -420,7 +420,6 @@ export default function CustomerDetails() {
 
          {/* Credit Card */}
          <div className="lg:col-span-2 glass-panel rounded-2xl p-8 relative overflow-hidden flex flex-col justify-between group">
-             {/* Abstract Background for Credit Card */}
              <div className="absolute right-0 top-0 w-64 h-64 bg-primary/20 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
              
              <div className="relative z-10 flex justify-between items-start mb-6">
@@ -440,7 +439,6 @@ export default function CustomerDetails() {
                     <span>Total: R$ {creditLimit.toFixed(2)}</span>
                 </div>
                 <div className="w-full h-4 bg-zinc-900 rounded-full overflow-hidden border border-white/5 shadow-inner relative">
-                    {/* Background Strips */}
                      <div className="absolute inset-0 w-full h-full bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(255,255,255,0.03)_10px,rgba(255,255,255,0.03)_20px)]"></div>
                     
                     <div 
@@ -514,7 +512,7 @@ export default function CustomerDetails() {
                                             <button 
                                                 onClick={() => handlePayment(order)} 
                                                 disabled={payingOrderId === order.id}
-                                                className="text-white p-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition shadow-lg shadow-blue-500/20" 
+                                                className="text-white p-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed" 
                                                 title="Pagar com Mercado Pago"
                                             >
                                                 {payingOrderId === order.id ? <Loader2 size={16} className="animate-spin" /> : <DollarSign size={16} />}

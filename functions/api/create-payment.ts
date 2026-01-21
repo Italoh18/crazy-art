@@ -5,41 +5,60 @@ export interface Env {
 
 export const onRequestPost: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
-    const { orderId, title, amount, payerEmail, payerName } = await request.json() as any;
+    const body = await request.json() as any;
+    const { orderId, title, amount, payerEmail, payerName } = body;
 
+    // 1. Validação de Ambiente
     if (!env.MP_ACCESS_TOKEN) {
-      console.error("ERRO CRÍTICO: MP_ACCESS_TOKEN não configurado no ambiente.");
-      return new Response(JSON.stringify({ error: 'MP_ACCESS_TOKEN não configurado.' }), { status: 500 });
+      console.error("[CreatePayment] ERRO: MP_ACCESS_TOKEN ausente.");
+      return new Response(JSON.stringify({ error: 'Configuração de pagamento incompleta (Token ausente).' }), { status: 500 });
     }
 
+    // 2. Validação de Dados Básicos
     if (!orderId || !amount) {
-      return new Response(JSON.stringify({ error: 'Dados incompletos (orderId ou amount faltando).' }), { status: 400 });
+      console.error("[CreatePayment] ERRO: Dados inválidos recebidos.", body);
+      return new Response(JSON.stringify({ error: 'Dados do pedido incompletos.' }), { status: 400 });
     }
 
-    // Normalização de dados obrigatórios para evitar botão desabilitado
-    // Se não houver email, usamos um placeholder válido para não quebrar o checkout
-    const validEmail = (payerEmail && payerEmail.includes('@')) ? payerEmail : 'guest_customer@crazyart.com';
-    const validPrice = Number(amount);
+    // 3. Normalização Estrita de Tipos (Requisito MP)
+    const cleanAmount = parseFloat(String(amount));
     
-    // Identifica a URL base da aplicação para retorno
-    const url = new URL(request.url);
-    const origin = url.origin;
+    if (isNaN(cleanAmount) || cleanAmount <= 0) {
+       console.error("[CreatePayment] ERRO: Valor inválido.", amount);
+       return new Response(JSON.stringify({ error: 'Valor do pedido inválido.' }), { status: 400 });
+    }
 
-    const preferenceData = {
+    // Email de fallback seguro caso o cliente não tenha email cadastrado
+    const validEmail = (payerEmail && String(payerEmail).includes('@')) 
+      ? String(payerEmail).trim() 
+      : 'cliente_sem_email@crazyart.com';
+
+    const validName = payerName ? String(payerName).trim() : 'Cliente Crazy Art';
+    const [firstName, ...lastNameParts] = validName.split(' ');
+    const lastName = lastNameParts.join(' ') || 'Cliente';
+
+    // Recupera origem para URLs de retorno
+    const urlObj = new URL(request.url);
+    const origin = urlObj.origin;
+
+    // 4. Montagem do Payload da Preferência
+    const preferencePayload = {
       items: [
         {
-          id: orderId,
-          title: title || 'Pagamento Crazy Art',
-          quantity: 1, // Obrigatório ser inteiro >= 1
-          currency_id: 'BRL',
-          unit_price: validPrice // Obrigatório ser Number
+          id: String(orderId),
+          title: String(title || 'Pedido Crazy Art').substring(0, 255),
+          description: String(title || 'Pedido Crazy Art').substring(0, 255),
+          quantity: 1, // Obrigatório ser int
+          currency_id: 'BRL', // Obrigatório
+          unit_price: Number(cleanAmount.toFixed(2)) // Obrigatório ser number com 2 casas
         }
       ],
       payer: {
-        name: payerName || 'Cliente Crazy Art',
+        name: firstName,
+        surname: lastName,
         email: validEmail
       },
-      external_reference: orderId,
+      external_reference: String(orderId),
       back_urls: {
         success: `${origin}/my-area?status=success`,
         failure: `${origin}/my-area?status=failure`,
@@ -47,41 +66,44 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
       },
       auto_return: "approved",
       statement_descriptor: "CRAZYART",
-      binary_mode: false // Permite pagamentos pendentes (boleto/pec) se necessário, mude para true se quiser só aprovação imediata
+      binary_mode: false // false = aceita pendente (boleto), true = apenas cartão aprovado na hora
     };
 
-    // LOG OBRIGATÓRIO: Payload enviado ao Mercado Pago
-    console.log("MP Payload Enviado:", JSON.stringify(preferenceData, null, 2));
+    // LOG OBRIGATÓRIO
+    console.log("[CreatePayment] Payload Enviado ao MP:", JSON.stringify(preferencePayload, null, 2));
 
+    // 5. Chamada à API do Mercado Pago
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${env.MP_ACCESS_TOKEN}`
       },
-      body: JSON.stringify(preferenceData)
+      body: JSON.stringify(preferencePayload)
     });
 
     if (!mpResponse.ok) {
       const errorText = await mpResponse.text();
-      console.error("MP API Erro:", errorText);
-      throw new Error(`Erro Mercado Pago: ${errorText}`);
+      console.error("[CreatePayment] Erro na API do MP:", errorText);
+      throw new Error(`Falha ao criar preferência: ${errorText}`);
     }
 
     const mpData: any = await mpResponse.json();
+    
+    // LOG OBRIGATÓRIO
+    console.log("[CreatePayment] Resposta MP Sucesso. ID:", mpData.id);
+    console.log("[CreatePayment] Link de Redirecionamento (init_point):", mpData.init_point);
 
-    // LOG OBRIGATÓRIO: Resposta do Mercado Pago
-    console.log("MP Resposta Recebida:", JSON.stringify(mpData, null, 2));
-
+    // 6. Retorno para o Frontend
     return new Response(JSON.stringify({ 
-      init_point: mpData.init_point, // Link de redirecionamento (Checkout Pro)
-      preferenceId: mpData.id // ID da preferência (Para Bricks ou Logs)
+      init_point: mpData.init_point, // URL para redirecionamento
+      preferenceId: mpData.id 
     }), {
       headers: { 'Content-Type': 'application/json' }
     });
 
   } catch (e: any) {
-    console.error("Exception em create-payment:", e.message);
+    console.error("[CreatePayment] Exception:", e.message);
     return new Response(JSON.stringify({ error: e.message }), { status: 500 });
   }
 };
