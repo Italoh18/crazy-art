@@ -232,7 +232,7 @@ export default function CustomerDetails() {
         }
 
         const res = await api.createPayment({
-            orderId: orderIds.join(','), // Enviamos IDs separados por vírgula para o backend
+            orderId: orderIds.join(','), 
             title: title,
             amount: totalAmount,
             payerEmail: customer.email,
@@ -313,7 +313,7 @@ export default function CustomerDetails() {
         </div>
       </div>
 
-      {/* DASHBOARD FINANCEIRO */}
+      {/* DASHBOARD FINANCEIRO HUD */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in-up">
           <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-black border border-white/10 p-6 rounded-2xl relative overflow-hidden group shadow-xl">
               <div className="relative z-10">
@@ -361,6 +361,62 @@ export default function CustomerDetails() {
           </div>
       </div>
 
+      {/* ÁREA DE INFORMAÇÕES DO CLIENTE E LIMITE DE CRÉDITO (RESTAURADA) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+         {/* Info Card */}
+         <div className="glass-panel rounded-2xl p-6 relative group">
+            <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6">Informações de Contato</h3>
+            <div className="space-y-4">
+                <div className="flex items-center space-x-4 p-3 bg-white/5 rounded-xl border border-white/5 group-hover:border-white/10 transition-colors">
+                    <div className="bg-zinc-900 p-2 rounded-lg text-zinc-400"><Phone size={18} /></div>
+                    <span className="text-zinc-200 font-mono text-sm">{customer?.phone}</span>
+                </div>
+                <div className="flex items-center space-x-4 p-3 bg-white/5 rounded-xl border border-white/5 group-hover:border-white/10 transition-colors">
+                    <div className="bg-zinc-900 p-2 rounded-lg text-zinc-400"><Mail size={18} /></div>
+                    <span className="text-zinc-200 font-mono text-sm truncate">{customer?.email}</span>
+                </div>
+                <div className="flex items-start space-x-4 p-3 bg-white/5 rounded-xl border border-white/5 group-hover:border-white/10 transition-colors">
+                    <div className="bg-zinc-900 p-2 rounded-lg text-zinc-400"><MapPin size={18} /></div>
+                    <span className="text-zinc-200 text-sm">{customer?.address?.street ? `${customer.address.street}, ${customer.address.number}` : 'Sem endereço'}</span>
+                </div>
+            </div>
+         </div>
+
+         {/* Credit Card (Barra de Progresso) */}
+         <div className="lg:col-span-2 glass-panel rounded-2xl p-8 relative overflow-hidden flex flex-col justify-between group">
+             <div className="absolute right-0 top-0 w-64 h-64 bg-primary/20 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2"></div>
+             
+             <div className="relative z-10 flex justify-between items-start mb-6">
+                 <div>
+                    <h3 className="text-white font-bold flex items-center gap-2 text-xl font-heading"><CreditCard size={24} className="text-primary" /> Limite de Crédito</h3>
+                    <p className="text-sm text-zinc-400 mt-1">Status da conta</p>
+                 </div>
+                 <div className="text-right">
+                    <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Disponível</p>
+                    <p className="text-2xl font-bold text-emerald-400">R$ {availableCredit.toFixed(2)}</p>
+                 </div>
+             </div>
+
+             <div className="relative z-10">
+                <div className="flex justify-between text-xs text-zinc-400 mb-2 font-mono">
+                    <span>Utilizado: R$ {totalOpen.toFixed(2)}</span>
+                    <span>Total: R$ {creditLimit.toFixed(2)}</span>
+                </div>
+                <div className="w-full h-4 bg-zinc-900 rounded-full overflow-hidden border border-white/5 shadow-inner relative">
+                    <div className="absolute inset-0 w-full h-full bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(255,255,255,0.03)_10px,rgba(255,255,255,0.03)_20px)]"></div>
+                    
+                    <div 
+                        className={`h-full transition-all duration-1000 ease-out shadow-lg relative ${creditPercentage > 90 ? 'bg-gradient-to-r from-red-600 to-red-500' : 'bg-gradient-to-r from-primary to-amber-500'}`} 
+                        style={{ width: `${creditPercentage}%` }}
+                    >
+                        <div className="absolute top-0 right-0 bottom-0 w-[1px] bg-white/50 shadow-[0_0_10px_white]"></div>
+                    </div>
+                </div>
+             </div>
+         </div>
+      </div>
+
+      {/* TABELA DE PEDIDOS COM ROLAGEM E SELEÇÃO */}
       <div className="glass-panel rounded-2xl overflow-hidden min-h-[400px] border border-white/5 animate-fade-in-up shadow-2xl relative">
         <div className="flex border-b border-white/5 bg-black/20">
           {['open', 'overdue', 'paid'].map((tab) => (
@@ -371,7 +427,6 @@ export default function CustomerDetails() {
           ))}
         </div>
 
-        {/* CONTAINER COM ROLAGEM HORIZONTAL PARA MOBILE */}
         <div className="p-0 overflow-x-auto custom-scrollbar">
             <table className="w-full text-left text-sm text-zinc-400 min-w-[700px]">
                 <thead className="bg-zinc-900/50 text-zinc-500 border-b border-white/5 uppercase text-xs font-bold tracking-wider">
@@ -411,9 +466,11 @@ export default function CustomerDetails() {
                                 <td className="px-6 py-4">
                                     <span className="text-primary font-bold font-mono bg-primary/10 px-2 py-1 rounded border border-primary/20">#{order.formattedOrderNumber || order.order_number}</span>
                                 </td>
-                                <td className="px-6 py-4 flex items-center gap-2 mt-4">
-                                    <Calendar size={14} className="text-zinc-600" />
-                                    {order.order_date ? new Date(order.order_date).toLocaleDateString() : '-'}
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-2">
+                                        <Calendar size={14} className="text-zinc-600" />
+                                        {order.order_date ? new Date(order.order_date).toLocaleDateString() : '-'}
+                                    </div>
                                 </td>
                                 <td className="px-6 py-4 max-w-xs truncate text-zinc-300">{order.description || 'Sem descrição'}</td>
                                 <td className="px-6 py-4 font-bold text-white font-mono">R$ {Number(order.total || 0).toFixed(2)}</td>
@@ -461,7 +518,7 @@ export default function CustomerDetails() {
         )}
       </div>
 
-      {/* Modais de Edição/Pedido permanecem os mesmos... */}
+      {/* Modais de Edição e Pedido */}
       {isOrderModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-scale-in">
             <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
@@ -542,6 +599,85 @@ export default function CustomerDetails() {
                             <p className="text-4xl font-black text-white font-heading tracking-tight">R$ {orderItems.reduce((sum, i) => sum + Number(i.total || 0), 0).toFixed(2)}</p>
                         </div>
                         <button type="submit" className="relative z-10 bg-crazy-gradient text-white px-8 py-4 rounded-xl font-bold hover:scale-105 transition-all text-sm uppercase tracking-wider w-full sm:w-auto">{editingOrder ? 'Salvar Alterações' : 'Finalizar Pedido'}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+      )}
+
+      {/* Modal de Cadastro Rápido de Item */}
+      {isQuickRegOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+              <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-scale-in">
+                  <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/40">
+                      <h3 className="text-md font-bold text-white flex items-center gap-2 uppercase tracking-wide">
+                          <Plus size={16} className="text-primary" /> 
+                          Novo {quickRegData.type === 'product' ? 'Produto' : 'Serviço'}
+                      </h3>
+                      <button onClick={() => setIsQuickRegOpen(false)} className="text-zinc-500 hover:text-white"><X size={18}/></button>
+                  </div>
+                  <form onSubmit={handleQuickRegisterSubmit} className="p-6 space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">Nome</label>
+                        <input type="text" required autoFocus className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition" value={quickRegData.name} onChange={e => setQuickRegData({...quickRegData, name: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-zinc-500 mb-1.5 uppercase tracking-wider">Preço (R$)</label>
+                        <input type="text" required placeholder="0.00" className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition font-mono" value={quickRegData.price} onChange={e => setQuickRegData({...quickRegData, price: e.target.value})} />
+                      </div>
+                      <button type="submit" className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-zinc-200 transition shadow-lg">Salvar e Adicionar</button>
+                  </form>
+              </div>
+          </div>
+      )}
+
+      {/* Modal de Edição de Dados do Cliente */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-scale-in">
+            <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                <div className="flex justify-between items-center p-6 border-b border-white/10 sticky top-0 bg-[#121215]/95 backdrop-blur z-20">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2 font-heading">
+                        <Edit2 className="text-primary" size={20} /> 
+                        Editar Dados
+                    </h2>
+                    <button onClick={() => setIsEditModalOpen(false)} className="text-zinc-500 hover:text-white transition-transform hover:rotate-90"><X size={20} /></button>
+                </div>
+                <form onSubmit={handleUpdateCustomer} className="p-8 space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="col-span-full">
+                            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Nome</label>
+                            <input type="text" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Telefone</label>
+                            <input type="text" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition" value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Email</label>
+                            <input type="email" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition" value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Rua</label>
+                            <input type="text" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition" value={editForm.street} onChange={e => setEditForm({...editForm, street: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Número</label>
+                            <input type="text" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition" value={editForm.number} onChange={e => setEditForm({...editForm, number: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">CEP</label>
+                            <input type="text" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition" value={editForm.zipCode} onChange={e => setEditForm({...editForm, zipCode: e.target.value})} />
+                        </div>
+                        {role === 'admin' && (
+                            <div className="col-span-full">
+                                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Limite de Crédito</label>
+                                <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition" value={editForm.creditLimit} onChange={e => setEditForm({...editForm, creditLimit: e.target.value})} />
+                            </div>
+                        )}
+                    </div>
+                    <div className="pt-6 flex justify-end gap-3 border-t border-white/10 mt-4">
+                        <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-5 py-3 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition font-medium">Cancelar</button>
+                        <button type="submit" className="bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-amber-600 transition shadow-lg shadow-primary/20">Salvar Alterações</button>
                     </div>
                 </form>
             </div>
