@@ -9,10 +9,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     const type = url.searchParams.get('type');
     const search = url.searchParams.get('search');
 
-    // GET - Listagem com mapeamento robusto
+    // --- GET: Listagem ---
     if (request.method === 'GET') {
-      // Usamos SELECT * para garantir que pegamos as colunas originais do banco (snake_case)
-      // e evitamos problemas com aliases SQL diretos que podem falhar em drivers específicos
       let query = 'SELECT * FROM catalog WHERE active = 1';
       let params: any[] = [];
 
@@ -30,110 +28,140 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const stmt = env.DB.prepare(query);
       const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
       
-      // Mapeamento Explícito: Garante que o frontend receba exatamente o que espera
       const mappedResults = (results || []).map((row: any) => ({
-        id: String(row.id), // Força string para evitar problemas se o D1 retornar número ou objeto
+        id: String(row.id),
         type: row.type || 'product',
         name: row.name,
         price: Number(row.price),
-        costPrice: Number(row.cost_price || 0), // Mapeia snake_case para camelCase
-        imageUrl: row.image_url || row.imageUrl || null, // Suporta ambos os casos por segurança
+        costPrice: Number(row.cost_price || 0),
+        imageUrl: row.image_url || row.imageUrl || null,
         description: row.description || null,
+        active: row.active === 1,
         created_at: row.created_at
       }));
       
       return new Response(JSON.stringify(mappedResults), {
         headers: {
           'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
         }
       });
     }
 
-    // POST - Cadastro
-    if (request.method === 'POST') {
-      if (!user || user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
+    // --- Verificação de Permissão para Escrita ---
+    if (!user || user.role !== 'admin') {
+      return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
+    }
 
+    // --- Helpers de Normalização (Sanitização) ---
+    // Garante TEXT ou NULL (nunca undefined)
+    const toText = (val: any): string | null => {
+      if (val === undefined || val === null) return null;
+      const s = String(val).trim();
+      return s === '' ? null : s;
+    };
+
+    // Garante REAL (nunca string ou undefined)
+    const toNum = (val: any): number => {
+      if (val === undefined || val === null) return 0;
+      const s = String(val).replace(',', '.').trim();
+      const n = parseFloat(s);
+      return isNaN(n) ? 0 : n;
+    };
+
+    // Garante INTEGER (0 ou 1)
+    const toIntBool = (val: any): number => {
+      return val ? 1 : 0;
+    };
+
+    // --- POST: Criação ---
+    if (request.method === 'POST') {
       const body = await request.json() as any;
       const newId = crypto.randomUUID();
 
-      const itemType = String(body.type || 'product');
-      const name = String(body.name || '').trim();
-      const price = Number(parseFloat(String(body.price || '0').replace(',', '.')) || 0);
-      const cost_price = Number(parseFloat(String(body.cost_price || body.costPrice || '0').replace(',', '.')) || 0);
-      const image_url = body.imageUrl || body.image_url ? String(body.imageUrl || body.image_url).trim() : null;
-      const description = body.description ? String(body.description).trim() : null;
+      // Normalização Estrita dos Inputs
+      const val_id = String(newId);
+      const val_type = String(body.type || 'product');
+      const val_name = String(body.name || '').trim(); // Obrigatório
+      const val_price = toNum(body.price);
+      const val_cost = toNum(body.cost_price || body.costPrice);
+      const val_image = toText(body.imageUrl || body.image_url);
+      const val_desc = toText(body.description);
+      const val_active = 1; // Default na criação é sempre ativo (INTEGER)
 
-      if (!name) return new Response(JSON.stringify({ error: 'O nome é obrigatório' }), { status: 400 });
+      if (!val_name) {
+        return new Response(JSON.stringify({ error: 'O nome é obrigatório' }), { status: 400 });
+      }
 
-      // Inserir novo item (active default é 1 via banco ou explícito aqui)
+      // Array de bind final (8 valores para 8 placeholders)
+      const bindValues = [val_id, val_type, val_name, val_price, val_cost, val_image, val_desc, val_active];
+      
+      console.log('POST /catalog BIND:', JSON.stringify(bindValues));
+
       await env.DB.prepare(
-        'INSERT INTO catalog (id, type, name, price, cost_price, image_url, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)'
-      ).bind(
-        newId,
-        itemType,
-        name,
-        price,
-        cost_price,
-        image_url,
-        description
-      ).run();
+        'INSERT INTO catalog (id, type, name, price, cost_price, image_url, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(...bindValues).run();
 
       return Response.json({ 
-        id: newId, 
-        name, 
-        price, 
-        type: itemType, 
-        description, 
-        costPrice: cost_price,
-        imageUrl: image_url
+        id: val_id, 
+        name: val_name, 
+        price: val_price, 
+        type: val_type,
+        active: true
       });
     }
 
-    // PUT - Atualização
+    // --- PUT: Atualização ---
     if (request.method === 'PUT') {
-      if (!user || user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
-      
-      if (!id) return new Response(JSON.stringify({ error: 'ID é obrigatório para atualização' }), { status: 400 });
+      if (!id) return new Response(JSON.stringify({ error: 'ID obrigatório' }), { status: 400 });
 
       const body = await request.json() as any;
-      
-      const name = String(body.name || '').trim();
-      const price = Number(parseFloat(String(body.price || '0').replace(',', '.')) || 0);
-      const cost_price = Number(parseFloat(String(body.cost_price || body.costPrice || '0').replace(',', '.')) || 0);
-      const image_url = body.imageUrl || body.image_url ? String(body.imageUrl || body.image_url).trim() : null;
-      const description = body.description ? String(body.description).trim() : null;
 
-      await env.DB.prepare(
-        'UPDATE catalog SET name=?, price=?, cost_price=?, image_url=?, description=? WHERE id=?'
-      ).bind(
-        name,
-        price,
-        cost_price,
-        image_url,
-        description,
-        String(id)
-      ).run();
+      // Normalização Estrita
+      const val_name = String(body.name || '').trim();
+      const val_price = toNum(body.price);
+      const val_cost = toNum(body.cost_price || body.costPrice);
+      const val_image = toText(body.imageUrl || body.image_url);
+      const val_desc = toText(body.description);
+      
+      // Construção Dinâmica da Query
+      let query = 'UPDATE catalog SET name=?, price=?, cost_price=?, image_url=?, description=?';
+      const args = [val_name, val_price, val_cost, val_image, val_desc];
+
+      // Se 'active' vier no payload, atualiza também
+      if (body.active !== undefined) {
+        query += ', active=?';
+        args.push(toIntBool(body.active));
+      }
+
+      query += ' WHERE id=?';
+      args.push(String(id));
+
+      console.log('PUT /catalog BIND:', JSON.stringify(args));
+
+      await env.DB.prepare(query).bind(...args).run();
 
       return Response.json({ success: true });
     }
 
-    // DELETE - Executa SOFT DELETE (Update active = 0)
+    // --- DELETE: Soft Delete ---
     if (request.method === 'DELETE') {
-      if (!user || user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
-      
-      if (!id) return new Response(JSON.stringify({ error: 'ID é obrigatório para exclusão' }), { status: 400 });
+      if (!id) return new Response(JSON.stringify({ error: 'ID obrigatório' }), { status: 400 });
 
-      // Ao invés de DELETE FROM..., usamos UPDATE para manter histórico nos pedidos
-      const result = await env.DB.prepare('UPDATE catalog SET active = 0 WHERE id = ?').bind(String(id)).run();
+      console.log('DELETE /catalog ID:', id);
       
-      return Response.json({ success: result.success });
+      // Soft Delete: active = 0 (INTEGER)
+      await env.DB.prepare('UPDATE catalog SET active = 0 WHERE id = ?')
+        .bind(String(id))
+        .run();
+      
+      return Response.json({ success: true });
     }
 
     return new Response(JSON.stringify({ error: 'Método não permitido' }), { status: 405 });
+
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    console.error('API Error:', e.message);
+    return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500 });
   }
 };
