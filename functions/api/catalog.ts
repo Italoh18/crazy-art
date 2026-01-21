@@ -9,9 +9,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     const type = url.searchParams.get('type');
     const search = url.searchParams.get('search');
 
-    // --- GET: Listagem ---
+    // --- GET: Listagem (Agora lendo de catalog_v2) ---
     if (request.method === 'GET') {
-      let query = 'SELECT * FROM catalog WHERE active = 1';
+      let query = 'SELECT * FROM catalog_v2 WHERE active = 1';
       let params: any[] = [];
 
       if (type && type !== 'undefined') {
@@ -48,58 +48,58 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       });
     }
 
-    // --- Verificação de Permissão para Escrita ---
+    // --- Verificação de Permissão ---
     if (!user || user.role !== 'admin') {
       return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
     }
 
-    // --- Helpers de Normalização (Sanitização) ---
-    // Garante TEXT ou NULL (nunca undefined)
+    // --- Helpers de Sanitização (Tipagem Estrita) ---
     const toText = (val: any): string | null => {
-      if (val === undefined || val === null) return null;
+      if (val === undefined || val === null || val === 'null') return null;
       const s = String(val).trim();
       return s === '' ? null : s;
     };
 
-    // Garante REAL (nunca string ou undefined)
     const toNum = (val: any): number => {
       if (val === undefined || val === null) return 0;
-      const s = String(val).replace(',', '.').trim();
+      // Trata vírgulas e converte para float
+      const s = String(val).replace(',', '.').replace(/[^0-9.-]/g, '').trim();
       const n = parseFloat(s);
-      return isNaN(n) ? 0 : n;
+      return isFinite(n) ? n : 0;
     };
 
-    // Garante INTEGER (0 ou 1)
-    const toIntBool = (val: any): number => {
-      return val ? 1 : 0;
+    const toInt = (val: any): number => {
+      // Converte boolean ou string para 0 ou 1
+      if (val === true || val === 'true' || val === 1 || val === '1') return 1;
+      return 0;
     };
 
-    // --- POST: Criação ---
+    // --- POST: Criação em catalog_v2 ---
     if (request.method === 'POST') {
       const body = await request.json() as any;
       const newId = crypto.randomUUID();
 
-      // Normalização Estrita dos Inputs
+      // Preparação dos dados com tipos garantidos
       const val_id = String(newId);
       const val_type = String(body.type || 'product');
-      const val_name = String(body.name || '').trim(); // Obrigatório
+      const val_name = String(body.name || '').trim();
       const val_price = toNum(body.price);
       const val_cost = toNum(body.cost_price || body.costPrice);
       const val_image = toText(body.imageUrl || body.image_url);
       const val_desc = toText(body.description);
-      const val_active = 1; // Default na criação é sempre ativo (INTEGER)
+      const val_active = 1; // Sempre ativo na criação (INTEGER)
 
       if (!val_name) {
         return new Response(JSON.stringify({ error: 'O nome é obrigatório' }), { status: 400 });
       }
 
-      // Array de bind final (8 valores para 8 placeholders)
+      // DIAGNÓSTICO: Log dos tipos exatos antes do bind
       const bindValues = [val_id, val_type, val_name, val_price, val_cost, val_image, val_desc, val_active];
-      
-      console.log('POST /catalog BIND:', JSON.stringify(bindValues));
+      console.log('INSERT catalog_v2 TYPES:', bindValues.map(v => typeof v));
+      console.log('INSERT catalog_v2 VALUES:', JSON.stringify(bindValues));
 
       await env.DB.prepare(
-        'INSERT INTO catalog (id, type, name, price, cost_price, image_url, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO catalog_v2 (id, type, name, price, cost_price, image_url, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(...bindValues).run();
 
       return Response.json({ 
@@ -107,51 +107,46 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         name: val_name, 
         price: val_price, 
         type: val_type,
-        active: true
+        success: true
       });
     }
 
-    // --- PUT: Atualização ---
+    // --- PUT: Atualização em catalog_v2 ---
     if (request.method === 'PUT') {
       if (!id) return new Response(JSON.stringify({ error: 'ID obrigatório' }), { status: 400 });
 
       const body = await request.json() as any;
 
-      // Normalização Estrita
       const val_name = String(body.name || '').trim();
       const val_price = toNum(body.price);
       const val_cost = toNum(body.cost_price || body.costPrice);
       const val_image = toText(body.imageUrl || body.image_url);
       const val_desc = toText(body.description);
       
-      // Construção Dinâmica da Query
-      let query = 'UPDATE catalog SET name=?, price=?, cost_price=?, image_url=?, description=?';
+      let query = 'UPDATE catalog_v2 SET name=?, price=?, cost_price=?, image_url=?, description=?';
       const args = [val_name, val_price, val_cost, val_image, val_desc];
 
-      // Se 'active' vier no payload, atualiza também
       if (body.active !== undefined) {
         query += ', active=?';
-        args.push(toIntBool(body.active));
+        args.push(toInt(body.active));
       }
 
       query += ' WHERE id=?';
       args.push(String(id));
 
-      console.log('PUT /catalog BIND:', JSON.stringify(args));
-
+      console.log('UPDATE catalog_v2 TYPES:', args.map(v => typeof v));
+      
       await env.DB.prepare(query).bind(...args).run();
 
       return Response.json({ success: true });
     }
 
-    // --- DELETE: Soft Delete ---
+    // --- DELETE: Soft Delete em catalog_v2 ---
     if (request.method === 'DELETE') {
       if (!id) return new Response(JSON.stringify({ error: 'ID obrigatório' }), { status: 400 });
 
-      console.log('DELETE /catalog ID:', id);
-      
-      // Soft Delete: active = 0 (INTEGER)
-      await env.DB.prepare('UPDATE catalog SET active = 0 WHERE id = ?')
+      // Soft delete: active = 0 (INTEGER)
+      await env.DB.prepare('UPDATE catalog_v2 SET active = 0 WHERE id = ?')
         .bind(String(id))
         .run();
       
@@ -162,6 +157,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
   } catch (e: any) {
     console.error('API Error:', e.message);
-    return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500 });
+    return new Response(JSON.stringify({ 
+      error: e.message, 
+      stack: e.stack,
+      hint: "Verifique se a tabela catalog_v2 foi criada (execute migrations_v2.sql)"
+    }), { status: 500 });
   }
 };
