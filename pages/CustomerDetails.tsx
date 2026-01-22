@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Edit2, CheckCircle, Plus, MapPin, Phone, Mail, CreditCard, Trash2, ShoppingCart, X, Search, Package, Wrench, FileEdit, Minus, Plus as PlusIcon, AlertTriangle, Wallet, TrendingUp, Calendar, Clock, DollarSign, Loader2, CheckSquare, Square } from 'lucide-react';
+import { ArrowLeft, Edit2, CheckCircle, Plus, MapPin, Phone, Mail, CreditCard, Trash2, ShoppingCart, X, Search, Package, Wrench, FileEdit, Minus, Plus as PlusIcon, AlertTriangle, Wallet, TrendingUp, Calendar, Clock, DollarSign, Loader2, CheckSquare, Square, Printer } from 'lucide-react';
 import { Order, Product, ItemType, OrderItem } from '../types';
 import { api } from '../src/services/api';
 
@@ -21,6 +21,9 @@ export default function CustomerDetails() {
   const [isQuickRegOpen, setIsQuickRegOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
+
+  // Estados para Recibo
+  const [receiptOrder, setReceiptOrder] = useState<any | null>(null);
 
   // Estados para Seleção Múltipla
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
@@ -199,6 +202,23 @@ export default function CustomerDetails() {
       } catch (e) { alert("Erro ao carregar detalhes do pedido."); }
   };
 
+  const handleOpenReceipt = async (order: Order) => {
+      try {
+          // Busca detalhes completos para garantir que temos os itens
+          const res = await fetch(`/api/orders?id=${order.id}`, {
+              headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}`, 'Cache-Control': 'no-cache' }
+          });
+          const detailedOrder = await res.json();
+          setReceiptOrder(detailedOrder);
+      } catch (e) {
+          alert("Erro ao gerar recibo.");
+      }
+  };
+
+  const handlePrintReceipt = () => {
+    window.print();
+  };
+
   const closeOrderModal = () => {
       setIsOrderModalOpen(false);
       setEditingOrder(null);
@@ -269,9 +289,39 @@ export default function CustomerDetails() {
   const selectedTotal = customerOrders
     .filter(o => selectedOrderIds.includes(o.id))
     .reduce((sum, o) => sum + (o.total || 0), 0);
+  
+  // Calcular todos os pedidos em aberto para o botão "Pagar Tudo"
+  const allOpenOrders = customerOrders.filter(o => o.status === 'open');
+  const allOpenTotal = allOpenOrders.reduce((sum, o) => sum + (o.total || 0), 0);
 
   return (
     <div className="space-y-8 pb-20 relative">
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #receipt-modal-content, #receipt-modal-content * {
+            visibility: visible;
+          }
+          #receipt-modal-content {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            margin: 0;
+            padding: 20px;
+            background: white;
+            color: black;
+            box-shadow: none;
+            border: none;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 animate-fade-in-up">
         <div className="flex items-center space-x-4">
@@ -288,6 +338,18 @@ export default function CustomerDetails() {
             </div>
         </div>
         <div className="flex items-center gap-3">
+            {role === 'client' && allOpenOrders.length > 0 && (
+                <button
+                    onClick={() => handlePayment(allOpenOrders.map(o => o.id))}
+                    disabled={isBatchProcessing}
+                    className="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-500/20 hover:scale-105 transition-all text-sm font-bold flex items-center gap-2 animate-pulse-slow border border-emerald-400/20"
+                >
+                    {isBatchProcessing ? <Loader2 size={18} className="animate-spin" /> : <Wallet size={18} />}
+                    <span className="hidden sm:inline">Pagar Tudo</span>
+                    <span className="font-mono bg-black/20 px-2 py-0.5 rounded ml-1 text-xs">R$ {allOpenTotal.toFixed(2)}</span>
+                </button>
+            )}
+
             {role === 'admin' && (
                 <button 
                   onClick={() => setIsOrderModalOpen(true)} 
@@ -476,6 +538,15 @@ export default function CustomerDetails() {
                                 <td className="px-6 py-4 font-bold text-white font-mono">R$ {Number(order.total || 0).toFixed(2)}</td>
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex items-center justify-end gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
+                                        {order.status === 'paid' && (
+                                            <button 
+                                                onClick={() => handleOpenReceipt(order)}
+                                                className="text-zinc-400 p-2 hover:bg-white/10 hover:text-white rounded-lg transition"
+                                                title="Nota de Compra / Imprimir"
+                                            >
+                                                <Printer size={16} />
+                                            </button>
+                                        )}
                                         {role === 'client' && order.status === 'open' && (
                                             <button onClick={() => handlePayment([order.id])} disabled={payingOrderId === order.id} className="text-white p-2 bg-blue-500 hover:bg-blue-600 rounded-lg transition shadow-lg disabled:opacity-50">
                                                 {payingOrderId === order.id ? <Loader2 size={16} className="animate-spin" /> : <DollarSign size={16} />}
@@ -532,6 +603,82 @@ export default function CustomerDetails() {
             </div>
         )}
       </div>
+
+      {/* Modal de Recibo / Nota de Compra */}
+      {receiptOrder && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-scale-in">
+              <div id="receipt-modal-content" className="bg-white text-black w-full max-w-md p-8 rounded-xl relative shadow-2xl font-mono">
+                  {/* Botão Fechar (Não sai na impressão) */}
+                  <button onClick={() => setReceiptOrder(null)} className="absolute top-4 right-4 text-gray-400 hover:text-black no-print">
+                      <X size={24} />
+                  </button>
+
+                  <div className="text-center border-b-2 border-dashed border-gray-300 pb-6 mb-6">
+                      <h2 className="text-xl font-bold uppercase tracking-widest font-serif">CRAZY ART</h2>
+                      <p className="text-[10px] text-gray-500 uppercase mt-1">Comprovante de Pagamento</p>
+                  </div>
+
+                  <div className="space-y-4 text-sm mb-6">
+                      <div className="flex justify-between">
+                          <span className="text-gray-500">Cliente</span>
+                          <span className="font-bold">{customer?.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                          <span className="text-gray-500">CPF</span>
+                          <span className="font-bold">{customer?.cpf}</span>
+                      </div>
+                      <div className="flex justify-between">
+                          <span className="text-gray-500">Data</span>
+                          <span className="font-bold">{new Date().toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                          <span className="text-gray-500">Pedido Nº</span>
+                          <span className="font-bold">#{receiptOrder.formattedOrderNumber || receiptOrder.order_number}</span>
+                      </div>
+                  </div>
+
+                  <table className="w-full text-xs text-left mb-6">
+                      <thead className="border-b border-gray-300">
+                          <tr>
+                              <th className="py-2">Item</th>
+                              <th className="py-2 text-center">Qtd</th>
+                              <th className="py-2 text-right">R$</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                          {receiptOrder.items?.map((item: any, i: number) => (
+                              <tr key={i}>
+                                  <td className="py-2 pr-2">{item.name || item.productName}</td>
+                                  <td className="py-2 text-center">{item.quantity}</td>
+                                  <td className="py-2 text-right">{Number(item.total || item.subtotal).toFixed(2)}</td>
+                              </tr>
+                          ))}
+                      </tbody>
+                  </table>
+
+                  <div className="flex justify-between items-center border-t-2 border-dashed border-gray-300 pt-4 mb-8">
+                      <span className="text-lg font-bold">TOTAL</span>
+                      <span className="text-2xl font-black">R$ {Number(receiptOrder.total).toFixed(2)}</span>
+                  </div>
+
+                  <div className="text-center text-[10px] text-gray-400">
+                      <p>Obrigado pela preferência!</p>
+                      <p className="mt-1">Crazy Art Studio</p>
+                  </div>
+
+                  {/* Botão de Impressão (Não sai na impressão devido ao CSS) */}
+                  <div className="mt-8 no-print">
+                      <button 
+                          onClick={handlePrintReceipt}
+                          className="w-full bg-black text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-gray-800 transition shadow-lg"
+                      >
+                          <Printer size={18} />
+                          Imprimir / Salvar PDF
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* Modais de Edição e Pedido */}
       {isOrderModalOpen && (

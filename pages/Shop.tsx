@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag, Wrench, Search, ShoppingCart, CheckCircle, AlertOctagon, Send, X, Trash2, Minus, Plus as PlusIcon, CreditCard, Loader2 } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Wrench, Search, ShoppingCart, CheckCircle, AlertOctagon, Send, X, Trash2, Minus, Plus as PlusIcon, CreditCard, Loader2, MessageCircle } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Product, Order } from '../types';
@@ -125,6 +125,13 @@ export default function Shop() {
     setSuccessModalOpen(false);
   };
 
+  const handleCustomOrderClick = () => {
+    const phoneNumber = '5516994142665';
+    const message = "Olá! Gostaria de fazer um pedido personalizado.";
+    const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+  };
+
   const handlePayment = async () => {
     if (!lastOrder) return;
     setIsProcessingPayment(true);
@@ -218,6 +225,14 @@ export default function Shop() {
                     <Wrench size={14} /> SERVIÇOS
                 </button>
             </div>
+
+            <button
+                onClick={handleCustomOrderClick}
+                className="flex items-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-[#25D366]/20 hover:scale-105 active:scale-95 group"
+            >
+                <MessageCircle size={20} className="group-hover:animate-bounce" />
+                Pedido Personalizado
+            </button>
 
             <div className="w-full max-w-md relative">
                 <input
