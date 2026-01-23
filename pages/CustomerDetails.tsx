@@ -42,8 +42,6 @@ export default function CustomerDetails() {
   }
 
   // Busca o objeto do cliente. 
-  // Se for cliente logado, usamos currentCustomer diretamente para garantir que os dados estejam lá 
-  // mesmo que o array 'customers' do DataContext ainda esteja carregando ou vazio.
   const customer = role === 'client' 
       ? currentCustomer 
       : customers.find(c => c.id === activeId);
@@ -57,6 +55,9 @@ export default function CustomerDetails() {
           </div>
       );
   }
+
+  // Normaliza o link da nuvem (aceita camelCase do Admin ou snake_case do Cliente)
+  const cloudUrl = customer.cloudLink || (customer as any).cloud_link;
 
   // Todos os pedidos do cliente ordenados
   const allCustomerOrders = orders
@@ -155,7 +156,7 @@ export default function CustomerDetails() {
           cpf: customer.cpf,
           address: { ...customer.address },
           creditLimit: customer.creditLimit,
-          cloudLink: customer.cloudLink
+          cloudLink: cloudUrl
       });
       setIsEditModalOpen(true);
   };
@@ -188,10 +189,10 @@ export default function CustomerDetails() {
             </div>
             
             <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-                {/* Botão Nuvem de Arquivos */}
-                {customer.cloudLink && (
+                {/* Botão Nuvem de Arquivos - Corrigido para verificar cloudUrl */}
+                {cloudUrl && (
                     <a 
-                        href={customer.cloudLink} 
+                        href={cloudUrl} 
                         target="_blank" 
                         rel="noopener noreferrer" 
                         className="flex-1 xl:flex-none px-6 py-3 bg-[#1e1b4b] hover:bg-[#2e2a5b] border border-indigo-500/30 text-indigo-400 hover:text-indigo-300 rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-indigo-900/20"
@@ -294,6 +295,7 @@ export default function CustomerDetails() {
 
             {/* Right Column: Credit Card */}
             <div className="lg:col-span-2 bg-gradient-to-br from-[#121215] to-[#09090b] border border-white/5 rounded-2xl p-8 relative overflow-hidden flex flex-col justify-between min-h-[280px]">
+                {/* Background Glow */}
                 <div className="absolute right-0 top-0 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
 
                 <div className="relative z-10 flex justify-between items-start">
@@ -317,7 +319,9 @@ export default function CustomerDetails() {
                     </div>
                     
                     <div className="w-full h-5 bg-zinc-900/50 rounded-full overflow-hidden border border-white/5 relative">
+                        {/* Pattern background for bar */}
                         <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,#000_10px,#000_20px)]"></div>
+                        
                         <div 
                             className="h-full bg-primary relative transition-all duration-1000 ease-out"
                             style={{ width: `${usedPercentage}%` }}
