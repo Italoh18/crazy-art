@@ -107,6 +107,25 @@ export default function CustomerDetails() {
       }
   }, [activeTab, allCustomerOrders, _openOrders, _overdueOrders, _paidOrders]);
 
+  // Lógica de Seleção em Massa
+  const currentTabPayableOrders = useMemo(() => 
+      displayedOrders.filter(o => o.status === 'open'),
+  [displayedOrders]);
+
+  const isAllSelected = currentTabPayableOrders.length > 0 && currentTabPayableOrders.every(o => selectedOrderIds.includes(o.id));
+
+  const handleSelectAll = () => {
+      if (isAllSelected) {
+          // Desmarcar todos da visualização atual
+          const idsToDeselect = currentTabPayableOrders.map(o => o.id);
+          setSelectedOrderIds(prev => prev.filter(id => !idsToDeselect.includes(id)));
+      } else {
+          // Marcar todos da visualização atual
+          const idsToSelect = currentTabPayableOrders.map(o => o.id);
+          setSelectedOrderIds(prev => Array.from(new Set([...prev, ...idsToSelect])));
+      }
+  };
+
   const totalPaid = _paidOrders.reduce((acc, o) => acc + (o.total || 0), 0);
   const totalOpen = _openOrders.reduce((acc, o) => acc + (o.total || 0), 0) + _overdueOrders.reduce((acc, o) => acc + (o.total || 0), 0);
   const totalOverdueValue = _overdueOrders.reduce((acc, o) => acc + (o.total || 0), 0);
@@ -483,11 +502,21 @@ export default function CustomerDetails() {
                 </button>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto pb-24">
                 <table className="w-full text-left text-sm text-zinc-400">
                     <thead className="bg-white/[0.02] text-zinc-500 font-bold uppercase text-[10px] tracking-wider border-b border-white/5">
                         <tr>
-                            <th className="px-6 py-4 w-10"></th>
+                            <th className="px-6 py-4 w-10">
+                                {currentTabPayableOrders.length > 0 && (
+                                    <input 
+                                        type="checkbox" 
+                                        checked={isAllSelected}
+                                        onChange={handleSelectAll}
+                                        className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary"
+                                        title="Selecionar todos os pedidos pagáveis desta lista"
+                                    />
+                                )}
+                            </th>
                             <th className="px-6 py-4">Pedido</th>
                             <th className="px-6 py-4">Data</th>
                             <th className="px-6 py-4">Vencimento</th>
@@ -597,10 +626,54 @@ export default function CustomerDetails() {
             </div>
         )}
 
+        {/* BARRA DE AÇÃO FLUTUANTE (PAGAMENTO EM MASSA) */}
+        {selectedOrderIds.length > 0 && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-[#18181b] border border-white/10 shadow-2xl shadow-black/50 p-4 rounded-2xl flex flex-col sm:flex-row items-center gap-4 sm:gap-6 animate-fade-in-up w-[90%] max-w-2xl border-t-2 border-t-primary/50">
+                {/* Informações da Seleção */}
+                <div className="flex items-center gap-4 w-full justify-between sm:justify-start">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-primary/20 p-2.5 rounded-xl text-primary shrink-0">
+                            <Wallet size={24} />
+                        </div>
+                        <div>
+                            <p className="text-zinc-400 text-[10px] uppercase tracking-wider font-bold">Selecionados</p>
+                            <p className="text-white font-bold text-lg leading-none">{selectedOrderIds.length} <span className="text-sm font-normal text-zinc-500">pedidos</span></p>
+                        </div>
+                    </div>
+                    
+                    <div className="h-8 w-px bg-white/10 hidden sm:block"></div>
+                    
+                    <div className="text-right sm:text-left">
+                        <p className="text-zinc-400 text-[10px] uppercase tracking-wider font-bold">Total a Pagar</p>
+                        <p className="text-emerald-400 font-mono font-bold text-xl leading-none">R$ {selectedTotal.toFixed(2)}</p>
+                    </div>
+                </div>
+
+                {/* Ações */}
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button 
+                        onClick={() => setSelectedOrderIds([])}
+                        className="p-3 text-zinc-500 hover:text-white hover:bg-white/5 rounded-xl transition shrink-0"
+                        title="Cancelar Seleção"
+                    >
+                        <X size={20} />
+                    </button>
+                    <button 
+                        onClick={() => handlePayment(selectedOrderIds)}
+                        disabled={isBatchProcessing}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-emerald-600/20 transition flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isBatchProcessing ? <Loader2 className="animate-spin" size={18} /> : <DollarSign size={18} />}
+                        <span>Gerar Link</span>
+                    </button>
+                </div>
+            </div>
+        )}
+
         {/* MODAL NOVO PEDIDO */}
         {isNewOrderModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in-up">
-                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fade-in">
+                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative max-h-[90vh] overflow-y-auto animate-scale-in">
                     {/* Header */}
                     <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] sticky top-0 z-10">
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -769,45 +842,6 @@ export default function CustomerDetails() {
                             FINALIZAR PEDIDO
                         </button>
                     </div>
-                </div>
-            </div>
-        )}
-
-        {/* POP UP PAGAMENTO */}
-        {selectedOrderIds.length > 1 && (
-            <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-                <div className="bg-zinc-900 border border-primary/50 shadow-2xl shadow-primary/20 p-3 rounded-xl flex flex-col items-center text-center gap-2 max-w-[280px] w-full relative animate-scale-in">
-                    <button 
-                        onClick={() => setSelectedOrderIds([])}
-                        className="absolute top-1.5 right-1.5 text-zinc-500 hover:text-white transition p-1 hover:bg-white/10 rounded-full"
-                    >
-                        <X size={16} />
-                    </button>
-                    
-                    <div className="bg-primary/20 p-2 rounded-full text-primary mt-1">
-                        <Wallet size={18} />
-                    </div>
-                    
-                    <div>
-                        <h3 className="text-sm font-bold text-white leading-tight">Pagamento Lote</h3>
-                        <p className="text-zinc-400 text-[10px] mt-0.5">
-                            <span className="text-white font-bold">{selectedOrderIds.length}</span> itens
-                        </p>
-                    </div>
-
-                    <div className="bg-black/30 w-full p-2 rounded-lg border border-white/5 my-1">
-                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-0.5">Total</p>
-                        <p className="text-lg font-black text-emerald-400 font-mono">R$ {selectedTotal.toFixed(2)}</p>
-                    </div>
-
-                    <button 
-                        onClick={() => handlePayment(selectedOrderIds)}
-                        disabled={isBatchProcessing}
-                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold transition shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isBatchProcessing ? <Loader2 size={14} className="animate-spin" /> : <DollarSign size={14} />}
-                        {isBatchProcessing ? 'Gerando...' : 'Gerar Link'}
-                    </button>
                 </div>
             </div>
         )}
