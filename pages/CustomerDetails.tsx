@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Edit2, CheckCircle, Plus, MapPin, Phone, Mail, CreditCard, Trash2, ShoppingCart, X, Search, Package, Wrench, FileEdit, Minus, Plus as PlusIcon, AlertTriangle, Wallet, TrendingUp, Calendar, Clock, DollarSign, Loader2, CheckSquare, Square, Printer } from 'lucide-react';
+import { ArrowLeft, Edit2, CheckCircle, Plus, MapPin, Phone, Mail, CreditCard, Trash2, ShoppingCart, X, Search, Package, Wrench, FileEdit, Minus, Plus as PlusIcon, AlertTriangle, Wallet, TrendingUp, Calendar, Clock, DollarSign, Loader2, CheckSquare, Square, Printer, Cloud, Lock, ExternalLink } from 'lucide-react';
 import { Order, Product, ItemType, OrderItem } from '../types';
 import { api } from '../src/services/api';
 
@@ -53,7 +53,7 @@ export default function CustomerDetails() {
 
   const [editForm, setEditForm] = useState({
     name: '', phone: '', email: '', cpf: '',
-    street: '', number: '', zipCode: '', creditLimit: ''
+    street: '', number: '', zipCode: '', creditLimit: '', cloudLink: ''
   });
 
   const customer = customers.find(c => c.id === targetId);
@@ -69,7 +69,8 @@ export default function CustomerDetails() {
         street: customer.address?.street || '',
         number: customer.address?.number || '',
         zipCode: customer.address?.zipCode || '',
-        creditLimit: (customer.creditLimit || 0).toString()
+        creditLimit: (customer.creditLimit || 0).toString(),
+        cloudLink: customer.cloudLink || ''
       });
     }
   }, [customer, isEditModalOpen]);
@@ -171,7 +172,8 @@ export default function CustomerDetails() {
         phone: editForm.phone,
         email: editForm.email,
         address: { street: editForm.street, number: editForm.number, zipCode: editForm.zipCode },
-        creditLimit: parseFloat(editForm.creditLimit) || customer.creditLimit
+        creditLimit: parseFloat(editForm.creditLimit) || customer.creditLimit,
+        cloudLink: editForm.cloudLink
       });
       setIsEditModalOpen(false);
     } catch (err: any) { alert("Erro ao atualizar cliente: " + err.message); }
@@ -294,6 +296,10 @@ export default function CustomerDetails() {
   const allOpenOrders = customerOrders.filter(o => o.status === 'open');
   const allOpenTotal = allOpenOrders.reduce((sum, o) => sum + (o.total || 0), 0);
 
+  // Lógica do botão de Nuvem
+  const isCloudLocked = totalOverdue > 0;
+  const hasCloudLink = Boolean(customer?.cloudLink);
+
   return (
     <div className="space-y-8 pb-20 relative">
       <style>{`
@@ -337,7 +343,29 @@ export default function CustomerDetails() {
               </div>
             </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+            {/* BOTÃO NUVEM DE ARQUIVOS */}
+            {hasCloudLink && (
+              isCloudLocked ? (
+                <button 
+                  disabled
+                  className="px-5 py-3 bg-zinc-800 border border-zinc-700 text-zinc-500 rounded-xl cursor-not-allowed flex items-center gap-2 text-sm font-bold opacity-70"
+                  title="Acesso bloqueado por pendências financeiras"
+                >
+                  <Lock size={16} /> Nuvem
+                </button>
+              ) : (
+                <a 
+                  href={customer.cloudLink} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="px-5 py-3 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 hover:text-blue-300 rounded-xl transition-all text-sm font-bold flex items-center gap-2 hover:scale-105 hover:shadow-glow"
+                >
+                  <Cloud size={18} /> Nuvem
+                </a>
+              )
+            )}
+
             {role === 'client' && allOpenOrders.length > 0 && (
                 <button
                     onClick={() => handlePayment(allOpenOrders.map(o => o.id))}
@@ -604,7 +632,7 @@ export default function CustomerDetails() {
         )}
       </div>
 
-      {/* Modal de Recibo / Nota de Compra */}
+      {/* Modal de Recibo ... (código existente omitido para brevidade, mantido igual) */}
       {receiptOrder && (
           <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-scale-in">
               <div id="receipt-modal-content" className="bg-white text-black w-full max-w-md p-8 rounded-xl relative shadow-2xl font-mono">
@@ -680,7 +708,7 @@ export default function CustomerDetails() {
           </div>
       )}
 
-      {/* Modais de Edição e Pedido */}
+      {/* Modais de Edição e Pedido (mantidos iguais, exceto o de edição) */}
       {isOrderModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-scale-in">
             <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
@@ -693,6 +721,7 @@ export default function CustomerDetails() {
                 </div>
                 
                 <form onSubmit={handleCreateOrUpdateOrder} className="p-8 space-y-8">
+                     {/* Conteúdo do Form de Pedido mantido igual */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="col-span-full">
                             <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Descrição do Pedido</label>
@@ -767,7 +796,7 @@ export default function CustomerDetails() {
         </div>
       )}
 
-      {/* Modal de Cadastro Rápido de Item */}
+      {/* Modal de Cadastro Rápido de Item (mantido igual) */}
       {isQuickRegOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
               <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-scale-in">
@@ -793,7 +822,7 @@ export default function CustomerDetails() {
           </div>
       )}
 
-      {/* Modal de Edição de Dados do Cliente */}
+      {/* Modal de Edição de Dados do Cliente - ATUALIZADO COM CAMPO DE CLOUD LINK */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-scale-in">
             <div className="glass-panel border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
@@ -831,10 +860,19 @@ export default function CustomerDetails() {
                             <input type="text" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition" value={editForm.zipCode} onChange={e => setEditForm({...editForm, zipCode: e.target.value})} />
                         </div>
                         {role === 'admin' && (
-                            <div className="col-span-full">
-                                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Limite de Crédito</label>
-                                <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition" value={editForm.creditLimit} onChange={e => setEditForm({...editForm, creditLimit: e.target.value})} />
-                            </div>
+                            <>
+                                <div className="col-span-full md:col-span-1">
+                                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Limite de Crédito</label>
+                                    <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary transition" value={editForm.creditLimit} onChange={e => setEditForm({...editForm, creditLimit: e.target.value})} />
+                                </div>
+                                <div className="col-span-full md:col-span-1">
+                                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Link da Nuvem de Arquivos</label>
+                                    <div className="relative">
+                                        <input type="text" className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white outline-none focus:border-primary transition" value={editForm.cloudLink} onChange={e => setEditForm({...editForm, cloudLink: e.target.value})} placeholder="https://..." />
+                                        <Cloud className="absolute left-3 top-3.5 text-zinc-600" size={18} />
+                                    </div>
+                                </div>
+                            </>
                         )}
                     </div>
                     <div className="pt-6 flex justify-end gap-3 border-t border-white/10 mt-4">

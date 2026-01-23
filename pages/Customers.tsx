@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, ChevronRight, User, CreditCard, Trash2, X, MapPin } from 'lucide-react';
+import { Plus, Search, ChevronRight, User, CreditCard, Trash2, X, MapPin, Cloud } from 'lucide-react';
 import { Customer } from '../types';
 
 export default function Customers() {
@@ -14,7 +14,7 @@ export default function Customers() {
   // Form State
   const [formData, setFormData] = useState({
     name: '', phone: '', email: '', cpf: '',
-    street: '', number: '', zipCode: '', creditLimit: '50'
+    street: '', number: '', zipCode: '', creditLimit: '50', cloudLink: ''
   });
 
   const filteredCustomers = customers.filter(c => 
@@ -68,9 +68,10 @@ export default function Customers() {
         number: formData.number,
         zipCode: formData.zipCode
       },
-      creditLimit: parseFloat(formData.creditLimit) || 50.00
+      creditLimit: parseFloat(formData.creditLimit) || 50.00,
+      cloudLink: formData.cloudLink
     });
-    setFormData({ name: '', phone: '', email: '', cpf: '', street: '', number: '', zipCode: '', creditLimit: '50' });
+    setFormData({ name: '', phone: '', email: '', cpf: '', street: '', number: '', zipCode: '', creditLimit: '50', cloudLink: '' });
     setIsModalOpen(false);
   };
 
@@ -207,6 +208,15 @@ export default function Customers() {
                     <p className="text-[10px] text-zinc-500 mt-1 ml-1">Padrão: R$ 50,00</p>
                 </div>
                 
+                 {/* Novo Campo Cloud Link */}
+                 <div className="col-span-1 md:col-span-2">
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Link da Nuvem de Arquivos</label>
+                    <div className="relative">
+                        <input name="cloudLink" type="text" value={formData.cloudLink} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" placeholder="https://..." />
+                        <Cloud className="absolute left-3 top-3.5 text-zinc-600" size={18} />
+                    </div>
+                </div>
+
                 <div className="col-span-1 md:col-span-2 border-t border-white/10 pt-6 mt-2">
                    <h3 className="font-bold text-white mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
                        <MapPin size={16} className="text-primary" /> Endereço

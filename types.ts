@@ -10,6 +10,7 @@ export interface Customer {
     number: string;
     zipCode: string;
   };
+  cloudLink?: string; // Novo campo
   creditLimit?: number;
   created_at: string;
 }

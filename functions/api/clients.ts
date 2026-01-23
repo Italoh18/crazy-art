@@ -15,7 +15,18 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         return Response.json(client);
       }
       const { results } = await env.DB.prepare('SELECT * FROM clients ORDER BY created_at DESC').all();
-      return Response.json(results || []);
+      // Mapeamento para camelCase se necessário, mas o SELECT * geralmente retorna as colunas como estão no banco (snake_case ou camelCase dependendo de como foi criado)
+      // Como criamos cloud_link (snake_case) no migration, vamos garantir que o frontend receba cloudLink (camelCase) se fizermos map, 
+      // mas o DataContext.tsx atual usa normalizeCustomer que espera as propriedades.
+      // O DB retorna cloud_link. O frontend espera cloudLink? Vamos ajustar na query ou no normalize.
+      // Ajuste: Vamos retornar cloud_link como cloudLink na query SQL para facilitar.
+      const { results: mappedResults } = await env.DB.prepare(`
+        SELECT 
+          id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link as cloudLink 
+        FROM clients ORDER BY created_at DESC
+      `).all();
+      
+      return Response.json(mappedResults || []);
     }
 
     if (request.method === 'POST') {
@@ -29,9 +40,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const newId = crypto.randomUUID();
       const now = new Date().toISOString();
       
-      // 10 campos -> 10 placeholders
+      // 11 campos -> 11 placeholders (cloud_link adicionado)
       await env.DB.prepare(
-        'INSERT INTO clients (id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO clients (id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
         newId,
         String(body.name || '').trim(),
@@ -42,7 +53,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         body.address?.number ? String(body.address.number).trim() : null,
         body.address?.zipCode ? String(body.address.zipCode).trim() : null,
         parseFloat(body.creditLimit) || 50.0,
-        now
+        now,
+        body.cloudLink ? String(body.cloudLink).trim() : null
       ).run();
 
       return Response.json({ success: true, id: newId });
@@ -50,9 +62,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     if (request.method === 'PUT' && id) {
       const body = await request.json() as any;
-      // 8 placeholders (7 SET + 1 WHERE)
+      // 9 placeholders (8 SET + 1 WHERE)
+      // Atualizando cloud_link
       await env.DB.prepare(
-        'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=?, creditLimit=? WHERE id=?'
+        'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=?, creditLimit=?, cloud_link=? WHERE id=?'
       ).bind(
         String(body.name || '').trim(),
         body.email ? String(body.email).trim() : null,
@@ -61,6 +74,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         body.address?.number ? String(body.address.number).trim() : null,
         body.address?.zipCode ? String(body.address.zipCode).trim() : null,
         parseFloat(body.creditLimit) || 0,
+        body.cloudLink ? String(body.cloudLink).trim() : null,
         String(id)
       ).run();
       return Response.json({ success: true });

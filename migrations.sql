@@ -6,6 +6,8 @@
 ALTER TABLE clients ADD COLUMN street TEXT;
 ALTER TABLE clients ADD COLUMN number TEXT;
 ALTER TABLE clients ADD COLUMN zipCode TEXT;
+-- NOVO: Link da Nuvem
+ALTER TABLE clients ADD COLUMN cloud_link TEXT;
 
 -- 2. Catálogo (Produtos/Serviços unificados)
 ALTER TABLE catalog ADD COLUMN cost_price REAL DEFAULT 0;
@@ -38,3 +40,4 @@ ALTER TABLE orders ADD COLUMN paid_at TEXT;
 PRAGMA table_info(catalog);
 PRAGMA table_info(order_items);
 PRAGMA table_info(orders);
+PRAGMA table_info(clients);
