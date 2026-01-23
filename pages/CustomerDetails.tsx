@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
@@ -188,25 +187,28 @@ export default function CustomerDetails() {
                 </div>
             </div>
             
-            <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+            <div className="flex flex-wrap items-center gap-2">
                 {/* Botão Nuvem de Arquivos */}
                 {cloudUrl && (
                     <a 
                         href={cloudUrl} 
                         target="_blank" 
                         rel="noopener noreferrer" 
-                        className="flex-1 xl:flex-none px-6 py-3 bg-[#1e1b4b] hover:bg-[#2e2a5b] border border-indigo-500/30 text-indigo-400 hover:text-indigo-300 rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-indigo-900/20"
+                        className="px-5 py-2.5 bg-[#1e1b4b] hover:bg-[#2e2a5b] border border-indigo-500/30 text-indigo-400 hover:text-indigo-300 rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-indigo-900/20"
                     >
-                        <Cloud size={18} /> Nuvem de Arquivos
+                        <Cloud size={18} /> Nuvem
                     </a>
                 )}
 
                 {role === 'admin' && (
                     <>
-                        <button className="flex-1 xl:flex-none px-6 py-3 bg-gradient-to-r from-primary to-orange-600 text-white rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95">
+                        <button 
+                            onClick={() => navigate('/shop')}
+                            className="px-5 py-2.5 bg-gradient-to-r from-primary to-orange-600 text-white rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95"
+                        >
                             <Plus size={18} /> Novo Pedido
                         </button>
-                        <button onClick={openEditModal} className="px-6 py-3 bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-white rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold">
+                        <button onClick={openEditModal} className="px-5 py-2.5 bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-white rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold">
                             <Edit size={16} /> Editar
                         </button>
                     </>
