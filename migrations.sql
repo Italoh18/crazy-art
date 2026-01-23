@@ -1,19 +1,22 @@
 
 -- SCRIPT DE ATUALIZAÇÃO DE SCHEMA - CRAZY ART D1
--- Execute: npx wrangler d1 execute crazyart-db --remote --file=./migrations.sql
+-- Execute via terminal: npx wrangler d1 execute crazyart-db --remote --file=./migrations.sql
+-- OU execute apenas os comandos SQL abaixo no D1 Studio da Cloudflare.
 
 -- 1. Clientes
-ALTER TABLE clients ADD COLUMN street TEXT;
-ALTER TABLE clients ADD COLUMN number TEXT;
-ALTER TABLE clients ADD COLUMN zipCode TEXT;
+-- Verifique se já não rodou estas colunas antes. Se der erro, remova as linhas duplicadas.
+-- ALTER TABLE clients ADD COLUMN street TEXT;
+-- ALTER TABLE clients ADD COLUMN number TEXT;
+-- ALTER TABLE clients ADD COLUMN zipCode TEXT;
+
 -- NOVO: Link da Nuvem
 ALTER TABLE clients ADD COLUMN cloud_link TEXT;
 
 -- 2. Catálogo (Produtos/Serviços unificados)
-ALTER TABLE catalog ADD COLUMN cost_price REAL DEFAULT 0;
+-- ALTER TABLE catalog ADD COLUMN cost_price REAL DEFAULT 0;
 
 -- 3. Produtos (Tabela legada se ainda em uso)
-ALTER TABLE products ADD COLUMN cost_price REAL DEFAULT 0;
+-- ALTER TABLE products ADD COLUMN cost_price REAL DEFAULT 0;
 
 -- 4. Criação da Tabela de Itens de Pedido 
 CREATE TABLE IF NOT EXISTS order_items (
@@ -29,15 +32,11 @@ CREATE TABLE IF NOT EXISTS order_items (
 );
 
 -- 5. Soft Delete para Catálogo
-ALTER TABLE catalog ADD COLUMN active INTEGER DEFAULT 1;
--- Garante que itens existentes sejam marcados como ativos
-UPDATE catalog SET active = 1 WHERE active IS NULL;
+-- ALTER TABLE catalog ADD COLUMN active INTEGER DEFAULT 1;
+-- UPDATE catalog SET active = 1 WHERE active IS NULL;
 
 -- 6. Coluna de Data de Pagamento
-ALTER TABLE orders ADD COLUMN paid_at TEXT;
+-- ALTER TABLE orders ADD COLUMN paid_at TEXT;
 
--- Verificação
-PRAGMA table_info(catalog);
-PRAGMA table_info(order_items);
-PRAGMA table_info(orders);
+-- Verificação final
 PRAGMA table_info(clients);

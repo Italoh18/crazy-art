@@ -10,7 +10,7 @@ export interface Customer {
     number: string;
     zipCode: string;
   };
-  cloudLink?: string; // Novo campo
+  cloudLink?: string; // Novo campo para a nuvem de arquivos
   creditLimit?: number;
   created_at: string;
 }

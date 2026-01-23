@@ -51,6 +51,7 @@ export default function CustomerDetails() {
 
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
 
+  // Atualizado para incluir cloudLink
   const [editForm, setEditForm] = useState({
     name: '', phone: '', email: '', cpf: '',
     street: '', number: '', zipCode: '', creditLimit: '', cloudLink: ''
@@ -349,7 +350,7 @@ export default function CustomerDetails() {
               isCloudLocked ? (
                 <button 
                   disabled
-                  className="px-5 py-3 bg-zinc-800 border border-zinc-700 text-zinc-500 rounded-xl cursor-not-allowed flex items-center gap-2 text-sm font-bold opacity-70"
+                  className="px-5 py-3 bg-zinc-800 border border-zinc-700 text-zinc-500 rounded-xl cursor-not-allowed flex items-center gap-2 text-sm font-bold opacity-70 transition-all"
                   title="Acesso bloqueado por pendências financeiras"
                 >
                   <Lock size={16} /> Nuvem

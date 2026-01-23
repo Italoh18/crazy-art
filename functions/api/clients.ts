@@ -11,22 +11,19 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     if (request.method === 'GET') {
       if (id) {
-        const client = await env.DB.prepare('SELECT * FROM clients WHERE id = ?').bind(String(id)).first();
+        // Mapeia cloud_link snake_case para cloudLink camelCase no objeto único
+        const client: any = await env.DB.prepare('SELECT *, cloud_link as cloudLink FROM clients WHERE id = ?').bind(String(id)).first();
         return Response.json(client);
       }
-      const { results } = await env.DB.prepare('SELECT * FROM clients ORDER BY created_at DESC').all();
-      // Mapeamento para camelCase se necessário, mas o SELECT * geralmente retorna as colunas como estão no banco (snake_case ou camelCase dependendo de como foi criado)
-      // Como criamos cloud_link (snake_case) no migration, vamos garantir que o frontend receba cloudLink (camelCase) se fizermos map, 
-      // mas o DataContext.tsx atual usa normalizeCustomer que espera as propriedades.
-      // O DB retorna cloud_link. O frontend espera cloudLink? Vamos ajustar na query ou no normalize.
-      // Ajuste: Vamos retornar cloud_link como cloudLink na query SQL para facilitar.
-      const { results: mappedResults } = await env.DB.prepare(`
+      
+      // Mapeia cloud_link snake_case para cloudLink camelCase na lista
+      const { results } = await env.DB.prepare(`
         SELECT 
           id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link as cloudLink 
         FROM clients ORDER BY created_at DESC
       `).all();
       
-      return Response.json(mappedResults || []);
+      return Response.json(results || []);
     }
 
     if (request.method === 'POST') {
@@ -40,7 +37,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const newId = crypto.randomUUID();
       const now = new Date().toISOString();
       
-      // 11 campos -> 11 placeholders (cloud_link adicionado)
+      // Adicionado cloud_link no INSERT
       await env.DB.prepare(
         'INSERT INTO clients (id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
@@ -62,8 +59,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     if (request.method === 'PUT' && id) {
       const body = await request.json() as any;
-      // 9 placeholders (8 SET + 1 WHERE)
-      // Atualizando cloud_link
+      
+      // Adicionado cloud_link no UPDATE
       await env.DB.prepare(
         'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=?, creditLimit=?, cloud_link=? WHERE id=?'
       ).bind(
