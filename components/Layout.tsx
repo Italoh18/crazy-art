@@ -74,7 +74,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
         {/* Direita */}
         <div className="flex flex-col items-center md:items-end opacity-60">
-          <p className="text-zinc-500 text-[10px] font-bold tracking-[0.2em] uppercase" style={timesFont}>CRAZY ART ® 2024</p>
+          <p className="text-zinc-500 text-[10px] font-bold tracking-[0.2em] uppercase" style={timesFont}>CRAZY ART ® 2026</p>
         </div>
       </div>
     </footer>

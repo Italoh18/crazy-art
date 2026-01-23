@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Edit2, CheckCircle, Plus, MapPin, Phone, Mail, CreditCard, Trash2, ShoppingCart, X, Search, Package, Wrench, FileEdit, Minus, Plus as PlusIcon, AlertTriangle, Wallet, TrendingUp, Calendar, Clock, DollarSign, Loader2, CheckSquare, Square, Printer, Cloud, Lock, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Edit2, CheckCircle, Plus, MapPin, Phone, Mail, CreditCard, Trash2, ShoppingCart, X, Search, Package, Wrench, FileEdit, Minus, Plus as PlusIcon, AlertTriangle, Wallet, TrendingUp, Calendar, Clock, DollarSign, Loader2, CheckSquare, Square, Printer, Cloud, Lock, ExternalLink, XCircle, AlertCircle } from 'lucide-react';
 import { Order, Product, ItemType, OrderItem } from '../types';
 import { api } from '../src/services/api';
 
@@ -28,6 +28,12 @@ export default function CustomerDetails() {
   // Estados para Seleção Múltipla
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+
+  // Estado para Feedback de Pagamento (Retorno MP)
+  const [paymentFeedback, setPaymentFeedback] = useState<'approved' | 'rejected' | 'pending' | null>(null);
+
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const [itemSearchTerm, setItemSearchTerm] = useState('');
   const [showItemResults, setShowItemResults] = useState(false);
@@ -59,6 +65,25 @@ export default function CustomerDetails() {
 
   const customer = customers.find(c => c.id === targetId);
   const customerOrders = orders.filter(o => o.client_id === targetId);
+
+  // Detectar retorno do Mercado Pago via URL Query Params
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const status = params.get('status'); // success, failure, pending
+    
+    if (status) {
+        if (status === 'success' || status === 'approved') {
+            setPaymentFeedback('approved');
+        } else if (status === 'failure' || status === 'rejected' || status === 'null') {
+            setPaymentFeedback('rejected');
+        } else if (status === 'pending') {
+            setPaymentFeedback('pending');
+        }
+
+        // Limpa a URL para o modal não aparecer novamente no refresh
+        navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate]);
 
   useEffect(() => {
     if (customer && isEditModalOpen) {
@@ -350,19 +375,19 @@ export default function CustomerDetails() {
               isCloudLocked ? (
                 <button 
                   disabled
-                  className="px-5 py-3 bg-zinc-800 border border-zinc-700 text-zinc-500 rounded-xl cursor-not-allowed flex items-center gap-2 text-sm font-bold opacity-70 transition-all"
+                  className="px-6 py-4 bg-zinc-800 border border-zinc-700 text-zinc-500 rounded-xl cursor-not-allowed flex items-center gap-3 text-sm font-bold opacity-70 transition-all"
                   title="Acesso bloqueado por pendências financeiras"
                 >
-                  <Lock size={16} /> Nuvem
+                  <Lock size={20} /> Nuvem de Arquivos
                 </button>
               ) : (
                 <a 
                   href={customer.cloudLink} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="px-5 py-3 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 hover:text-blue-300 rounded-xl transition-all text-sm font-bold flex items-center gap-2 hover:scale-105 hover:shadow-glow"
+                  className="px-6 py-4 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 hover:text-blue-300 rounded-xl transition-all text-sm font-bold flex items-center gap-3 hover:scale-105 hover:shadow-glow shadow-lg shadow-blue-900/20"
                 >
-                  <Cloud size={18} /> Nuvem
+                  <Cloud size={20} /> Nuvem de Arquivos
                 </a>
               )
             )}
@@ -632,6 +657,58 @@ export default function CustomerDetails() {
             </div>
         )}
       </div>
+
+      {/* FEEDBACK DE PAGAMENTO (MODAL DE STATUS) */}
+      {paymentFeedback && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-scale-in">
+            <div className={`bg-zinc-900 border p-8 rounded-3xl w-full max-w-sm shadow-2xl flex flex-col items-center text-center relative overflow-hidden ${
+                paymentFeedback === 'approved' ? 'border-emerald-500/50 shadow-emerald-500/20' : 
+                paymentFeedback === 'rejected' ? 'border-red-500/50 shadow-red-500/20' : 
+                'border-amber-500/50 shadow-amber-500/20'
+            }`}>
+                {/* Background Glow */}
+                <div className={`absolute -top-20 -left-20 w-40 h-40 rounded-full blur-[80px] ${
+                    paymentFeedback === 'approved' ? 'bg-emerald-500/30' : 
+                    paymentFeedback === 'rejected' ? 'bg-red-500/30' : 
+                    'bg-amber-500/30'
+                }`}></div>
+
+                {/* Ícone */}
+                <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 relative z-10 ${
+                    paymentFeedback === 'approved' ? 'bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/50' : 
+                    paymentFeedback === 'rejected' ? 'bg-red-500/10 text-red-500 ring-1 ring-red-500/50' : 
+                    'bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/50'
+                }`}>
+                    {paymentFeedback === 'approved' && <CheckCircle size={40} className="animate-bounce" />}
+                    {paymentFeedback === 'rejected' && <XCircle size={40} className="animate-pulse" />}
+                    {paymentFeedback === 'pending' && <AlertCircle size={40} className="animate-pulse" />}
+                </div>
+
+                <h2 className="text-2xl font-bold text-white mb-2 font-heading tracking-wide">
+                    {paymentFeedback === 'approved' && 'Pagamento Aprovado!'}
+                    {paymentFeedback === 'rejected' && 'Pagamento Recusado'}
+                    {paymentFeedback === 'pending' && 'Processando...'}
+                </h2>
+
+                <p className="text-zinc-400 text-sm mb-8 leading-relaxed">
+                    {paymentFeedback === 'approved' && 'Obrigado! Seu pagamento foi confirmado com sucesso. Seu limite foi restaurado.'}
+                    {paymentFeedback === 'rejected' && 'Houve um problema com seu pagamento. Por favor, tente novamente ou use outro cartão.'}
+                    {paymentFeedback === 'pending' && 'Estamos aguardando a confirmação do pagamento. Isso pode levar alguns minutos.'}
+                </p>
+
+                <button 
+                    onClick={() => setPaymentFeedback(null)} 
+                    className={`w-full py-3.5 rounded-xl font-bold text-white transition hover:scale-105 active:scale-95 shadow-lg ${
+                        paymentFeedback === 'approved' ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20' : 
+                        paymentFeedback === 'rejected' ? 'bg-zinc-800 hover:bg-zinc-700' : 
+                        'bg-amber-600 hover:bg-amber-500 shadow-amber-500/20'
+                    }`}
+                >
+                    {paymentFeedback === 'approved' ? 'Continuar' : 'Fechar'}
+                </button>
+            </div>
+        </div>
+      )}
 
       {/* Modal de Recibo ... (código existente omitido para brevidade, mantido igual) */}
       {receiptOrder && (
