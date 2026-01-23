@@ -1,7 +1,12 @@
 
+import { sendEmail, templates, getAdminEmail } from '../services/email';
+
 export interface Env {
   DB: any;
   MP_ACCESS_TOKEN: string;
+  RESEND_API_KEY?: string;
+  ADMIN_EMAIL?: string;
+  SENDER_EMAIL?: string;
 }
 
 export const onRequestPost: any = async ({ request, env }: { request: Request, env: Env }) => {
@@ -66,7 +71,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
               if (result.meta.changes > 0) {
                 console.log(`[Webhook] Pedido ${trimmedId} movido para PAGO com sucesso.`);
                 
-                // --- NOTIFICAÇÃO ADMIN ---
+                // --- NOTIFICAÇÃO & EMAIL ADMIN ---
                 // Busca número do pedido e nome do cliente para a mensagem
                 const orderData: any = await env.DB.prepare(`
                     SELECT o.order_number, c.name as client_name 
@@ -76,14 +81,24 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                 `).bind(trimmedId).first();
 
                 if (orderData) {
+                    const formattedOrder = String(orderData.order_number).padStart(5,'0');
                     const notifId = crypto.randomUUID();
+                    
+                    // 1. Notificação Interna
                     await env.DB.prepare(
                         "INSERT INTO notifications (id, target_role, type, title, message, created_at) VALUES (?, 'admin', 'success', 'Pagamento Confirmado', ?, ?)"
                     ).bind(
                         notifId,
-                        `O pedido #${String(orderData.order_number).padStart(5,'0')} de ${orderData.client_name} foi pago.`,
+                        `O pedido #${formattedOrder} de ${orderData.client_name} foi pago.`,
                         new Date().toISOString()
                     ).run();
+
+                    // 2. E-mail para o Admin
+                    await sendEmail(env, {
+                        to: [getAdminEmail(env)],
+                        subject: `Pagamento Confirmado #${formattedOrder}`,
+                        html: templates.paymentConfirmedAdmin(formattedOrder, orderData.client_name)
+                    });
                 }
 
               } else {

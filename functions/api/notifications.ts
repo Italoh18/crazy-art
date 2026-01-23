@@ -1,5 +1,6 @@
 
 import { Env, getAuth } from './_auth';
+import { sendEmail, templates, getAdminEmail } from '../services/email';
 
 export const onRequest: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
@@ -16,37 +17,60 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         // 1. VERIFICAÇÃO AUTOMÁTICA DE ATRASOS (Lazy Check)
         const now = new Date().toISOString().split('T')[0];
         
-        // Busca pedidos em aberto e vencidos
+        // Busca pedidos em aberto e vencidos com JOIN para pegar nome e email do cliente
+        // Alterado para incluir c.email e c.name
         const { results: overdueOrders } = await env.DB.prepare(
-          "SELECT id, order_number, client_id, description, due_date FROM orders WHERE status = 'open' AND due_date < ?"
+          `SELECT 
+             o.id, o.order_number, o.client_id, o.description, o.due_date, 
+             c.email as client_email, c.name as client_name 
+           FROM orders o 
+           JOIN clients c ON o.client_id = c.id
+           WHERE o.status = 'open' AND o.due_date < ?`
         ).bind(now).all();
 
         if (overdueOrders && overdueOrders.length > 0) {
           for (const order of overdueOrders) {
             const refId = `overdue_${order.id}`;
+            const formattedOrder = String(order.order_number).padStart(5, '0');
             
             // Verifica se já existe notificação para este atraso
-            // Try/Catch interno para caso a tabela notifications não exista
             try {
                 const existing = await env.DB.prepare("SELECT id FROM notifications WHERE reference_id = ?").bind(refId).first();
                 
                 if (!existing) {
-                  const notifId = crypto.randomUUID();
                   const createdAt = new Date().toISOString();
                   
-                  // Notificação para ADMIN
+                  // A. NOTIFICAÇÃO + EMAIL ADMIN
+                  const notifId = crypto.randomUUID();
                   await env.DB.prepare(
                     "INSERT INTO notifications (id, target_role, type, title, message, created_at, reference_id) VALUES (?, 'admin', 'warning', 'Pedido em Atraso', ?, ?, ?)"
-                  ).bind(notifId, `Pedido #${order.order_number} venceu em ${order.due_date}.`, createdAt, refId).run();
+                  ).bind(notifId, `Pedido #${formattedOrder} venceu em ${order.due_date}.`, createdAt, refId).run();
 
-                  // Notificação para CLIENTE
+                  // Email Admin
+                  await sendEmail(env, {
+                    to: [getAdminEmail(env)],
+                    subject: `ATRASO: Pedido #${formattedOrder} - ${order.client_name}`,
+                    html: templates.overdueAdmin(order.client_name, formattedOrder, order.due_date)
+                  });
+
+                  // B. NOTIFICAÇÃO + EMAIL CLIENTE
                   const notifIdClient = crypto.randomUUID();
                   await env.DB.prepare(
                     "INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, reference_id) VALUES (?, 'client', ?, 'warning', 'Fatura em Atraso', ?, ?, ?)"
-                  ).bind(notifIdClient, order.client_id, `Seu pedido #${order.order_number} está vencido.`, createdAt, refId + '_client').run();
+                  ).bind(notifIdClient, order.client_id, `Seu pedido #${formattedOrder} está vencido.`, createdAt, refId + '_client').run();
+
+                  // Email Cliente (Se houver email)
+                  if (order.client_email) {
+                    await sendEmail(env, {
+                      to: [order.client_email],
+                      subject: `Pendência: Pedido #${formattedOrder} Vencido`,
+                      html: templates.overdueClient(order.client_name, formattedOrder, order.due_date)
+                    });
+                  }
                 }
-            } catch (ignore) {
-                // Silencia erro se a tabela de notificações ainda não foi criada, para não travar o app
+            } catch (innerError) {
+                console.error('[Notification Check] Erro ao processar pedido ' + order.id, innerError);
+                // Silencia erro específico para não travar o loop
             }
           }
         }
