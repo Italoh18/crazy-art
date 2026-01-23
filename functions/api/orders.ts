@@ -27,15 +27,20 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         });
       }
 
-      let query = 'SELECT * FROM orders';
+      // Query modificada para trazer nome do cliente (JOIN) para a lista geral
+      let query = `
+        SELECT o.*, c.name as client_name 
+        FROM orders o 
+        LEFT JOIN clients c ON o.client_id = c.id
+      `;
       let params: any[] = [];
       
       if (clientIdParam && clientIdParam !== 'undefined') {
-        query += ' WHERE client_id = ?';
+        query += ' WHERE o.client_id = ?';
         params.push(String(clientIdParam));
       }
       
-      query += ' ORDER BY created_at DESC';
+      query += ' ORDER BY o.created_at DESC';
       
       const stmt = env.DB.prepare(query);
       const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
@@ -67,9 +72,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
       if (!client_id) return new Response(JSON.stringify({ error: 'client_id é obrigatório' }), { status: 400 });
 
-      // Inserir Cabeçalho do Pedido (Total começa em 0)
+      // Inserir Cabeçalho do Pedido (Total e Custo começam em 0, atualizados após inserir itens)
       await env.DB.prepare(
-        'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, total_cost, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
         newId,
         nextOrderNumber,
@@ -78,25 +83,31 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         order_date,
         due_date,
         0, 
+        0, 
         status,
         now
       ).run();
 
-      // Inserir Itens do Pedido com o schema real do D1
+      // Inserir Itens do Pedido
       const items = Array.isArray(body.items) ? body.items : [];
       let calculatedTotal = 0;
+      let calculatedCost = 0;
       
       if (items.length > 0) {
         for (const item of items) {
           const itemId = crypto.randomUUID();
           const q = Number(item.quantity || 1);
           const p = Number(item.unitPrice || item.unit_price || item.price || 0);
+          // Usa cost_price, costPrice ou cost. Se não tiver, assume 0.
           const c = Number(item.cost_price || item.costPrice || item.cost || 0);
           const subtotal = Number(item.total || (p * q));
+          
           calculatedTotal += subtotal;
+          calculatedCost += (c * q);
 
+          // CORREÇÃO: Coluna 'cost' alterada para 'cost_price' para bater com migrations.sql
           await env.DB.prepare(
-            'INSERT INTO order_items (id, order_id, catalog_id, name, type, price, cost, quantity, subtotal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO order_items (id, order_id, catalog_id, name, type, unit_price, cost_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
           ).bind(
             itemId,
             newId,
@@ -110,30 +121,23 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           ).run();
         }
 
-        // Atualizar Total Final no Cabeçalho
-        await env.DB.prepare('UPDATE orders SET total = ? WHERE id = ?').bind(calculatedTotal, newId).run();
+        // Atualizar Total Final e Custo Final no Cabeçalho
+        await env.DB.prepare('UPDATE orders SET total = ?, total_cost = ? WHERE id = ?')
+            .bind(calculatedTotal, calculatedCost, newId).run();
       }
 
       // --- LOGICA DE NOTIFICAÇÃO E E-MAIL ---
       const notifId = crypto.randomUUID();
       
-      // Busca dados do cliente para e-mails e notificações
       const clientData: any = await env.DB.prepare('SELECT name, email FROM clients WHERE id = ?').bind(client_id).first();
       const clientName = clientData?.name || 'Cliente';
       const clientEmail = clientData?.email;
 
       if (user.role === 'admin') {
-        // 1. Notificação Interna
         await env.DB.prepare(
           "INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at) VALUES (?, 'client', ?, 'info', 'Novo Pedido', ?, ?)"
-        ).bind(
-          notifId,
-          client_id,
-          `Um novo pedido (#${formattedOrder}) foi gerado para você.`,
-          now
-        ).run();
+        ).bind(notifId, client_id, `Um novo pedido (#${formattedOrder}) foi gerado para você.`, now).run();
 
-        // 2. E-mail para o Cliente (Se tiver e-mail cadastrado)
         if (clientEmail) {
           await sendEmail(env, {
             to: [clientEmail],
@@ -143,16 +147,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         }
 
       } else if (user.role === 'client') {
-        // 1. Notificação Interna
         await env.DB.prepare(
           "INSERT INTO notifications (id, target_role, type, title, message, created_at) VALUES (?, 'admin', 'info', 'Pedido da Loja', ?, ?)"
-        ).bind(
-          notifId,
-          `O cliente ${clientName} criou o pedido #${formattedOrder} via loja.`,
-          now
-        ).run();
+        ).bind(notifId, `O cliente ${clientName} criou o pedido #${formattedOrder} via loja.`, now).run();
 
-        // 2. E-mail para o Admin
         await sendEmail(env, {
           to: [getAdminEmail(env)],
           subject: `Novo Pedido Loja #${formattedOrder} - ${clientName}`,
@@ -196,16 +194,20 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         await env.DB.prepare('DELETE FROM order_items WHERE order_id = ?').bind(id).run();
         
         let calculatedTotal = 0;
+        let calculatedCost = 0;
+        
         for (const item of body.items) {
           const itemId = crypto.randomUUID();
           const q = Number(item.quantity || 1);
           const p = Number(item.unitPrice || item.unit_price || item.price || 0);
           const c = Number(item.cost_price || item.costPrice || item.cost || 0);
           const subtotal = Number(item.total || (p * q));
+          
           calculatedTotal += subtotal;
+          calculatedCost += (c * q);
 
           await env.DB.prepare(
-            'INSERT INTO order_items (id, order_id, catalog_id, name, type, price, cost, quantity, subtotal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO order_items (id, order_id, catalog_id, name, type, unit_price, cost_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
           ).bind(
             itemId,
             id,
@@ -219,7 +221,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           ).run();
         }
         
-        await env.DB.prepare('UPDATE orders SET total = ? WHERE id = ?').bind(calculatedTotal, id).run();
+        await env.DB.prepare('UPDATE orders SET total = ?, total_cost = ? WHERE id = ?')
+            .bind(calculatedTotal, calculatedCost, id).run();
       }
 
       return Response.json({ success: true });
@@ -228,10 +231,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     // DELETE /api/orders
     if (request.method === 'DELETE' && id) {
       if (user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso restrito' }), { status: 403 });
-      
-      // A exclusão de order_items ocorre automaticamente via ON DELETE CASCADE no DB
       await env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(id).run();
-      
       return Response.json({ success: true });
     }
 

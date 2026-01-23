@@ -10,7 +10,7 @@ export const IntroAnimation: React.FC<IntroAnimationProps> = ({ onComplete }) =>
   const [isFinished, setIsFinished] = useState(false);
   
   const fullText = "CRAZY ART";
-  const speed = 150; // Acelerado: 150ms entre cada letra (antes era 400ms)
+  const speed = 150; 
 
   useEffect(() => {
     // Sequência de entrada das letras
@@ -20,24 +20,22 @@ export const IntroAnimation: React.FC<IntroAnimationProps> = ({ onComplete }) =>
       }, speed);
       return () => clearTimeout(timeout);
     } else {
-      // Quando terminar de escrever, finaliza mais rápido
+      // Quando terminar de escrever, espera e finaliza
       const endTimeout = setTimeout(() => {
         setIsFinished(true);
-        // Tempo para o fade-out visual antes de desmontar
-        setTimeout(onComplete, 500); // Fade out mais rápido (500ms)
-      }, 800); // Espera menos tempo com o logo completo na tela
+        // Tempo para o slide-up antes de desmontar (700ms corresponde a duration-700)
+        setTimeout(onComplete, 700); 
+      }, 800); 
       return () => clearTimeout(endTimeout);
     }
   }, [textIndex, onComplete]);
 
-  // Cálculo dinâmico do tamanho da fonte para o efeito de "espremer"
+  // Cálculo dinâmico do tamanho da fonte
   const getFontSize = () => {
     const count = Math.max(1, textIndex);
-    // Fórmula ajustada: Começa GIGANTE e termina GRANDE
-    if (count === 1) return '60vw'; // Começa ocupando mais da metade da tela
+    if (count === 1) return '60vw';
     if (count === 2) return '45vw';
     if (count === 3) return '35vw';
-    // Reduz proporcionalmente até um limite mínimo maior (13vw)
     return `${Math.max(13, 45 - (count * 3.5))}vw`; 
   };
 
@@ -48,12 +46,12 @@ export const IntroAnimation: React.FC<IntroAnimationProps> = ({ onComplete }) =>
     fontSize: currentFontSize,
     lineHeight: '1',
     letterSpacing: '-0.02em',
-    transition: 'font-size 0.3s cubic-bezier(0.22, 1, 0.36, 1)' // Transição de tamanho mais rápida
+    transition: 'font-size 0.3s cubic-bezier(0.22, 1, 0.36, 1)' 
   };
 
   return (
     <div 
-      className={`fixed inset-0 z-[99999] bg-white flex items-center justify-center overflow-hidden transition-opacity duration-500 ease-in-out ${isFinished ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+      className={`fixed inset-0 z-[99999] bg-white flex items-center justify-center overflow-hidden transition-transform duration-700 ease-in-out ${isFinished ? '-translate-y-full' : 'translate-y-0'}`}
     >
       <style>{`
         @keyframes slideInFromRight {
@@ -72,7 +70,7 @@ export const IntroAnimation: React.FC<IntroAnimationProps> = ({ onComplete }) =>
         }
 
         .char-enter {
-          animation: slideInFromRight 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards; /* Animação de entrada mais rápida */
+          animation: slideInFromRight 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
           display: inline-block;
           white-space: pre;
         }

@@ -33,6 +33,7 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   total: number;
+  cost_price?: number; // Adicionado para garantir tipagem no calculo
 }
 
 export type OrderStatus = 'open' | 'paid' | 'cancelled';
@@ -43,11 +44,14 @@ export interface Order {
   client_id: string;
   description: string;
   total: number;
+  total_cost?: number; // Novo campo para calculo de liquido
   order_date: string;
   due_date: string;
   status: OrderStatus;
   created_at?: string;
+  paid_at?: string;
   formattedOrderNumber?: string;
+  client_name?: string; // Opcional para listagens com join visual
 }
 
 export interface DREData {

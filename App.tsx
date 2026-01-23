@@ -9,6 +9,7 @@ import Customers from './pages/Customers';
 import CustomerDetails from './pages/CustomerDetails';
 import Products from './pages/Products';
 import DRE from './pages/DRE';
+import Orders from './pages/Orders';
 import FontFinder from './pages/FontFinder';
 import Programs from './pages/Programs';
 import Shop from './pages/Shop';
@@ -30,12 +31,10 @@ const LoadingScreen = () => {
   ];
 
   useEffect(() => {
-    // Rotaciona as mensagens a cada 2.5 segundos
     const rotationInterval = setInterval(() => {
       setMessageIndex((prev) => (prev + 1) % messages.length);
     }, 2500);
 
-    // Ativa o easter egg após 8 segundos
     const timeout = setTimeout(() => {
       setIsTakingTooLong(true);
     }, 8000);
@@ -47,7 +46,7 @@ const LoadingScreen = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center text-white">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center text-white fixed inset-0 z-50">
       <Loader2 className="animate-spin text-primary mb-6" size={48} />
       <p className="text-zinc-500 animate-pulse font-mono text-sm tracking-wide text-center px-4">
         {isTakingTooLong ? "ok, agora é culpa da internet mesmo." : messages[messageIndex]}
@@ -56,35 +55,43 @@ const LoadingScreen = () => {
   );
 };
 
+const AppRoutes = () => {
+    return (
+        <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/shop" element={<Shop />} />
+            <Route path="/programs" element={<Programs />} />
+            <Route path="/font-finder" element={<FontFinder />} />
+            <Route path="/layout-builder" element={<LayoutBuilder />} />
+            <Route path="/my-area" element={<ClientRoute />} />
+            <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><Orders /></ProtectedRoute>} />
+            <Route path="/customers" element={<ProtectedRoute requiredRole="admin"><Customers /></ProtectedRoute>} />
+            <Route path="/customers/:id" element={<ProtectedRoute requiredRole="admin"><CustomerDetails /></ProtectedRoute>} />
+            <Route path="/products" element={<ProtectedRoute requiredRole="admin"><Products /></ProtectedRoute>} />
+            <Route path="/dre" element={<ProtectedRoute requiredRole="admin"><DRE /></ProtectedRoute>} />
+            <Route path="/carousel-manager" element={<ProtectedRoute requiredRole="admin"><CarouselManager /></ProtectedRoute>} />
+        </Routes>
+    );
+}
+
 const AppContent = ({ showIntro, setShowIntro }: { showIntro: boolean, setShowIntro: (v: boolean) => void }) => {
   const { isLoading } = useData();
   
-  // 1. Mostrar Intro Primeiro (se ativada)
-  if (showIntro) {
-      return <IntroAnimation onComplete={() => setShowIntro(false)} />;
-  }
-
-  // 2. Mostrar Loading do Contexto (se necessário)
-  if (isLoading) return <LoadingScreen />;
-
-  // 3. Mostrar App
   return (
-    <Layout>
-      <ScreenshotGuard />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/shop" element={<Shop />} />
-        <Route path="/programs" element={<Programs />} />
-        <Route path="/font-finder" element={<FontFinder />} />
-        <Route path="/layout-builder" element={<LayoutBuilder />} />
-        <Route path="/my-area" element={<ClientRoute />} />
-        <Route path="/customers" element={<ProtectedRoute requiredRole="admin"><Customers /></ProtectedRoute>} />
-        <Route path="/customers/:id" element={<ProtectedRoute requiredRole="admin"><CustomerDetails /></ProtectedRoute>} />
-        <Route path="/products" element={<ProtectedRoute requiredRole="admin"><Products /></ProtectedRoute>} />
-        <Route path="/dre" element={<ProtectedRoute requiredRole="admin"><DRE /></ProtectedRoute>} />
-        <Route path="/carousel-manager" element={<ProtectedRoute requiredRole="admin"><CarouselManager /></ProtectedRoute>} />
-      </Routes>
-    </Layout>
+    <>
+      {/* Intro Overlay - Desliza para cima revelando o app */}
+      {showIntro && <IntroAnimation onComplete={() => setShowIntro(false)} />}
+
+      {/* App Principal */}
+      {isLoading ? (
+         <LoadingScreen />
+      ) : (
+         <Layout>
+            <ScreenshotGuard />
+            <AppRoutes />
+         </Layout>
+      )}
+    </>
   );
 };
 
@@ -102,8 +109,6 @@ const ClientRoute = () => {
 };
 
 export default function App() {
-  // Estado para controlar a intro
-  // Iniciamos como true para sempre mostrar ao carregar/recarregar a página
   const [showIntro, setShowIntro] = useState(true);
 
   return (

@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { SeasonalEffects } from './SeasonalEffects';
 import { StickManCleaner } from './StickManCleaner';
@@ -58,7 +58,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
               { icon: MessageCircle, href: "https://wa.me/5516994142665" },
               { icon: Instagram, href: "https://instagram.com" },
               { icon: Facebook, href: "https://facebook.com" },
-              { icon: Mail, href: "mailto:contato@crazyart.com" }
+              { icon: Mail, href: "mailto:crazyartoficial@outlook.com" } // Email Atualizado
             ].map((item, idx) => (
               <a 
                 key={idx}
@@ -100,6 +100,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
   const adminNavItems = [
     { name: 'Dashboard', path: '/', icon: Home },
+    { name: 'Pedidos', path: '/orders', icon: ClipboardList }, // Nova aba
     { name: 'Clientes', path: '/customers', icon: Users },
     { name: 'Produtos', path: '/products', icon: Package },
     { name: 'Carrossel', path: '/carousel-manager', icon: ImageIcon },
