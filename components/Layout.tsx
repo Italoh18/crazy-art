@@ -7,6 +7,7 @@ import { SeasonalEffects } from './SeasonalEffects';
 import { StickManCleaner } from './StickManCleaner';
 import { CosmicPulseSystem } from './CosmicPulseSystem';
 import { FluidTrail } from './FluidTrail';
+import { NotificationCenter } from './NotificationCenter';
 
 export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
@@ -127,7 +128,8 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                         <span className="font-bold text-lg bg-clip-text text-transparent bg-crazy-gradient hidden sm:block uppercase tracking-wider font-heading drop-shadow-sm" style={timesFont}>CRAZY ART</span>
                      </div>
                 </div>
-                <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-4 sm:space-x-6">
+                    <NotificationCenter />
                     <span className="text-zinc-400 text-sm hidden sm:block">Olá, <span className="text-white font-semibold tracking-wide">{currentCustomer?.name.split(' ')[0]}</span></span>
                     <button onClick={handleLogout} className="text-zinc-400 hover:text-red-400 flex items-center space-x-2 transition-colors hover:scale-105">
                         <LogOut size={18} />
@@ -237,6 +239,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             </div>
             
             <div className="flex items-center gap-4">
+                <NotificationCenter />
                 <div className="flex flex-col items-end mr-2 hidden sm:block">
                   <span className="text-xs font-bold text-white">Administrador</span>
                   <span className="text-[10px] text-zinc-500">Acesso Total</span>

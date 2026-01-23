@@ -65,6 +65,27 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
 
               if (result.meta.changes > 0) {
                 console.log(`[Webhook] Pedido ${trimmedId} movido para PAGO com sucesso.`);
+                
+                // --- NOTIFICAÇÃO ADMIN ---
+                // Busca número do pedido e nome do cliente para a mensagem
+                const orderData: any = await env.DB.prepare(`
+                    SELECT o.order_number, c.name as client_name 
+                    FROM orders o 
+                    JOIN clients c ON o.client_id = c.id 
+                    WHERE o.id = ?
+                `).bind(trimmedId).first();
+
+                if (orderData) {
+                    const notifId = crypto.randomUUID();
+                    await env.DB.prepare(
+                        "INSERT INTO notifications (id, target_role, type, title, message, created_at) VALUES (?, 'admin', 'success', 'Pagamento Confirmado', ?, ?)"
+                    ).bind(
+                        notifId,
+                        `O pedido #${String(orderData.order_number).padStart(5,'0')} de ${orderData.client_name} foi pago.`,
+                        new Date().toISOString()
+                    ).run();
+                }
+
               } else {
                 console.warn(`[Webhook] Pedido ${trimmedId} não encontrado no banco ou já estava pago.`);
               }

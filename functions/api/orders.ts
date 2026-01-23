@@ -112,6 +112,34 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         await env.DB.prepare('UPDATE orders SET total = ? WHERE id = ?').bind(calculatedTotal, newId).run();
       }
 
+      // --- LOGICA DE NOTIFICAÇÃO ---
+      const notifId = crypto.randomUUID();
+      
+      if (user.role === 'admin') {
+        // Admin criou pedido -> Notificar Cliente
+        await env.DB.prepare(
+          "INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at) VALUES (?, 'client', ?, 'info', 'Novo Pedido', ?, ?)"
+        ).bind(
+          notifId,
+          client_id,
+          `Um novo pedido (#${String(nextOrderNumber).padStart(5,'0')}) foi gerado para você.`,
+          now
+        ).run();
+      } else if (user.role === 'client') {
+        // Cliente criou pedido (Loja) -> Notificar Admin
+        // Busca o nome do cliente para a mensagem
+        const clientData: any = await env.DB.prepare('SELECT name FROM clients WHERE id = ?').bind(client_id).first();
+        const clientName = clientData?.name || 'Cliente';
+
+        await env.DB.prepare(
+          "INSERT INTO notifications (id, target_role, type, title, message, created_at) VALUES (?, 'admin', 'info', 'Pedido da Loja', ?, ?)"
+        ).bind(
+          notifId,
+          `O cliente ${clientName} criou o pedido #${String(nextOrderNumber).padStart(5,'0')} via loja.`,
+          now
+        ).run();
+      }
+
       return Response.json({ 
         success: true,
         id: newId,

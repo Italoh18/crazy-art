@@ -10,7 +10,7 @@
 -- ALTER TABLE clients ADD COLUMN zipCode TEXT;
 
 -- NOVO: Link da Nuvem
-ALTER TABLE clients ADD COLUMN cloud_link TEXT;
+-- ALTER TABLE clients ADD COLUMN cloud_link TEXT;
 
 -- 2. Catálogo (Produtos/Serviços unificados)
 -- ALTER TABLE catalog ADD COLUMN cost_price REAL DEFAULT 0;
@@ -38,5 +38,21 @@ CREATE TABLE IF NOT EXISTS order_items (
 -- 6. Coluna de Data de Pagamento
 -- ALTER TABLE orders ADD COLUMN paid_at TEXT;
 
+-- 7. SISTEMA DE NOTIFICAÇÕES (Novo)
+CREATE TABLE IF NOT EXISTS notifications (
+    id TEXT PRIMARY KEY,
+    target_role TEXT, -- 'admin' ou 'client'
+    user_id TEXT, -- ID do cliente específico (NULL se for para todos os admins)
+    type TEXT, -- 'info', 'success', 'warning', 'error'
+    title TEXT,
+    message TEXT,
+    is_read INTEGER DEFAULT 0,
+    created_at TEXT,
+    reference_id TEXT -- ID do pedido relacionado (para evitar duplicidade em alertas de atraso)
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_role ON notifications(target_role);
+
 -- Verificação final
-PRAGMA table_info(clients);
+PRAGMA table_info(notifications);

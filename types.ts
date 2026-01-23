@@ -62,3 +62,15 @@ export interface CarouselImage {
   url: string;
   created_at: string;
 }
+
+export interface Notification {
+  id: string;
+  target_role: 'admin' | 'client';
+  user_id?: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  title: string;
+  message: string;
+  is_read: number; // 0 ou 1
+  created_at: string;
+  reference_id?: string;
+}
