@@ -162,7 +162,7 @@ export default function CustomerDetails() {
   };
 
   const confirmDelete = async () => {
-      if (confirm("Excluir este cliente?")) {
+      if (confirm("ATENÇÃO: Você tem certeza que deseja excluir este cliente?\n\nIsso apagará permanentemente todo o histórico de pedidos e dados financeiros.")) {
           await deleteCustomer(customer.id);
           navigate('/customers');
       }
@@ -189,7 +189,7 @@ export default function CustomerDetails() {
             </div>
             
             <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-                {/* Botão Nuvem de Arquivos - Corrigido para verificar cloudUrl */}
+                {/* Botão Nuvem de Arquivos */}
                 {cloudUrl && (
                     <a 
                         href={cloudUrl} 
@@ -208,9 +208,6 @@ export default function CustomerDetails() {
                         </button>
                         <button onClick={openEditModal} className="px-6 py-3 bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-white rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold">
                             <Edit size={16} /> Editar
-                        </button>
-                        <button onClick={confirmDelete} className="p-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 rounded-xl transition">
-                            <Trash2 size={18} />
                         </button>
                     </>
                 )}
@@ -465,6 +462,28 @@ export default function CustomerDetails() {
                 </table>
             </div>
         </div>
+
+        {/* Zona de Perigo (Admin Only) - Movida para o final */}
+        {role === 'admin' && (
+            <div className="mt-12 border-t border-white/5 pt-8 animate-fade-in-up">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-6 rounded-2xl border border-red-500/20 bg-red-500/5">
+                    <div className="space-y-1">
+                        <h3 className="text-red-500 font-bold text-lg flex items-center gap-2">
+                            <AlertTriangle size={20} /> Zona de Perigo
+                        </h3>
+                        <p className="text-zinc-400 text-sm max-w-xl">
+                            A exclusão deste cliente removerá permanentemente todos os dados pessoais, histórico de pedidos e registros financeiros associados. Esta ação é irreversível.
+                        </p>
+                    </div>
+                    <button 
+                        onClick={confirmDelete} 
+                        className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition flex items-center gap-2 shadow-lg shadow-red-900/20 hover:scale-105 active:scale-95 whitespace-nowrap"
+                    >
+                        <Trash2 size={18} /> Excluir Cliente
+                    </button>
+                </div>
+            </div>
+        )}
 
         {/* POP UP PAGAMENTO */}
         {selectedOrderIds.length > 1 && (
