@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useNavigate } from 'react-router-dom';
-import { X, User, Lock, ShoppingBag, BookOpen, Tv, LogOut, ChevronLeft, ChevronRight, Sparkles, LayoutGrid } from 'lucide-react';
+import { X, User, Lock, ShoppingBag, BookOpen, Tv, LogOut, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers } from 'lucide-react';
 import { GalaxyGame } from '../components/GalaxyGame';
 
 export default function Home() {
@@ -105,14 +105,25 @@ export default function Home() {
         navigate('/my-area');
         window.location.reload();
       } else {
-        setError('CPF não encontrado.');
+        setError('Documento (CPF/CNPJ) não encontrado.');
       }
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (loginMode === 'client') {
-          setInputValue(e.target.value.replace(/\D/g, '').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})/, '$1-$2').replace(/(-\d{2})\d+?$/, '$1'));
+          let v = e.target.value.replace(/\D/g, '');
+          if (v.length <= 11) {
+            v = v.replace(/(\d{3})(\d)/, '$1.$2')
+                 .replace(/(\d{3})(\d)/, '$1.$2')
+                 .replace(/(\d{3})(\d{1,2})/, '$1-$2');
+          } else {
+            v = v.replace(/^(\d{2})(\d)/, '$1.$2')
+                 .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+                 .replace(/\.(\d{3})(\d)/, '.$1/$2')
+                 .replace(/(\d{4})(\d)/, '$1-$2');
+          }
+          setInputValue(v.substring(0, 18));
       } else {
           setInputValue(e.target.value);
       }
@@ -277,9 +288,29 @@ export default function Home() {
               </div>
             ))}
           </div>
-
-          {/* BOTÃO RETANGULAR PROGRAMAS - LARGURA MÁXIMA REDUZIDA E CENTRALIZADA */}
+          
+          {/* BOTÃO MONTE SEU LAYOUT (INATIVO) */}
           <div className="mt-8 max-w-2xl mx-auto">
+              <div 
+                className="w-full h-24 rounded-2xl glass-panel border border-white/5 flex items-center justify-between px-8 group opacity-60 grayscale cursor-not-allowed overflow-hidden relative"
+              >
+                  <div className="flex items-center gap-6 relative z-10">
+                      <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 text-zinc-600">
+                          <Layers size={28} strokeWidth={1.5} />
+                      </div>
+                      <div>
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-xl font-bold text-zinc-400 tracking-[0.1em] uppercase" style={headerFont}>Monte seu Layout</h3>
+                            <span className="text-[10px] bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded-full font-bold">EM BREVE</span>
+                          </div>
+                          <p className="text-zinc-600 text-xs tracking-wider uppercase">Visualize camisas e shorts em 3D</p>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          {/* BOTÃO RETANGULAR PROGRAMAS */}
+          <div className="mt-4 max-w-2xl mx-auto">
               <div 
                 onClick={() => navigate('/programs')}
                 className="w-full h-24 rounded-2xl glass-panel seasonal-target border border-white/10 flex items-center justify-between px-8 group cursor-pointer active:scale-95 transition-all duration-300 hover:border-primary/50 hover:shadow-[0_0_25px_rgba(245,158,11,0.3)] overflow-hidden"
@@ -315,11 +346,11 @@ export default function Home() {
                     {loginMode === 'client' ? <User className="text-primary" size={40} strokeWidth={1.5} /> : <Lock className="text-secondary" size={40} strokeWidth={1.5} />}
                  </div>
                  <h2 className="text-2xl font-bold text-white uppercase tracking-wide" style={headerFont}>{loginMode === 'client' ? 'Área do Cliente' : 'Acesso Adm'}</h2>
-                 <p className="text-zinc-500 text-sm mt-2">Entre para gerenciar seus pedidos</p>
+                 <p className="text-zinc-500 text-sm mt-2">Entre com seu CPF ou CNPJ</p>
               </div>
               <form onSubmit={handleLogin} className="space-y-5 relative z-10">
-                <input type={loginMode === 'client' ? "text" : "password"} placeholder={loginMode === 'client' ? "CPF (apenas números)" : "Código de Acesso"} className="w-full bg-black/50 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-widest" value={inputValue} onChange={handleInputChange} autoFocus />
-                {error && <div className="text-red-500 text-sm text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20 animate-pulse">{error}</div>}
+                <input type={loginMode === 'client' ? "text" : "password"} placeholder={loginMode === 'client' ? "CPF ou CNPJ (apenas números)" : "Código de Acesso"} className="w-full bg-black/50 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-widest" value={inputValue} onChange={handleInputChange} autoFocus />
+                {error && <div className="text-red-500 text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20 animate-pulse text-xs">{error}</div>}
                 <button type="submit" className="w-full bg-gradient-to-r from-white to-zinc-300 text-black font-bold py-4 rounded-xl hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-[1.02] transition-all transform active:scale-95 uppercase tracking-wider text-sm btn-active-effect">Entrar</button>
               </form>
               <div className="mt-8 text-center relative z-10">

@@ -22,14 +22,21 @@ export default function Customers() {
     c.cpf.includes(searchTerm)
   );
 
-  // Masks
-  const maskCPF = (value: string) => {
-    return value
-      .replace(/\D/g, '')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d{1,2})/, '$1-$2')
-      .replace(/(-\d{2})\d+?$/, '$1');
+  // Máscara Dinâmica CPF/CNPJ
+  const maskDocument = (value: string) => {
+    let v = value.replace(/\D/g, '');
+    if (v.length <= 11) {
+      return v.replace(/(\d{3})(\d)/, '$1.$2')
+              .replace(/(\d{3})(\d)/, '$1.$2')
+              .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+              .substring(0, 14);
+    } else {
+      return v.replace(/^(\d{2})(\d)/, '$1.$2')
+              .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+              .replace(/\.(\d{3})(\d)/, '.$1/$2')
+              .replace(/(\d{4})(\d)/, '$1-$2')
+              .substring(0, 18);
+    }
   };
 
   const maskPhone = (value: string) => {
@@ -43,7 +50,7 @@ export default function Customers() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let { name, value } = e.target;
     
-    if (name === 'cpf') value = maskCPF(value);
+    if (name === 'cpf') value = maskDocument(value);
     if (name === 'phone') value = maskPhone(value);
 
     setFormData({ ...formData, [name]: value });
@@ -95,7 +102,7 @@ export default function Customers() {
         <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 to-secondary/30 rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
         <input
           type="text"
-          placeholder="Buscar por nome ou CPF..."
+          placeholder="Buscar por nome ou CPF/CNPJ..."
           className="relative w-full bg-[#121215] border border-white/10 text-white pl-12 pr-4 py-4 rounded-xl focus:border-primary/50 focus:ring-1 focus:ring-primary/50 outline-none placeholder-zinc-500 transition-all text-sm shadow-xl"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -179,7 +186,7 @@ export default function Customers() {
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="col-span-1 md:col-span-2">
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Nome Completo</label>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Nome Completo / Razão Social</label>
                     <input name="name" required value={formData.name} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" placeholder="Nome do cliente" />
                 </div>
                 <div>
@@ -187,8 +194,8 @@ export default function Customers() {
                     <input name="phone" required placeholder="(99) 99999-9999" value={formData.phone} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" />
                 </div>
                 <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">CPF</label>
-                    <input name="cpf" required placeholder="000.000.000-00" value={formData.cpf} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" />
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">CPF / CNPJ</label>
+                    <input name="cpf" required placeholder="000.000.000-00 ou 00.000.000/0000-00" value={formData.cpf} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" />
                 </div>
                 <div className="col-span-1 md:col-span-2">
                     <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Email</label>

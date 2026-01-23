@@ -13,6 +13,7 @@ import FontFinder from './pages/FontFinder';
 import Programs from './pages/Programs';
 import Shop from './pages/Shop';
 import CarouselManager from './pages/CarouselManager';
+import LayoutBuilder from './pages/LayoutBuilder';
 import { Loader2 } from 'lucide-react';
 import { ScreenshotGuard } from './components/ScreenshotGuard';
 import { IntroAnimation } from './components/IntroAnimation';
@@ -75,6 +76,7 @@ const AppContent = ({ showIntro, setShowIntro }: { showIntro: boolean, setShowIn
         <Route path="/shop" element={<Shop />} />
         <Route path="/programs" element={<Programs />} />
         <Route path="/font-finder" element={<FontFinder />} />
+        <Route path="/layout-builder" element={<LayoutBuilder />} />
         <Route path="/my-area" element={<ClientRoute />} />
         <Route path="/customers" element={<ProtectedRoute requiredRole="admin"><Customers /></ProtectedRoute>} />
         <Route path="/customers/:id" element={<ProtectedRoute requiredRole="admin"><CustomerDetails /></ProtectedRoute>} />
