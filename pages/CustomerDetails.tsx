@@ -6,7 +6,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { 
   User, Phone, Mail, MapPin, DollarSign, Calendar, 
   CheckCircle, AlertTriangle, Trash2, Edit, Plus, X, 
-  Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard
+  Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
+  Filter, Layers
 } from 'lucide-react';
 import { api } from '../src/services/api';
 
@@ -16,6 +17,7 @@ export default function CustomerDetails() {
   const { customers, orders, updateCustomer, deleteCustomer, deleteOrder, isLoading } = useData();
   const { role, currentCustomer } = useAuth();
   
+  const [activeTab, setActiveTab] = useState<'open' | 'overdue' | 'paid' | 'all'>('open');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -48,32 +50,55 @@ export default function CustomerDetails() {
       );
   }
 
-  const customerOrders = orders
+  // Todos os pedidos do cliente ordenados
+  const allCustomerOrders = orders
     .filter(o => o.client_id === id)
     .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
 
-  // Cálculos Financeiros
-  const totalPaid = customerOrders.filter(o => o.status === 'paid').reduce((acc, o) => acc + (o.total || 0), 0);
-  const openOrders = customerOrders.filter(o => o.status === 'open');
-  
-  const totalOpen = openOrders.reduce((acc, o) => acc + (o.total || 0), 0);
-  
-  const overdueOrders = openOrders.filter(o => {
-      if (!o.due_date) return false;
-      return new Date(o.due_date) < new Date();
+  // --- LÓGICA DE CATEGORIZAÇÃO E FILTROS ---
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  const _openOrders = allCustomerOrders.filter(o => {
+      if (o.status !== 'open') return false;
+      const due = new Date(o.due_date);
+      return due >= today; // Não está vencido
   });
-  const totalOverdue = overdueOrders.reduce((acc, o) => acc + (o.total || 0), 0);
+
+  const _overdueOrders = allCustomerOrders.filter(o => {
+      if (o.status !== 'open') return false;
+      const due = new Date(o.due_date);
+      return due < today; // Vencido
+  });
+
+  const _paidOrders = allCustomerOrders.filter(o => o.status === 'paid');
+
+  // Pedidos exibidos na tabela baseados na aba ativa
+  const displayedOrders = useMemo(() => {
+      switch(activeTab) {
+          case 'open': return _openOrders;
+          case 'overdue': return _overdueOrders;
+          case 'paid': return _paidOrders;
+          default: return allCustomerOrders;
+      }
+  }, [activeTab, allCustomerOrders, _openOrders, _overdueOrders, _paidOrders]);
+
+  // Totais para os Cards Superiores (Usando lógica original para consistência financeira)
+  const totalPaid = _paidOrders.reduce((acc, o) => acc + (o.total || 0), 0);
+  const totalOpen = _openOrders.reduce((acc, o) => acc + (o.total || 0), 0) + _overdueOrders.reduce((acc, o) => acc + (o.total || 0), 0); // Total Aberto soma vencidos e a vencer
+  const totalOverdueValue = _overdueOrders.reduce((acc, o) => acc + (o.total || 0), 0);
 
   // Crédito
   const creditLimit = customer.creditLimit || 50;
   const availableCredit = creditLimit - totalOpen;
   const usedPercentage = Math.min(100, (totalOpen / creditLimit) * 100);
   
+  // Total selecionado (apenas dos visíveis ou de todos? Melhor de todos selecionados na memória)
   const selectedTotal = useMemo(() => {
-    return customerOrders
+    return allCustomerOrders
       .filter(o => selectedOrderIds.includes(o.id))
       .reduce((acc, curr) => acc + (curr.total || 0), 0);
-  }, [customerOrders, selectedOrderIds]);
+  }, [allCustomerOrders, selectedOrderIds]);
 
   const toggleSelectOrder = (orderId: string) => {
     setSelectedOrderIds(prev => 
@@ -86,7 +111,7 @@ export default function CustomerDetails() {
     setIsBatchProcessing(true);
     try {
         const title = orderIds.length === 1 
-            ? `Pedido #${customerOrders.find(o => o.id === orderIds[0])?.formattedOrderNumber} - Crazy Art`
+            ? `Pedido #${allCustomerOrders.find(o => o.id === orderIds[0])?.formattedOrderNumber} - Crazy Art`
             : `Faturas (${orderIds.length}) - Crazy Art`;
         
         const res = await api.createPayment({
@@ -201,16 +226,16 @@ export default function CustomerDetails() {
             </div>
 
             {/* Card Vencido */}
-            <div className={`bg-[#0c0c0e] border p-6 rounded-2xl relative overflow-hidden group transition-colors ${totalOverdue > 0 ? 'border-red-500/30' : 'border-white/5'}`}>
+            <div className={`bg-[#0c0c0e] border p-6 rounded-2xl relative overflow-hidden group transition-colors ${totalOverdueValue > 0 ? 'border-red-500/30' : 'border-white/5'}`}>
                 <div className="flex items-center gap-3 mb-4">
-                    <div className={`p-2 rounded-lg border ${totalOverdue > 0 ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-zinc-800/50 text-zinc-600 border-zinc-700/50'}`}>
+                    <div className={`p-2 rounded-lg border ${totalOverdueValue > 0 ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-zinc-800/50 text-zinc-600 border-zinc-700/50'}`}>
                         <AlertTriangle size={20} />
                     </div>
                     <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Vencido</span>
                 </div>
                 <div className="relative z-10">
                     <span className="text-zinc-600 text-lg font-medium mr-1">R$</span>
-                    <span className={`text-4xl font-black tracking-tight ${totalOverdue > 0 ? 'text-zinc-300' : 'text-zinc-700'}`}>{totalOverdue.toFixed(2)}</span>
+                    <span className={`text-4xl font-black tracking-tight ${totalOverdueValue > 0 ? 'text-zinc-300' : 'text-zinc-700'}`}>{totalOverdueValue.toFixed(2)}</span>
                 </div>
             </div>
 
@@ -300,16 +325,47 @@ export default function CustomerDetails() {
             </div>
         </div>
 
-        {/* Orders List */}
+        {/* Orders List Container */}
         <div className="bg-[#121215] border border-white/5 rounded-2xl overflow-hidden shadow-xl mt-4">
-            <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e]">
-                <h2 className="text-sm font-bold text-white flex items-center gap-2 uppercase tracking-widest">
-                    Histórico de Pedidos
-                </h2>
-                <div className="text-xs text-zinc-500 font-mono">
-                    {customerOrders.length} registros
-                </div>
+            
+            {/* ABAS DE NAVEGAÇÃO */}
+            <div className="flex flex-col sm:flex-row border-b border-white/5 bg-[#0c0c0e]">
+                <button 
+                    onClick={() => setActiveTab('open')}
+                    className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'open' ? 'text-primary bg-primary/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}
+                >
+                    Abertos
+                    {_openOrders.length > 0 && <span className="ml-2 text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">{_openOrders.length}</span>}
+                    {activeTab === 'open' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_-2px_10px_rgba(245,158,11,0.5)]"></div>}
+                </button>
+
+                <button 
+                    onClick={() => setActiveTab('overdue')}
+                    className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'overdue' ? 'text-red-500 bg-red-500/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}
+                >
+                    Atrasados
+                    {_overdueOrders.length > 0 && <span className="ml-2 text-[10px] bg-red-500/20 text-red-500 px-2 py-0.5 rounded-full">{_overdueOrders.length}</span>}
+                    {activeTab === 'overdue' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-red-500 shadow-[0_-2px_10px_rgba(239,68,68,0.5)]"></div>}
+                </button>
+
+                <button 
+                    onClick={() => setActiveTab('paid')}
+                    className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'paid' ? 'text-emerald-500 bg-emerald-500/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}
+                >
+                    Pagos
+                    {_paidOrders.length > 0 && <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-500 px-2 py-0.5 rounded-full">{_paidOrders.length}</span>}
+                    {activeTab === 'paid' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-emerald-500 shadow-[0_-2px_10px_rgba(16,185,129,0.5)]"></div>}
+                </button>
+
+                <button 
+                    onClick={() => setActiveTab('all')}
+                    className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'all' ? 'text-white bg-white/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}
+                >
+                    Histórico
+                    {activeTab === 'all' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-zinc-500"></div>}
+                </button>
             </div>
+
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-zinc-400">
                     <thead className="bg-white/[0.02] text-zinc-500 font-bold uppercase text-[10px] tracking-wider border-b border-white/5">
@@ -324,10 +380,15 @@ export default function CustomerDetails() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                        {customerOrders.length === 0 ? (
-                            <tr><td colSpan={7} className="text-center py-12 text-zinc-600">Nenhum pedido registrado.</td></tr>
+                        {displayedOrders.length === 0 ? (
+                            <tr><td colSpan={7} className="text-center py-16 text-zinc-600">
+                                <div className="flex flex-col items-center gap-2">
+                                    <Layers size={32} className="opacity-20" />
+                                    <p>Nenhum pedido nesta categoria.</p>
+                                </div>
+                            </td></tr>
                         ) : (
-                            customerOrders.map(order => {
+                            displayedOrders.map(order => {
                                 const isLate = order.status === 'open' && new Date(order.due_date) < new Date();
                                 const isSelected = selectedOrderIds.includes(order.id);
                                 return (
