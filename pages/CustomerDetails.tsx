@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
@@ -6,14 +7,14 @@ import {
   User, Phone, Mail, MapPin, DollarSign, Calendar, 
   CheckCircle, AlertTriangle, Trash2, Edit, Plus, X, 
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
-  Filter, Layers
+  Filter, Layers, Package, Wrench, Search, Minus
 } from 'lucide-react';
 import { api } from '../src/services/api';
 
 export default function CustomerDetails() {
   const { id: paramId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { customers, orders, updateCustomer, deleteCustomer, deleteOrder, isLoading } = useData();
+  const { customers, orders, products, updateCustomer, deleteCustomer, deleteOrder, addOrder, addProduct, isLoading } = useData();
   const { role, currentCustomer } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'open' | 'overdue' | 'paid' | 'all'>('open');
@@ -21,6 +22,22 @@ export default function CustomerDetails() {
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [formData, setFormData] = useState<any>({});
+
+  // States para Modal de Novo Pedido
+  const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
+  const [newOrderData, setNewOrderData] = useState({
+      description: '',
+      orderDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  });
+  const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [itemSearch, setItemSearch] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  
+  // State para Criação Rápida de Item
+  const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
+  const [quickCreateType, setQuickCreateType] = useState<'product' | 'service'>('product');
+  const [quickItemData, setQuickItemData] = useState({ name: '', price: '' });
 
   // Determina qual ID usar: URL (Admin) ou Contexto (Cliente)
   const activeId = role === 'client' ? currentCustomer?.id : paramId;
@@ -55,7 +72,7 @@ export default function CustomerDetails() {
       );
   }
 
-  // Normaliza o link da nuvem (aceita camelCase do Admin ou snake_case do Cliente)
+  // Normaliza o link da nuvem
   const cloudUrl = customer.cloudLink || (customer as any).cloud_link;
 
   // Todos os pedidos do cliente ordenados
@@ -70,18 +87,17 @@ export default function CustomerDetails() {
   const _openOrders = allCustomerOrders.filter(o => {
       if (o.status !== 'open') return false;
       const due = new Date(o.due_date);
-      return due >= today; // Não está vencido
+      return due >= today;
   });
 
   const _overdueOrders = allCustomerOrders.filter(o => {
       if (o.status !== 'open') return false;
       const due = new Date(o.due_date);
-      return due < today; // Vencido
+      return due < today;
   });
 
   const _paidOrders = allCustomerOrders.filter(o => o.status === 'paid');
 
-  // Pedidos exibidos na tabela baseados na aba ativa
   const displayedOrders = useMemo(() => {
       switch(activeTab) {
           case 'open': return _openOrders;
@@ -91,12 +107,10 @@ export default function CustomerDetails() {
       }
   }, [activeTab, allCustomerOrders, _openOrders, _overdueOrders, _paidOrders]);
 
-  // Totais para os Cards Superiores
   const totalPaid = _paidOrders.reduce((acc, o) => acc + (o.total || 0), 0);
   const totalOpen = _openOrders.reduce((acc, o) => acc + (o.total || 0), 0) + _overdueOrders.reduce((acc, o) => acc + (o.total || 0), 0);
   const totalOverdueValue = _overdueOrders.reduce((acc, o) => acc + (o.total || 0), 0);
 
-  // Crédito
   const creditLimit = customer.creditLimit || 50;
   const availableCredit = creditLimit - totalOpen;
   const usedPercentage = Math.min(100, (totalOpen / creditLimit) * 100);
@@ -167,6 +181,102 @@ export default function CustomerDetails() {
       }
   };
 
+  // --- LÓGICA NOVO PEDIDO ---
+  const handleOpenNewOrder = () => {
+      setNewOrderData({
+          description: '',
+          orderDate: new Date().toISOString().split('T')[0],
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      });
+      setOrderItems([]);
+      setItemSearch('');
+      setIsNewOrderModalOpen(true);
+  };
+
+  const handleAddItem = (product: any) => {
+      setOrderItems(prev => {
+          const existing = prev.find(i => i.productId === product.id);
+          if (existing) {
+              return prev.map(i => i.productId === product.id ? { ...i, quantity: i.quantity + 1, total: (i.quantity + 1) * i.unitPrice } : i);
+          }
+          return [...prev, {
+              productId: product.id,
+              productName: product.name,
+              quantity: 1,
+              unitPrice: product.price,
+              total: product.price
+          }];
+      });
+      setItemSearch('');
+      setShowSearchResults(false);
+  };
+
+  const handleRemoveItem = (index: number) => {
+      setOrderItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateItemQuantity = (index: number, newQty: number) => {
+      if (newQty < 1) return;
+      setOrderItems(prev => prev.map((item, i) => {
+          if (i === index) {
+              return { ...item, quantity: newQty, total: newQty * item.unitPrice };
+          }
+          return item;
+      }));
+  };
+
+  const filteredProducts = products.filter(p => 
+      p.name.toLowerCase().includes(itemSearch.toLowerCase())
+  );
+
+  const orderTotal = orderItems.reduce((acc, item) => acc + item.total, 0);
+
+  const handleFinalizeOrder = async () => {
+      if (orderItems.length === 0 && !newOrderData.description) {
+          alert('Adicione itens ou uma descrição para o pedido.');
+          return;
+      }
+
+      const payload = {
+          client_id: customer.id,
+          description: newOrderData.description || `Pedido com ${orderItems.length} itens`,
+          order_date: newOrderData.orderDate,
+          due_date: newOrderData.dueDate,
+          items: orderItems,
+          total: orderTotal,
+          status: 'open'
+      };
+
+      await addOrder(payload);
+      setIsNewOrderModalOpen(false);
+  };
+
+  const handleQuickCreate = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!quickItemData.name || !quickItemData.price) return;
+
+      try {
+          const newItem = await addProduct({
+              name: quickItemData.name,
+              price: parseFloat(quickItemData.price.replace(',', '.')),
+              type: quickCreateType,
+              description: 'Criado via pedido rápido'
+          });
+          
+          // Adiciona imediatamente ao pedido
+          handleAddItem({
+              id: newItem.id,
+              name: newItem.name,
+              price: newItem.price
+          });
+
+          setIsQuickCreateOpen(false);
+          setQuickItemData({ name: '', price: '' });
+      } catch (err: any) {
+          alert('Erro ao criar item: ' + err.message);
+      }
+  };
+
   return (
     <div className="space-y-8 pb-24 relative animate-fade-in-up">
         {/* Header */}
@@ -203,7 +313,7 @@ export default function CustomerDetails() {
                 {role === 'admin' && (
                     <>
                         <button 
-                            onClick={() => navigate('/shop')}
+                            onClick={handleOpenNewOrder}
                             className="px-5 py-2.5 bg-gradient-to-r from-primary to-orange-600 text-white rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95"
                         >
                             <Plus size={18} /> Novo Pedido
@@ -483,6 +593,182 @@ export default function CustomerDetails() {
                     >
                         <Trash2 size={18} /> Excluir Cliente
                     </button>
+                </div>
+            </div>
+        )}
+
+        {/* MODAL NOVO PEDIDO */}
+        {isNewOrderModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in-up">
+                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative max-h-[90vh] overflow-y-auto">
+                    {/* Header */}
+                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] sticky top-0 z-10">
+                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                            <div className="bg-primary/20 p-2 rounded-lg text-primary"><Plus size={18} /></div> Novo Pedido
+                        </h2>
+                        <button onClick={() => setIsNewOrderModalOpen(false)} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button>
+                    </div>
+
+                    <div className="p-6 space-y-6">
+                        {/* Descrição */}
+                        <div>
+                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Descrição do Pedido</label>
+                            <input 
+                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" 
+                                placeholder="Ex: Cartões de visita e Banner"
+                                value={newOrderData.description}
+                                onChange={(e) => setNewOrderData({...newOrderData, description: e.target.value})}
+                            />
+                        </div>
+
+                        {/* Datas */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Data do Pedido</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
+                                    value={newOrderData.orderDate}
+                                    onChange={(e) => setNewOrderData({...newOrderData, orderDate: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Vencimento</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
+                                    value={newOrderData.dueDate}
+                                    onChange={(e) => setNewOrderData({...newOrderData, dueDate: e.target.value})}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="border-t border-white/5 pt-4">
+                            <h3 className="font-bold text-primary flex items-center gap-2 mb-3 uppercase text-xs tracking-wider">
+                                <Package size={14} /> Itens do Pedido
+                            </h3>
+                            
+                            {/* Create/Search Area */}
+                            {isQuickCreateOpen ? (
+                                <div className="bg-zinc-900/50 p-4 rounded-xl border border-primary/30 animate-fade-in relative">
+                                    <button 
+                                        onClick={() => setIsQuickCreateOpen(false)} 
+                                        className="absolute top-2 right-2 text-zinc-500 hover:text-white"
+                                    ><X size={16} /></button>
+                                    <h4 className="text-sm font-bold text-white mb-3">Criar Novo {quickCreateType === 'product' ? 'Produto' : 'Serviço'}</h4>
+                                    <div className="flex gap-3 items-end">
+                                        <div className="flex-1">
+                                            <input 
+                                                autoFocus
+                                                placeholder="Nome do Item"
+                                                className="w-full bg-black/60 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary outline-none"
+                                                value={quickItemData.name}
+                                                onChange={e => setQuickItemData({...quickItemData, name: e.target.value})}
+                                            />
+                                        </div>
+                                        <div className="w-24">
+                                            <input 
+                                                placeholder="R$ 0.00"
+                                                className="w-full bg-black/60 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary outline-none"
+                                                value={quickItemData.price}
+                                                onChange={e => setQuickItemData({...quickItemData, price: e.target.value})}
+                                            />
+                                        </div>
+                                        <button 
+                                            onClick={handleQuickCreate}
+                                            className="bg-primary hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition"
+                                        >
+                                            Adicionar
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="relative">
+                                    <div className="relative">
+                                        <input 
+                                            placeholder="Buscar item do catálogo ou adicionar..."
+                                            className="w-full bg-black/40 border border-primary/30 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-600"
+                                            value={itemSearch}
+                                            onChange={(e) => {
+                                                setItemSearch(e.target.value);
+                                                setShowSearchResults(true);
+                                            }}
+                                        />
+                                        <Search className="absolute left-3 top-3.5 text-zinc-500" size={18} />
+                                    </div>
+
+                                    {showSearchResults && itemSearch && (
+                                        <div className="absolute top-full left-0 w-full bg-[#18181b] border border-zinc-800 rounded-xl mt-1 shadow-xl z-20 max-h-48 overflow-y-auto">
+                                            {filteredProducts.length > 0 ? (
+                                                filteredProducts.map(p => (
+                                                    <div 
+                                                        key={p.id} 
+                                                        onClick={() => handleAddItem(p)}
+                                                        className="px-4 py-3 hover:bg-white/5 cursor-pointer border-b border-zinc-800/50 last:border-0 flex justify-between items-center group"
+                                                    >
+                                                        <span className="text-zinc-300 group-hover:text-white transition">{p.name}</span>
+                                                        <span className="text-primary font-mono text-xs">R$ {p.price.toFixed(2)}</span>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="p-4 text-center text-zinc-500 text-xs">Nenhum item encontrado. Use os botões abaixo para criar.</div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Quick Buttons */}
+                                    <div className="grid grid-cols-2 gap-4 mt-3">
+                                        <button 
+                                            onClick={() => { setQuickCreateType('product'); setIsQuickCreateOpen(true); }}
+                                            className="flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800 py-3 rounded-xl transition group"
+                                        >
+                                            <Package size={16} className="text-zinc-500 group-hover:text-white" />
+                                            <span className="text-xs font-bold text-zinc-400 group-hover:text-white uppercase">Criar Produto</span>
+                                        </button>
+                                        <button 
+                                            onClick={() => { setQuickCreateType('service'); setIsQuickCreateOpen(true); }}
+                                            className="flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800 py-3 rounded-xl transition group"
+                                        >
+                                            <Wrench size={16} className="text-zinc-500 group-hover:text-white" />
+                                            <span className="text-xs font-bold text-zinc-400 group-hover:text-white uppercase">Criar Serviço</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Added Items List */}
+                            <div className="mt-6 space-y-2">
+                                {orderItems.map((item, idx) => (
+                                    <div key={idx} className="flex items-center justify-between bg-zinc-900/40 p-3 rounded-xl border border-white/5 group hover:border-white/10 transition">
+                                        <span className="text-sm text-zinc-300 font-medium truncate flex-1">{item.productName}</span>
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex items-center bg-black/40 rounded-lg p-1">
+                                                <button onClick={() => updateItemQuantity(idx, item.quantity - 1)} className="p-1 hover:text-white text-zinc-500"><Minus size={12} /></button>
+                                                <span className="w-6 text-center text-xs font-bold text-white">{item.quantity}</span>
+                                                <button onClick={() => updateItemQuantity(idx, item.quantity + 1)} className="p-1 hover:text-white text-zinc-500"><Plus size={12} /></button>
+                                            </div>
+                                            <span className="text-sm font-mono text-emerald-400 w-20 text-right">R$ {item.total.toFixed(2)}</span>
+                                            <button onClick={() => handleRemoveItem(idx)} className="text-zinc-600 hover:text-red-500 transition"><Trash2 size={16} /></button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="p-6 border-t border-white/5 bg-[#0c0c0e] flex justify-between items-center sticky bottom-0 z-10">
+                        <div>
+                            <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-0.5">Total Geral</p>
+                            <h2 className="text-3xl font-black text-white">R$ {orderTotal.toFixed(2)}</h2>
+                        </div>
+                        <button 
+                            onClick={handleFinalizeOrder}
+                            className="bg-gradient-to-r from-primary to-orange-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95 transition"
+                        >
+                            FINALIZAR PEDIDO
+                        </button>
+                    </div>
                 </div>
             </div>
         )}
