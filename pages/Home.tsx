@@ -3,27 +3,31 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useNavigate } from 'react-router-dom';
-import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers } from 'lucide-react';
+import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers, MapPin, UserPlus } from 'lucide-react';
 import { GalaxyGame } from '../components/GalaxyGame';
 
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loginMode, setLoginMode] = useState<'client' | 'admin'>('client');
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState('');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [gameMode, setGameMode] = useState(false);
   
-  // REMOVIDO: State de ScrollY que causava re-renders constantes
+  // Registration Form State
+  const [regData, setRegData] = useState({
+    name: '', phone: '', email: '', cpf: '',
+    street: '', number: '', zipCode: ''
+  });
   
   const { loginAdmin, loginClient, role, logout } = useAuth();
-  const { carouselImages } = useData();
+  const { carouselImages, addCustomer } = useData();
   const navigate = useNavigate();
 
   const tapCountRef = useRef(0);
   const resetTapTimeoutRef = useRef<any>(null);
 
-  // OTIMIZAÇÃO: Reduzido drasticamente o número de estrelas para mobile (de 150 para 40)
   const stars = useMemo(() => {
     return Array.from({ length: 40 }).map((_, i) => ({
       id: i,
@@ -31,12 +35,10 @@ export default function Home() {
       top: `${Math.random() * 100}%`,
       size: Math.random() * 2 + 1,
       opacity: Math.random(),
-      // Removidas algumas animações complexas individuais para aliviar CSS layout paint
       twinkleDuration: `${Math.random() * 3 + 2}s`,
     }));
   }, []);
 
-  // OTIMIZAÇÃO: Reduzido número de meteoros
   const meteors = useMemo(() => {
     return Array.from({ length: 2 }).map((_, i) => ({
       id: i,
@@ -105,23 +107,83 @@ export default function Home() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    if (!regData.name || !regData.cpf || !regData.phone) {
+        setError('Por favor, preencha os campos obrigatórios.');
+        return;
+    }
+
+    try {
+        await addCustomer({
+            name: regData.name,
+            phone: regData.phone,
+            email: regData.email,
+            cpf: regData.cpf,
+            address: {
+                street: regData.street,
+                number: regData.number,
+                zipCode: regData.zipCode
+            },
+            creditLimit: 50.00 // Limite padrão para novos cadastros
+        });
+        
+        // Após cadastrar, tenta logar automaticamente com o CPF
+        const success = await loginClient(regData.cpf);
+        if (success) {
+            setIsModalOpen(false);
+            navigate('/my-area');
+            window.location.reload();
+        } else {
+            setIsRegisterMode(false);
+            setInputValue(regData.cpf);
+            setError('Cadastro realizado! Agora faça seu login.');
+        }
+    } catch (err: any) {
+        setError(err.message || 'Erro ao realizar cadastro.');
+    }
+  };
+
+  // Máscaras de Input
+  const maskDocument = (value: string) => {
+    let v = value.replace(/\D/g, '');
+    if (v.length <= 11) {
+      return v.replace(/(\d{3})(\d)/, '$1.$2')
+              .replace(/(\d{3})(\d)/, '$1.$2')
+              .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+              .substring(0, 14);
+    } else {
+      return v.replace(/^(\d{2})(\d)/, '$1.$2')
+              .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+              .replace(/\.(\d{3})(\d)/, '.$1/$2')
+              .replace(/(\d{4})(\d)/, '$1-$2')
+              .substring(0, 18);
+    }
+  };
+
+  const maskPhone = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{5})(\d)/, '$1-$2')
+      .replace(/(-\d{4})\d+?$/, '$1');
+  };
+
+  const handleLoginInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (loginMode === 'client') {
-          let v = e.target.value.replace(/\D/g, '');
-          if (v.length <= 11) {
-            v = v.replace(/(\d{3})(\d)/, '$1.$2')
-                 .replace(/(\d{3})(\d)/, '$1.$2')
-                 .replace(/(\d{3})(\d{1,2})/, '$1-$2');
-          } else {
-            v = v.replace(/^(\d{2})(\d)/, '$1.$2')
-                 .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-                 .replace(/\.(\d{3})(\d)/, '.$1/$2')
-                 .replace(/(\d{4})(\d)/, '$1-$2');
-          }
-          setInputValue(v.substring(0, 18));
+          setInputValue(maskDocument(e.target.value));
       } else {
           setInputValue(e.target.value);
       }
+  };
+
+  const handleRegInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let { name, value } = e.target;
+    if (name === 'cpf') value = maskDocument(value);
+    if (name === 'phone') value = maskPhone(value);
+    setRegData({ ...regData, [name]: value });
   };
 
   const handleHeaderButtonClick = () => {
@@ -130,6 +192,7 @@ export default function Home() {
           navigate('/');
       } else {
           setIsModalOpen(true);
+          setIsRegisterMode(false);
       }
   };
 
@@ -143,6 +206,7 @@ export default function Home() {
       if (section.status !== 'active') return;
       if (section.path === '/my-area' && role === 'guest') {
           setIsModalOpen(true);
+          setIsRegisterMode(false);
           return;
       }
       navigate(section.path);
@@ -152,7 +216,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-text flex flex-col relative overflow-x-hidden">
-      {/* OTIMIZAÇÃO: Background estático e simplificado. Removido 'animate-float' e reduzido blur para performance */}
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none transform-gpu">
         <div className="absolute top-[-10%] left-[10%] w-[300px] h-[300px] bg-yellow-500/5 rounded-full blur-[60px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-red-600/5 rounded-full blur-[80px]"></div>
@@ -180,14 +243,10 @@ export default function Home() {
             className="w-full h-[60vh] md:h-[70vh] relative overflow-hidden bg-black group shadow-2xl cursor-pointer select-none"
         >
           <div className="absolute inset-0 z-0 overflow-hidden bg-black">
-             {/* OTIMIZAÇÃO: Fundo mais simples sem Parallax (transformY removido) */}
              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#1e1b4b_0%,_#000000_100%)] opacity-80"></div>
-             
-             {/* OTIMIZAÇÃO: Animações CSS simplificadas */}
              <div className="absolute inset-0 pointer-events-none opacity-20">
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] h-[100vw] bg-gradient-to-tr from-purple-900/20 to-transparent blur-[60px] animate-spin-slow"></div>
              </div>
-             
              <div className="absolute inset-0 z-10">
                 {stars.map((star) => (
                     <div key={star.id} className="absolute" style={{ left: star.left, top: star.top }}>
@@ -195,7 +254,6 @@ export default function Home() {
                     </div>
                 ))}
              </div>
-             
              {!gameMode && (
                 <div className="absolute inset-0 z-10 pointer-events-none">
                     {meteors.map((meteor) => (
@@ -203,8 +261,6 @@ export default function Home() {
                     ))}
                 </div>
              )}
-             
-             {/* OTIMIZAÇÃO: Removido SVG de noise complexo e simplificado gradiente final */}
              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black opacity-90 z-20"></div>
           </div>
 
@@ -217,7 +273,6 @@ export default function Home() {
           {!gameMode && (
             <div className="absolute inset-0 flex flex-col items-center justify-center z-30 pointer-events-none pb-[10vh]">
                 <div className="relative">
-                    {/* OTIMIZAÇÃO: Reduzido blur radius */}
                     <div className="absolute inset-0 bg-primary/10 blur-[30px] rounded-full"></div>
                     <h2 className="text-5xl md:text-7xl font-bold text-white tracking-[0.2em] font-heading text-center drop-shadow-lg animate-fade-in-up" style={headerFont}>
                         CRAZY ART
@@ -262,12 +317,10 @@ export default function Home() {
           )}
         </div>
 
-        {/* CONTAINER DOS BOTÕES PRINCIPAIS */}
         <div className="w-full max-w-4xl px-6 mb-24 mt-8 relative z-50">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {sections.map((section, idx) => (
               <div key={section.name} onClick={() => handleSectionClick(section)} className="h-full">
-                {/* OTIMIZAÇÃO: Removido backdrop-blur-xl e complex shadows para mobile */}
                 <div className={`h-64 rounded-2xl seasonal-target transition-all duration-200 group relative bg-zinc-900 border border-zinc-800 ${section.status === 'active' ? 'cursor-pointer active:scale-95' : 'opacity-60 cursor-not-allowed grayscale'}`}>
                     <div className="relative h-full flex flex-col items-center justify-center gap-6 p-8">
                         <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 text-zinc-400 group-hover:text-primary group-hover:border-primary/50 transition duration-300 shadow-lg">
@@ -285,11 +338,8 @@ export default function Home() {
             ))}
           </div>
           
-          {/* BOTÃO MONTE SEU LAYOUT (INATIVO) */}
           <div className="mt-6 max-w-2xl mx-auto">
-              <div 
-                className="w-full h-24 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-between px-8 group opacity-60 grayscale cursor-not-allowed overflow-hidden relative"
-              >
+              <div className="w-full h-24 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-between px-8 group opacity-60 grayscale cursor-not-allowed overflow-hidden relative">
                   <div className="flex items-center gap-6 relative z-10">
                       <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 text-zinc-600">
                           <Layers size={28} strokeWidth={1.5} />
@@ -305,7 +355,6 @@ export default function Home() {
               </div>
           </div>
 
-          {/* BOTÃO RETANGULAR PROGRAMAS */}
           <div className="mt-4 max-w-2xl mx-auto">
               <div 
                 onClick={() => navigate('/programs')}
@@ -320,7 +369,6 @@ export default function Home() {
                           <p className="text-zinc-500 text-xs tracking-wider group-hover:text-zinc-400 transition-colors uppercase">Acesse utilitários e apps exclusivos</p>
                       </div>
                   </div>
-                  
                   <div className="relative z-10 opacity-40 group-hover:opacity-100 transition-opacity">
                       <LayoutGrid size={24} className="text-zinc-400 group-hover:text-primary transition-colors" />
                   </div>
@@ -331,23 +379,107 @@ export default function Home() {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in-up">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-8 shadow-2xl relative overflow-hidden">
-            <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-transform hover:rotate-90"><X size={24} /></button>
-            <div className="flex flex-col items-center mb-8 relative z-10">
-                 <div className="w-20 h-20 bg-black rounded-full flex items-center justify-center mb-4 ring-1 ring-zinc-800 shadow-xl">
-                    {loginMode === 'client' ? <User className="text-primary" size={40} strokeWidth={1.5} /> : <Lock className="text-secondary" size={40} strokeWidth={1.5} />}
-                 </div>
-                 <h2 className="text-2xl font-bold text-white uppercase tracking-wide" style={headerFont}>{loginMode === 'client' ? 'Área do Cliente' : 'Acesso Adm'}</h2>
-                 <p className="text-zinc-500 text-sm mt-2">Entre com seu CPF ou CNPJ</p>
+          <div className={`bg-zinc-900 border border-zinc-800 rounded-3xl w-full p-8 shadow-2xl relative overflow-hidden transition-all duration-500 ${isRegisterMode ? 'max-w-2xl max-h-[90vh] overflow-y-auto' : 'max-w-md'}`}>
+            <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-transform hover:rotate-90 z-20"><X size={24} /></button>
+            
+            {!isRegisterMode ? (
+              // MODO LOGIN
+              <div className="animate-fade-in">
+                <div className="flex flex-col items-center mb-8 relative z-10">
+                    <div className="w-20 h-20 bg-black rounded-full flex items-center justify-center mb-4 ring-1 ring-zinc-800 shadow-xl">
+                        {loginMode === 'client' ? <User className="text-primary" size={40} strokeWidth={1.5} /> : <Lock className="text-secondary" size={40} strokeWidth={1.5} />}
+                    </div>
+                    <h2 className="text-2xl font-bold text-white uppercase tracking-wide" style={headerFont}>{loginMode === 'client' ? 'Área do Cliente' : 'Acesso Adm'}</h2>
+                    <p className="text-zinc-500 text-sm mt-2">{loginMode === 'client' ? 'Entre com seu CPF ou CNPJ' : 'Digite o código administrativo'}</p>
+                </div>
+                
+                <form onSubmit={handleLogin} className="space-y-5 relative z-10">
+                    <input 
+                        type={loginMode === 'client' ? "text" : "password"} 
+                        placeholder={loginMode === 'client' ? "000.000.000-00" : "Código de Acesso"} 
+                        className="w-full bg-black/50 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-widest font-mono" 
+                        value={inputValue} 
+                        onChange={handleLoginInputChange} 
+                        autoFocus 
+                    />
+                    {error && <div className="text-red-500 text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20 animate-pulse text-xs font-bold">{error}</div>}
+                    <button type="submit" className="w-full bg-zinc-100 text-black font-bold py-4 rounded-xl hover:bg-white transition-all transform active:scale-95 uppercase tracking-wider text-sm btn-active-effect shadow-xl">Entrar</button>
+                </form>
+
+                <div className="mt-8 flex flex-col items-center gap-4 relative z-10">
+                    {loginMode === 'client' && (
+                        <button 
+                            onClick={() => { setIsRegisterMode(true); setError(''); }}
+                            className="text-sm font-bold text-primary hover:text-amber-400 transition-colors flex items-center gap-2 group"
+                        >
+                            <UserPlus size={16} className="group-hover:scale-110 transition-transform" />
+                            Ainda não tem conta? Cadastre-se
+                        </button>
+                    )}
+                    <button onClick={() => { setLoginMode(loginMode === 'client' ? 'admin' : 'client'); setError(''); }} className="text-xs text-zinc-500 hover:text-white transition-colors border-b border-dashed border-zinc-700 hover:border-white pb-0.5">{loginMode === 'client' ? 'Acesso Administrativo' : 'Voltar para Login de Cliente'}</button>
+                </div>
               </div>
-              <form onSubmit={handleLogin} className="space-y-5 relative z-10">
-                <input type={loginMode === 'client' ? "text" : "password"} placeholder={loginMode === 'client' ? "CPF ou CNPJ (apenas números)" : "Código de Acesso"} className="w-full bg-black/50 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-widest" value={inputValue} onChange={handleInputChange} autoFocus />
-                {error && <div className="text-red-500 text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20 animate-pulse text-xs">{error}</div>}
-                <button type="submit" className="w-full bg-zinc-100 text-black font-bold py-4 rounded-xl hover:bg-white transition-all transform active:scale-95 uppercase tracking-wider text-sm btn-active-effect">Entrar</button>
-              </form>
-              <div className="mt-8 text-center relative z-10">
-                <button onClick={() => setLoginMode(loginMode === 'client' ? 'admin' : 'client')} className="text-xs text-zinc-500 hover:text-white transition-colors border-b border-dashed border-zinc-700 hover:border-white pb-0.5">{loginMode === 'client' ? 'Acesso Administrativo' : 'Voltar para Login de Cliente'}</button>
+            ) : (
+              // MODO CADASTRO (AUTO-REGISTRO CLIENTE)
+              <div className="animate-fade-in">
+                <div className="flex items-center gap-4 mb-8">
+                    <div className="p-3 bg-primary/10 rounded-2xl text-primary">
+                        <UserPlus size={28} />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-bold text-white uppercase tracking-wide font-heading" style={headerFont}>Novo Cadastro</h2>
+                        <p className="text-zinc-500 text-xs">Crie sua conta para acompanhar pedidos e comprar na loja.</p>
+                    </div>
+                </div>
+
+                <form onSubmit={handleRegister} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="md:col-span-2">
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Nome Completo / Razão Social</label>
+                            <input name="name" required value={regData.name} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition placeholder-zinc-800" placeholder="Seu nome" />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Telefone</label>
+                            <input name="phone" required placeholder="(99) 99999-9999" value={regData.phone} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition font-mono" />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">CPF / CNPJ</label>
+                            <input name="cpf" required placeholder="000.000.000-00" value={regData.cpf} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition font-mono" />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Email (Opcional)</label>
+                            <input name="email" type="email" value={regData.email} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" placeholder="exemplo@email.com" />
+                        </div>
+
+                        <div className="md:col-span-2 border-t border-zinc-800 pt-6 mt-2">
+                            <h3 className="font-bold text-zinc-400 mb-4 flex items-center gap-2 text-xs uppercase tracking-widest">
+                                <MapPin size={14} className="text-primary" /> Endereço de Entrega
+                            </h3>
+                        </div>
+                        
+                        <div className="md:col-span-2">
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Rua</label>
+                            <input name="street" required value={regData.street} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" placeholder="Nome da rua" />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Número</label>
+                            <input name="number" required value={regData.number} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" placeholder="123" />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">CEP</label>
+                            <input name="zipCode" required value={regData.zipCode} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition font-mono" placeholder="00000-000" />
+                        </div>
+                    </div>
+
+                    {error && <div className="text-red-500 text-center bg-red-500/10 py-3 rounded-xl border border-red-500/20 text-xs font-bold animate-shake">{error}</div>}
+
+                    <div className="pt-6 flex flex-col gap-3">
+                        <button type="submit" className="w-full bg-primary text-white font-black py-4 rounded-xl hover:bg-amber-600 transition shadow-lg shadow-primary/20 active:scale-95 uppercase tracking-widest text-sm">Criar Minha Conta</button>
+                        <button type="button" onClick={() => { setIsRegisterMode(false); setError(''); }} className="w-full py-3 text-zinc-500 hover:text-white transition font-bold text-xs uppercase tracking-widest">Já tenho conta. Voltar ao Login</button>
+                    </div>
+                </form>
               </div>
+            )}
           </div>
         </div>
       )}
