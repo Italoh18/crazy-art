@@ -1,6 +1,6 @@
 
 import { Env, getAuth } from './_auth';
-import { sendEmail, getAdminEmail } from '../services/email';
+import { sendEmail, getAdminEmail, templates } from '../services/email';
 
 export const onRequest: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
@@ -14,7 +14,6 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     // GET /api/orders
     if (request.method === 'GET') {
       if (id) {
-        // Busca pedido específico + itens
         const order: any = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
         if (!order) return new Response(JSON.stringify({ error: 'Pedido não encontrado' }), { status: 404 });
         
@@ -27,7 +26,6 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         });
       }
 
-      // Query modificada para trazer nome do cliente (JOIN) para a lista geral
       let query = `
         SELECT o.*, c.name as client_name 
         FROM orders o 
@@ -72,7 +70,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
       if (!client_id) return new Response(JSON.stringify({ error: 'client_id é obrigatório' }), { status: 400 });
 
-      // Inserir Cabeçalho do Pedido
+      // Inserir Cabeçalho
       await env.DB.prepare(
         'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, total_cost, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
@@ -88,7 +86,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         now
       ).run();
 
-      // Inserir Itens do Pedido
+      // Inserir Itens
       const items = Array.isArray(body.items) ? body.items : [];
       let calculatedTotal = 0;
       let calculatedCost = 0;
@@ -123,15 +121,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             .bind(calculatedTotal, calculatedCost, newId).run();
       }
 
-      // --- LOGICA DE NOTIFICAÇÃO E E-MAIL (EMAILJS) ---
+      // --- E-MAILS (RESEND) ---
       const notifId = crypto.randomUUID();
-      
       const clientData: any = await env.DB.prepare('SELECT name, email FROM clients WHERE id = ?').bind(client_id).first();
       const clientName = clientData?.name || 'Cliente';
       const clientEmail = clientData?.email;
 
       if (user.role === 'admin') {
-        // Admin criou pedido para o cliente
+        // Admin criou: Notifica cliente
         await env.DB.prepare(
           "INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at) VALUES (?, 'client', ?, 'info', 'Novo Pedido', ?, ?)"
         ).bind(notifId, client_id, `Um novo pedido (#${formattedOrder}) foi gerado para você.`, now).run();
@@ -140,13 +137,12 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           await sendEmail(env, {
             to: clientEmail,
             subject: `Novo Pedido #${formattedOrder} - Crazy Art`,
-            title: `Olá, ${clientName}!`,
-            message: `Seu pedido #${formattedOrder} foi criado com sucesso. Valor Total: R$ ${calculatedTotal.toFixed(2)}. Acesse sua área para detalhes.`
+            html: templates.newOrderClient(clientName, formattedOrder, calculatedTotal)
           });
         }
 
       } else if (user.role === 'client') {
-        // Cliente criou pedido via loja
+        // Cliente criou: Notifica admin
         await env.DB.prepare(
           "INSERT INTO notifications (id, target_role, type, title, message, created_at) VALUES (?, 'admin', 'info', 'Pedido da Loja', ?, ?)"
         ).bind(notifId, `O cliente ${clientName} criou o pedido #${formattedOrder} via loja.`, now).run();
@@ -154,8 +150,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         await sendEmail(env, {
           to: getAdminEmail(env),
           subject: `Novo Pedido Loja #${formattedOrder}`,
-          title: `Novo Pedido de ${clientName}`,
-          message: `O pedido #${formattedOrder} foi realizado via loja. Valor: R$ ${calculatedTotal.toFixed(2)}. Verifique o painel.`
+          html: templates.newOrderAdmin(clientName, formattedOrder, calculatedTotal)
         });
       }
 
@@ -167,13 +162,12 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       });
     }
 
-    // PUT /api/orders (Edição)
+    // PUT
     if (request.method === 'PUT' && id) {
       if (user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso restrito' }), { status: 403 });
       
       const body = await request.json() as any;
 
-      // Status rápido
       if (Object.keys(body).length === 1 && body.status) {
         await env.DB.prepare('UPDATE orders SET status = ? WHERE id = ?')
           .bind(String(body.status), String(id))
@@ -181,7 +175,6 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         return Response.json({ success: true });
       }
 
-      // Edição completa
       const description = String(body.description || '').trim();
       const order_date = String(body.order_date || '');
       const due_date = String(body.due_date || '');
@@ -229,7 +222,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       return Response.json({ success: true });
     }
 
-    // DELETE /api/orders
+    // DELETE
     if (request.method === 'DELETE' && id) {
       if (user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso restrito' }), { status: 403 });
       await env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(id).run();

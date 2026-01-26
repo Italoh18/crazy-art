@@ -1,6 +1,6 @@
 
 import { Env, getAuth } from './_auth';
-import { sendEmail, getAdminEmail } from '../services/email';
+import { sendEmail, getAdminEmail, templates } from '../services/email';
 
 export const onRequest: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
@@ -37,7 +37,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                 if (!existing) {
                   const createdAt = new Date().toISOString();
                   
-                  // A. Admin
+                  // A. Admin (Resend)
                   const notifId = crypto.randomUUID();
                   await env.DB.prepare(
                     "INSERT INTO notifications (id, target_role, type, title, message, created_at, reference_id) VALUES (?, 'admin', 'warning', 'Pedido em Atraso', ?, ?, ?)"
@@ -46,11 +46,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                   await sendEmail(env, {
                     to: getAdminEmail(env),
                     subject: `ATRASO: Pedido #${formattedOrder}`,
-                    title: `Pedido Vencido`,
-                    message: `O pedido #${formattedOrder} do cliente ${order.client_name} venceu em ${new Date(order.due_date).toLocaleDateString()}.`
+                    html: templates.overdueAdmin(order.client_name, formattedOrder, order.due_date)
                   });
 
-                  // B. Cliente
+                  // B. Cliente (Resend)
                   const notifIdClient = crypto.randomUUID();
                   await env.DB.prepare(
                     "INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, reference_id) VALUES (?, 'client', ?, 'warning', 'Fatura em Atraso', ?, ?, ?)"
@@ -60,8 +59,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                     await sendEmail(env, {
                       to: order.client_email,
                       subject: `Pendência: Pedido #${formattedOrder}`,
-                      title: `Aviso de Vencimento`,
-                      message: `Olá ${order.client_name}, seu pedido #${formattedOrder} venceu em ${new Date(order.due_date).toLocaleDateString()}. Por favor, regularize.`
+                      html: templates.overdueClient(order.client_name, formattedOrder, order.due_date)
                     });
                   }
                 }

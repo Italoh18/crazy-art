@@ -1,12 +1,10 @@
 
-import { sendEmail, getAdminEmail } from '../services/email';
+import { sendEmail, getAdminEmail, templates } from '../services/email';
 
 export interface Env {
   DB: any;
   MP_ACCESS_TOKEN: string;
-  EMAILJS_SERVICE_ID: string;
-  EMAILJS_TEMPLATE_ID: string;
-  EMAILJS_PUBLIC_KEY: string;
+  RESEND_API_KEY: string;
   ADMIN_EMAIL?: string;
 }
 
@@ -79,12 +77,11 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                         new Date().toISOString()
                     ).run();
 
-                    // E-mail Admin (Via EmailJS)
+                    // E-mail Admin (Resend)
                     await sendEmail(env, {
                         to: getAdminEmail(env),
                         subject: `Pagamento Confirmado #${formattedOrder}`,
-                        title: `Pagamento Aprovado`,
-                        message: `O pagamento do pedido #${formattedOrder} de ${orderData.client_name} foi processado com sucesso.`
+                        html: templates.paymentConfirmedAdmin(formattedOrder, orderData.client_name)
                     });
                 }
               }
