@@ -1,6 +1,6 @@
 
 import { Env, getAuth } from './_auth';
-import { sendEmail, templates, getAdminEmail } from '../services/email';
+import { sendEmail, getAdminEmail } from '../services/email';
 
 export const onRequest: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
@@ -72,7 +72,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
       if (!client_id) return new Response(JSON.stringify({ error: 'client_id é obrigatório' }), { status: 400 });
 
-      // Inserir Cabeçalho do Pedido (Total e Custo começam em 0, atualizados após inserir itens)
+      // Inserir Cabeçalho do Pedido
       await env.DB.prepare(
         'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, total_cost, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
@@ -98,14 +98,12 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           const itemId = crypto.randomUUID();
           const q = Number(item.quantity || 1);
           const p = Number(item.unitPrice || item.unit_price || item.price || 0);
-          // Usa cost_price, costPrice ou cost. Se não tiver, assume 0.
           const c = Number(item.cost_price || item.costPrice || item.cost || 0);
           const subtotal = Number(item.total || (p * q));
           
           calculatedTotal += subtotal;
           calculatedCost += (c * q);
 
-          // CORREÇÃO: Coluna 'cost' alterada para 'cost_price' para bater com migrations.sql
           await env.DB.prepare(
             'INSERT INTO order_items (id, order_id, catalog_id, name, type, unit_price, cost_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
           ).bind(
@@ -121,12 +119,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           ).run();
         }
 
-        // Atualizar Total Final e Custo Final no Cabeçalho
         await env.DB.prepare('UPDATE orders SET total = ?, total_cost = ? WHERE id = ?')
             .bind(calculatedTotal, calculatedCost, newId).run();
       }
 
-      // --- LOGICA DE NOTIFICAÇÃO E E-MAIL ---
+      // --- LOGICA DE NOTIFICAÇÃO E E-MAIL (EMAILJS) ---
       const notifId = crypto.randomUUID();
       
       const clientData: any = await env.DB.prepare('SELECT name, email FROM clients WHERE id = ?').bind(client_id).first();
@@ -134,27 +131,31 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const clientEmail = clientData?.email;
 
       if (user.role === 'admin') {
+        // Admin criou pedido para o cliente
         await env.DB.prepare(
           "INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at) VALUES (?, 'client', ?, 'info', 'Novo Pedido', ?, ?)"
         ).bind(notifId, client_id, `Um novo pedido (#${formattedOrder}) foi gerado para você.`, now).run();
 
         if (clientEmail) {
           await sendEmail(env, {
-            to: [clientEmail],
+            to: clientEmail,
             subject: `Novo Pedido #${formattedOrder} - Crazy Art`,
-            html: templates.newOrderClient(clientName, formattedOrder, calculatedTotal)
+            title: `Olá, ${clientName}!`,
+            message: `Seu pedido #${formattedOrder} foi criado com sucesso. Valor Total: R$ ${calculatedTotal.toFixed(2)}. Acesse sua área para detalhes.`
           });
         }
 
       } else if (user.role === 'client') {
+        // Cliente criou pedido via loja
         await env.DB.prepare(
           "INSERT INTO notifications (id, target_role, type, title, message, created_at) VALUES (?, 'admin', 'info', 'Pedido da Loja', ?, ?)"
         ).bind(notifId, `O cliente ${clientName} criou o pedido #${formattedOrder} via loja.`, now).run();
 
         await sendEmail(env, {
-          to: [getAdminEmail(env)],
-          subject: `Novo Pedido Loja #${formattedOrder} - ${clientName}`,
-          html: templates.newOrderAdmin(clientName, formattedOrder, calculatedTotal)
+          to: getAdminEmail(env),
+          subject: `Novo Pedido Loja #${formattedOrder}`,
+          title: `Novo Pedido de ${clientName}`,
+          message: `O pedido #${formattedOrder} foi realizado via loja. Valor: R$ ${calculatedTotal.toFixed(2)}. Verifique o painel.`
         });
       }
 
