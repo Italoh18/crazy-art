@@ -324,8 +324,9 @@ export default function Shop() {
             </div>
         )}
 
+        {/* Modal de Sucesso Reposicionado */}
         {successModalOpen && lastOrder && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/80 backdrop-blur-sm p-4 animate-fade-in overflow-y-auto">
                 <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm shadow-2xl relative p-6 text-center">
                     <button onClick={() => setSuccessModalOpen(false)} className="absolute top-3 right-3 text-zinc-500 hover:text-white"><X size={20} /></button>
                     <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-500"><CheckCircle size={32} /></div>

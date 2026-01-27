@@ -252,9 +252,9 @@ export default function Products() {
         </div>
       </div>
 
-      {/* Add/Edit Item Modal */}
+      {/* Add/Edit Item Modal - Reposicionado para cima */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in-up">
+        <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/90 backdrop-blur-sm p-4 animate-fade-in-up overflow-y-auto">
           <div className="bg-surface border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col relative">
             <div className="flex justify-between items-center p-6 border-b border-zinc-800 bg-surface/95 backdrop-blur rounded-t-2xl shrink-0">
               <h2 className="text-xl font-bold text-white capitalize flex items-center gap-2">
@@ -347,9 +347,9 @@ export default function Products() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal - Reposicionado para cima */}
       {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-scale-in">
+        <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/90 backdrop-blur-md p-4 animate-scale-in">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl">
             <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500">
                <AlertTriangle size={32} />

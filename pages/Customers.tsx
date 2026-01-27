@@ -170,9 +170,9 @@ export default function Customers() {
         )}
       </div>
 
-      {/* Registration Modal - Adjusted for Viewport */}
+      {/* Registration Modal - Reposicionado para cima (pt-12 md:pt-24) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-scale-in">
+        <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/80 backdrop-blur-md p-4 animate-scale-in overflow-y-auto">
           <div className="glass-panel border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col relative">
             <div className="flex justify-between items-center p-6 border-b border-white/10 bg-[#121215]/95 backdrop-blur rounded-t-2xl shrink-0">
               <h2 className="text-xl font-bold text-white flex items-center gap-3 font-heading">
