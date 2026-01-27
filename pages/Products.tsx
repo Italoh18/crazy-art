@@ -255,8 +255,8 @@ export default function Products() {
       {/* Add/Edit Item Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in-up">
-          <div className="bg-surface border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-md relative">
-            <div className="flex justify-between items-center p-6 border-b border-zinc-800 bg-surface/95 backdrop-blur rounded-t-2xl">
+          <div className="bg-surface border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col relative">
+            <div className="flex justify-between items-center p-6 border-b border-zinc-800 bg-surface/95 backdrop-blur rounded-t-2xl shrink-0">
               <h2 className="text-xl font-bold text-white capitalize flex items-center gap-2">
                   {isEditMode ? <Edit className="text-primary" size={20} /> : (activeTab === 'product' ? <Package className="text-primary" size={20} /> : <Wrench className="text-primary" size={20} />)}
                   {isEditMode ? 'Editar' : 'Novo'} {activeTab === 'product' ? 'Produto' : 'Serviço'}
@@ -265,81 +265,84 @@ export default function Products() {
                 <X size={24} />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-8 space-y-5">
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Nome</label>
-                <input
-                  type="text"
-                  required
-                  className="w-full bg-black/40 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
-                  value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex: Cartão de Visita"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Preço Venda (R$)</label>
+            
+            <div className="overflow-y-auto p-8 custom-scrollbar">
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Nome</label>
                     <input
-                    type="text"
-                    required
-                    className="w-full bg-black/40 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
-                    value={formData.price}
-                    placeholder="0.00"
-                    onChange={e => setFormData({ ...formData, price: e.target.value })}
+                      type="text"
+                      required
+                      className="w-full bg-black/40 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
+                      value={formData.name}
+                      onChange={e => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Ex: Cartão de Visita"
                     />
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Custo (Opcional)</label>
-                    <input
-                    type="text"
-                    className="w-full bg-black/40 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 outline-none transition"
-                    value={formData.costPrice}
-                    onChange={e => setFormData({ ...formData, costPrice: e.target.value })}
-                    placeholder="0.00"
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Preço Venda (R$)</label>
+                        <input
+                        type="text"
+                        required
+                        className="w-full bg-black/40 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
+                        value={formData.price}
+                        placeholder="0.00"
+                        onChange={e => setFormData({ ...formData, price: e.target.value })}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Custo (Opcional)</label>
+                        <input
+                        type="text"
+                        className="w-full bg-black/40 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 outline-none transition"
+                        value={formData.costPrice}
+                        onChange={e => setFormData({ ...formData, costPrice: e.target.value })}
+                        placeholder="0.00"
+                        />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">URL da Imagem</label>
+                    <div className="relative">
+                        <input
+                        type="text"
+                        placeholder="https://..."
+                        className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
+                        value={formData.imageUrl}
+                        onChange={e => setFormData({ ...formData, imageUrl: e.target.value })}
+                        />
+                        <LinkIcon className="absolute left-3 top-3.5 text-zinc-600" size={16} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Descrição (Opcional)</label>
+                    <textarea
+                      className="w-full bg-black/40 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
+                      rows={3}
+                      value={formData.description}
+                      onChange={e => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Detalhes do item..."
                     />
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">URL da Imagem</label>
-                <div className="relative">
-                    <input
-                    type="text"
-                    placeholder="https://..."
-                    className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
-                    value={formData.imageUrl}
-                    onChange={e => setFormData({ ...formData, imageUrl: e.target.value })}
-                    />
-                    <LinkIcon className="absolute left-3 top-3.5 text-zinc-600" size={16} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Descrição (Opcional)</label>
-                <textarea
-                  className="w-full bg-black/40 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
-                  rows={3}
-                  value={formData.description}
-                  onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Detalhes do item..."
-                />
-              </div>
-              <div className="pt-4 flex justify-end space-x-3 border-t border-zinc-800/50 mt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-3 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition font-medium"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-amber-600 transition shadow-lg shadow-primary/20"
-                >
-                  {isEditMode ? 'Salvar Alterações' : 'Criar Item'}
-                </button>
-              </div>
-            </form>
+                  </div>
+                  <div className="pt-4 flex justify-end space-x-3 border-t border-zinc-800/50 mt-4">
+                    <button
+                      type="button"
+                      onClick={() => setIsModalOpen(false)}
+                      className="px-5 py-3 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition font-medium"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-amber-600 transition shadow-lg shadow-primary/20"
+                    >
+                      {isEditMode ? 'Salvar Alterações' : 'Criar Item'}
+                    </button>
+                  </div>
+                </form>
+            </div>
           </div>
         </div>
       )}

@@ -170,11 +170,11 @@ export default function Customers() {
         )}
       </div>
 
-      {/* Registration Modal */}
+      {/* Registration Modal - Adjusted for Viewport */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-scale-in">
-          <div className="glass-panel border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative">
-            <div className="flex justify-between items-center p-6 border-b border-white/10 sticky top-0 bg-[#121215]/95 backdrop-blur z-10">
+          <div className="glass-panel border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col relative">
+            <div className="flex justify-between items-center p-6 border-b border-white/10 bg-[#121215]/95 backdrop-blur rounded-t-2xl shrink-0">
               <h2 className="text-xl font-bold text-white flex items-center gap-3 font-heading">
                   <div className="bg-primary/20 p-2 rounded-lg text-primary"><User size={20} /></div>
                   Cadastrar Cliente
@@ -184,64 +184,66 @@ export default function Customers() {
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-8 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="col-span-1 md:col-span-2">
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Nome Completo / Razão Social</label>
-                    <input name="name" required value={formData.name} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" placeholder="Nome do cliente" />
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Telefone</label>
-                    <input name="phone" required placeholder="(99) 99999-9999" value={formData.phone} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" />
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">CPF / CNPJ</label>
-                    <input name="cpf" required placeholder="000.000.000-00 ou 00.000.000/0000-00" value={formData.cpf} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" />
-                </div>
-                <div className="col-span-1 md:col-span-2">
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Email</label>
-                    <input name="email" type="email" value={formData.email} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" placeholder="email@exemplo.com" />
-                </div>
-                <div className="col-span-1 md:col-span-2">
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Limite de Crédito (R$)</label>
-                    <input name="creditLimit" type="number" step="0.01" value={formData.creditLimit} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition font-mono" />
-                    <p className="text-[10px] text-zinc-500 mt-1 ml-1">Padrão: R$ 50,00</p>
-                </div>
-                
-                 {/* Novo Campo Cloud Link */}
-                 <div className="col-span-1 md:col-span-2">
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Link da Nuvem de Arquivos</label>
-                    <div className="relative">
-                        <input name="cloudLink" type="text" value={formData.cloudLink} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" placeholder="https://..." />
-                        <Cloud className="absolute left-3 top-3.5 text-zinc-600" size={18} />
+            <div className="overflow-y-auto p-8 custom-scrollbar">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="col-span-1 md:col-span-2">
+                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Nome Completo / Razão Social</label>
+                        <input name="name" required value={formData.name} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" placeholder="Nome do cliente" />
                     </div>
-                </div>
+                    <div>
+                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Telefone</label>
+                        <input name="phone" required placeholder="(99) 99999-9999" value={formData.phone} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">CPF / CNPJ</label>
+                        <input name="cpf" required placeholder="000.000.000-00" value={formData.cpf} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" />
+                    </div>
+                    <div className="col-span-1 md:col-span-2">
+                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Email</label>
+                        <input name="email" type="email" value={formData.email} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" placeholder="email@exemplo.com" />
+                    </div>
+                    <div className="col-span-1 md:col-span-2">
+                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Limite de Crédito (R$)</label>
+                        <input name="creditLimit" type="number" step="0.01" value={formData.creditLimit} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition font-mono" />
+                        <p className="text-[10px] text-zinc-500 mt-1 ml-1">Padrão: R$ 50,00</p>
+                    </div>
+                    
+                    {/* Novo Campo Cloud Link */}
+                    <div className="col-span-1 md:col-span-2">
+                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Link da Nuvem de Arquivos</label>
+                        <div className="relative">
+                            <input name="cloudLink" type="text" value={formData.cloudLink} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" placeholder="https://..." />
+                            <Cloud className="absolute left-3 top-3.5 text-zinc-600" size={18} />
+                        </div>
+                    </div>
 
-                <div className="col-span-1 md:col-span-2 border-t border-white/10 pt-6 mt-2">
-                   <h3 className="font-bold text-white mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
-                       <MapPin size={16} className="text-primary" /> Endereço
-                   </h3>
-                </div>
-                
-                <div className="col-span-1 md:col-span-2">
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Rua</label>
-                    <input name="street" required value={formData.street} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" />
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Número</label>
-                    <input name="number" required value={formData.number} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" />
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">CEP</label>
-                    <input name="zipCode" required value={formData.zipCode} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" />
-                </div>
-              </div>
+                    <div className="col-span-1 md:col-span-2 border-t border-white/10 pt-6 mt-2">
+                      <h3 className="font-bold text-white mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
+                          <MapPin size={16} className="text-primary" /> Endereço
+                      </h3>
+                    </div>
+                    
+                    <div className="col-span-1 md:col-span-2">
+                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Rua</label>
+                        <input name="street" required value={formData.street} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Número</label>
+                        <input name="number" required value={formData.number} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">CEP</label>
+                        <input name="zipCode" required value={formData.zipCode} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" />
+                    </div>
+                  </div>
 
-              <div className="pt-8 flex justify-end space-x-3 border-t border-white/10 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition font-medium">Cancelar</button>
-                <button type="submit" className="px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-amber-600 transition shadow-lg shadow-primary/20 hover:scale-105 active:scale-95">Salvar Cliente</button>
-              </div>
-            </form>
+                  <div className="pt-8 flex justify-end space-x-3 border-t border-white/10 mt-6">
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition font-medium">Cancelar</button>
+                    <button type="submit" className="px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-amber-600 transition shadow-lg shadow-primary/20 hover:scale-105 active:scale-95">Salvar Cliente</button>
+                  </div>
+                </form>
+            </div>
           </div>
         </div>
       )}

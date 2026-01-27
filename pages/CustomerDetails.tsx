@@ -626,45 +626,42 @@ export default function CustomerDetails() {
             </div>
         )}
 
-        {/* BARRA DE AÇÃO FLUTUANTE (PAGAMENTO EM MASSA) */}
+        {/* BARRA DE AÇÃO FLUTUANTE (PAGAMENTO EM MASSA) - PÍLULA COMPACTA */}
         {selectedOrderIds.length > 0 && (
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-[#18181b] border border-white/10 shadow-2xl shadow-black/50 p-4 rounded-2xl flex flex-col sm:flex-row items-center gap-4 sm:gap-6 animate-fade-in-up w-[90%] max-w-2xl border-t-2 border-t-primary/50">
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] bg-[#18181b]/95 backdrop-blur-md border border-white/10 shadow-2xl p-2 pl-4 rounded-full flex items-center gap-4 animate-fade-in-up w-auto max-w-[95%]">
+                
                 {/* Informações da Seleção */}
-                <div className="flex items-center gap-4 w-full justify-between sm:justify-start">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-primary/20 p-2.5 rounded-xl text-primary shrink-0">
-                            <Wallet size={24} />
-                        </div>
-                        <div>
-                            <p className="text-zinc-400 text-[10px] uppercase tracking-wider font-bold">Selecionados</p>
-                            <p className="text-white font-bold text-lg leading-none">{selectedOrderIds.length} <span className="text-sm font-normal text-zinc-500">pedidos</span></p>
-                        </div>
+                <div className="flex items-center gap-4 shrink-0">
+                    <div className="flex items-center gap-2">
+                        <span className="bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide hidden sm:inline-block">Selecionados</span>
+                        <p className="text-white font-bold text-sm leading-none flex items-center gap-1">
+                            {selectedOrderIds.length} <span className="text-zinc-500 font-normal">itens</span>
+                        </p>
                     </div>
                     
-                    <div className="h-8 w-px bg-white/10 hidden sm:block"></div>
+                    <div className="h-4 w-px bg-white/10"></div>
                     
-                    <div className="text-right sm:text-left">
-                        <p className="text-zinc-400 text-[10px] uppercase tracking-wider font-bold">Total a Pagar</p>
-                        <p className="text-emerald-400 font-mono font-bold text-xl leading-none">R$ {selectedTotal.toFixed(2)}</p>
+                    <div>
+                        <p className="text-emerald-400 font-mono font-bold text-sm leading-none">R$ {selectedTotal.toFixed(2)}</p>
                     </div>
                 </div>
 
                 {/* Ações */}
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex items-center gap-1">
                     <button 
                         onClick={() => setSelectedOrderIds([])}
-                        className="p-3 text-zinc-500 hover:text-white hover:bg-white/5 rounded-xl transition shrink-0"
+                        className="p-2 text-zinc-500 hover:text-white hover:bg-white/5 rounded-full transition"
                         title="Cancelar Seleção"
                     >
-                        <X size={20} />
+                        <X size={16} />
                     </button>
                     <button 
                         onClick={() => handlePayment(selectedOrderIds)}
                         disabled={isBatchProcessing}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-emerald-600/20 transition flex-1 sm:flex-none flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-full font-bold shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm"
                     >
-                        {isBatchProcessing ? <Loader2 className="animate-spin" size={18} /> : <DollarSign size={18} />}
-                        <span>Gerar Link</span>
+                        {isBatchProcessing ? <Loader2 className="animate-spin" size={14} /> : <DollarSign size={14} />}
+                        <span>Pagar</span>
                     </button>
                 </div>
             </div>
@@ -673,16 +670,16 @@ export default function CustomerDetails() {
         {/* MODAL NOVO PEDIDO */}
         {isNewOrderModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fade-in">
-                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative max-h-[90vh] overflow-y-auto animate-scale-in">
+                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col animate-scale-in">
                     {/* Header */}
-                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] sticky top-0 z-10">
+                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] rounded-t-2xl shrink-0">
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
                             <div className="bg-primary/20 p-2 rounded-lg text-primary"><Plus size={18} /></div> Novo Pedido
                         </h2>
                         <button onClick={() => setIsNewOrderModalOpen(false)} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button>
                     </div>
 
-                    <div className="p-6 space-y-6">
+                    <div className="overflow-y-auto p-6 space-y-6 custom-scrollbar">
                         {/* Descrição */}
                         <div>
                             <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Descrição do Pedido</label>
@@ -830,7 +827,7 @@ export default function CustomerDetails() {
                     </div>
 
                     {/* Footer */}
-                    <div className="p-6 border-t border-white/5 bg-[#0c0c0e] flex justify-between items-center sticky bottom-0 z-10">
+                    <div className="p-6 border-t border-white/5 bg-[#0c0c0e] flex justify-between items-center rounded-b-2xl shrink-0">
                         <div>
                             <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-0.5">Total Geral</p>
                             <h2 className="text-3xl font-black text-white">R$ {orderTotal.toFixed(2)}</h2>
