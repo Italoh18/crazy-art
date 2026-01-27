@@ -7,7 +7,7 @@ import {
   User, Phone, Mail, MapPin, DollarSign, Calendar, 
   CheckCircle, AlertTriangle, Trash2, Edit, Plus, X, 
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
-  Filter, Layers, Package, Wrench, Search, Minus
+  Filter, Layers, Package, Wrench, Search, Minus, ListChecks
 } from 'lucide-react';
 import { api } from '../src/services/api';
 
@@ -22,6 +22,9 @@ export default function CustomerDetails() {
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [formData, setFormData] = useState<any>({});
+
+  // State para posição do modal flutuante
+  const [floatingY, setFloatingY] = useState<number>(0);
 
   // States para Modal de Novo Pedido
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
@@ -107,6 +110,10 @@ export default function CustomerDetails() {
       }
   }, [activeTab, allCustomerOrders, _openOrders, _overdueOrders, _paidOrders]);
 
+  // Lista completa de pedidos pagáveis (abertos + atrasados) para o botão "Pagar Tudo"
+  const allPayableOrders = [..._openOrders, ..._overdueOrders];
+  const totalPayableValue = allPayableOrders.reduce((acc, o) => acc + (o.total || 0), 0);
+
   // Lógica de Seleção em Massa
   const currentTabPayableOrders = useMemo(() => 
       displayedOrders.filter(o => o.status === 'open'),
@@ -114,7 +121,10 @@ export default function CustomerDetails() {
 
   const isAllSelected = currentTabPayableOrders.length > 0 && currentTabPayableOrders.every(o => selectedOrderIds.includes(o.id));
 
-  const handleSelectAll = () => {
+  const handleSelectAll = (e: React.MouseEvent) => {
+      // Se for selecionar tudo, usamos a posição do header ou um padrão
+      if (e) setFloatingY(e.clientY);
+      
       if (isAllSelected) {
           // Desmarcar todos da visualização atual
           const idsToDeselect = currentTabPayableOrders.map(o => o.id);
@@ -140,7 +150,10 @@ export default function CustomerDetails() {
       .reduce((acc, curr) => acc + (curr.total || 0), 0);
   }, [allCustomerOrders, selectedOrderIds]);
 
-  const toggleSelectOrder = (orderId: string) => {
+  const toggleSelectOrder = (orderId: string, e: React.MouseEvent) => {
+    // Captura a posição Y do clique para posicionar o modal
+    setFloatingY(e.clientY);
+
     setSelectedOrderIds(prev => 
       prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
     );
@@ -157,7 +170,7 @@ export default function CustomerDetails() {
         const res = await api.createPayment({
             orderId: orderIds.join(','),
             title,
-            amount: selectedTotal,
+            amount: selectedTotal > 0 ? selectedTotal : totalPayableValue, // Fallback para totalPayable se for o botão Pagar Tudo
             payerEmail: customer.email,
             payerName: customer.name
         });
@@ -172,6 +185,34 @@ export default function CustomerDetails() {
     } finally {
         setIsBatchProcessing(false);
     }
+  };
+
+  // Handler específico para o botão "Pagar Tudo"
+  const handlePayAll = async () => {
+      if (allPayableOrders.length === 0) return;
+      setIsBatchProcessing(true);
+      try {
+          const ids = allPayableOrders.map(o => o.id);
+          const title = `Pagamento Total (${ids.length} itens) - ${customer.name}`;
+          
+          const res = await api.createPayment({
+              orderId: ids.join(','),
+              title,
+              amount: totalPayableValue,
+              payerEmail: customer.email,
+              payerName: customer.name
+          });
+
+          if (res && res.init_point) {
+              window.location.href = res.init_point;
+          } else {
+              alert('Erro ao gerar link.');
+          }
+      } catch (e: any) {
+          alert('Erro: ' + e.message);
+      } finally {
+          setIsBatchProcessing(false);
+      }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -317,6 +358,19 @@ export default function CustomerDetails() {
             </div>
             
             <div className="flex flex-wrap items-center gap-2">
+                
+                {/* BOTÃO PAGAR TUDO - FIXO NAS AÇÕES */}
+                {totalPayableValue > 0 && (
+                    <button 
+                        onClick={handlePayAll}
+                        disabled={isBatchProcessing}
+                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isBatchProcessing ? <Loader2 className="animate-spin" size={18} /> : <ListChecks size={18} />}
+                        <span>Pagar Tudo (R$ {totalPayableValue.toFixed(2)})</span>
+                    </button>
+                )}
+
                 {/* Botão Nuvem de Arquivos */}
                 {cloudUrl && (
                     <a 
@@ -544,7 +598,7 @@ export default function CustomerDetails() {
                                                 <input 
                                                     type="checkbox" 
                                                     checked={isSelected}
-                                                    onChange={() => toggleSelectOrder(order.id)}
+                                                    onChange={(e) => toggleSelectOrder(order.id, e)}
                                                     className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary"
                                                 />
                                             )}
@@ -626,9 +680,12 @@ export default function CustomerDetails() {
             </div>
         )}
 
-        {/* BARRA DE AÇÃO FLUTUANTE (PAGAMENTO EM MASSA) - PÍLULA COMPACTA REPOSICIONADA */}
-        {selectedOrderIds.length > 0 && (
-            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] bg-[#18181b]/95 backdrop-blur-md border border-white/10 shadow-2xl p-2 pl-4 rounded-full flex items-center gap-4 animate-fade-in-up w-auto max-w-[95%] ring-1 ring-white/5">
+        {/* BARRA DE AÇÃO FLUTUANTE (PAGAMENTO EM MASSA) - PÍLULA COMPACTA SEGUINDO SELEÇÃO */}
+        {selectedOrderIds.length >= 2 && (
+            <div 
+                className="fixed right-4 z-[60] bg-[#18181b]/95 backdrop-blur-md border border-white/10 shadow-2xl p-2 pl-4 rounded-full flex items-center gap-4 animate-fade-in w-auto transition-all duration-300 ring-1 ring-white/5"
+                style={{ top: Math.max(100, floatingY - 25) }} // Garante que não suba demais além do header
+            >
                 
                 {/* Informações da Seleção */}
                 <div className="flex items-center gap-4 shrink-0">
