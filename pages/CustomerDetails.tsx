@@ -626,9 +626,9 @@ export default function CustomerDetails() {
             </div>
         )}
 
-        {/* BARRA DE AÇÃO FLUTUANTE (PAGAMENTO EM MASSA) - PÍLULA COMPACTA */}
+        {/* BARRA DE AÇÃO FLUTUANTE (PAGAMENTO EM MASSA) - PÍLULA COMPACTA REPOSICIONADA */}
         {selectedOrderIds.length > 0 && (
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] bg-[#18181b]/95 backdrop-blur-md border border-white/10 shadow-2xl p-2 pl-4 rounded-full flex items-center gap-4 animate-fade-in-up w-auto max-w-[95%]">
+            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] bg-[#18181b]/95 backdrop-blur-md border border-white/10 shadow-2xl p-2 pl-4 rounded-full flex items-center gap-4 animate-fade-in-up w-auto max-w-[95%] ring-1 ring-white/5">
                 
                 {/* Informações da Seleção */}
                 <div className="flex items-center gap-4 shrink-0">
