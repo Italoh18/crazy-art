@@ -683,8 +683,8 @@ export default function CustomerDetails() {
         {/* BARRA DE AÇÃO FLUTUANTE (PAGAMENTO EM MASSA) - PÍLULA COMPACTA SEGUINDO SELEÇÃO */}
         {selectedOrderIds.length >= 2 && (
             <div 
-                className="fixed right-4 z-[60] bg-[#18181b]/95 backdrop-blur-md border border-white/10 shadow-2xl p-2 pl-4 rounded-full flex items-center gap-4 animate-fade-in w-auto transition-all duration-300 ring-1 ring-white/5"
-                style={{ top: Math.max(100, floatingY - 25) }} // Garante que não suba demais além do header
+                className="fixed right-4 z-[100] bg-[#18181b]/95 backdrop-blur-md border border-white/10 shadow-2xl p-2 pl-4 rounded-full flex items-center gap-4 animate-fade-in w-auto transition-all duration-300 ring-1 ring-white/5 transform -translate-y-1/2"
+                style={{ top: Math.max(120, Math.min(window.innerHeight - 120, floatingY - 40)) }} // Garante que não suba demais nem desça demais, com z-index alto
             >
                 
                 {/* Informações da Seleção */}
