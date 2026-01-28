@@ -7,7 +7,7 @@ import {
   User, Phone, Mail, MapPin, DollarSign, Calendar, 
   CheckCircle, AlertTriangle, Trash2, Edit, Plus, X, 
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
-  Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check
+  Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal
 } from 'lucide-react';
 import { api } from '../src/services/api';
 
@@ -45,6 +45,9 @@ export default function CustomerDetails() {
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
   const [quickCreateType, setQuickCreateType] = useState<'product' | 'service'>('product');
   const [quickItemData, setQuickItemData] = useState({ name: '', price: '' });
+
+  // State para Visualização de Detalhes do Pedido
+  const [viewingOrder, setViewingOrder] = useState<any | null>(null);
 
   // Determina qual ID usar: URL (Admin) ou Contexto (Cliente)
   const activeId = role === 'client' ? currentCustomer?.id : paramId;
@@ -195,6 +198,7 @@ export default function CustomerDetails() {
   const handleManualPayment = async (orderId: string) => {
       if (confirm("Confirmar recebimento manual deste pedido?")) {
           await updateOrderStatus(orderId, 'paid');
+          if (viewingOrder?.id === orderId) setViewingOrder(null); // Fecha modal se aberto
       }
   };
 
@@ -249,6 +253,13 @@ export default function CustomerDetails() {
       if (confirm("ATENÇÃO: Você tem certeza que deseja excluir este cliente?\n\nIsso apagará permanentemente todo o histórico de pedidos e dados financeiros.")) {
           await deleteCustomer(customer.id);
           navigate('/customers');
+      }
+  };
+
+  const handleDeleteOrder = async (orderId: string) => {
+      if (confirm('Excluir este pedido permanentemente?')) {
+          await deleteOrder(orderId);
+          if (viewingOrder?.id === orderId) setViewingOrder(null);
       }
   };
 
@@ -346,6 +357,28 @@ export default function CustomerDetails() {
       } catch (err: any) {
           alert('Erro ao criar item: ' + err.message);
       }
+  };
+
+  const renderStatusBadge = (status: string, isLate: boolean) => {
+      if (status === 'paid') {
+          return (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-wide">
+                  Pago
+              </span>
+          );
+      }
+      if (isLate) {
+          return (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wide">
+                  Atrasado
+              </span>
+          );
+      }
+      return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">
+              Aberto
+          </span>
+      );
   };
 
   return (
@@ -455,77 +488,6 @@ export default function CustomerDetails() {
             </div>
         </div>
 
-        {/* Info & Credit Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {/* Left Column: Contact Info */}
-            <div className="lg:col-span-1 space-y-4">
-                <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 ml-1">Informações de Contato</h3>
-                
-                <div className="bg-[#121215] border border-white/5 p-4 rounded-xl flex items-center gap-4 group hover:border-white/10 transition-colors">
-                    <div className="bg-zinc-900 p-2.5 rounded-lg text-zinc-400 group-hover:text-white transition-colors">
-                        <Phone size={18} />
-                    </div>
-                    <span className="text-zinc-300 font-mono text-sm">{customer.phone}</span>
-                </div>
-
-                <div className="bg-[#121215] border border-white/5 p-4 rounded-xl flex items-center gap-4 group hover:border-white/10 transition-colors">
-                    <div className="bg-zinc-900 p-2.5 rounded-lg text-zinc-400 group-hover:text-white transition-colors">
-                        <Mail size={18} />
-                    </div>
-                    <span className="text-zinc-300 font-mono text-sm truncate">{customer.email || 'Sem email'}</span>
-                </div>
-
-                <div className="bg-[#121215] border border-white/5 p-4 rounded-xl flex items-start gap-4 group hover:border-white/10 transition-colors">
-                    <div className="bg-zinc-900 p-2.5 rounded-lg text-zinc-400 group-hover:text-white transition-colors">
-                        <MapPin size={18} />
-                    </div>
-                    <span className="text-zinc-300 text-sm leading-relaxed">
-                        {customer.address?.street ? `${customer.address.street}, ${customer.address.number}` : 'Endereço não cadastrado'}
-                    </span>
-                </div>
-            </div>
-
-            {/* Right Column: Credit Card */}
-            <div className="lg:col-span-2 bg-gradient-to-br from-[#121215] to-[#09090b] border border-white/5 rounded-2xl p-8 relative overflow-hidden flex flex-col justify-between min-h-[280px]">
-                {/* Background Glow */}
-                <div className="absolute right-0 top-0 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
-
-                <div className="relative z-10 flex justify-between items-start">
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <CreditCard className="text-primary" size={24} />
-                            <h2 className="text-xl font-bold text-white">Limite de Crédito</h2>
-                        </div>
-                        <p className="text-zinc-500 text-sm">Status da conta</p>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Disponível</p>
-                        <p className="text-3xl font-bold text-emerald-500 font-mono">R$ {availableCredit.toFixed(2)}</p>
-                    </div>
-                </div>
-
-                <div className="relative z-10 mt-auto">
-                    <div className="flex justify-between text-xs text-zinc-400 mb-3 font-mono tracking-wide">
-                        <span>Utilizado: R$ {totalOpen.toFixed(2)}</span>
-                        <span>Total: R$ {creditLimit.toFixed(2)}</span>
-                    </div>
-                    
-                    <div className="w-full h-5 bg-zinc-900/50 rounded-full overflow-hidden border border-white/5 relative">
-                        {/* Pattern background for bar */}
-                        <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,#000_10px,#000_20px)]"></div>
-                        
-                        <div 
-                            className="h-full bg-primary relative transition-all duration-1000 ease-out"
-                            style={{ width: `${usedPercentage}%` }}
-                        >
-                            <div className="absolute top-0 right-0 bottom-0 w-[1px] bg-white/50 shadow-[0_0_10px_white]"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         {/* Orders List Container */}
         <div className="bg-[#121215] border border-white/5 rounded-2xl overflow-hidden shadow-xl mt-4">
             
@@ -571,23 +533,24 @@ export default function CustomerDetails() {
                 <table className="w-full text-left text-sm text-zinc-400">
                     <thead className="bg-white/[0.02] text-zinc-500 font-bold uppercase text-[10px] tracking-wider border-b border-white/5">
                         <tr>
-                            <th className="px-6 py-4 w-10">
+                            <th className="px-4 md:px-6 py-4 w-10">
                                 {currentTabPayableOrders.length > 0 && (
                                     <input 
                                         type="checkbox" 
                                         checked={isAllSelected}
-                                        onChange={handleSelectAll}
+                                        onChange={() => {}}
+                                        onClick={handleSelectAll}
                                         className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary"
                                         title="Selecionar todos os pedidos pagáveis desta lista"
                                     />
                                 )}
                             </th>
-                            <th className="px-6 py-4">Pedido</th>
-                            <th className="px-6 py-4">Data</th>
-                            <th className="px-6 py-4">Vencimento</th>
-                            <th className="px-6 py-4">Status</th>
-                            <th className="px-6 py-4 text-right">Valor</th>
-                            <th className="px-6 py-4 text-center">Ações</th>
+                            <th className="px-4 md:px-6 py-4">Pedido / Info</th>
+                            <th className="px-6 py-4 hidden md:table-cell">Data</th>
+                            <th className="px-6 py-4 hidden md:table-cell">Vencimento</th>
+                            <th className="px-6 py-4 hidden md:table-cell">Status</th>
+                            <th className="px-4 md:px-6 py-4 text-right">Valor / Venc.</th>
+                            <th className="px-4 md:px-6 py-4 text-center">Ações</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
@@ -604,72 +567,96 @@ export default function CustomerDetails() {
                                 const isSelected = selectedOrderIds.includes(order.id);
                                 return (
                                     <tr key={order.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? 'bg-primary/5' : ''}`}>
-                                        <td className="px-6 py-4">
+                                        <td className="px-4 md:px-6 py-4">
                                             {order.status === 'open' && (
                                                 <input 
                                                     type="checkbox" 
                                                     checked={isSelected}
-                                                    onChange={(e) => toggleSelectOrder(order.id, e)}
+                                                    onChange={() => {}}
+                                                    onClick={(e) => toggleSelectOrder(order.id, e)}
                                                     className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary"
                                                 />
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 font-mono text-zinc-300">
-                                            #{order.formattedOrderNumber || order.order_number}
-                                            <div className="text-xs text-zinc-600 max-w-[200px] truncate font-sans">{order.description}</div>
+                                        <td className="px-4 md:px-6 py-4">
+                                            <div className="font-mono text-zinc-300 font-bold">
+                                                #{order.formattedOrderNumber || order.order_number}
+                                            </div>
+                                            
+                                            {/* Mobile: Status Badge abaixo do número */}
+                                            <div className="md:hidden mt-1.5">
+                                                {renderStatusBadge(order.status, isLate)}
+                                            </div>
+
+                                            <div className="text-xs text-zinc-600 max-w-[200px] truncate font-sans mt-1">
+                                                {order.description || "Sem descrição"}
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4">{new Date(order.order_date).toLocaleDateString()}</td>
-                                        <td className={`px-6 py-4 ${isLate ? 'text-red-400 font-bold' : ''}`}>{new Date(order.due_date).toLocaleDateString()}</td>
-                                        <td className="px-6 py-4">
-                                            {order.status === 'paid' ? (
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-wide">
-                                                    Pago
-                                                </span>
-                                            ) : isLate ? (
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wide">
-                                                    Atrasado
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">
-                                                    Aberto
-                                                </span>
-                                            )}
+                                        
+                                        {/* Desktop Only Columns */}
+                                        <td className="px-6 py-4 hidden md:table-cell">{new Date(order.order_date).toLocaleDateString()}</td>
+                                        <td className={`px-6 py-4 hidden md:table-cell ${isLate ? 'text-red-400 font-bold' : ''}`}>{new Date(order.due_date).toLocaleDateString()}</td>
+                                        <td className="px-6 py-4 hidden md:table-cell">
+                                            {renderStatusBadge(order.status, isLate)}
                                         </td>
-                                        <td className="px-6 py-4 text-right font-mono font-bold text-white">R$ {order.total.toFixed(2)}</td>
-                                        <td className="px-6 py-4 text-center">
-                                            {order.status === 'open' ? (
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <button 
-                                                        onClick={() => handlePayment([order.id])}
-                                                        disabled={isBatchProcessing}
-                                                        className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition font-bold inline-flex items-center gap-1 shadow-lg shadow-emerald-600/20"
-                                                    >
-                                                        <DollarSign size={12} /> Pagar
-                                                    </button>
-                                                    {role === 'admin' && (
+
+                                        {/* Valor / Vencimento (Mobile) */}
+                                        <td className="px-4 md:px-6 py-4 text-right">
+                                            <div className="font-mono font-bold text-white text-sm md:text-base">
+                                                R$ {order.total.toFixed(2)}
+                                            </div>
+                                            {/* Mobile: Vencimento abaixo do valor */}
+                                            <div className={`md:hidden text-[10px] mt-1 font-medium ${isLate ? 'text-red-400' : 'text-zinc-500'}`}>
+                                                Vence: {new Date(order.due_date).toLocaleDateString().slice(0,5)}
+                                            </div>
+                                        </td>
+
+                                        <td className="px-4 md:px-6 py-4 text-center">
+                                            <div className="flex items-center justify-end md:justify-center gap-2">
+                                                {order.status === 'open' ? (
+                                                    <>
                                                         <button 
-                                                            onClick={() => handleManualPayment(order.id)}
-                                                            className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg transition font-bold inline-flex items-center gap-1 border border-zinc-700 hover:border-zinc-600"
-                                                            title="Confirmar Pagamento Manual"
+                                                            onClick={() => handlePayment([order.id])}
+                                                            disabled={isBatchProcessing}
+                                                            className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1.5 rounded-lg transition font-bold inline-flex items-center gap-1 shadow-lg shadow-emerald-600/20"
+                                                            title="Pagar agora"
                                                         >
-                                                            <Check size={12} /> Manual
+                                                            <DollarSign size={12} /> <span className="hidden md:inline">Pagar</span>
                                                         </button>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <span className="text-xs text-zinc-700 italic">Concluído</span>
-                                            )}
-                                            {role === 'admin' && (
+                                                        {role === 'admin' && (
+                                                            <button 
+                                                                onClick={() => handleManualPayment(order.id)}
+                                                                className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white px-2.5 py-1.5 rounded-lg transition font-bold inline-flex items-center gap-1 border border-zinc-700 hover:border-zinc-600"
+                                                                title="Confirmar Pagamento Manual"
+                                                            >
+                                                                <Check size={12} />
+                                                            </button>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <span className="hidden md:inline text-xs text-zinc-700 italic">Concluído</span>
+                                                )}
+                                                
+                                                {/* Botão de Detalhes (Olho) */}
                                                 <button 
-                                                    onClick={() => {
-                                                        if(confirm('Excluir pedido?')) deleteOrder(order.id);
-                                                    }}
-                                                    className="ml-3 p-1.5 text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition"
-                                                    title="Excluir Pedido"
+                                                    onClick={() => setViewingOrder(order)}
+                                                    className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition border border-transparent hover:border-zinc-700"
+                                                    title="Ver Detalhes"
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Eye size={16} />
                                                 </button>
-                                            )}
+
+                                                {/* Desktop: Excluir direto se Admin (mas manter no modal para mobile) */}
+                                                {role === 'admin' && (
+                                                    <button 
+                                                        onClick={() => handleDeleteOrder(order.id)}
+                                                        className="hidden md:block p-1.5 text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition ml-1"
+                                                        title="Excluir Pedido"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 );
@@ -742,6 +729,95 @@ export default function CustomerDetails() {
                         {isBatchProcessing ? <Loader2 className="animate-spin" size={14} /> : <DollarSign size={14} />}
                         <span>Pagar</span>
                     </button>
+                </div>
+            </div>
+        )}
+
+        {/* MODAL DETALHES DO PEDIDO */}
+        {viewingOrder && (
+            <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative flex flex-col max-h-[85vh] animate-scale-in">
+                    
+                    {/* Header */}
+                    <div className="p-6 border-b border-white/5 flex justify-between items-start bg-[#0c0c0e] rounded-t-2xl">
+                        <div>
+                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                <Package size={20} className="text-primary" /> 
+                                Pedido #{viewingOrder.formattedOrderNumber || viewingOrder.order_number}
+                            </h2>
+                            <p className="text-zinc-500 text-xs mt-1">{viewingOrder.description || "Sem descrição adicional"}</p>
+                        </div>
+                        <button onClick={() => setViewingOrder(null)} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
+                        {/* Status Grid */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5">
+                                <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Data do Pedido</span>
+                                <span className="text-white font-mono text-sm">{new Date(viewingOrder.order_date).toLocaleDateString()}</span>
+                            </div>
+                            <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5">
+                                <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Vencimento</span>
+                                <span className={`font-mono text-sm ${new Date(viewingOrder.due_date) < new Date() && viewingOrder.status === 'open' ? 'text-red-400 font-bold' : 'text-white'}`}>
+                                    {new Date(viewingOrder.due_date).toLocaleDateString()}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Items List (Mocked logic if items are not loaded, in real app items should be fetched) */}
+                        <div>
+                            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <ListChecks size={14} /> Itens do Pedido
+                            </h3>
+                            <div className="space-y-2">
+                                {/* Se tiver itens carregados (orders agora traz items se buscar por ID, mas na lista geral não. Assumindo que talvez precise de fetch extra ou usar o que tem) */}
+                                {/* Fallback visual se não houver itens detalhados na lista principal */}
+                                <div className="bg-zinc-900/30 p-3 rounded-xl border border-white/5 flex justify-between items-center">
+                                    <span className="text-zinc-300 text-sm">Resumo do Pedido</span>
+                                    <span className="text-white font-mono font-bold text-sm">R$ {viewingOrder.total.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Status */}
+                        <div className="flex justify-between items-center bg-zinc-900 p-4 rounded-xl border border-white/5">
+                            <span className="text-sm text-zinc-400">Status Atual</span>
+                            {renderStatusBadge(viewingOrder.status, new Date(viewingOrder.due_date) < new Date())}
+                        </div>
+                    </div>
+
+                    {/* Footer / Actions */}
+                    <div className="p-6 border-t border-white/5 bg-[#0c0c0e] rounded-b-2xl">
+                        {role === 'admin' ? (
+                            <div className="flex gap-3">
+                                <button 
+                                    onClick={() => handleDeleteOrder(viewingOrder.id)}
+                                    className="flex-1 py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2"
+                                >
+                                    <Trash2 size={16} /> Excluir
+                                </button>
+                                {viewingOrder.status === 'open' && (
+                                    <button 
+                                        onClick={() => handleManualPayment(viewingOrder.id)}
+                                        className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2 border border-zinc-700"
+                                    >
+                                        <Check size={16} /> Marcar Pago
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            viewingOrder.status === 'open' && (
+                                <button 
+                                    onClick={() => handlePayment([viewingOrder.id])}
+                                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition shadow-lg shadow-emerald-500/20 text-sm flex items-center justify-center gap-2"
+                                >
+                                    <DollarSign size={16} /> Realizar Pagamento
+                                </button>
+                            )
+                        )}
+                    </div>
                 </div>
             </div>
         )}
