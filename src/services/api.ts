@@ -101,6 +101,10 @@ export const api = {
     const res = await fetch(url, { headers: getHeaders() });
     return handleResponse(res);
   },
+  async getOrder(id: string) {
+    const res = await fetch(`/api/orders?id=${encodeURIComponent(id)}&_t=${Date.now()}`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
   async createOrder(data: any) {
     const res = await fetch('/api/orders', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);

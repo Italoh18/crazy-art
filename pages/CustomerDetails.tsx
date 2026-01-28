@@ -17,7 +17,7 @@ export default function CustomerDetails() {
   const { 
       customers, orders, products, 
       updateCustomer, deleteCustomer, deleteOrder, 
-      addOrder, addProduct, updateOrderStatus, isLoading 
+      addOrder, addProduct, updateOrder, updateOrderStatus, isLoading 
   } = useData();
   const { role, currentCustomer } = useAuth();
   
@@ -30,8 +30,11 @@ export default function CustomerDetails() {
   // State para posição do modal flutuante
   const [floatingY, setFloatingY] = useState<number>(0);
 
-  // States para Modal de Novo Pedido
+  // States para Modal de Novo/Editar Pedido
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [isLoadingOrderDetails, setIsLoadingOrderDetails] = useState(false);
+
   const [newOrderData, setNewOrderData] = useState({
       description: '',
       orderDate: new Date().toISOString().split('T')[0],
@@ -263,8 +266,9 @@ export default function CustomerDetails() {
       }
   };
 
-  // --- LÓGICA NOVO PEDIDO ---
+  // --- LÓGICA NOVO/EDITAR PEDIDO ---
   const handleOpenNewOrder = () => {
+      setEditingOrderId(null);
       setNewOrderData({
           description: '',
           orderDate: new Date().toISOString().split('T')[0],
@@ -273,6 +277,46 @@ export default function CustomerDetails() {
       setOrderItems([]);
       setItemSearch('');
       setIsNewOrderModalOpen(true);
+  };
+
+  const handleEditOrder = async (order: any) => {
+      // Fecha o modal de detalhes se estiver aberto
+      setViewingOrder(null);
+      setIsLoadingOrderDetails(true);
+      setEditingOrderId(order.id);
+      setIsNewOrderModalOpen(true); // Abre modal imediatamente com loading
+
+      try {
+          // Busca detalhes completos do pedido (incluindo itens)
+          const fullOrder = await api.getOrder(order.id);
+          
+          setNewOrderData({
+              description: fullOrder.description || '',
+              orderDate: fullOrder.order_date ? fullOrder.order_date.split('T')[0] : '',
+              dueDate: fullOrder.due_date ? fullOrder.due_date.split('T')[0] : ''
+          });
+          
+          if (fullOrder.items) {
+              const mappedItems = fullOrder.items.map((i: any) => ({
+                  productId: i.catalog_id || 'manual',
+                  productName: i.name,
+                  quantity: i.quantity,
+                  unitPrice: i.unit_price,
+                  total: i.total
+              }));
+              setOrderItems(mappedItems);
+          } else {
+              setOrderItems([]);
+          }
+
+      } catch (e) {
+          console.error(e);
+          alert('Erro ao carregar detalhes do pedido.');
+          setIsNewOrderModalOpen(false);
+          setEditingOrderId(null);
+      } finally {
+          setIsLoadingOrderDetails(false);
+      }
   };
 
   const handleAddItem = (product: any) => {
@@ -329,8 +373,14 @@ export default function CustomerDetails() {
           status: 'open'
       };
 
-      await addOrder(payload);
+      if (editingOrderId) {
+          await updateOrder(editingOrderId, payload);
+      } else {
+          await addOrder(payload);
+      }
+      
       setIsNewOrderModalOpen(false);
+      setEditingOrderId(null);
   };
 
   const handleQuickCreate = async (e: React.FormEvent) => {
@@ -772,8 +822,6 @@ export default function CustomerDetails() {
                                 <ListChecks size={14} /> Itens do Pedido
                             </h3>
                             <div className="space-y-2">
-                                {/* Se tiver itens carregados (orders agora traz items se buscar por ID, mas na lista geral não. Assumindo que talvez precise de fetch extra ou usar o que tem) */}
-                                {/* Fallback visual se não houver itens detalhados na lista principal */}
                                 <div className="bg-zinc-900/30 p-3 rounded-xl border border-white/5 flex justify-between items-center">
                                     <span className="text-zinc-300 text-sm">Resumo do Pedido</span>
                                     <span className="text-white font-mono font-bold text-sm">R$ {viewingOrder.total.toFixed(2)}</span>
@@ -791,21 +839,29 @@ export default function CustomerDetails() {
                     {/* Footer / Actions */}
                     <div className="p-6 border-t border-white/5 bg-[#0c0c0e] rounded-b-2xl">
                         {role === 'admin' ? (
-                            <div className="flex gap-3">
+                            <div className="flex flex-col gap-3">
+                                {viewingOrder.status === 'open' && (
+                                    <div className="flex gap-3">
+                                        <button 
+                                            onClick={() => handleManualPayment(viewingOrder.id)}
+                                            className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2 border border-zinc-700"
+                                        >
+                                            <Check size={16} /> Marcar Pago
+                                        </button>
+                                        <button 
+                                            onClick={() => handleEditOrder(viewingOrder)}
+                                            className="flex-1 py-3 bg-primary hover:bg-amber-600 text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2"
+                                        >
+                                            <Edit size={16} /> Editar
+                                        </button>
+                                    </div>
+                                )}
                                 <button 
                                     onClick={() => handleDeleteOrder(viewingOrder.id)}
-                                    className="flex-1 py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2"
+                                    className="w-full py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2"
                                 >
-                                    <Trash2 size={16} /> Excluir
+                                    <Trash2 size={16} /> Excluir Pedido
                                 </button>
-                                {viewingOrder.status === 'open' && (
-                                    <button 
-                                        onClick={() => handleManualPayment(viewingOrder.id)}
-                                        className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2 border border-zinc-700"
-                                    >
-                                        <Check size={16} /> Marcar Pago
-                                    </button>
-                                )}
                             </div>
                         ) : (
                             viewingOrder.status === 'open' && (
@@ -822,164 +878,174 @@ export default function CustomerDetails() {
             </div>
         )}
 
-        {/* MODAL NOVO PEDIDO - Reposicionado para cima (pt-12 md:pt-24) */}
+        {/* MODAL NOVO/EDITAR PEDIDO - Reposicionado para cima (pt-12 md:pt-24) */}
         {isNewOrderModalOpen && (
             <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/60 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
                 <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col animate-scale-in">
+                    
                     {/* Header */}
                     <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] rounded-t-2xl shrink-0">
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            <div className="bg-primary/20 p-2 rounded-lg text-primary"><Plus size={18} /></div> Novo Pedido
+                            <div className="bg-primary/20 p-2 rounded-lg text-primary">
+                                {editingOrderId ? <Edit size={18} /> : <Plus size={18} />}
+                            </div> 
+                            {editingOrderId ? 'Editar Pedido' : 'Novo Pedido'}
                         </h2>
                         <button onClick={() => setIsNewOrderModalOpen(false)} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button>
                     </div>
 
-                    <div className="overflow-y-auto p-6 space-y-6 custom-scrollbar">
-                        {/* Descrição */}
-                        <div>
-                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Descrição do Pedido</label>
-                            <input 
-                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" 
-                                placeholder="Ex: Cartões de visita e Banner"
-                                value={newOrderData.description}
-                                onChange={(e) => setNewOrderData({...newOrderData, description: e.target.value})}
-                            />
+                    {isLoadingOrderDetails ? (
+                        <div className="p-12 flex justify-center items-center">
+                            <Loader2 className="animate-spin text-primary" size={32} />
                         </div>
-
-                        {/* Datas */}
-                        <div className="grid grid-cols-2 gap-4">
+                    ) : (
+                        <div className="overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                            {/* Descrição */}
                             <div>
-                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Data do Pedido</label>
+                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Descrição do Pedido</label>
                                 <input 
-                                    type="date" 
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
-                                    value={newOrderData.orderDate}
-                                    onChange={(e) => setNewOrderData({...newOrderData, orderDate: e.target.value})}
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" 
+                                    placeholder="Ex: Cartões de visita e Banner"
+                                    value={newOrderData.description}
+                                    onChange={(e) => setNewOrderData({...newOrderData, description: e.target.value})}
                                 />
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Vencimento</label>
-                                <input 
-                                    type="date" 
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
-                                    value={newOrderData.dueDate}
-                                    onChange={(e) => setNewOrderData({...newOrderData, dueDate: e.target.value})}
-                                />
+
+                            {/* Datas */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Data do Pedido</label>
+                                    <input 
+                                        type="date" 
+                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
+                                        value={newOrderData.orderDate}
+                                        onChange={(e) => setNewOrderData({...newOrderData, orderDate: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Vencimento</label>
+                                    <input 
+                                        type="date" 
+                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
+                                        value={newOrderData.dueDate}
+                                        onChange={(e) => setNewOrderData({...newOrderData, dueDate: e.target.value})}
+                                    />
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="border-t border-white/5 pt-4">
-                            <h3 className="font-bold text-primary flex items-center gap-2 mb-3 uppercase text-xs tracking-wider">
-                                <Package size={14} /> Itens do Pedido
-                            </h3>
-                            
-                            {/* Create/Search Area */}
-                            {isQuickCreateOpen ? (
-                                <div className="bg-zinc-900/50 p-4 rounded-xl border border-primary/30 animate-fade-in relative">
-                                    <button 
-                                        onClick={() => setIsQuickCreateOpen(false)} 
-                                        className="absolute top-2 right-2 text-zinc-500 hover:text-white"
-                                    ><X size={16} /></button>
-                                    <h4 className="text-sm font-bold text-white mb-3">Criar Novo {quickCreateType === 'product' ? 'Produto' : 'Serviço'}</h4>
-                                    <div className="flex gap-3 items-end">
-                                        <div className="flex-1">
-                                            <input 
-                                                autoFocus
-                                                placeholder="Nome do Item"
-                                                className="w-full bg-black/60 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary outline-none"
-                                                value={quickItemData.name}
-                                                onChange={e => setQuickItemData({...quickItemData, name: e.target.value})}
-                                            />
-                                        </div>
-                                        <div className="w-24">
-                                            <input 
-                                                placeholder="R$ 0.00"
-                                                className="w-full bg-black/60 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary outline-none"
-                                                value={quickItemData.price}
-                                                onChange={e => setQuickItemData({...quickItemData, price: e.target.value})}
-                                            />
-                                        </div>
+                            <div className="border-t border-white/5 pt-4">
+                                <h3 className="font-bold text-primary flex items-center gap-2 mb-3 uppercase text-xs tracking-wider">
+                                    <Package size={14} /> Itens do Pedido
+                                </h3>
+                                
+                                {/* Create/Search Area */}
+                                {isQuickCreateOpen ? (
+                                    <div className="bg-zinc-900/50 p-4 rounded-xl border border-primary/30 animate-fade-in relative">
                                         <button 
-                                            onClick={handleQuickCreate}
-                                            className="bg-primary hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition"
-                                        >
-                                            Adicionar
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="relative">
-                                    <div className="relative">
-                                        <input 
-                                            placeholder="Buscar item do catálogo ou adicionar..."
-                                            className="w-full bg-black/40 border border-primary/30 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-600"
-                                            value={itemSearch}
-                                            onChange={(e) => {
-                                                setItemSearch(e.target.value);
-                                                setShowSearchResults(true);
-                                            }}
-                                        />
-                                        <Search className="absolute left-3 top-3.5 text-zinc-500" size={18} />
-                                    </div>
-
-                                    {showSearchResults && itemSearch && (
-                                        <div className="absolute top-full left-0 w-full bg-[#18181b] border border-zinc-800 rounded-xl mt-1 shadow-xl z-20 max-h-48 overflow-y-auto">
-                                            {filteredProducts.length > 0 ? (
-                                                filteredProducts.map(p => (
-                                                    <div 
-                                                        key={p.id} 
-                                                        onClick={() => handleAddItem(p)}
-                                                        className="px-4 py-3 hover:bg-white/5 cursor-pointer border-b border-zinc-800/50 last:border-0 flex justify-between items-center group"
-                                                    >
-                                                        <span className="text-zinc-300 group-hover:text-white transition">{p.name}</span>
-                                                        <span className="text-primary font-mono text-xs">R$ {p.price.toFixed(2)}</span>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="p-4 text-center text-zinc-500 text-xs">Nenhum item encontrado. Use os botões abaixo para criar.</div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Quick Buttons */}
-                                    <div className="grid grid-cols-2 gap-4 mt-3">
-                                        <button 
-                                            onClick={() => { setQuickCreateType('product'); setIsQuickCreateOpen(true); }}
-                                            className="flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800 py-3 rounded-xl transition group"
-                                        >
-                                            <Package size={16} className="text-zinc-500 group-hover:text-white" />
-                                            <span className="text-xs font-bold text-zinc-400 group-hover:text-white uppercase">Criar Produto</span>
-                                        </button>
-                                        <button 
-                                            onClick={() => { setQuickCreateType('service'); setIsQuickCreateOpen(true); }}
-                                            className="flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800 py-3 rounded-xl transition group"
-                                        >
-                                            <Wrench size={16} className="text-zinc-500 group-hover:text-white" />
-                                            <span className="text-xs font-bold text-zinc-400 group-hover:text-white uppercase">Criar Serviço</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Added Items List */}
-                            <div className="mt-6 space-y-2">
-                                {orderItems.map((item, idx) => (
-                                    <div key={idx} className="flex items-center justify-between bg-zinc-900/40 p-3 rounded-xl border border-white/5 group hover:border-white/10 transition">
-                                        <span className="text-sm text-zinc-300 font-medium truncate flex-1">{item.productName}</span>
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex items-center bg-black/40 rounded-lg p-1">
-                                                <button onClick={() => updateItemQuantity(idx, item.quantity - 1)} className="p-1 hover:text-white text-zinc-500"><Minus size={12} /></button>
-                                                <span className="w-6 text-center text-xs font-bold text-white">{item.quantity}</span>
-                                                <button onClick={() => updateItemQuantity(idx, item.quantity + 1)} className="p-1 hover:text-white text-zinc-500"><Plus size={12} /></button>
+                                            onClick={() => setIsQuickCreateOpen(false)} 
+                                            className="absolute top-2 right-2 text-zinc-500 hover:text-white"
+                                        ><X size={16} /></button>
+                                        <h4 className="text-sm font-bold text-white mb-3">Criar Novo {quickCreateType === 'product' ? 'Produto' : 'Serviço'}</h4>
+                                        <div className="flex gap-3 items-end">
+                                            <div className="flex-1">
+                                                <input 
+                                                    autoFocus
+                                                    placeholder="Nome do Item"
+                                                    className="w-full bg-black/60 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary outline-none"
+                                                    value={quickItemData.name}
+                                                    onChange={e => setQuickItemData({...quickItemData, name: e.target.value})}
+                                                />
                                             </div>
-                                            <span className="text-sm font-mono text-emerald-400 w-20 text-right">R$ {item.total.toFixed(2)}</span>
-                                            <button onClick={() => handleRemoveItem(idx)} className="text-zinc-600 hover:text-red-500 transition"><Trash2 size={16} /></button>
+                                            <div className="w-24">
+                                                <input 
+                                                    placeholder="R$ 0.00"
+                                                    className="w-full bg-black/60 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary outline-none"
+                                                    value={quickItemData.price}
+                                                    onChange={e => setQuickItemData({...quickItemData, price: e.target.value})}
+                                                />
+                                            </div>
+                                            <button 
+                                                onClick={handleQuickCreate}
+                                                className="bg-primary hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition"
+                                            >
+                                                Adicionar
+                                            </button>
                                         </div>
                                     </div>
-                                ))}
+                                ) : (
+                                    <div className="relative">
+                                        <div className="relative">
+                                            <input 
+                                                placeholder="Buscar item do catálogo ou adicionar..."
+                                                className="w-full bg-black/40 border border-primary/30 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-600"
+                                                value={itemSearch}
+                                                onChange={(e) => {
+                                                    setItemSearch(e.target.value);
+                                                    setShowSearchResults(true);
+                                                }}
+                                            />
+                                            <Search className="absolute left-3 top-3.5 text-zinc-500" size={18} />
+                                        </div>
+
+                                        {showSearchResults && itemSearch && (
+                                            <div className="absolute top-full left-0 w-full bg-[#18181b] border border-zinc-800 rounded-xl mt-1 shadow-xl z-20 max-h-48 overflow-y-auto">
+                                                {filteredProducts.length > 0 ? (
+                                                    filteredProducts.map(p => (
+                                                        <div 
+                                                            key={p.id} 
+                                                            onClick={() => handleAddItem(p)}
+                                                            className="px-4 py-3 hover:bg-white/5 cursor-pointer border-b border-zinc-800/50 last:border-0 flex justify-between items-center group"
+                                                        >
+                                                            <span className="text-zinc-300 group-hover:text-white transition">{p.name}</span>
+                                                            <span className="text-primary font-mono text-xs">R$ {p.price.toFixed(2)}</span>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div className="p-4 text-center text-zinc-500 text-xs">Nenhum item encontrado. Use os botões abaixo para criar.</div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Quick Buttons */}
+                                        <div className="grid grid-cols-2 gap-4 mt-3">
+                                            <button 
+                                                onClick={() => { setQuickCreateType('product'); setIsQuickCreateOpen(true); }}
+                                                className="flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800 py-3 rounded-xl transition group"
+                                            >
+                                                <Package size={16} className="text-zinc-500 group-hover:text-white" />
+                                                <span className="text-xs font-bold text-zinc-400 group-hover:text-white uppercase">Criar Produto</span>
+                                            </button>
+                                            <button 
+                                                onClick={() => { setQuickCreateType('service'); setIsQuickCreateOpen(true); }}
+                                                className="flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800 py-3 rounded-xl transition group"
+                                            >
+                                                <Wrench size={16} className="text-zinc-500 group-hover:text-white" />
+                                                <span className="text-xs font-bold text-zinc-400 group-hover:text-white uppercase">Criar Serviço</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Added Items List */}
+                                <div className="mt-6 space-y-2">
+                                    {orderItems.map((item, idx) => (
+                                        <div key={idx} className="flex items-center justify-between bg-zinc-900/40 p-3 rounded-xl border border-white/5 group hover:border-white/10 transition">
+                                            <span className="text-sm text-zinc-300 font-medium truncate flex-1">{item.productName}</span>
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex items-center bg-black/40 rounded-lg p-1">
+                                                    <button onClick={() => updateItemQuantity(idx, item.quantity - 1)} className="p-1 hover:text-white text-zinc-500"><Minus size={12} /></button>
+                                                    <span className="w-6 text-center text-xs font-bold text-white">{item.quantity}</span>
+                                                    <button onClick={() => updateItemQuantity(idx, item.quantity + 1)} className="p-1 hover:text-white text-zinc-500"><Plus size={12} /></button>
+                                                </div>
+                                                <span className="text-sm font-mono text-emerald-400 w-20 text-right">R$ {item.total.toFixed(2)}</span>
+                                                <button onClick={() => handleRemoveItem(idx)} className="text-zinc-600 hover:text-red-500 transition"><Trash2 size={16} /></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Footer */}
                     <div className="p-6 border-t border-white/5 bg-[#0c0c0e] flex justify-between items-center rounded-b-2xl shrink-0">
@@ -991,7 +1057,7 @@ export default function CustomerDetails() {
                             onClick={handleFinalizeOrder}
                             className="bg-gradient-to-r from-primary to-orange-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95 transition"
                         >
-                            FINALIZAR PEDIDO
+                            {editingOrderId ? 'SALVAR ALTERAÇÕES' : 'FINALIZAR PEDIDO'}
                         </button>
                     </div>
                 </div>
