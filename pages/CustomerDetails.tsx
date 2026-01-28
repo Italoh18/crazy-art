@@ -7,14 +7,18 @@ import {
   User, Phone, Mail, MapPin, DollarSign, Calendar, 
   CheckCircle, AlertTriangle, Trash2, Edit, Plus, X, 
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
-  Filter, Layers, Package, Wrench, Search, Minus, ListChecks
+  Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check
 } from 'lucide-react';
 import { api } from '../src/services/api';
 
 export default function CustomerDetails() {
   const { id: paramId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { customers, orders, products, updateCustomer, deleteCustomer, deleteOrder, addOrder, addProduct, isLoading } = useData();
+  const { 
+      customers, orders, products, 
+      updateCustomer, deleteCustomer, deleteOrder, 
+      addOrder, addProduct, updateOrderStatus, isLoading 
+  } = useData();
   const { role, currentCustomer } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'open' | 'overdue' | 'paid' | 'all'>('open');
@@ -185,6 +189,13 @@ export default function CustomerDetails() {
     } finally {
         setIsBatchProcessing(false);
     }
+  };
+
+  // Handler para Pagamento Manual (Admin Only)
+  const handleManualPayment = async (orderId: string) => {
+      if (confirm("Confirmar recebimento manual deste pedido?")) {
+          await updateOrderStatus(orderId, 'paid');
+      }
   };
 
   // Handler específico para o botão "Pagar Tudo"
@@ -627,13 +638,24 @@ export default function CustomerDetails() {
                                         <td className="px-6 py-4 text-right font-mono font-bold text-white">R$ {order.total.toFixed(2)}</td>
                                         <td className="px-6 py-4 text-center">
                                             {order.status === 'open' ? (
-                                                <button 
-                                                    onClick={() => handlePayment([order.id])}
-                                                    disabled={isBatchProcessing}
-                                                    className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition font-bold inline-flex items-center gap-1 shadow-lg shadow-emerald-600/20"
-                                                >
-                                                    <DollarSign size={12} /> Pagar
-                                                </button>
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button 
+                                                        onClick={() => handlePayment([order.id])}
+                                                        disabled={isBatchProcessing}
+                                                        className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition font-bold inline-flex items-center gap-1 shadow-lg shadow-emerald-600/20"
+                                                    >
+                                                        <DollarSign size={12} /> Pagar
+                                                    </button>
+                                                    {role === 'admin' && (
+                                                        <button 
+                                                            onClick={() => handleManualPayment(order.id)}
+                                                            className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg transition font-bold inline-flex items-center gap-1 border border-zinc-700 hover:border-zinc-600"
+                                                            title="Confirmar Pagamento Manual"
+                                                        >
+                                                            <Check size={12} /> Manual
+                                                        </button>
+                                                    )}
+                                                </div>
                                             ) : (
                                                 <span className="text-xs text-zinc-700 italic">Concluído</span>
                                             )}
