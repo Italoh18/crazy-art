@@ -363,6 +363,42 @@ export default function CustomerDetails() {
           return;
       }
 
+      // --- VALIDAÇÃO AUTOMÁTICA: INADIMPLÊNCIA E LIMITE ---
+      
+      // 1. Verifica se há pedidos vencidos
+      if (_overdueOrders.length > 0) {
+          alert('BLOQUEADO: O cliente possui pagamentos em atraso. Regularize a situação antes de criar novos pedidos.');
+          return;
+      }
+
+      // 2. Calcula a projeção da dívida total
+      let projectedDebt = totalOpen;
+
+      if (editingOrderId) {
+          // Se estiver editando, removemos o valor atual deste pedido da dívida total
+          // para somar o novo valor (evita contagem dupla)
+          const currentEditingOrder = orders.find(o => o.id === editingOrderId);
+          if (currentEditingOrder && currentEditingOrder.status === 'open') {
+              projectedDebt -= (currentEditingOrder.total || 0);
+          }
+      }
+
+      // Adiciona o valor do novo pedido (ou o novo valor do pedido editado)
+      projectedDebt += orderTotal;
+
+      // 3. Verifica se ultrapassa o limite
+      if (projectedDebt > creditLimit) {
+          alert(
+              `LIMITE EXCEDIDO: O pedido não pode ser realizado.\n\n` +
+              `Limite de Crédito: R$ ${creditLimit.toFixed(2)}\n` +
+              `Dívida Atual: R$ ${totalOpen.toFixed(2)}\n` +
+              `Novo Total Projetado: R$ ${projectedDebt.toFixed(2)}`
+          );
+          return;
+      }
+
+      // --- FIM DA VALIDAÇÃO ---
+
       const payload = {
           client_id: customer.id,
           description: newOrderData.description || `Pedido com ${orderItems.length} itens`,
@@ -534,6 +570,77 @@ export default function CustomerDetails() {
                 <div className="relative z-10">
                     <span className="text-zinc-500 text-lg font-medium mr-1">R$</span>
                     <span className={`text-4xl font-black tracking-tight ${totalPaid > 0 ? 'text-emerald-400' : 'text-zinc-700'}`}>{totalPaid.toFixed(2)}</span>
+                </div>
+            </div>
+        </div>
+
+        {/* Info & Credit Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* Left Column: Contact Info */}
+            <div className="lg:col-span-1 space-y-4">
+                <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 ml-1">Informações de Contato</h3>
+                
+                <div className="bg-[#121215] border border-white/5 p-4 rounded-xl flex items-center gap-4 group hover:border-white/10 transition-colors">
+                    <div className="bg-zinc-900 p-2.5 rounded-lg text-zinc-400 group-hover:text-white transition-colors">
+                        <Phone size={18} />
+                    </div>
+                    <span className="text-zinc-300 font-mono text-sm">{customer.phone}</span>
+                </div>
+
+                <div className="bg-[#121215] border border-white/5 p-4 rounded-xl flex items-center gap-4 group hover:border-white/10 transition-colors">
+                    <div className="bg-zinc-900 p-2.5 rounded-lg text-zinc-400 group-hover:text-white transition-colors">
+                        <Mail size={18} />
+                    </div>
+                    <span className="text-zinc-300 font-mono text-sm truncate">{customer.email || 'Sem email'}</span>
+                </div>
+
+                <div className="bg-[#121215] border border-white/5 p-4 rounded-xl flex items-start gap-4 group hover:border-white/10 transition-colors">
+                    <div className="bg-zinc-900 p-2.5 rounded-lg text-zinc-400 group-hover:text-white transition-colors">
+                        <MapPin size={18} />
+                    </div>
+                    <span className="text-zinc-300 text-sm leading-relaxed">
+                        {customer.address?.street ? `${customer.address.street}, ${customer.address.number}` : 'Endereço não cadastrado'}
+                    </span>
+                </div>
+            </div>
+
+            {/* Right Column: Credit Card */}
+            <div className="lg:col-span-2 bg-gradient-to-br from-[#121215] to-[#09090b] border border-white/5 rounded-2xl p-8 relative overflow-hidden flex flex-col justify-between min-h-[280px]">
+                {/* Background Glow */}
+                <div className="absolute right-0 top-0 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+
+                <div className="relative z-10 flex justify-between items-start">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <CreditCard className="text-primary" size={24} />
+                            <h2 className="text-xl font-bold text-white">Limite de Crédito</h2>
+                        </div>
+                        <p className="text-zinc-500 text-sm">Status da conta</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Disponível</p>
+                        <p className="text-3xl font-bold text-emerald-500 font-mono">R$ {availableCredit.toFixed(2)}</p>
+                    </div>
+                </div>
+
+                <div className="relative z-10 mt-auto">
+                    <div className="flex justify-between text-xs text-zinc-400 mb-3 font-mono tracking-wide">
+                        <span>Utilizado: R$ {totalOpen.toFixed(2)}</span>
+                        <span>Total: R$ {creditLimit.toFixed(2)}</span>
+                    </div>
+                    
+                    <div className="w-full h-5 bg-zinc-900/50 rounded-full overflow-hidden border border-white/5 relative">
+                        {/* Pattern background for bar */}
+                        <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,#000_10px,#000_20px)]"></div>
+                        
+                        <div 
+                            className="h-full bg-primary relative transition-all duration-1000 ease-out"
+                            style={{ width: `${usedPercentage}%` }}
+                        >
+                            <div className="absolute top-0 right-0 bottom-0 w-[1px] bg-white/50 shadow-[0_0_10px_white]"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
