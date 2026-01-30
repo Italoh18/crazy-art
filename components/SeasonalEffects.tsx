@@ -46,7 +46,8 @@ export const SeasonalEffects = () => {
 
   // Gerenciador de Partículas (Canvas)
   useEffect(() => {
-    if (season === 'off' || season === 'spring' || season === 'summer') {
+    // Agora permitimos spring na animação
+    if (season === 'off' || season === 'summer') {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       const ctx = canvasRef.current?.getContext('2d');
       if (ctx && canvasRef.current) ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
@@ -69,13 +70,15 @@ export const SeasonalEffects = () => {
 
     // Configuração das Partículas
     const particles: any[] = [];
-    const particleCount = season === 'winter' ? 200 : 80; // Aumentei um pouco a contagem
+    // Mais partículas no inverno, quantidade moderada nas outras estações
+    const particleCount = season === 'winter' ? 200 : 60; 
 
     for (let i = 0; i < particleCount; i++) {
       particles.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        speedY: Math.random() * (season === 'winter' ? 2 : 1) + 0.5,
+        // Velocidade baseada na estação (pétalas caem mais devagar que neve)
+        speedY: Math.random() * (season === 'winter' ? 2 : 0.8) + 0.3,
         speedX: Math.random() * 1 - 0.5,
         vx: 0, // Velocidade de impulso X (interação)
         vy: 0, // Velocidade de impulso Y (interação)
@@ -113,6 +116,11 @@ export const SeasonalEffects = () => {
         p.x += p.speedX + p.vx;
         p.y += p.speedY + p.vy;
 
+        // Movimento lateral senoidal para folhas e pétalas
+        if (season === 'spring' || season === 'autumn') {
+            p.x += Math.sin(p.y * 0.01) * 0.5;
+        }
+
         // 3. Atrito (Friction) - Faz o impulso desaparecer gradualmente
         p.vx *= 0.92;
         p.vy *= 0.92;
@@ -147,6 +155,22 @@ export const SeasonalEffects = () => {
           // Cores de outono
           const colors = ['#eab308', '#f97316', '#ef4444', '#78350f']; 
           const colorIndex = Math.floor(p.size % colors.length);
+          ctx.fillStyle = colors[colorIndex];
+          ctx.globalAlpha = p.opacity;
+          ctx.fill();
+        } else if (season === 'spring') {
+          // Desenhar Pétalas (Forma oval suave, tons rosa/branco)
+          p.rotation += p.rotationSpeed * 0.5;
+          ctx.rotate((p.rotation * Math.PI) / 180);
+          
+          ctx.beginPath();
+          // Pétala: Elipse um pouco mais larga em uma ponta
+          ctx.ellipse(0, 0, p.size, p.size * 0.6, 0, 0, Math.PI * 2);
+          
+          // Cores de primavera (Sakura)
+          const colors = ['#fbcfe8', '#f9a8d4', '#f472b6', '#ffffff', '#e879f9']; 
+          const colorIndex = Math.floor((p.size * 10) % colors.length);
+          
           ctx.fillStyle = colors[colorIndex];
           ctx.globalAlpha = p.opacity;
           ctx.fill();
@@ -317,7 +341,7 @@ export const SeasonalEffects = () => {
     <>
       <style>{getButtonStyles()}</style>
 
-      {/* Canvas Layer for Snow/Leaves */}
+      {/* Canvas Layer for Snow/Leaves/Petals */}
       <canvas 
         ref={canvasRef} 
         className="fixed inset-0 pointer-events-none z-[9998]"
@@ -349,7 +373,7 @@ export const SeasonalEffects = () => {
               onClick={() => setSeason('spring')} 
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition no-effect ${season === 'spring' ? 'bg-pink-500/20 text-pink-400' : 'text-zinc-400 hover:bg-white/5'}`}
             >
-              <CloudRain size={14} /> Primavera (Flores)
+              <CloudRain size={14} /> Primavera (Pétalas)
             </button>
 
             <button 

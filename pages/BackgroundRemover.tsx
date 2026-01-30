@@ -107,8 +107,6 @@ export default function BackgroundRemover() {
       if (!ctx) return;
 
       // Desenhar apenas o pixel clicado (muito mais rápido que desenhar a imagem toda)
-      // drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
-      // sx, sy = coordenadas reais na imagem fonte
       ctx.drawImage(imgEl, realX, realY, 1, 1, 0, 0, 1, 1);
       
       const p = ctx.getImageData(0, 0, 1, 1).data;
@@ -133,12 +131,11 @@ export default function BackgroundRemover() {
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
 
-            const maxWidth = 1920; 
-            const scale = img.width > maxWidth ? maxWidth / img.width : 1;
-            canvas.width = img.width * scale;
-            canvas.height = img.height * scale;
+            // Mantém a resolução original da imagem para máxima qualidade
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
 
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
 
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
