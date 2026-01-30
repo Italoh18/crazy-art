@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Customer, Product, Order, OrderStatus, CarouselImage } from '../types';
+import { Customer, Product, Order, OrderStatus, CarouselImage, TrustedCompany } from '../types';
 import { api } from '../src/services/api';
 
 interface DataContextType {
@@ -8,6 +8,7 @@ interface DataContextType {
   products: Product[];
   orders: Order[];
   carouselImages: CarouselImage[];
+  trustedCompanies: TrustedCompany[];
   isLoading: boolean;
   addCustomer: (customer: any) => Promise<void>;
   updateCustomer: (id: string, data: any) => Promise<void>;
@@ -21,6 +22,8 @@ interface DataContextType {
   updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
   addCarouselImage: (url: string) => Promise<void>;
   deleteCarouselImage: (id: string) => Promise<void>;
+  addTrustedCompany: (name: string, imageUrl: string) => Promise<void>;
+  deleteTrustedCompany: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -43,6 +46,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [carouselImages, setCarouselImages] = useState<CarouselImage[]>([]);
+  const [trustedCompanies, setTrustedCompanies] = useState<TrustedCompany[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // loadData now accepts a silent flag to prevent UI blocking
@@ -52,11 +56,12 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     if (!silent) setIsLoading(true);
 
     try {
-      const [clientsRes, productsRes, ordersRes, carouselRes] = await Promise.allSettled([
+      const [clientsRes, productsRes, ordersRes, carouselRes, trustedRes] = await Promise.allSettled([
         token ? api.getClients() : Promise.resolve([]),
         token ? api.getProducts() : Promise.resolve([]),
         token ? api.getOrders() : Promise.resolve([]),
-        api.getCarousel()
+        api.getCarousel(),
+        api.getTrustedCompanies()
       ]);
 
       if (clientsRes.status === 'fulfilled') {
@@ -77,6 +82,10 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
 
       if (carouselRes.status === 'fulfilled') {
         setCarouselImages(carouselRes.value || []);
+      }
+
+      if (trustedRes.status === 'fulfilled') {
+        setTrustedCompanies(trustedRes.value || []);
       }
 
     } catch (e) {
@@ -223,13 +232,33 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     }
   };
 
+  const addTrustedCompany = async (name: string, imageUrl: string) => {
+    try {
+      await api.addTrustedCompany({ name, imageUrl });
+      await loadData(true);
+    } catch (e: any) { alert(e.message); }
+  };
+
+  const deleteTrustedCompany = async (id: string) => {
+    try {
+      if (confirm("Deseja remover esta empresa?")) {
+        setTrustedCompanies(prev => prev.filter(c => c.id !== id));
+        await api.deleteTrustedCompany(id);
+      }
+    } catch (e: any) {
+      await loadData(true);
+      alert(e.message);
+    }
+  };
+
   return (
     <DataContext.Provider value={{ 
-      customers, products, orders, carouselImages, isLoading, 
+      customers, products, orders, carouselImages, trustedCompanies, isLoading, 
       addCustomer, updateCustomer, deleteCustomer,
       addProduct, updateProduct, deleteProduct, 
       addOrder, updateOrder, deleteOrder, updateOrderStatus,
-      addCarouselImage, deleteCarouselImage
+      addCarouselImage, deleteCarouselImage,
+      addTrustedCompany, deleteTrustedCompany
     }}>
       {children}
     </DataContext.Provider>

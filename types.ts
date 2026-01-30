@@ -78,3 +78,10 @@ export interface Notification {
   created_at: string;
   reference_id?: string;
 }
+
+export interface TrustedCompany {
+  id: string;
+  name?: string;
+  image_url: string;
+  created_at: string;
+}

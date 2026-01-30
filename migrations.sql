@@ -54,5 +54,13 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_role ON notifications(target_role);
 
+-- 8. EMPRESAS QUE CONFIAM (Novo)
+CREATE TABLE IF NOT EXISTS trusted_companies (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    image_url TEXT NOT NULL,
+    created_at TEXT
+);
+
 -- Verificação final
-PRAGMA table_info(notifications);
+PRAGMA table_info(trusted_companies);

@@ -22,7 +22,7 @@ export default function Home() {
   });
   
   const { loginAdmin, loginClient, role, logout } = useAuth();
-  const { carouselImages, addCustomer } = useData();
+  const { carouselImages, addCustomer, trustedCompanies } = useData();
   const navigate = useNavigate();
 
   const tapCountRef = useRef(0);
@@ -375,6 +375,28 @@ export default function Home() {
               </div>
           </div>
         </div>
+
+        {/* Empresas que Confiam - Seção Pública */}
+        {trustedCompanies.length > 0 && (
+            <div className="w-full bg-zinc-950/80 backdrop-blur-sm py-12 border-t border-zinc-900 mb-8 animate-fade-in-up">
+                <div className="max-w-7xl mx-auto px-6">
+                    <h3 className="text-center text-sm font-bold text-zinc-500 uppercase tracking-[0.3em] mb-8 opacity-60">Empresas que Confiam</h3>
+                    <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-70 hover:opacity-100 transition-opacity duration-500">
+                        {trustedCompanies.map((company) => (
+                            <div key={company.id} className="w-20 h-20 md:w-24 md:h-24 flex items-center justify-center grayscale hover:grayscale-0 transition-all duration-500 hover:scale-110">
+                                <img 
+                                    src={company.image_url} 
+                                    alt={company.name || "Empresa Parceira"} 
+                                    className="max-w-full max-h-full object-contain"
+                                    onError={(e) => e.currentTarget.style.display = 'none'}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        )}
+
       </main>
 
       {/* MODAL REPOSICIONADO PARA CIMA (pt-12 md:pt-24) */}

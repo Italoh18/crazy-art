@@ -139,5 +139,19 @@ export const api = {
   async deleteCarouselImage(id: string) {
     const res = await fetch(`/api/carousel?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
+  },
+
+  // Empresas que Confiam
+  async getTrustedCompanies() {
+    const res = await fetch(`/api/trusted-companies?_t=${Date.now()}`);
+    return handleResponse(res);
+  },
+  async addTrustedCompany(data: { name: string, imageUrl: string }) {
+    const res = await fetch('/api/trusted-companies', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+    return handleResponse(res);
+  },
+  async deleteTrustedCompany(id: string) {
+    const res = await fetch(`/api/trusted-companies?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
+    return handleResponse(res);
   }
 };

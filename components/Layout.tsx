@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { SeasonalEffects } from './SeasonalEffects';
 import { StickManCleaner } from './StickManCleaner';
@@ -100,11 +100,12 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
   const adminNavItems = [
     { name: 'Dashboard', path: '/', icon: Home },
-    { name: 'Pedidos', path: '/orders', icon: ClipboardList }, // Nova aba
+    { name: 'Pedidos', path: '/orders', icon: ClipboardList }, 
     { name: 'Clientes', path: '/customers', icon: Users },
     { name: 'Produtos', path: '/products', icon: Package },
     { name: 'Carrossel', path: '/carousel-manager', icon: ImageIcon },
     { name: 'Financeiro', path: '/dre', icon: FileText },
+    { name: 'Empresas que Confiam', path: '/trusted-companies', icon: Building }, // Novo item
   ];
 
   const isActive = (path: string) => {
@@ -181,7 +182,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
           </button>
         </div>
         
-        <nav className="p-4 space-y-2 flex-1 mt-4">
+        <nav className="p-4 space-y-2 flex-1 mt-4 overflow-y-auto custom-scrollbar">
           <p className="px-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1 opacity-70">Menu Principal</p>
           {adminNavItems.map((item) => {
             const active = isActive(item.path);

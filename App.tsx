@@ -14,6 +14,7 @@ import FontFinder from './pages/FontFinder';
 import Programs from './pages/Programs';
 import Shop from './pages/Shop';
 import CarouselManager from './pages/CarouselManager';
+import TrustedCompanies from './pages/TrustedCompanies'; // Nova página
 import LayoutBuilder from './pages/LayoutBuilder';
 import { Loader2 } from 'lucide-react';
 import { ScreenshotGuard } from './components/ScreenshotGuard';
@@ -70,6 +71,7 @@ const AppRoutes = () => {
             <Route path="/products" element={<ProtectedRoute requiredRole="admin"><Products /></ProtectedRoute>} />
             <Route path="/dre" element={<ProtectedRoute requiredRole="admin"><DRE /></ProtectedRoute>} />
             <Route path="/carousel-manager" element={<ProtectedRoute requiredRole="admin"><CarouselManager /></ProtectedRoute>} />
+            <Route path="/trusted-companies" element={<ProtectedRoute requiredRole="admin"><TrustedCompanies /></ProtectedRoute>} />
         </Routes>
     );
 }
