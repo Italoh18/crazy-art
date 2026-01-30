@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Type, Bot, ExternalLink, Layers, Scissors, ImageMinus } from 'lucide-react';
+import { ArrowLeft, Type, Bot, ExternalLink, Layers, Scissors, Grid, Palette } from 'lucide-react';
 
 export default function Programs() {
   const tools = [
@@ -19,6 +19,14 @@ export default function Programs() {
       description: 'Remova o fundo de imagens para criar estampas limpas.',
       icon: Scissors,
       path: '/remove-bg',
+      external: false
+    },
+    {
+      id: 'pixel-art',
+      name: 'Pixel Art Studio',
+      description: 'Crie artes e animações em pixel art quadro a quadro.',
+      icon: Grid,
+      path: '/pixel-art',
       external: false
     },
     {

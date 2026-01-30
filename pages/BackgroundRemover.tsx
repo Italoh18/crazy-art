@@ -4,11 +4,17 @@ import { Link } from 'react-router-dom';
 import { 
   ArrowLeft, Upload, Scissors, Image as ImageIcon, Download, 
   Loader2, Sliders, Eraser, PenTool, Undo, Check, X, 
-  Clipboard, ZoomIn, ZoomOut, Move, Maximize2, RotateCcw,
-  Pipette, MousePointer2
+  Clipboard, ZoomIn, ZoomOut, Move, Pipette, Feather, RefreshCcw
 } from 'lucide-react';
 
-type Point = { x: number, y: number };
+// Estrutura de Ponto atualizada para suportar Bezier
+type Point = { 
+    x: number; 
+    y: number; 
+    // Control Points (Alças) para curvas
+    cpNext?: { x: number, y: number }; 
+    cpPrev?: { x: number, y: number };
+};
 
 export default function BackgroundRemover() {
   // --- Estados Principais ---
@@ -18,6 +24,7 @@ export default function BackgroundRemover() {
 
   // --- Estados Magic Wand (Cor) ---
   const [tolerance, setTolerance] = useState(30); 
+  const [edgeSmoothing, setEdgeSmoothing] = useState(0); // Novo estado para suavização
   const [removeMode, setRemoveMode] = useState<'corner' | 'white' | 'green' | 'custom'>('corner');
   const [customColor, setCustomColor] = useState<{r: number, g: number, b: number} | null>(null);
   const [isPickingColor, setIsPickingColor] = useState(false);
@@ -27,7 +34,13 @@ export default function BackgroundRemover() {
   const [manualPoints, setManualPoints] = useState<Point[]>([]);
   const [editorZoom, setEditorZoom] = useState(1);
   const [editorPan, setEditorPan] = useState({ x: 0, y: 0 });
+  
+  // Novo Estado: Modo de Edição Manual (Manter ou Apagar)
+  const [manualMode, setManualMode] = useState<'keep' | 'erase'>('keep');
+  
+  // Estados de Interação do Mouse
   const [isDraggingPan, setIsDraggingPan] = useState(false);
+  const [isCreatingPoint, setIsCreatingPoint] = useState(false); // Se está segurando o clique para fazer curva
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   
   // Imagem sendo editada no modo manual
@@ -36,7 +49,7 @@ export default function BackgroundRemover() {
   // Refs
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const editorImageRef = useRef<HTMLImageElement>(null);
-  const displayImageRef = useRef<HTMLImageElement>(null); // Ref para a imagem na tela principal
+  const displayImageRef = useRef<HTMLImageElement>(null); 
 
   // --- 1. Lógica Global: Colar Imagem (Ctrl+V) ---
   useEffect(() => {
@@ -88,32 +101,27 @@ export default function BackgroundRemover() {
       const imgEl = displayImageRef.current;
       const rect = imgEl.getBoundingClientRect();
       
-      // Coordenadas relativas ao elemento visível
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
-      // Mapear para coordenadas reais da imagem (naturalWidth)
       const scaleX = imgEl.naturalWidth / rect.width;
       const scaleY = imgEl.naturalHeight / rect.height;
 
       const realX = Math.floor(x * scaleX);
       const realY = Math.floor(y * scaleY);
 
-      // Usar Canvas temporário para ler o pixel
       const canvas = document.createElement('canvas');
       canvas.width = 1;
       canvas.height = 1;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Desenhar apenas o pixel clicado (muito mais rápido que desenhar a imagem toda)
       ctx.drawImage(imgEl, realX, realY, 1, 1, 0, 0, 1, 1);
-      
       const p = ctx.getImageData(0, 0, 1, 1).data;
       
       setCustomColor({ r: p[0], g: p[1], b: p[2] });
       setRemoveMode('custom');
-      setIsPickingColor(false); // Sai do modo conta-gotas automaticamente
+      setIsPickingColor(false); 
   };
 
   // --- 3. Processamento Automático (Magic) ---
@@ -131,17 +139,23 @@ export default function BackgroundRemover() {
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
 
-            // Mantém a resolução original da imagem para máxima qualidade
             canvas.width = img.naturalWidth;
             canvas.height = img.naturalHeight;
 
-            ctx.drawImage(img, 0, 0);
+            // 1. Criar Canvas Temporário para a Máscara
+            const maskCanvas = document.createElement('canvas');
+            maskCanvas.width = canvas.width;
+            maskCanvas.height = canvas.height;
+            const maskCtx = maskCanvas.getContext('2d');
+            if (!maskCtx) return;
 
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            // Desenhar imagem original no canvas da máscara para ler os pixels
+            maskCtx.drawImage(img, 0, 0);
+            const imageData = maskCtx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
 
+            // Definir cor alvo
             let targetR = 0, targetG = 0, targetB = 0;
-
             if (removeMode === 'corner') {
                 targetR = data[0]; targetG = data[1]; targetB = data[2];
             } else if (removeMode === 'white') {
@@ -154,6 +168,9 @@ export default function BackgroundRemover() {
 
             const threshold = (tolerance / 100) * 442; 
 
+            // Criar a Máscara (Alpha Channel)
+            // Se pixel for igual ao alvo (dentro da tolerancia) -> Transparente (0)
+            // Se pixel for diferente -> Opaco (255)
             for (let i = 0; i < data.length; i += 4) {
                 const r = data[i];
                 const g = data[i + 1];
@@ -164,11 +181,36 @@ export default function BackgroundRemover() {
                 );
 
                 if (distance < threshold) {
-                    data[i + 3] = 0;
+                    // É a cor de fundo -> Transparente
+                    data[i + 3] = 0; 
+                } else {
+                    // É o objeto -> Opaco
+                    // Podemos pintar de branco ou preto para a máscara, mas manter a imagem original facilita debugging se precisar
+                    // Mas para o composite funcionar bem com blur, o ideal é que a "máscara" tenha pixels sólidos onde queremos manter.
+                    // Vamos manter a opacidade e usar composite source-in depois.
+                    data[i + 3] = 255;
                 }
             }
 
-            ctx.putImageData(imageData, 0, 0);
+            // Colocar os dados da máscara de volta no canvas temporário
+            maskCtx.putImageData(imageData, 0, 0);
+
+            // 2. Composição Final no Canvas Principal
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Aplicar suavização na máscara
+            ctx.save();
+            if (edgeSmoothing > 0) {
+                ctx.filter = `blur(${edgeSmoothing}px)`;
+            }
+            // Desenhar a máscara (que agora tem transparência onde era fundo)
+            ctx.drawImage(maskCanvas, 0, 0);
+            ctx.restore();
+
+            // Usar 'source-in' para desenhar a imagem original APENAS onde a máscara existe (e está suavizada)
+            ctx.globalCompositeOperation = 'source-in';
+            ctx.drawImage(img, 0, 0);
+
             setProcessedImage(canvas.toDataURL('image/png'));
             setIsProcessing(false);
         };
@@ -182,42 +224,97 @@ export default function BackgroundRemover() {
       setManualPoints([]);
       setEditorZoom(1);
       setEditorPan({ x: 0, y: 0 });
+      setManualMode('keep'); // Resetar para modo "Manter" ao abrir
       setIsEditorOpen(true);
   };
 
-  const handleEditorClick = (e: React.MouseEvent) => {
-      if (isDraggingPan) return;
-      if (!editorImageRef.current) return;
-
+  // Helper para converter coordenadas da tela para a imagem
+  const getRelCoords = (clientX: number, clientY: number) => {
+      if (!editorImageRef.current) return { x: 0, y: 0 };
       const rect = editorImageRef.current.getBoundingClientRect();
-      const clickX = e.clientX;
-      const clickY = e.clientY;
-      
-      const relX = (clickX - rect.left) / rect.width * editorImageRef.current.naturalWidth;
-      const relY = (clickY - rect.top) / rect.height * editorImageRef.current.naturalHeight;
-
-      if (relX >= 0 && relY >= 0 && relX <= editorImageRef.current.naturalWidth && relY <= editorImageRef.current.naturalHeight) {
-          setManualPoints(prev => [...prev, { x: relX, y: relY }]);
-      }
+      const relX = (clientX - rect.left) / rect.width * editorImageRef.current.naturalWidth;
+      const relY = (clientY - rect.top) / rect.height * editorImageRef.current.naturalHeight;
+      return { x: relX, y: relY };
   };
 
-  const handlePanStart = (e: React.MouseEvent) => {
-      if (e.button === 1 || e.shiftKey) { // Botão do meio ou Shift+Click para Pan
+  const handleEditorMouseDown = (e: React.MouseEvent) => {
+      // 1. Pan (Shift ou Botão do Meio)
+      if (e.button === 1 || e.shiftKey) { 
           e.preventDefault();
           setIsDraggingPan(true);
           setDragStart({ x: e.clientX - editorPan.x, y: e.clientY - editorPan.y });
+          return;
+      }
+
+      // 2. Criar Ponto (Botão Esquerdo)
+      if (e.button === 0 && editorImageRef.current) {
+          const { x, y } = getRelCoords(e.clientX, e.clientY);
+          
+          // Adiciona novo ponto. Inicialmente sem curvas (cps iguais ao ponto)
+          const newPoint: Point = { 
+              x, y, 
+              cpNext: { x, y }, 
+              cpPrev: { x, y } 
+          };
+          
+          setManualPoints(prev => [...prev, newPoint]);
+          setIsCreatingPoint(true); // Começa a "escutar" se o usuário vai arrastar para fazer curva
       }
   };
 
-  const handlePanMove = (e: React.MouseEvent) => {
-      if (!isDraggingPan) return;
-      setEditorPan({
-          x: e.clientX - dragStart.x,
-          y: e.clientY - dragStart.y
-      });
+  const handleEditorMouseMove = (e: React.MouseEvent) => {
+      // 1. Lógica de Pan
+      if (isDraggingPan) {
+          setEditorPan({
+              x: e.clientX - dragStart.x,
+              y: e.clientY - dragStart.y
+          });
+          return;
+      }
+
+      // 2. Lógica de Curva Bezier (Arrastar enquanto cria ponto)
+      if (isCreatingPoint && manualPoints.length > 0) {
+          const { x: mouseX, y: mouseY } = getRelCoords(e.clientX, e.clientY);
+          
+          setManualPoints(prev => {
+              const updated = [...prev];
+              const activeIndex = updated.length - 1;
+              const anchor = updated[activeIndex];
+
+              // A lógica da caneta padrão:
+              // Você clicou no Anchor. Agora está arrastando para MousePos.
+              // O Handle "Next" segue o mouse.
+              // O Handle "Prev" é espelhado em relação ao Anchor.
+              
+              // Diferença entre mouse e ancora
+              const dx = mouseX - anchor.x;
+              const dy = mouseY - anchor.y;
+
+              updated[activeIndex] = {
+                  ...anchor,
+                  cpNext: { x: anchor.x + dx, y: anchor.y + dy }, // Puxa a alça para onde o mouse vai
+                  cpPrev: { x: anchor.x - dx, y: anchor.y - dy }  // Espelha para suavidade
+              };
+              return updated;
+          });
+      }
   };
 
-  const handlePanEnd = () => setIsDraggingPan(false);
+  const handleEditorMouseUp = () => {
+      setIsDraggingPan(false);
+      setIsCreatingPoint(false);
+  };
+
+  // Zoom com Scroll
+  const handleEditorWheel = (e: React.WheelEvent) => {
+      // Impede o scroll da página, garantindo que a barra fique fixa
+      e.stopPropagation(); 
+      // Não podemos usar preventDefault em Evento React Sintético de forma passiva, 
+      // mas como o container é fixed inset-0 overflow-hidden, o scroll não deve propagar.
+      
+      const delta = e.deltaY > 0 ? -0.3 : 0.3;
+      setEditorZoom(prev => Math.max(0.1, Math.min(20, prev + delta)));
+  };
 
   const applyManualCut = (shouldDownload = false) => {
       if (!editorImageSrc || manualPoints.length < 3) return;
@@ -235,14 +332,77 @@ export default function BackgroundRemover() {
           canvas.width = img.naturalWidth;
           canvas.height = img.naturalHeight;
 
-          ctx.beginPath();
-          ctx.moveTo(manualPoints[0].x, manualPoints[0].y);
-          for (let i = 1; i < manualPoints.length; i++) {
-              ctx.lineTo(manualPoints[i].x, manualPoints[i].y);
+          // Habilita suavização no canvas se necessário
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+
+          // Helper para desenhar o caminho
+          const drawPath = () => {
+              ctx.beginPath();
+              const start = manualPoints[0];
+              ctx.moveTo(start.x, start.y);
+
+              for (let i = 1; i < manualPoints.length; i++) {
+                  const p = manualPoints[i];
+                  const prev = manualPoints[i - 1];
+
+                  if (prev.cpNext && p.cpPrev) {
+                      ctx.bezierCurveTo(
+                          prev.cpNext.x, prev.cpNext.y, 
+                          p.cpPrev.x, p.cpPrev.y, 
+                          p.x, p.y
+                      );
+                  } else {
+                      ctx.lineTo(p.x, p.y);
+                  }
+              }
+
+              const last = manualPoints[manualPoints.length - 1];
+              const first = manualPoints[0];
+              if (last.cpNext && first.cpPrev) {
+                  ctx.bezierCurveTo(
+                      last.cpNext.x, last.cpNext.y,
+                      first.cpPrev.x, first.cpPrev.y,
+                      first.x, first.y
+                  );
+              } else {
+                  ctx.lineTo(first.x, first.y);
+              }
+              ctx.closePath();
+          };
+
+          if (manualMode === 'keep') {
+              // --- MODO MANTER (Corte Padrão) ---
+              // 1. Desenhar a Máscara (Suavizada)
+              ctx.save();
+              if (edgeSmoothing > 0) {
+                  ctx.filter = `blur(${edgeSmoothing}px)`;
+              }
+              drawPath();
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fill();
+              ctx.restore();
+
+              // 2. Composição: Manter apenas onde a forma existe (source-in)
+              ctx.globalCompositeOperation = 'source-in';
+              ctx.drawImage(img, 0, 0);
+
+          } else {
+              // --- MODO APAGAR (Borracha/Remover Área) ---
+              // 1. Desenhar a Imagem Original Primeiro
+              ctx.drawImage(img, 0, 0);
+
+              // 2. "Apagar" a forma desenhada (destination-out)
+              ctx.save();
+              ctx.globalCompositeOperation = 'destination-out';
+              if (edgeSmoothing > 0) {
+                  ctx.filter = `blur(${edgeSmoothing}px)`;
+              }
+              drawPath();
+              ctx.fillStyle = '#FFFFFF'; // A cor não importa para destination-out, apenas a opacidade (alpha)
+              ctx.fill();
+              ctx.restore();
           }
-          ctx.closePath();
-          ctx.clip();
-          ctx.drawImage(img, 0, 0);
 
           const resultDataUrl = canvas.toDataURL('image/png');
           setProcessedImage(resultDataUrl);
@@ -271,18 +431,63 @@ export default function BackgroundRemover() {
     }
   };
 
+  // Render SVG Overlay para o Editor Manual
   const renderEditorOverlay = () => {
       if (!editorImageRef.current || manualPoints.length === 0) return null;
       
       const w = editorImageRef.current.naturalWidth;
       const h = editorImageRef.current.naturalHeight;
-      const pointsStr = manualPoints.map(p => `${p.x},${p.y}`).join(' ');
+
+      // Construir o "d" do path SVG
+      let d = `M ${manualPoints[0].x} ${manualPoints[0].y}`;
+      for (let i = 1; i < manualPoints.length; i++) {
+          const p = manualPoints[i];
+          const prev = manualPoints[i - 1];
+          // Lógica SVG Cubic Bezier: C x1 y1, x2 y2, x y
+          if (prev.cpNext && p.cpPrev && (prev.cpNext.x !== prev.x || p.cpPrev.x !== p.x)) {
+             d += ` C ${prev.cpNext.x} ${prev.cpNext.y}, ${p.cpPrev.x} ${p.cpPrev.y}, ${p.x} ${p.y}`;
+          } else {
+             d += ` L ${p.x} ${p.y}`;
+          }
+      }
+      
+      // Cor da linha baseada no modo
+      const strokeColor = manualMode === 'keep' ? '#22c55e' : '#ef4444'; // Verde para manter, Vermelho para apagar
 
       return (
           <svg className="absolute inset-0 pointer-events-none" viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: '100%' }}>
-              <polygon points={pointsStr} fill="rgba(245, 158, 11, 0.3)" stroke="#F59E0B" strokeWidth={2 / editorZoom} vectorEffect="non-scaling-stroke" />
+              {/* Caminho Principal */}
+              <path 
+                d={d} 
+                fill={manualMode === 'keep' ? "rgba(34, 197, 94, 0.2)" : "rgba(239, 68, 68, 0.2)"} 
+                stroke={strokeColor} 
+                strokeWidth={2 / editorZoom} 
+                vectorEffect="non-scaling-stroke" 
+              />
+              
+              {/* Pontos e Alças */}
               {manualPoints.map((p, i) => (
-                  <circle key={i} cx={p.x} cy={p.y} r={3 / editorZoom} fill="white" stroke="#F59E0B" strokeWidth={1 / editorZoom} />
+                  <g key={i}>
+                      {/* Linhas das Alças (Handles) */}
+                      {(i === manualPoints.length - 1 && isCreatingPoint) && (
+                          <>
+                            {p.cpPrev && <line x1={p.x} y1={p.y} x2={p.cpPrev.x} y2={p.cpPrev.y} stroke="white" strokeWidth={1 / editorZoom} opacity="0.5" />}
+                            {p.cpNext && <line x1={p.x} y1={p.y} x2={p.cpNext.x} y2={p.cpNext.y} stroke="white" strokeWidth={1 / editorZoom} opacity="0.5" />}
+                            {p.cpNext && <circle cx={p.cpNext.x} cy={p.cpNext.y} r={2 / editorZoom} fill="white" />}
+                            {p.cpPrev && <circle cx={p.cpPrev.x} cy={p.cpPrev.y} r={2 / editorZoom} fill="white" />}
+                          </>
+                      )}
+
+                      {/* Ponto Âncora */}
+                      <circle 
+                        cx={p.x} 
+                        cy={p.y} 
+                        r={3 / editorZoom} 
+                        fill={i === manualPoints.length - 1 ? "#fff" : strokeColor} 
+                        stroke="white" 
+                        strokeWidth={1 / editorZoom} 
+                      />
+                  </g>
               ))}
           </svg>
       );
@@ -391,21 +596,41 @@ export default function BackgroundRemover() {
                         {isPickingColor && <p className="text-[10px] text-primary animate-pulse text-center">Clique na imagem acima para pegar a cor.</p>}
                     </div>
 
-                    <div>
-                        <div className="flex justify-between items-center mb-2">
-                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                                <Sliders size={12} /> Tolerância
-                            </label>
-                            <span className="text-xs font-mono text-primary">{tolerance}%</span>
+                    <div className="space-y-4">
+                        <div>
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                                    <Sliders size={12} /> Tolerância
+                                </label>
+                                <span className="text-xs font-mono text-primary">{tolerance}%</span>
+                            </div>
+                            <input 
+                                type="range" 
+                                min="1" 
+                                max="80" 
+                                value={tolerance} 
+                                onChange={(e) => setTolerance(parseInt(e.target.value))}
+                                className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-primary"
+                            />
                         </div>
-                        <input 
-                            type="range" 
-                            min="1" 
-                            max="80" 
-                            value={tolerance} 
-                            onChange={(e) => setTolerance(parseInt(e.target.value))}
-                            className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-primary"
-                        />
+
+                        <div>
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                                    <Feather size={12} /> Suavidade
+                                </label>
+                                <span className="text-xs font-mono text-primary">{edgeSmoothing}px</span>
+                            </div>
+                            <input 
+                                type="range" 
+                                min="0" 
+                                max="20" 
+                                step="1"
+                                value={edgeSmoothing} 
+                                onChange={(e) => setEdgeSmoothing(parseInt(e.target.value))}
+                                className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-primary"
+                            />
+                        </div>
                     </div>
 
                     <button 
@@ -435,29 +660,37 @@ export default function BackgroundRemover() {
         </div>
 
         {/* Coluna 2: Resultado */}
-        <div className="lg:col-span-2 bg-[#18181b] border border-zinc-800 rounded-3xl h-[700px] flex flex-col items-center justify-center text-center relative overflow-hidden">
+        <div className="lg:col-span-2 bg-[#18181b] border border-zinc-800 rounded-3xl min-h-[500px] lg:h-[700px] flex flex-col items-center justify-center text-center relative overflow-hidden">
             {/* Background Checkerboard pattern */}
             <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #27272a 25%, transparent 25%), linear-gradient(-45deg, #27272a 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #27272a 75%), linear-gradient(-45deg, transparent 75%, #27272a 75%)', backgroundSize: '24px 24px', backgroundPosition: '0 0, 0 12px, 12px -12px, -12px 0px' }}></div>
 
             {processedImage ? (
-                <div className="relative z-10 w-full h-full flex flex-col p-8 animate-fade-in">
-                    <div className="flex-1 flex items-center justify-center relative">
+                <div className="relative z-10 w-full h-full flex flex-col p-6 animate-fade-in">
+                    <div className="flex-1 flex items-center justify-center relative w-full overflow-hidden min-h-0">
                         <img src={processedImage} alt="Resultado" className="max-w-full max-h-full object-contain drop-shadow-2xl" />
+                        {/* Botão Flutuante de Backup */}
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); handleDownload(); }}
+                            className="absolute bottom-4 right-4 p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full shadow-lg shadow-black/50 transition transform hover:scale-110 z-20 md:hidden"
+                            title="Baixar Imagem"
+                        >
+                            <Download size={24} />
+                        </button>
                     </div>
                     
-                    <div className="mt-6 flex flex-col sm:flex-row justify-center gap-4">
+                    <div className="mt-6 flex flex-col sm:flex-row justify-center gap-4 shrink-0">
                         <button 
                             onClick={handleDownload}
                             className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-emerald-900/20 transition flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transform"
                         >
-                            <Download size={20} /> BAIXAR PNG (Transparente)
+                            <Download size={20} /> <span className="whitespace-nowrap">BAIXAR PNG</span>
                         </button>
                         
                         <button 
                             onClick={() => openManualEditor(processedImage)}
                             className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-4 rounded-xl font-bold transition flex items-center justify-center gap-2 border border-zinc-700"
                         >
-                            <Scissors size={20} /> Refinar Recorte Manualmente
+                            <Scissors size={20} /> <span className="whitespace-nowrap">Refinar Manualmente</span>
                         </button>
                     </div>
                 </div>
@@ -484,49 +717,86 @@ export default function BackgroundRemover() {
 
       {/* --- EDITOR MANUAL (MODAL FULLSCREEN) --- */}
       {isEditorOpen && editorImageSrc && (
-          <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col animate-fade-in">
-              {/* Toolbar Superior */}
-              <div className="h-16 border-b border-zinc-800 bg-[#121215] flex items-center justify-between px-6 z-20 shadow-xl">
-                  <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2 text-white font-bold">
-                          <PenTool className="text-primary" />
-                          <span>Editor Manual</span>
+          <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col animate-fade-in overflow-hidden h-screen w-screen">
+              {/* Toolbar Superior - FIXA NO TOPO */}
+              <div className="flex-shrink-0 min-h-16 border-b border-zinc-800 bg-[#121215] flex flex-wrap items-center justify-between px-4 py-3 gap-4 z-50 shadow-xl relative w-full">
+                  
+                  {/* Left Controls */}
+                  <div className="flex items-center gap-4 shrink-0 flex-wrap">
+                      <div className="flex items-center gap-2 text-white font-bold shrink-0">
+                          <PenTool className="text-primary" size={20} />
+                          <span className="hidden sm:inline">Editor Manual</span>
                       </div>
-                      <div className="h-6 w-px bg-zinc-800 mx-2"></div>
-                      <div className="flex items-center gap-2 bg-black/50 p-1 rounded-lg">
-                          <button onClick={() => setEditorZoom(z => Math.max(0.2, z - 0.2))} className="p-2 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white" title="Zoom Out (-)"><ZoomOut size={18} /></button>
-                          <span className="text-xs font-mono w-12 text-center">{Math.round(editorZoom * 100)}%</span>
-                          <button onClick={() => setEditorZoom(z => Math.min(5, z + 0.2))} className="p-2 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white" title="Zoom In (+)"><ZoomIn size={18} /></button>
+                      
+                      <div className="h-6 w-px bg-zinc-800 hidden sm:block"></div>
+                      
+                      {/* Modo Toggle */}
+                      <div className="flex bg-black/50 p-1 rounded-lg">
+                          <button 
+                            onClick={() => setManualMode('keep')}
+                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-2 ${manualMode === 'keep' ? 'bg-emerald-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+                          >
+                              <Scissors size={14} /> Manter
+                          </button>
+                          <button 
+                            onClick={() => setManualMode('erase')}
+                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-2 ${manualMode === 'erase' ? 'bg-red-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+                          >
+                              <Eraser size={14} /> Apagar
+                          </button>
                       </div>
-                      <div className="text-xs text-zinc-500 hidden sm:flex items-center gap-2 ml-4">
-                          <Move size={14} /> Segure <b>Shift</b> para mover (Pan)
+
+                      <div className="h-6 w-px bg-zinc-800 hidden sm:block"></div>
+
+                      <div className="flex items-center gap-2 bg-black/50 p-1 rounded-lg shrink-0">
+                          <button onClick={() => setEditorZoom(z => Math.max(0.1, z - 0.2))} className="p-1.5 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white" title="Zoom Out"><ZoomOut size={16} /></button>
+                          <span className="text-xs font-mono w-10 text-center">{Math.round(editorZoom * 100)}%</span>
+                          <button onClick={() => setEditorZoom(z => Math.min(20, z + 0.2))} className="p-1.5 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white" title="Zoom In"><ZoomIn size={16} /></button>
+                      </div>
+                      
+                      {/* Slider Suavização */}
+                      <div className="flex items-center gap-2 bg-black/50 px-3 py-1.5 rounded-lg border border-zinc-800 shrink-0">
+                          <Feather size={14} className="text-zinc-400" />
+                          <input 
+                                type="range" 
+                                min="0" 
+                                max="20" 
+                                step="1"
+                                value={edgeSmoothing} 
+                                onChange={(e) => setEdgeSmoothing(parseInt(e.target.value))}
+                                className="w-20 h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                                title={`Suavidade da borda: ${edgeSmoothing}px`}
+                            />
+                            <span className="text-[10px] font-mono text-primary w-5">{edgeSmoothing}</span>
                       </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  {/* Right Actions */}
+                  <div className="flex items-center gap-2 shrink-0 ml-auto flex-wrap justify-end">
                       <button 
                           onClick={() => setManualPoints(pts => pts.slice(0, -1))} 
                           disabled={manualPoints.length === 0}
-                          className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm transition disabled:opacity-50"
+                          className="p-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition disabled:opacity-50"
+                          title="Desfazer Último Ponto"
                       >
-                          <Undo size={16} /> Desfazer
+                          <Undo size={18} />
                       </button>
                       <button 
                           onClick={() => setIsEditorOpen(false)}
-                          className="flex items-center gap-2 px-4 py-2 hover:bg-red-500/10 text-zinc-400 hover:text-red-500 rounded-lg text-sm transition"
+                          className="p-2 hover:bg-red-500/10 text-zinc-400 hover:text-red-500 rounded-lg transition"
+                          title="Cancelar"
                       >
-                          <X size={18} /> Cancelar
+                          <X size={20} />
                       </button>
                       
-                      <div className="h-6 w-px bg-zinc-800 mx-1"></div>
+                      <div className="h-6 w-px bg-zinc-800 mx-1 hidden sm:block"></div>
 
                       <button 
                           onClick={() => applyManualCut(false)}
                           disabled={manualPoints.length < 3}
                           className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg text-sm transition disabled:opacity-50"
-                          title="Cortar e voltar para tela principal"
                       >
-                          <Check size={18} /> Aplicar
+                          <Check size={16} /> <span className="hidden sm:inline">Aplicar</span>
                       </button>
 
                       <button 
@@ -534,18 +804,20 @@ export default function BackgroundRemover() {
                           disabled={manualPoints.length < 3}
                           className="flex items-center gap-2 px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-sm transition shadow-lg shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                          <Download size={18} /> Cortar e Baixar
+                          <Download size={16} /> <span className="hidden sm:inline">Cortar & Baixar</span>
+                          <span className="sm:hidden">Baixar</span>
                       </button>
                   </div>
               </div>
 
               {/* Área do Canvas */}
               <div 
-                  className="flex-1 overflow-hidden relative bg-[#18181b] cursor-crosshair"
-                  onMouseDown={handlePanStart}
-                  onMouseMove={handlePanMove}
-                  onMouseUp={handlePanEnd}
-                  onMouseLeave={handlePanEnd}
+                  className="flex-1 overflow-hidden relative bg-[#18181b] cursor-crosshair w-full h-full"
+                  onMouseDown={handleEditorMouseDown}
+                  onMouseMove={handleEditorMouseMove}
+                  onMouseUp={handleEditorMouseUp}
+                  onMouseLeave={handleEditorMouseUp}
+                  onWheel={handleEditorWheel}
               >
                   {/* Background Checkerboard Full */}
                   <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #333 25%, transparent 25%), linear-gradient(-45deg, #333 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #333 75%), linear-gradient(-45deg, transparent 75%, #333 75%)', backgroundSize: '40px 40px' }}></div>
@@ -571,7 +843,6 @@ export default function BackgroundRemover() {
                               alt="Editor Target" 
                               className="max-w-none pointer-events-auto"
                               draggable={false}
-                              onClick={handleEditorClick}
                               style={{ display: 'block' }}
                           />
                           {renderEditorOverlay()}
@@ -579,8 +850,12 @@ export default function BackgroundRemover() {
                   </div>
 
                   {/* Instruções Flutuantes */}
-                  <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-black/80 backdrop-blur px-6 py-3 rounded-full border border-white/10 text-white text-sm shadow-xl flex items-center gap-4 pointer-events-none">
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span> Clique para adicionar pontos</span>
+                  <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-black/80 backdrop-blur px-6 py-3 rounded-full border border-white/10 text-white text-sm shadow-xl flex items-center gap-4 pointer-events-none w-max max-w-[90vw]">
+                      <span className="flex items-center gap-1">
+                          <span className={`w-2 h-2 rounded-full animate-pulse ${manualMode === 'keep' ? 'bg-emerald-500' : 'bg-red-500'}`}></span> 
+                          <span className="font-bold mr-1">{manualMode === 'keep' ? 'MANTER' : 'APAGAR'}</span>
+                          <span className="hidden sm:inline">Clique para linha reta, Segure para curva</span><span className="sm:hidden">Desenhe</span>
+                      </span>
                       <span className="w-px h-4 bg-white/20"></span>
                       <span>Pontos: <b>{manualPoints.length}</b></span>
                   </div>
