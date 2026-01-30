@@ -14,8 +14,9 @@ import FontFinder from './pages/FontFinder';
 import Programs from './pages/Programs';
 import Shop from './pages/Shop';
 import CarouselManager from './pages/CarouselManager';
-import TrustedCompanies from './pages/TrustedCompanies'; // Nova página
+import TrustedCompanies from './pages/TrustedCompanies'; 
 import LayoutBuilder from './pages/LayoutBuilder';
+import BackgroundRemover from './pages/BackgroundRemover'; // Nova página
 import { Loader2 } from 'lucide-react';
 import { ScreenshotGuard } from './components/ScreenshotGuard';
 import { IntroAnimation } from './components/IntroAnimation';
@@ -64,6 +65,7 @@ const AppRoutes = () => {
             <Route path="/programs" element={<Programs />} />
             <Route path="/font-finder" element={<FontFinder />} />
             <Route path="/layout-builder" element={<LayoutBuilder />} />
+            <Route path="/remove-bg" element={<BackgroundRemover />} />
             <Route path="/my-area" element={<ClientRoute />} />
             <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><Orders /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute requiredRole="admin"><Customers /></ProtectedRoute>} />

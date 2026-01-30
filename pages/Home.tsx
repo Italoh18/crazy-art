@@ -338,39 +338,24 @@ export default function Home() {
             ))}
           </div>
           
+          {/* Card Programas & Ferramentas movido para destaque principal */}
           <div className="mt-6 max-w-2xl mx-auto">
-              <div className="w-full h-24 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-between px-8 group opacity-60 grayscale cursor-not-allowed overflow-hidden relative">
-                  <div className="flex items-center gap-6 relative z-10">
-                      <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 text-zinc-600">
-                          <Layers size={28} strokeWidth={1.5} />
-                      </div>
-                      <div>
-                          <div className="flex items-center gap-3">
-                            <h3 className="text-xl font-bold text-zinc-400 tracking-[0.1em] uppercase" style={headerFont}>Monte seu Layout</h3>
-                            <span className="text-[10px] bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded-full font-bold">EM BREVE</span>
-                          </div>
-                          <p className="text-zinc-600 text-xs tracking-wider uppercase">Visualize camisas e shorts em 3D</p>
-                      </div>
-                  </div>
-              </div>
-          </div>
-
-          <div className="mt-4 max-w-2xl mx-auto">
               <div 
                 onClick={() => navigate('/programs')}
-                className="w-full h-24 rounded-2xl bg-zinc-900 seasonal-target border border-zinc-800 flex items-center justify-between px-8 group cursor-pointer active:scale-95 transition-all duration-300 hover:border-zinc-600 overflow-hidden"
+                className="w-full h-28 rounded-2xl bg-zinc-900 seasonal-target border border-zinc-800 flex items-center justify-between px-8 group cursor-pointer active:scale-95 transition-all duration-300 hover:border-zinc-600 overflow-hidden relative"
               >
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   <div className="flex items-center gap-6 relative z-10">
-                      <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 text-zinc-400 group-hover:text-primary transition-all duration-300">
-                          <Tv size={28} strokeWidth={1.5} />
+                      <div className="p-4 bg-zinc-950 rounded-xl border border-zinc-800 text-zinc-400 group-hover:text-primary transition-all duration-300 group-hover:rotate-12">
+                          <Tv size={32} strokeWidth={1.5} />
                       </div>
                       <div>
-                          <h3 className="text-xl font-bold text-white tracking-[0.1em] uppercase" style={headerFont}>Programas & Ferramentas</h3>
-                          <p className="text-zinc-500 text-xs tracking-wider group-hover:text-zinc-400 transition-colors uppercase">Acesse utilitários e apps exclusivos</p>
+                          <h3 className="text-xl font-bold text-white tracking-[0.1em] uppercase group-hover:text-primary transition-colors" style={headerFont}>Programas & Ferramentas</h3>
+                          <p className="text-zinc-500 text-xs tracking-wider uppercase mt-1">Layout 3D • Fontes • IA</p>
                       </div>
                   </div>
-                  <div className="relative z-10 opacity-40 group-hover:opacity-100 transition-opacity">
-                      <LayoutGrid size={24} className="text-zinc-400 group-hover:text-primary transition-colors" />
+                  <div className="relative z-10 opacity-40 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-2">
+                      <LayoutGrid size={24} className="text-zinc-400 group-hover:text-white transition-colors" />
                   </div>
               </div>
           </div>

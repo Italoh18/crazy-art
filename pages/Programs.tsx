@@ -1,9 +1,26 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Type, Bot, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Type, Bot, ExternalLink, Layers, Scissors, ImageMinus } from 'lucide-react';
 
 export default function Programs() {
   const tools = [
+    {
+      id: 'layout-builder',
+      name: 'Monte seu Layout',
+      description: 'Visualize camisas e shorts em 3D e exporte o modelo.',
+      icon: Layers,
+      path: '/layout-builder',
+      external: false
+    },
+    {
+      id: 'remove-bg',
+      name: 'Cortar Fundo',
+      description: 'Remova o fundo de imagens para criar estampas limpas.',
+      icon: Scissors,
+      path: '/remove-bg',
+      external: false
+    },
     {
       id: 'font-finder',
       name: 'Font Finder',
