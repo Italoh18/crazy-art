@@ -1,17 +1,27 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Type, Bot, ExternalLink, Layers, Scissors, Grid, Palette } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Layers, Scissors, Grid, Type } from 'lucide-react';
 
 export default function Programs() {
   const tools = [
     {
-      id: 'layout-builder',
-      name: 'Monte seu Layout',
-      description: 'Visualize camisas e shorts em 3D e exporte o modelo.',
-      icon: Layers,
-      path: '/layout-builder',
-      external: false
+      id: 'font-finder',
+      name: 'Font Finder & Creator',
+      description: 'Identifique fontes em imagens, encontre alternativas e desenhe sua própria fonte.',
+      icon: Type,
+      path: '/font-finder', // Rota interna
+      external: false,
+      comingSoon: false
+    },
+    {
+      id: 'pixel-art',
+      name: 'Pixel Art Studio',
+      description: 'Crie artes e animações em pixel art quadro a quadro com exportação GIF.',
+      icon: Grid,
+      path: '/pixel-art',
+      external: false,
+      comingSoon: false
     },
     {
       id: 'remove-bg',
@@ -19,31 +29,17 @@ export default function Programs() {
       description: 'Remova o fundo de imagens para criar estampas limpas.',
       icon: Scissors,
       path: '/remove-bg',
-      external: false
+      external: false,
+      comingSoon: false
     },
     {
-      id: 'pixel-art',
-      name: 'Pixel Art Studio',
-      description: 'Crie artes e animações em pixel art quadro a quadro.',
-      icon: Grid,
-      path: '/pixel-art',
-      external: false
-    },
-    {
-      id: 'font-finder',
-      name: 'Font Finder',
-      description: 'Teste e visualize fontes do Google Fonts.',
-      icon: Type,
-      path: '/font-finder',
-      external: false
-    },
-    {
-      id: 'ai-studio',
-      name: 'Aplicativo AI Studio',
-      description: 'Acesse nossa ferramenta exclusiva criada no Google AI Studio.',
-      icon: Bot,
-      path: 'https://ai.studio/apps/drive/1lHBVljSBNQYF2-BjhfvXGPPGKNNUqRUn',
-      external: true
+      id: 'layout-builder',
+      name: 'Monte seu Layout',
+      description: 'Visualize camisas e shorts em 3D e exporte o modelo.',
+      icon: Layers,
+      path: '/layout-builder',
+      external: false,
+      comingSoon: true
     }
   ];
 
@@ -57,42 +53,64 @@ export default function Programs() {
       </div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {tools.map((tool) => (
-          tool.external ? (
-            <a 
-              key={tool.id}
-              href={tool.path}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-zinc-900 border border-zinc-800 p-8 rounded-xl flex flex-col items-start gap-4 hover:border-primary/50 hover:bg-zinc-800 hover:shadow-lg hover:shadow-primary/5 transition group"
-            >
+        {tools.map((tool) => {
+          const CardContent = () => (
+            <>
               <div className="w-full flex justify-between items-start">
-                  <div className="bg-primary/10 p-3 rounded-lg text-primary group-hover:scale-110 transition duration-300">
+                  <div className={`p-3 rounded-lg transition duration-300 ${tool.comingSoon ? 'bg-zinc-800 text-zinc-600' : 'bg-primary/10 text-primary group-hover:scale-110'}`}>
                     <tool.icon size={32} />
                   </div>
-                  <ExternalLink size={20} className="text-zinc-600 group-hover:text-white transition" />
+                  {tool.comingSoon ? (
+                    <span className="text-[10px] font-bold uppercase tracking-widest bg-zinc-800 text-zinc-500 px-2 py-1 rounded border border-zinc-700">Em Breve</span>
+                  ) : tool.external ? (
+                    <ExternalLink size={20} className="text-zinc-600 group-hover:text-white transition" />
+                  ) : null}
               </div>
               <div>
-                <h3 className="text-xl font-bold text-white mb-2">{tool.name}</h3>
+                <h3 className={`text-xl font-bold mb-2 ${tool.comingSoon ? 'text-zinc-500' : 'text-white'}`}>{tool.name}</h3>
                 <p className="text-zinc-400 text-sm leading-relaxed">{tool.description}</p>
               </div>
-            </a>
-          ) : (
+            </>
+          );
+
+          const className = `bg-zinc-900 border border-zinc-800 p-8 rounded-xl flex flex-col items-start gap-4 transition group ${
+            tool.comingSoon 
+              ? 'opacity-60 cursor-not-allowed grayscale' 
+              : 'hover:border-primary/50 hover:bg-zinc-800 hover:shadow-lg hover:shadow-primary/5 cursor-pointer'
+          }`;
+
+          if (tool.comingSoon) {
+            return (
+              <div key={tool.id} className={className}>
+                <CardContent />
+              </div>
+            );
+          }
+
+          if (tool.external) {
+            return (
+              <a 
+                key={tool.id}
+                href={tool.path}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={className}
+              >
+                <CardContent />
+              </a>
+            );
+          }
+
+          return (
             <Link 
               key={tool.id}
               to={tool.path}
-              className="bg-zinc-900 border border-zinc-800 p-8 rounded-xl flex flex-col items-start gap-4 hover:border-primary/50 hover:bg-zinc-800 hover:shadow-lg hover:shadow-primary/5 transition group"
+              className={className}
             >
-              <div className="bg-primary/10 p-3 rounded-lg text-primary group-hover:scale-110 transition duration-300">
-                <tool.icon size={32} />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-white mb-2">{tool.name}</h3>
-                <p className="text-zinc-400 text-sm leading-relaxed">{tool.description}</p>
-              </div>
+              <CardContent />
             </Link>
-          )
-        ))}
+          );
+        })}
       </div>
     </div>
   );

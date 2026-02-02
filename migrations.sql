@@ -62,5 +62,16 @@ CREATE TABLE IF NOT EXISTS trusted_companies (
     created_at TEXT
 );
 
+-- 9. DRIVE DE ARTES (Novo)
+CREATE TABLE IF NOT EXISTS drive_files (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    folder TEXT DEFAULT 'geral', -- 'logos', 'estampas', 'mockups', 'clientes'
+    url TEXT NOT NULL,
+    type TEXT, -- 'image', 'video', 'pdf', 'zip', 'vector'
+    size TEXT,
+    created_at TEXT
+);
+
 -- Verificação final
-PRAGMA table_info(trusted_companies);
+PRAGMA table_info(drive_files);

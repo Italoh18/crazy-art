@@ -17,7 +17,7 @@ import CarouselManager from './pages/CarouselManager';
 import TrustedCompanies from './pages/TrustedCompanies'; 
 import LayoutBuilder from './pages/LayoutBuilder';
 import BackgroundRemover from './pages/BackgroundRemover';
-import PixelArt from './pages/PixelArt'; // Nova importação
+import PixelArt from './pages/PixelArt'; 
 import { Loader2 } from 'lucide-react';
 import { ScreenshotGuard } from './components/ScreenshotGuard';
 import { IntroAnimation } from './components/IntroAnimation';

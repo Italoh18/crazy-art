@@ -1,13 +1,17 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, Trash2, Info, CheckCircle, AlertTriangle, XCircle, X } from 'lucide-react';
+import { Bell, Check, Info, CheckCircle, AlertTriangle, XCircle, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Notification } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 export const NotificationCenter = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const { role } = useAuth();
 
   const fetchNotifications = async () => {
     setIsLoading(true);
@@ -47,8 +51,7 @@ export const NotificationCenter = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const markAsRead = async (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
+  const markAsRead = async (id: string) => {
     try {
       const token = localStorage.getItem('auth_token');
       await fetch(`/api/notifications?id=${id}`, {
@@ -63,6 +66,40 @@ export const NotificationCenter = () => {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleNotificationClick = (notif: Notification) => {
+    // 1. Marca como lida
+    if (notif.is_read === 0) {
+        markAsRead(notif.id);
+    }
+
+    // 2. Fecha o menu
+    setIsOpen(false);
+
+    // 3. Navegação Inteligente baseada no conteúdo ou tipo
+    if (role === 'client') {
+        // Clientes sempre vão para sua área de detalhes
+        navigate('/my-area');
+    } else if (role === 'admin') {
+        // Lógica para Admin
+        const titleLower = notif.title.toLowerCase();
+        const messageLower = notif.message.toLowerCase();
+
+        if (notif.reference_id?.startsWith('overdue_') || titleLower.includes('atraso') || notif.type === 'warning') {
+            // Vai para pedidos filtrado por atrasados
+            navigate('/orders', { state: { filter: 'overdue' } });
+        } else if (titleLower.includes('pagamento') || notif.type === 'success') {
+            // Vai para pedidos filtrado por pagos
+            navigate('/orders', { state: { filter: 'paid' } });
+        } else if (titleLower.includes('pedido') || messageLower.includes('pedido')) {
+            // Vai para lista geral de pedidos
+            navigate('/orders');
+        } else {
+            // Default
+            navigate('/');
+        }
     }
   };
 
@@ -99,7 +136,7 @@ export const NotificationCenter = () => {
                 <div className="flex gap-2">
                     {unreadCount > 0 && (
                         <button 
-                            onClick={(e) => markAsRead('all', e)}
+                            onClick={(e) => { e.stopPropagation(); markAsRead('all'); }}
                             className="text-[10px] text-zinc-400 hover:text-white flex items-center gap-1 bg-white/5 px-2 py-1 rounded transition"
                         >
                             <Check size={12} /> Marcar todas
@@ -119,8 +156,8 @@ export const NotificationCenter = () => {
                     notifications.map((notif) => (
                         <div 
                             key={notif.id} 
-                            className={`p-4 border-b border-zinc-800/50 hover:bg-white/5 transition-colors relative group ${notif.is_read === 0 ? 'bg-primary/5' : ''}`}
-                            onClick={() => notif.is_read === 0 && markAsRead(notif.id)}
+                            className={`p-4 border-b border-zinc-800/50 hover:bg-white/5 transition-colors relative group cursor-pointer ${notif.is_read === 0 ? 'bg-primary/5' : ''}`}
+                            onClick={() => handleNotificationClick(notif)}
                         >
                             <div className="flex gap-3">
                                 <div className={`mt-1 flex-shrink-0 ${notif.is_read === 0 ? 'opacity-100' : 'opacity-50'}`}>

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, ChevronRight, User, CreditCard, Trash2, X, MapPin, Cloud } from 'lucide-react';
+import { Plus, Search, ChevronRight, User, CreditCard, Trash2, X, MapPin, Cloud, Phone as PhoneIcon, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
 import { Customer } from '../types';
 
 export default function Customers() {
@@ -10,6 +10,7 @@ export default function Customers() {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   
   // Form State
   const [formData, setFormData] = useState({
@@ -19,6 +20,7 @@ export default function Customers() {
 
   const filteredCustomers = customers.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.phone.includes(searchTerm) ||
     c.cpf.includes(searchTerm)
   );
 
@@ -58,11 +60,21 @@ export default function Customers() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validação Simplificada: Apenas Nome e Telefone são obrigatórios visualmente
+    if (!formData.name || !formData.phone) {
+        alert("Por favor, preencha Nome e Telefone.");
+        return;
+    }
+
+    // Gera um CPF temporário único se não informado, para satisfazer o backend
+    const finalCpf = formData.cpf || `NC-${Date.now()}`;
+
     addCustomer({
       name: formData.name,
       phone: formData.phone,
       email: formData.email,
-      cpf: formData.cpf,
+      cpf: finalCpf,
       address: {
         street: formData.street,
         number: formData.number,
@@ -73,6 +85,7 @@ export default function Customers() {
     });
     setFormData({ name: '', phone: '', email: '', cpf: '', street: '', number: '', zipCode: '', creditLimit: '50', cloudLink: '' });
     setIsModalOpen(false);
+    setShowAdvanced(false);
   };
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
@@ -84,8 +97,8 @@ export default function Customers() {
     <div className="space-y-8 pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 animate-fade-in-up">
         <div>
-            <h1 className="text-3xl font-bold text-white tracking-tight font-heading">Clientes</h1>
-            <p className="text-zinc-400 text-sm mt-1">Gerencie sua base de clientes e crédito.</p>
+            <h1 className="text-3xl font-bold text-white tracking-tight font-heading">Gerenciar Negócio</h1>
+            <p className="text-zinc-400 text-sm mt-1">Cadastre e organize seus clientes.</p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
@@ -103,7 +116,7 @@ export default function Customers() {
         <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 to-secondary/30 rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
         <input
           type="text"
-          placeholder="Buscar por nome ou CPF/CNPJ..."
+          placeholder="Buscar cliente por nome ou telefone..."
           className="relative w-full bg-[#121215] border border-white/10 text-white pl-12 pr-4 py-4 rounded-xl focus:border-primary/50 focus:ring-1 focus:ring-primary/50 outline-none placeholder-zinc-500 transition-all text-sm shadow-xl"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -125,12 +138,15 @@ export default function Customers() {
 
             <div className="flex justify-between items-start relative z-10">
               <div className="flex items-center space-x-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-zinc-800 to-black rounded-2xl flex items-center justify-center border border-white/10 group-hover:border-primary/50 group-hover:shadow-glow transition-all shadow-lg">
+                <div className="w-14 h-14 bg-gradient-to-br from-zinc-800 to-black rounded-2xl flex items-center justify-center border border-white/10 group-hover:border-primary/50 group-hover:shadow-glow transition-all shadow-lg shrink-0">
                   <User size={24} className="text-zinc-400 group-hover:text-primary transition-colors" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-white text-lg group-hover:text-primary transition-colors line-clamp-1 font-heading tracking-wide">{customer.name}</h3>
-                  <p className="text-xs text-zinc-500 font-medium font-mono bg-white/5 px-2 py-0.5 rounded inline-block mt-1">{customer.phone}</p>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-white text-lg group-hover:text-primary transition-colors truncate font-heading tracking-wide">{customer.name}</h3>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <PhoneIcon size={12} className="text-zinc-500" />
+                    <p className="text-xs text-zinc-400 font-medium font-mono">{customer.phone}</p>
+                  </div>
                 </div>
               </div>
               <button 
@@ -145,7 +161,9 @@ export default function Customers() {
             <div className="mt-6 pt-5 border-t border-white/5 text-sm text-zinc-500 space-y-3 relative z-10">
                <div className="flex justify-between items-center">
                    <span className="text-xs truncate max-w-[160px] hover:text-white transition-colors">{customer.email || 'Sem email'}</span>
-                   <span className="text-[10px] bg-black/40 px-2 py-1 rounded border border-white/5 font-mono text-zinc-400">{customer.cpf}</span>
+                   {!customer.cpf.startsWith('NC-') && (
+                       <span className="text-[10px] bg-black/40 px-2 py-1 rounded border border-white/5 font-mono text-zinc-400">{customer.cpf}</span>
+                   )}
                </div>
                
                {customer.creditLimit > 0 && (
@@ -166,14 +184,15 @@ export default function Customers() {
           <div className="col-span-full py-24 flex flex-col items-center justify-center text-zinc-600 bg-zinc-900/20 rounded-3xl border border-dashed border-zinc-800 animate-fade-in-up">
             <User size={64} className="mb-4 opacity-20" />
             <p className="text-sm font-medium">Nenhum cliente encontrado.</p>
+            {searchTerm && <p className="text-xs mt-2">Tente buscar por outro termo.</p>}
           </div>
         )}
       </div>
 
-      {/* Registration Modal - Reposicionado para cima (pt-12 md:pt-24) */}
+      {/* Registration Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/80 backdrop-blur-md p-4 animate-scale-in overflow-y-auto">
-          <div className="glass-panel border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col relative">
+          <div className="glass-panel border border-white/10 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col relative">
             <div className="flex justify-between items-center p-6 border-b border-white/10 bg-[#121215]/95 backdrop-blur rounded-t-2xl shrink-0">
               <h2 className="text-xl font-bold text-white flex items-center gap-3 font-heading">
                   <div className="bg-primary/20 p-2 rounded-lg text-primary"><User size={20} /></div>
@@ -186,61 +205,76 @@ export default function Customers() {
             
             <div className="overflow-y-auto p-8 custom-scrollbar">
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="col-span-1 md:col-span-2">
-                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Nome Completo / Razão Social</label>
-                        <input name="name" required value={formData.name} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" placeholder="Nome do cliente" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Telefone</label>
-                        <input name="phone" required placeholder="(99) 99999-9999" value={formData.phone} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">CPF / CNPJ</label>
-                        <input name="cpf" required placeholder="000.000.000-00" value={formData.cpf} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" />
-                    </div>
-                    <div className="col-span-1 md:col-span-2">
-                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Email</label>
-                        <input name="email" type="email" value={formData.email} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" placeholder="email@exemplo.com" />
-                    </div>
-                    <div className="col-span-1 md:col-span-2">
-                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Limite de Crédito (R$)</label>
-                        <input name="creditLimit" type="number" step="0.01" value={formData.creditLimit} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition font-mono" />
-                        <p className="text-[10px] text-zinc-500 mt-1 ml-1">Padrão: R$ 50,00</p>
-                    </div>
-                    
-                    {/* Novo Campo Cloud Link */}
-                    <div className="col-span-1 md:col-span-2">
-                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Link da Nuvem de Arquivos</label>
-                        <div className="relative">
-                            <input name="cloudLink" type="text" value={formData.cloudLink} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" placeholder="https://..." />
-                            <Cloud className="absolute left-3 top-3.5 text-zinc-600" size={18} />
-                        </div>
-                    </div>
-
-                    <div className="col-span-1 md:col-span-2 border-t border-white/10 pt-6 mt-2">
-                      <h3 className="font-bold text-white mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
-                          <MapPin size={16} className="text-primary" /> Endereço
-                      </h3>
-                    </div>
-                    
-                    <div className="col-span-1 md:col-span-2">
-                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Rua</label>
-                        <input name="street" required value={formData.street} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">Número</label>
-                        <input name="number" required value={formData.number} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">CEP</label>
-                        <input name="zipCode" required value={formData.zipCode} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" />
-                    </div>
+                  {/* Campos Principais - Destaque */}
+                  <div className="space-y-4">
+                      <div className="col-span-1 md:col-span-2">
+                          <label className="block text-xs font-bold text-primary uppercase tracking-wider mb-2 ml-1">Nome (Obrigatório)</label>
+                          <input 
+                            name="name" 
+                            required 
+                            autoFocus
+                            value={formData.name} 
+                            onChange={handleInputChange} 
+                            className="w-full bg-black/60 border border-white/20 rounded-xl px-4 py-4 text-white text-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700" 
+                            placeholder="Ex: Maria Silva" 
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-primary uppercase tracking-wider mb-2 ml-1">Telefone (Obrigatório)</label>
+                          <input 
+                            name="phone" 
+                            required 
+                            placeholder="(99) 99999-9999" 
+                            value={formData.phone} 
+                            onChange={handleInputChange} 
+                            className="w-full bg-black/60 border border-white/20 rounded-xl px-4 py-4 text-white text-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700 font-mono" 
+                          />
+                      </div>
                   </div>
 
-                  <div className="pt-8 flex justify-end space-x-3 border-t border-white/10 mt-6">
+                  {/* Toggle Avançado */}
+                  <button 
+                    type="button"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="w-full flex items-center justify-between text-xs font-bold text-zinc-500 uppercase tracking-widest py-3 border-t border-b border-white/5 hover:text-white transition-colors"
+                  >
+                    <span>Informações Adicionais (Opcional)</span>
+                    {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+
+                  {/* Campos Secundários */}
+                  {showAdvanced && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in bg-zinc-900/30 p-4 rounded-xl">
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5 ml-1">CPF / CNPJ</label>
+                            <input name="cpf" placeholder="000.000.000-00" value={formData.cpf} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition placeholder-zinc-700 font-mono text-sm" />
+                        </div>
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5 ml-1">Email</label>
+                            <input name="email" type="email" value={formData.email} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition placeholder-zinc-700 text-sm" placeholder="email@exemplo.com" />
+                        </div>
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5 ml-1">Limite de Crédito (R$)</label>
+                            <input name="creditLimit" type="number" step="0.01" value={formData.creditLimit} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition font-mono text-sm" />
+                        </div>
+                        
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5 ml-1">Endereço (Rua, Número, CEP)</label>
+                            <input name="street" value={formData.street} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition placeholder-zinc-700 text-sm mb-2" placeholder="Rua" />
+                            <div className="flex gap-2">
+                                <input name="number" value={formData.number} onChange={handleInputChange} className="w-1/3 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition placeholder-zinc-700 text-sm" placeholder="Nº" />
+                                <input name="zipCode" value={formData.zipCode} onChange={handleInputChange} className="w-2/3 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition placeholder-zinc-700 text-sm" placeholder="CEP" />
+                            </div>
+                        </div>
+                      </div>
+                  )}
+
+                  <div className="pt-4 flex justify-end space-x-3 border-t border-white/10 mt-6">
                     <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition font-medium">Cancelar</button>
-                    <button type="submit" className="px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-amber-600 transition shadow-lg shadow-primary/20 hover:scale-105 active:scale-95">Salvar Cliente</button>
+                    <button type="submit" className="px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-amber-600 transition shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 flex items-center gap-2">
+                        <CheckCircle size={18} />
+                        Salvar
+                    </button>
                   </div>
                 </form>
             </div>

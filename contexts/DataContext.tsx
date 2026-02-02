@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Customer, Product, Order, OrderStatus, CarouselImage, TrustedCompany } from '../types';
+import { Customer, Product, Order, OrderStatus, CarouselImage, TrustedCompany, DriveFile } from '../types';
 import { api } from '../src/services/api';
 
 interface DataContextType {
@@ -9,6 +9,7 @@ interface DataContextType {
   orders: Order[];
   carouselImages: CarouselImage[];
   trustedCompanies: TrustedCompany[];
+  driveFiles: DriveFile[];
   isLoading: boolean;
   addCustomer: (customer: any) => Promise<void>;
   updateCustomer: (id: string, data: any) => Promise<void>;
@@ -24,6 +25,9 @@ interface DataContextType {
   deleteCarouselImage: (id: string) => Promise<void>;
   addTrustedCompany: (name: string, imageUrl: string) => Promise<void>;
   deleteTrustedCompany: (id: string) => Promise<void>;
+  loadDriveFiles: (folder?: string) => Promise<void>;
+  addDriveFile: (file: any) => Promise<void>;
+  deleteDriveFile: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -47,6 +51,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [carouselImages, setCarouselImages] = useState<CarouselImage[]>([]);
   const [trustedCompanies, setTrustedCompanies] = useState<TrustedCompany[]>([]);
+  const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // loadData now accepts a silent flag to prevent UI blocking
@@ -251,14 +256,43 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     }
   };
 
+  const loadDriveFiles = async (folder?: string) => {
+    try {
+        const files = await api.getDriveFiles(folder);
+        setDriveFiles(files || []);
+    } catch (e) {
+        console.error("Erro ao carregar arquivos do drive:", e);
+    }
+  };
+
+  const addDriveFile = async (data: any) => {
+    try {
+        await api.addDriveFile(data);
+        await loadDriveFiles(data.folder);
+    } catch (e: any) { alert(e.message); }
+  };
+
+  const deleteDriveFile = async (id: string) => {
+    try {
+        if (confirm("Deseja excluir este arquivo permanentemente?")) {
+            setDriveFiles(prev => prev.filter(f => f.id !== id));
+            await api.deleteDriveFile(id);
+        }
+    } catch (e: any) {
+        alert(e.message);
+        await loadDriveFiles(); 
+    }
+  };
+
   return (
     <DataContext.Provider value={{ 
-      customers, products, orders, carouselImages, trustedCompanies, isLoading, 
+      customers, products, orders, carouselImages, trustedCompanies, driveFiles, isLoading, 
       addCustomer, updateCustomer, deleteCustomer,
       addProduct, updateProduct, deleteProduct, 
       addOrder, updateOrder, deleteOrder, updateOrderStatus,
       addCarouselImage, deleteCarouselImage,
-      addTrustedCompany, deleteTrustedCompany
+      addTrustedCompany, deleteTrustedCompany,
+      loadDriveFiles, addDriveFile, deleteDriveFile
     }}>
       {children}
     </DataContext.Provider>
