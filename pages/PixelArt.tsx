@@ -6,8 +6,11 @@ import {
   Trash2, Copy, Plus, Play, Pause, Square, 
   PaintBucket, Undo, Save, Layers, Film, Loader2
 } from 'lucide-react';
+import * as gifencLib from 'gifenc';
+
+// Fix for Vite/Rollup CJS interop issue where named exports are not found
 // @ts-ignore
-import { GIFEncoder, quantize, applyPalette } from 'gifenc';
+const { GIFEncoder, quantize, applyPalette } = gifencLib.default || gifencLib;
 
 const GRID_SIZE = 32;
 const DEFAULT_COLOR = '#000000';
@@ -306,6 +309,11 @@ export default function PixelArt() {
       // Pequeno delay para permitir que o estado de loading renderize
       setTimeout(async () => {
           try {
+              // Ensure we have access to GIFEncoder
+              if (!GIFEncoder) {
+                  throw new Error("GIFEncoder not loaded properly");
+              }
+
               const gif = new GIFEncoder();
               const width = 512; // Resolução de saída (HD Pixel Art)
               const height = 512;
@@ -336,8 +344,6 @@ export default function PixelArt() {
                   const data = imageData.data;
                   
                   // 1. Coleta apenas pixels opacos para gerar a paleta
-                  // Isso evita que pixels transparentes (pretos invisíveis) influenciem a paleta de cores visíveis
-                  // e acabem sendo mapeados para a mesma cor do preto opaco.
                   const opaquePixels = [];
                   for (let i = 0; i < data.length; i += 4) {
                       if (data[i + 3] > 0) {
@@ -345,8 +351,7 @@ export default function PixelArt() {
                       }
                   }
 
-                  // 2. Gera paleta (max 255 cores para sobrar 1 espaço garantido para transparência)
-                  // Se não houver pixels opacos, cria paleta padrão
+                  // 2. Gera paleta
                   let palette;
                   if (opaquePixels.length === 0) {
                       palette = [[0, 0, 0]];
@@ -354,11 +359,11 @@ export default function PixelArt() {
                       palette = quantize(new Uint8Array(opaquePixels), 255);
                   }
                   
-                  // 3. Adiciona cor reservada para transparência (índice final)
+                  // 3. Adiciona cor reservada para transparência
                   const transparentIndex = palette.length;
                   palette.push([0, 0, 0]); // Cor dummy
 
-                  // 4. Mapeia pixels para a paleta (baseado em RGB, o gifenc ignora alpha no applyPalette padrão)
+                  // 4. Mapeia pixels para a paleta
                   const index = applyPalette(data, palette);
 
                   // 5. Sobrescreve índice manualmente para pixels que são transparentes no original
@@ -372,7 +377,7 @@ export default function PixelArt() {
                   gif.writeFrame(index, width, height, { 
                       palette, 
                       delay: 1000 / fps, 
-                      transparent: transparentIndex, // Define qual índice é transparente
+                      transparent: transparentIndex, 
                       repeat: 0 
                   });
               });
