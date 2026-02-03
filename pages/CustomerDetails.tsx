@@ -137,11 +137,11 @@ export default function CustomerDetails() {
       
       if (isAllSelected) {
           // Desmarcar todos da visualização atual
-          const idsToDeselect = currentTabPayableOrders.map(o => o.id);
+          const idsToDeselect = currentTabPayableOrders.map(o => { return o.id; });
           setSelectedOrderIds(prev => prev.filter(id => !idsToDeselect.includes(id)));
       } else {
           // Marcar todos da visualização atual
-          const idsToSelect = currentTabPayableOrders.map(o => o.id);
+          const idsToSelect = currentTabPayableOrders.map(o => { return o.id; });
           setSelectedOrderIds(prev => Array.from(new Set([...prev, ...idsToSelect])));
       }
   };
@@ -367,8 +367,16 @@ export default function CustomerDetails() {
       
       // 1. Verifica se há pedidos vencidos
       if (_overdueOrders.length > 0) {
-          alert('BLOQUEADO: O cliente possui pagamentos em atraso. Regularize a situação antes de criar novos pedidos.');
-          return;
+          if (role === 'admin') {
+              const confirmOverdue = window.confirm(
+                  `ATENÇÃO: Este cliente possui ${_overdueOrders.length} pedido(s) em atraso.\n\n` +
+                  `Deseja ignorar o bloqueio e prosseguir com a criação deste novo pedido?`
+              );
+              if (!confirmOverdue) return;
+          } else {
+              alert('BLOQUEADO: O cliente possui pagamentos em atraso. Regularize a situação antes de criar novos pedidos.');
+              return;
+          }
       }
 
       // 2. Calcula a projeção da dívida total
@@ -388,13 +396,21 @@ export default function CustomerDetails() {
 
       // 3. Verifica se ultrapassa o limite
       if (projectedDebt > creditLimit) {
-          alert(
-              `LIMITE EXCEDIDO: O pedido não pode ser realizado.\n\n` +
-              `Limite de Crédito: R$ ${creditLimit.toFixed(2)}\n` +
-              `Dívida Atual: R$ ${totalOpen.toFixed(2)}\n` +
-              `Novo Total Projetado: R$ ${projectedDebt.toFixed(2)}`
-          );
-          return;
+          if (role === 'admin') {
+              const confirmLimit = window.confirm(
+                  `LIMITE EXCEDIDO: O limite do cliente é R$ ${creditLimit.toFixed(2)}, mas a nova dívida projetada será R$ ${projectedDebt.toFixed(2)}.\n\n` +
+                  `Deseja ignorar o limite de crédito e prosseguir?`
+              );
+              if (!confirmLimit) return;
+          } else {
+              alert(
+                  `LIMITE EXCEDIDO: O pedido não pode ser realizado.\n\n` +
+                  `Limite de Crédito: R$ ${creditLimit.toFixed(2)}\n` +
+                  `Dívida Atual: R$ ${totalOpen.toFixed(2)}\n` +
+                  `Novo Total Projetado: R$ ${projectedDebt.toFixed(2)}`
+              );
+              return;
+          }
       }
 
       // --- FIM DA VALIDAÇÃO ---
