@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers, MapPin, UserPlus } from 'lucide-react';
 import { GalaxyGame } from '../components/GalaxyGame';
 
@@ -24,6 +24,7 @@ export default function Home() {
   const { loginAdmin, loginClient, role, logout } = useAuth();
   const { carouselImages, addCustomer, trustedCompanies } = useData();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const tapCountRef = useRef(0);
   const resetTapTimeoutRef = useRef<any>(null);
@@ -48,6 +49,16 @@ export default function Home() {
       animationDuration: `${Math.random() * 2 + 3}s`
     }));
   }, []);
+
+  // Verificar se há solicitação de login via URL (vindo da loja por exemplo)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('action') === 'login' && role === 'guest') {
+        setIsModalOpen(true);
+        // Limpar URL para não reabrir se der refresh
+        window.history.replaceState({}, '', '/');
+    }
+  }, [location, role]);
 
   useEffect(() => {
     if (carouselImages.length > 0) {

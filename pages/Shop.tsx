@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingBag, Wrench, Search, ShoppingCart, CheckCircle, AlertOctagon, Send, X, Trash2, Minus, Plus as PlusIcon, CreditCard, Loader2, MessageCircle } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Wrench, Search, ShoppingCart, CheckCircle, AlertOctagon, Send, X, Trash2, Minus, Plus as PlusIcon, CreditCard, Loader2, MessageCircle, Lock, UserPlus } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Product, Order } from '../types';
@@ -206,122 +206,157 @@ export default function Shop() {
       </div>
 
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col items-center mb-10 space-y-6">
-            <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-80 border border-zinc-800 shadow-xl relative">
-                <button
-                    onClick={() => setActiveTab('product')}
-                    className={`flex-1 py-2.5 rounded-full text-xs font-bold tracking-widest transition-all duration-300 z-10 flex items-center justify-center gap-2 ${
-                        activeTab === 'product' ? 'bg-white text-black shadow-md' : 'text-zinc-500 hover:text-white'
-                    }`}
-                >
-                    <ShoppingBag size={14} /> PRODUTOS
-                </button>
-                <button
-                    onClick={() => setActiveTab('service')}
-                    className={`flex-1 py-2.5 rounded-full text-xs font-bold tracking-widest transition-all duration-300 z-10 flex items-center justify-center gap-2 ${
-                        activeTab === 'service' ? 'bg-white text-black shadow-md' : 'text-zinc-500 hover:text-white'
-                    }`}
-                >
-                    <Wrench size={14} /> SERVIÇOS
-                </button>
-            </div>
-
-            <button
-                onClick={handleCustomOrderClick}
-                className="flex items-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-[#25D366]/20 hover:scale-105 active:scale-95 group"
-            >
-                <MessageCircle size={20} className="group-hover:animate-bounce" />
-                Pedido Personalizado
-            </button>
-
-            <div className="w-full max-w-md relative">
-                <input
-                  type="text"
-                  placeholder={`Buscar ${activeTab === 'product' ? 'produtos' : 'serviços'}...`}
-                  className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-600"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
-            </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredItems.map((item) => (
-                <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-zinc-700 transition group flex flex-col shadow-lg relative">
-                    <div className="h-48 bg-zinc-800 relative overflow-hidden flex items-center justify-center">
-                        {/* Fallback Icon */}
-                        <div className="absolute inset-0 flex items-center justify-center text-zinc-700">
-                             {activeTab === 'product' ? <ShoppingBag size={48} /> : <Wrench size={48} />}
-                        </div>
-                        
-                        {/* Image */}
-                        {item.imageUrl && (
-                            <img 
-                                src={item.imageUrl} 
-                                alt={item.name} 
-                                className="w-full h-full object-cover transition duration-700 group-hover:scale-110 relative z-10" 
-                                onError={(e) => e.currentTarget.style.display = 'none'} 
-                            />
-                        )}
-                        
-                        <div className="absolute top-3 right-3 z-20 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-xs font-bold text-white border border-white/10 uppercase">
-                            {activeTab === 'product' ? 'Produto' : 'Serviço'}
-                        </div>
-                        {role === 'admin' && (
-                            <button 
-                                onClick={(e) => handleDelete(e, item.id)}
-                                className="absolute top-3 left-3 z-30 bg-red-600/80 hover:bg-red-600 backdrop-blur-md p-2 rounded-lg text-white border border-white/10 transition"
-                            >
-                                <Trash2 size={16} />
-                            </button>
-                        )}
-                    </div>
+        {/* CHECK DE PERMISSÃO: GUEST vs LOGGED */}
+        {role === 'guest' ? (
+            <div className="flex flex-col items-center justify-center py-16 animate-fade-in-up">
+                <div className="bg-zinc-900/50 border border-zinc-800 p-10 rounded-3xl max-w-lg text-center relative overflow-hidden shadow-2xl">
+                    {/* Glow Effect */}
+                    <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-gradient-to-br from-primary/10 to-transparent blur-3xl pointer-events-none animate-spin-slow"></div>
                     
-                    <div className="p-6 flex-1 flex flex-col">
-                        <h3 className="font-bold text-lg text-white line-clamp-1 mb-1">{item.name}</h3>
-                        <p className="text-zinc-400 text-xs mb-4 line-clamp-2 flex-1">{item.description || 'Sem descrição.'}</p>
+                    <div className="relative z-10 flex flex-col items-center">
+                        <div className="w-20 h-20 bg-zinc-800 rounded-full flex items-center justify-center mb-6 ring-4 ring-zinc-900 shadow-xl">
+                            <Lock className="text-primary" size={40} />
+                        </div>
+                        {/* Texto de aviso modificado */}
+                        <p className="text-zinc-300 mb-8 leading-relaxed text-lg font-medium">
+                            Para acessar nossos produtos, serviços e realizar pedidos personalizados, é necessário fazer login.
+                        </p>
                         
-                        <div className="flex flex-col gap-4 mt-auto pt-4 border-t border-zinc-800">
-                            <div className="flex items-center justify-between">
-                                <span className="text-xl font-black text-white">R$ {item.price.toFixed(2)}</span>
-                                <div className="flex items-center bg-black/40 rounded-lg border border-zinc-800 p-1">
+                        <Link 
+                            to="/?action=login"
+                            className="bg-crazy-gradient text-white px-8 py-4 rounded-xl font-bold text-lg hover:scale-105 transition duration-300 shadow-lg shadow-primary/20 flex items-center gap-3 w-full justify-center"
+                        >
+                            <UserPlus size={20} />
+                            Acessar ou Cadastrar
+                        </Link>
+                        
+                        <p className="mt-6 text-xs text-zinc-600">
+                            Já é cliente? O login é rápido e seguro.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        ) : (
+            <>
+                {/* INTERFACE DA LOJA PARA USUÁRIOS LOGADOS */}
+                <div className="flex flex-col items-center mb-10 space-y-6">
+                    <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-80 border border-zinc-800 shadow-xl relative">
+                        <button
+                            onClick={() => setActiveTab('product')}
+                            className={`flex-1 py-2.5 rounded-full text-xs font-bold tracking-widest transition-all duration-300 z-10 flex items-center justify-center gap-2 ${
+                                activeTab === 'product' ? 'bg-white text-black shadow-md' : 'text-zinc-500 hover:text-white'
+                            }`}
+                        >
+                            <ShoppingBag size={14} /> PRODUTOS
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('service')}
+                            className={`flex-1 py-2.5 rounded-full text-xs font-bold tracking-widest transition-all duration-300 z-10 flex items-center justify-center gap-2 ${
+                                activeTab === 'service' ? 'bg-white text-black shadow-md' : 'text-zinc-500 hover:text-white'
+                            }`}
+                        >
+                            <Wrench size={14} /> SERVIÇOS
+                        </button>
+                    </div>
+
+                    <button
+                        onClick={handleCustomOrderClick}
+                        className="flex items-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-[#25D366]/20 hover:scale-105 active:scale-95 group"
+                    >
+                        <MessageCircle size={20} className="group-hover:animate-bounce" />
+                        Pedido Personalizado
+                    </button>
+
+                    <div className="w-full max-w-md relative">
+                        <input
+                        type="text"
+                        placeholder={`Buscar ${activeTab === 'product' ? 'produtos' : 'serviços'}...`}
+                        className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-600"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                        <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {filteredItems.map((item) => (
+                        <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-zinc-700 transition group flex flex-col shadow-lg relative">
+                            <div className="h-48 bg-zinc-800 relative overflow-hidden flex items-center justify-center">
+                                {/* Fallback Icon */}
+                                <div className="absolute inset-0 flex items-center justify-center text-zinc-700">
+                                    {activeTab === 'product' ? <ShoppingBag size={48} /> : <Wrench size={48} />}
+                                </div>
+                                
+                                {/* Image */}
+                                {item.imageUrl && (
+                                    <img 
+                                        src={item.imageUrl} 
+                                        alt={item.name} 
+                                        className="w-full h-full object-cover transition duration-700 group-hover:scale-110 relative z-10" 
+                                        onError={(e) => e.currentTarget.style.display = 'none'} 
+                                    />
+                                )}
+                                
+                                <div className="absolute top-3 right-3 z-20 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-xs font-bold text-white border border-white/10 uppercase">
+                                    {activeTab === 'product' ? 'Produto' : 'Serviço'}
+                                </div>
+                                {role === 'admin' && (
                                     <button 
-                                        onClick={() => updateQuantity(item.id, -1)}
-                                        className="p-1 hover:text-white text-zinc-500 transition"
+                                        onClick={(e) => handleDelete(e, item.id)}
+                                        className="absolute top-3 left-3 z-30 bg-red-600/80 hover:bg-red-600 backdrop-blur-md p-2 rounded-lg text-white border border-white/10 transition"
                                     >
-                                        <Minus size={14} />
+                                        <Trash2 size={16} />
                                     </button>
-                                    <span className="w-8 text-center text-sm font-bold text-white">
-                                        {quantities[item.id] || 1}
-                                    </span>
+                                )}
+                            </div>
+                            
+                            <div className="p-6 flex-1 flex flex-col">
+                                <h3 className="font-bold text-lg text-white line-clamp-1 mb-1">{item.name}</h3>
+                                <p className="text-zinc-400 text-xs mb-4 line-clamp-2 flex-1">{item.description || 'Sem descrição.'}</p>
+                                
+                                <div className="flex flex-col gap-4 mt-auto pt-4 border-t border-zinc-800">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xl font-black text-white">R$ {item.price.toFixed(2)}</span>
+                                        <div className="flex items-center bg-black/40 rounded-lg border border-zinc-800 p-1">
+                                            <button 
+                                                onClick={() => updateQuantity(item.id, -1)}
+                                                className="p-1 hover:text-white text-zinc-500 transition"
+                                            >
+                                                <Minus size={14} />
+                                            </button>
+                                            <span className="w-8 text-center text-sm font-bold text-white">
+                                                {quantities[item.id] || 1}
+                                            </span>
+                                            <button 
+                                                onClick={() => updateQuantity(item.id, 1)}
+                                                className="p-1 hover:text-white text-zinc-500 transition"
+                                            >
+                                                <PlusIcon size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
                                     <button 
-                                        onClick={() => updateQuantity(item.id, 1)}
-                                        className="p-1 hover:text-white text-zinc-500 transition"
+                                        onClick={() => handleOrder(item)}
+                                        className="w-full bg-crazy-gradient text-white py-3 rounded-xl font-bold hover:opacity-90 transition shadow-lg flex items-center justify-center gap-2"
                                     >
-                                        <PlusIcon size={14} />
+                                        <ShoppingCart size={18} />
+                                        Adicionar ao Pedido
                                     </button>
                                 </div>
                             </div>
-                            
-                            <button 
-                                onClick={() => handleOrder(item)}
-                                className="w-full bg-crazy-gradient text-white py-3 rounded-xl font-bold hover:opacity-90 transition shadow-lg flex items-center justify-center gap-2"
-                            >
-                                <ShoppingCart size={18} />
-                                Adicionar ao Pedido
-                            </button>
                         </div>
-                    </div>
+                    ))}
                 </div>
-            ))}
-        </div>
 
-        {filteredItems.length === 0 && (
-            <div className="text-center py-20 text-zinc-500">
-                <Search className="mx-auto mb-4 opacity-20" size={64} />
-                <p>Nenhum item encontrado.</p>
-            </div>
+                {filteredItems.length === 0 && (
+                    <div className="text-center py-20 text-zinc-500">
+                        <Search className="mx-auto mb-4 opacity-20" size={64} />
+                        <p>Nenhum item encontrado.</p>
+                    </div>
+                )}
+            </>
         )}
 
         {/* Modal de Sucesso Reposicionado */}
