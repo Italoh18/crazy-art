@@ -1,15 +1,10 @@
 
 -- SCRIPT DE ATUALIZAÇÃO DE SCHEMA - CRAZY ART D1
--- Execute via terminal: npx wrangler d1 execute crazyart-db --remote --file=./migrations.sql
--- OU execute apenas os comandos SQL abaixo no D1 Studio da Cloudflare.
 
 -- 1. Clientes
--- Verifique se já não rodou estas colunas antes. Se der erro, remova as linhas duplicadas.
 -- ALTER TABLE clients ADD COLUMN street TEXT;
 -- ALTER TABLE clients ADD COLUMN number TEXT;
 -- ALTER TABLE clients ADD COLUMN zipCode TEXT;
-
--- NOVO: Link da Nuvem
 -- ALTER TABLE clients ADD COLUMN cloud_link TEXT;
 
 -- 2. Catálogo (Produtos/Serviços unificados)
@@ -33,10 +28,9 @@ CREATE TABLE IF NOT EXISTS order_items (
 
 -- 5. Soft Delete para Catálogo
 -- ALTER TABLE catalog ADD COLUMN active INTEGER DEFAULT 1;
--- UPDATE catalog SET active = 1 WHERE active IS NULL;
 
--- 6. Coluna de Data de Pagamento
--- ALTER TABLE orders ADD COLUMN paid_at TEXT;
+-- 6. Coluna de Data de Pagamento (HABILITADA)
+ALTER TABLE orders ADD COLUMN paid_at TEXT;
 
 -- 7. SISTEMA DE NOTIFICAÇÕES (Novo)
 CREATE TABLE IF NOT EXISTS notifications (
@@ -48,7 +42,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     message TEXT,
     is_read INTEGER DEFAULT 0,
     created_at TEXT,
-    reference_id TEXT -- ID do pedido relacionado (para evitar duplicidade em alertas de atraso)
+    reference_id TEXT -- ID do pedido relacionado
 );
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
@@ -66,12 +60,9 @@ CREATE TABLE IF NOT EXISTS trusted_companies (
 CREATE TABLE IF NOT EXISTS drive_files (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    folder TEXT DEFAULT 'geral', -- 'logos', 'estampas', 'mockups', 'clientes'
+    folder TEXT DEFAULT 'geral',
     url TEXT NOT NULL,
-    type TEXT, -- 'image', 'video', 'pdf', 'zip', 'vector'
+    type TEXT,
     size TEXT,
     created_at TEXT
 );
-
--- Verificação final
-PRAGMA table_info(drive_files);
