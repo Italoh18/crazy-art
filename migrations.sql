@@ -29,10 +29,10 @@ CREATE TABLE IF NOT EXISTS order_items (
 -- 5. Soft Delete para Catálogo
 -- ALTER TABLE catalog ADD COLUMN active INTEGER DEFAULT 1;
 
--- 6. Coluna de Data de Pagamento (HABILITADA)
-ALTER TABLE orders ADD COLUMN paid_at TEXT;
+-- 6. Coluna de Data de Pagamento
+-- ALTER TABLE orders ADD COLUMN paid_at TEXT;
 
--- 7. SISTEMA DE NOTIFICAÇÕES (Novo)
+-- 7. SISTEMA DE NOTIFICAÇÕES
 CREATE TABLE IF NOT EXISTS notifications (
     id TEXT PRIMARY KEY,
     target_role TEXT, -- 'admin' ou 'client'
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_role ON notifications(target_role);
 
--- 8. EMPRESAS QUE CONFIAM (Novo)
+-- 8. EMPRESAS QUE CONFIAM
 CREATE TABLE IF NOT EXISTS trusted_companies (
     id TEXT PRIMARY KEY,
     name TEXT,
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS trusted_companies (
     created_at TEXT
 );
 
--- 9. DRIVE DE ARTES (Novo)
+-- 9. DRIVE DE ARTES
 CREATE TABLE IF NOT EXISTS drive_files (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -65,4 +65,11 @@ CREATE TABLE IF NOT EXISTS drive_files (
     type TEXT,
     size TEXT,
     created_at TEXT
+);
+
+-- 10. LOTES DE PAGAMENTO (Para permitir pagar muitas faturas de uma vez)
+CREATE TABLE IF NOT EXISTS payment_batches (
+    id TEXT PRIMARY KEY,
+    order_ids TEXT NOT NULL, -- IDs separados por vírgula
+    created_at TEXT NOT NULL
 );

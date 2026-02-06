@@ -1,5 +1,6 @@
 
 export interface Env {
+  DB: any;
   MP_ACCESS_TOKEN: string;
 }
 
@@ -17,12 +18,25 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
       return new Response(JSON.stringify({ error: 'Dados do pedido ausentes.' }), { status: 400 });
     }
 
-    // Limpeza de IDs para evitar espaços que quebrem o webhook
+    // Limpeza de IDs
     const cleanOrderId = String(orderId).split(',').map(id => id.trim()).join(',');
+    
+    // NOVA LÓGICA: Sempre criar um ID de Lote para o external_reference
+    // Isso remove a limitação de 256 caracteres do Mercado Pago.
+    const batchId = crypto.randomUUID();
+    const now = new Date().toISOString();
 
-    // Validação de segurança: Mercado Pago limita external_reference a 256 caracteres
-    if (cleanOrderId.length > 250) {
-       return new Response(JSON.stringify({ error: 'Muitos pedidos selecionados para um único pagamento. Selecione menos itens.' }), { status: 400 });
+    try {
+        await env.DB.prepare(
+            "INSERT INTO payment_batches (id, order_ids, created_at) VALUES (?, ?, ?)"
+        ).bind(batchId, cleanOrderId, now).run();
+        console.log(`[Payment] Lote criado: ${batchId} contendo pedidos: ${cleanOrderId}`);
+    } catch (dbErr: any) {
+        console.error("[Payment] Erro ao salvar lote no DB:", dbErr.message);
+        // Fallback: Se o banco falhar e a string for curta, tentamos usar a string direta
+        if (cleanOrderId.length > 250) {
+            throw new Error("Erro ao processar lote de muitos pedidos. Tente selecionar menos itens ou contate o suporte.");
+        }
     }
 
     const cleanAmount = parseFloat(String(amount));
@@ -40,7 +54,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     const preferencePayload = {
       items: [
         {
-          id: "batch_payment",
+          id: "payment_transaction",
           title: String(title || 'Faturas Crazy Art').substring(0, 255),
           description: "Pagamento de serviços/produtos Crazy Art Studio",
           quantity: 1,
@@ -53,8 +67,8 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
         surname: lastName,
         email: validEmail
       },
-      // CRITICAL: Isso é o que o webhook usa para identificar os pedidos
-      external_reference: cleanOrderId, 
+      // ENVIAMOS O ID DO LOTE EM VEZ DA LISTA DE IDs
+      external_reference: batchId, 
       back_urls: {
         success: `${origin}/my-area?status=success`,
         failure: `${origin}/my-area?status=failure`,
@@ -64,8 +78,6 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
       statement_descriptor: "CRAZYART",
       binary_mode: false
     };
-
-    console.log("[Payment] Criando preferência para faturas:", cleanOrderId);
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
