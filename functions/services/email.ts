@@ -7,7 +7,9 @@ export interface EmailPayload {
 
 // Helper para formatar o remetente corretamente
 const getSender = (env: any) => {
-  const sender = env.SENDER_EMAIL || 'onboarding@resend.dev';
+  // Alterado de onboarding@resend.dev para o domínio próprio conforme solicitado
+  const sender = env.SENDER_EMAIL || 'no-reply@crazyart.com.br';
+  
   // Se já estiver no formato "Nome <email>", usa como está
   if (sender.includes('<') && sender.includes('>')) {
     return sender;
