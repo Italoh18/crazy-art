@@ -173,14 +173,19 @@ export default function CustomerDetails() {
     if (orderIds.length === 0) return;
     setIsBatchProcessing(true);
     try {
+        // CORREÇÃO: Calcular o total baseando-se EXATAMENTE nos IDs passados
+        // Isso impede que pegue o total global se orderIds for apenas 1 item
+        const targetOrders = allCustomerOrders.filter(o => orderIds.includes(o.id));
+        const amountToPay = targetOrders.reduce((acc, o) => acc + (o.total || 0), 0);
+
         const title = orderIds.length === 1 
-            ? `Pedido #${allCustomerOrders.find(o => o.id === orderIds[0])?.formattedOrderNumber} - Crazy Art`
+            ? `Pedido #${targetOrders[0]?.formattedOrderNumber} - Crazy Art`
             : `Faturas (${orderIds.length}) - Crazy Art`;
         
         const res = await api.createPayment({
             orderId: orderIds.join(','),
             title,
-            amount: selectedTotal > 0 ? selectedTotal : totalPayableValue, // Fallback para totalPayable se for o botão Pagar Tudo
+            amount: amountToPay,
             payerEmail: customer.email,
             payerName: customer.name
         });
@@ -478,7 +483,7 @@ export default function CustomerDetails() {
       }
       return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">
-              Aberto
+                  Aberto
           </span>
       );
   };
