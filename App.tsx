@@ -18,8 +18,8 @@ import TrustedCompanies from './pages/TrustedCompanies';
 import LayoutBuilder from './pages/LayoutBuilder';
 import BackgroundRemover from './pages/BackgroundRemover';
 import PixelArt from './pages/PixelArt'; 
+import EmailTemplates from './pages/EmailTemplates';
 import { Loader2 } from 'lucide-react';
-import { ScreenshotGuard } from './components/ScreenshotGuard';
 import { IntroAnimation } from './components/IntroAnimation';
 
 const LoadingScreen = () => {
@@ -76,6 +76,7 @@ const AppRoutes = () => {
             <Route path="/dre" element={<ProtectedRoute requiredRole="admin"><DRE /></ProtectedRoute>} />
             <Route path="/carousel-manager" element={<ProtectedRoute requiredRole="admin"><CarouselManager /></ProtectedRoute>} />
             <Route path="/trusted-companies" element={<ProtectedRoute requiredRole="admin"><TrustedCompanies /></ProtectedRoute>} />
+            <Route path="/email-templates" element={<ProtectedRoute requiredRole="admin"><EmailTemplates /></ProtectedRoute>} />
         </Routes>
     );
 }
@@ -93,7 +94,6 @@ const AppContent = ({ showIntro, setShowIntro }: { showIntro: boolean, setShowIn
          <LoadingScreen />
       ) : (
          <Layout>
-            <ScreenshotGuard />
             <AppRoutes />
          </Layout>
       )}

@@ -1,6 +1,6 @@
 
 import { Env, getAuth } from './_auth';
-import { sendEmail, getAdminEmail, templates } from '../services/email';
+import { sendEmail, getAdminEmail, getRenderedTemplate } from '../services/email';
 
 export const onRequest: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
@@ -30,36 +30,44 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           for (const order of overdueOrders) {
             const refId = `overdue_${order.id}`;
             const formattedOrder = String(order.order_number).padStart(5, '0');
+            const dateStr = new Date(order.due_date).toLocaleDateString();
             
             try {
                 const existing = await env.DB.prepare("SELECT id FROM notifications WHERE reference_id = ?").bind(refId).first();
                 
                 if (!existing) {
                   const createdAt = new Date().toISOString();
+                  const vars = {
+                      customerName: order.client_name,
+                      orderNumber: formattedOrder,
+                      dueDate: dateStr
+                  };
                   
-                  // A. Admin (Resend)
+                  // A. Admin (Resend + Template)
                   const notifId = crypto.randomUUID();
                   await env.DB.prepare(
                     "INSERT INTO notifications (id, target_role, type, title, message, created_at, reference_id) VALUES (?, 'admin', 'warning', 'Pedido em Atraso', ?, ?, ?)"
-                  ).bind(notifId, `Pedido #${formattedOrder} venceu em ${order.due_date}.`, createdAt, refId).run();
+                  ).bind(notifId, `Pedido #${formattedOrder} venceu em ${dateStr}.`, createdAt, refId).run();
 
+                  const emailAdmin = await getRenderedTemplate(env, 'overdueAdmin', vars);
                   await sendEmail(env, {
                     to: getAdminEmail(env),
-                    subject: `ATRASO: Pedido #${formattedOrder}`,
-                    html: templates.overdueAdmin(order.client_name, formattedOrder, order.due_date)
+                    subject: emailAdmin.subject,
+                    html: emailAdmin.html
                   });
 
-                  // B. Cliente (Resend)
+                  // B. Cliente (Resend + Template)
                   const notifIdClient = crypto.randomUUID();
                   await env.DB.prepare(
                     "INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, reference_id) VALUES (?, 'client', ?, 'warning', 'Fatura em Atraso', ?, ?, ?)"
                   ).bind(notifIdClient, order.client_id, `Seu pedido #${formattedOrder} está vencido.`, createdAt, refId + '_client').run();
 
                   if (order.client_email) {
+                    const emailClient = await getRenderedTemplate(env, 'overdueClient', vars);
                     await sendEmail(env, {
                       to: order.client_email,
-                      subject: `Pendência: Pedido #${formattedOrder}`,
-                      html: templates.overdueClient(order.client_name, formattedOrder, order.due_date)
+                      subject: emailClient.subject,
+                      html: emailClient.html
                     });
                   }
                 }

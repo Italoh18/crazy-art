@@ -240,7 +240,10 @@ export default function Home() {
             </h1>
           </div>
           <div className="ml-auto relative group z-10">
-              <button onClick={handleHeaderButtonClick} className="relative bg-zinc-900 text-white px-5 py-1.5 rounded-full border border-zinc-700 hover:text-white transition duration-200 text-[11px] font-bold tracking-widest flex items-center justify-center min-w-[80px] uppercase hover:bg-black">
+              <button 
+                onClick={handleHeaderButtonClick} 
+                className="relative bg-zinc-900 text-white px-6 py-2 rounded-full border border-primary/50 shadow-[0_0_15px_rgba(245,158,11,0.5)] hover:shadow-[0_0_25px_rgba(245,158,11,0.7)] hover:text-white transition duration-300 text-[11px] font-bold tracking-widest flex items-center justify-center min-w-[80px] uppercase hover:bg-black hover:border-primary"
+              >
                   Login
               </button>
           </div>

@@ -1,6 +1,6 @@
 
 import { Env, getAuth } from './_auth';
-import { sendEmail, getAdminEmail, templates } from '../services/email';
+import { sendEmail, getAdminEmail, getRenderedTemplate } from '../services/email';
 
 export const onRequest: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
@@ -121,11 +121,18 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             .bind(calculatedTotal, calculatedCost, newId).run();
       }
 
-      // --- E-MAILS (RESEND) ---
+      // --- E-MAILS DINÂMICOS (RESEND + TEMPLATE) ---
       const notifId = crypto.randomUUID();
       const clientData: any = await env.DB.prepare('SELECT name, email FROM clients WHERE id = ?').bind(client_id).first();
       const clientName = clientData?.name || 'Cliente';
       const clientEmail = clientData?.email;
+
+      // Variáveis para o template
+      const templateVars = {
+          customerName: clientName,
+          orderNumber: formattedOrder,
+          total: calculatedTotal.toFixed(2)
+      };
 
       if (user.role === 'admin') {
         // Admin criou: Notifica cliente
@@ -134,10 +141,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         ).bind(notifId, client_id, `Um novo pedido (#${formattedOrder}) foi gerado para você.`, now).run();
 
         if (clientEmail) {
+          const emailData = await getRenderedTemplate(env, 'newOrderClient', templateVars);
           await sendEmail(env, {
             to: clientEmail,
-            subject: `Novo Pedido #${formattedOrder} - Crazy Art`,
-            html: templates.newOrderClient(clientName, formattedOrder, calculatedTotal)
+            subject: emailData.subject,
+            html: emailData.html
           });
         }
 
@@ -147,10 +155,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           "INSERT INTO notifications (id, target_role, type, title, message, created_at) VALUES (?, 'admin', 'info', 'Pedido da Loja', ?, ?)"
         ).bind(notifId, `O cliente ${clientName} criou o pedido #${formattedOrder} via loja.`, now).run();
 
+        const emailData = await getRenderedTemplate(env, 'newOrderAdmin', templateVars);
         await sendEmail(env, {
           to: getAdminEmail(env),
-          subject: `Novo Pedido Loja #${formattedOrder}`,
-          html: templates.newOrderAdmin(clientName, formattedOrder, calculatedTotal)
+          subject: emailData.subject,
+          html: emailData.html
         });
       }
 

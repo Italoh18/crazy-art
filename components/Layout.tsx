@@ -105,7 +105,8 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     { name: 'Produtos', path: '/products', icon: Package },
     { name: 'Carrossel', path: '/carousel-manager', icon: ImageIcon },
     { name: 'Financeiro', path: '/dre', icon: FileText },
-    { name: 'Empresas que Confiam', path: '/trusted-companies', icon: Building }, // Novo item
+    { name: 'Empresas que Confiam', path: '/trusted-companies', icon: Building },
+    { name: 'Templates E-mail', path: '/email-templates', icon: Mail }, // Novo item
   ];
 
   const isActive = (path: string) => {
@@ -252,7 +253,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             </div>
         </header>
 
-        {/* Adicionado key=location.pathname para forçar a remontagem e disparar a animação ao trocar de rota */}
         <main key={location.pathname} className="flex-1 overflow-x-hidden overflow-y-auto p-6 scroll-smooth animate-page-enter">
           <div className="max-w-7xl mx-auto">
             {children}

@@ -67,9 +67,18 @@ CREATE TABLE IF NOT EXISTS drive_files (
     created_at TEXT
 );
 
--- 10. LOTES DE PAGAMENTO (Para permitir pagar muitas faturas de uma vez)
+-- 10. LOTES DE PAGAMENTO
 CREATE TABLE IF NOT EXISTS payment_batches (
     id TEXT PRIMARY KEY,
-    order_ids TEXT NOT NULL, -- IDs separados por vírgula
+    order_ids TEXT NOT NULL, 
     created_at TEXT NOT NULL
+);
+
+-- 11. TEMPLATES DE EMAIL DINÂMICOS
+CREATE TABLE IF NOT EXISTS email_templates (
+    type TEXT PRIMARY KEY,
+    subject TEXT,
+    html_body TEXT,
+    logo_url TEXT,
+    updated_at TEXT
 );
