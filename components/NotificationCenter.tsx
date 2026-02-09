@@ -134,10 +134,15 @@ export const NotificationCenter = () => {
             <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50 backdrop-blur">
                 <h3 className="text-sm font-bold text-white tracking-wide">Notificações</h3>
                 <div className="flex gap-2">
-                    {unreadCount > 0 && (
+                    {notifications.length > 0 && (
                         <button 
                             onClick={(e) => { e.stopPropagation(); markAsRead('all'); }}
-                            className="text-[10px] text-zinc-400 hover:text-white flex items-center gap-1 bg-white/5 px-2 py-1 rounded transition"
+                            disabled={unreadCount === 0}
+                            className={`text-[10px] flex items-center gap-1 px-2 py-1.5 rounded transition font-bold uppercase tracking-wider ${
+                                unreadCount > 0 
+                                ? 'text-zinc-300 hover:text-white bg-white/10 hover:bg-white/20' 
+                                : 'text-zinc-600 bg-white/5 cursor-not-allowed'
+                            }`}
                         >
                             <Check size={12} /> Marcar todas
                         </button>
