@@ -20,23 +20,26 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
 
     // Limpeza de IDs
     const cleanOrderId = String(orderId).split(',').map(id => id.trim()).join(',');
+    const isMultiple = cleanOrderId.includes(',');
     
-    // NOVA LÓGICA: Sempre criar um ID de Lote para o external_reference
-    // Isso remove a limitação de 256 caracteres do Mercado Pago.
-    const batchId = crypto.randomUUID();
-    const now = new Date().toISOString();
+    let externalRef = cleanOrderId;
 
-    try {
-        await env.DB.prepare(
-            "INSERT INTO payment_batches (id, order_ids, created_at) VALUES (?, ?, ?)"
-        ).bind(batchId, cleanOrderId, now).run();
-        console.log(`[Payment] Lote criado: ${batchId} contendo pedidos: ${cleanOrderId}`);
-    } catch (dbErr: any) {
-        console.error("[Payment] Erro ao salvar lote no DB:", dbErr.message);
-        // Fallback: Se o banco falhar e a string for curta, tentamos usar a string direta
-        if (cleanOrderId.length > 250) {
-            throw new Error("Erro ao processar lote de muitos pedidos. Tente selecionar menos itens ou contate o suporte.");
+    if (isMultiple) {
+        const batchId = crypto.randomUUID();
+        const now = new Date().toISOString();
+        try {
+            await env.DB.prepare(
+                "INSERT INTO payment_batches (id, order_ids, created_at) VALUES (?, ?, ?)"
+            ).bind(batchId, cleanOrderId, now).run();
+            externalRef = batchId; // Usa o ID do lote
+            console.log(`[Payment] Lote criado: ${batchId}`);
+        } catch (dbErr: any) {
+            console.error("[Payment] Erro ao criar lote:", dbErr.message);
+            // Se falhar o banco, mas a string for pequena, tenta enviar direto
+            if (cleanOrderId.length > 250) throw new Error("Erro ao processar lote. Tente pagar individualmente.");
         }
+    } else {
+        console.log(`[Payment] Pedido único: ${cleanOrderId}`);
     }
 
     const cleanAmount = parseFloat(String(amount));
@@ -50,6 +53,9 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
 
     const urlObj = new URL(request.url);
     const origin = urlObj.origin;
+    const notificationUrl = `${origin}/api/mp-webhook`;
+
+    console.log(`[Payment] Configurando Webhook em: ${notificationUrl}`);
 
     const preferencePayload = {
       items: [
@@ -57,6 +63,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
           id: "payment_transaction",
           title: String(title || 'Faturas Crazy Art').substring(0, 255),
           description: "Pagamento de serviços/produtos Crazy Art Studio",
+          category_id: "services", // ADICIONADO: Melhora aprovação e remove aviso de recomendação
           quantity: 1,
           currency_id: 'BRL',
           unit_price: Number(cleanAmount.toFixed(2))
@@ -67,8 +74,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
         surname: lastName,
         email: validEmail
       },
-      // ENVIAMOS O ID DO LOTE EM VEZ DA LISTA DE IDs
-      external_reference: batchId, 
+      external_reference: externalRef,
       back_urls: {
         success: `${origin}/my-area?status=success`,
         failure: `${origin}/my-area?status=failure`,
@@ -76,7 +82,8 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
       },
       auto_return: "approved",
       statement_descriptor: "CRAZYART",
-      binary_mode: false
+      binary_mode: false,
+      notification_url: notificationUrl // Campo obrigatório para Webhook
     };
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
