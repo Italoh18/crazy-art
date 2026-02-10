@@ -140,6 +140,7 @@ export default function Shop() {
             total: total,
             size_list: sizeList.length > 0 ? JSON.stringify(sizeList) : null,
             status: 'open',
+            source: 'shop', // ORIGEM IDENTIFICADA
             order_date: new Date().toISOString().split('T')[0],
             due_date: dueDate.toISOString().split('T')[0],
         };
@@ -305,7 +306,6 @@ export default function Shop() {
             <div className="flex items-center justify-between p-6 bg-zinc-950 rounded-2xl border border-zinc-800 group hover:border-zinc-700 transition">
                 <div className="flex items-center gap-4">
                     <div className={`p-3 rounded-xl transition ${hasSizeList ? 'bg-primary text-white shadow-glow' : 'bg-zinc-800 text-zinc-500'}`}>
-                        {/* Fix: Added missing 'Film' import from lucide-react above */}
                         <Film size={24} />
                     </div>
                     <div>

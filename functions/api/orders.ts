@@ -26,8 +26,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         });
       }
 
+      // Query atualizada para trazer o creditLimit do cliente para filtros de produção
       let query = `
-        SELECT o.*, c.name as client_name 
+        SELECT o.*, c.name as client_name, c.creditLimit as client_credit_limit
         FROM orders o 
         LEFT JOIN clients c ON o.client_id = c.id
       `;
@@ -67,13 +68,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const order_date = String(body.order_date || now.split('T')[0]);
       const due_date = String(body.due_date || order_date);
       const status = String(body.status || 'open');
+      const source = String(body.source || 'admin'); // Identifica se veio da shop
       const size_list = body.size_list ? String(body.size_list) : null;
 
       if (!client_id) return new Response(JSON.stringify({ error: 'client_id é obrigatório' }), { status: 400 });
 
-      // Inserir Cabeçalho (Adicionado is_confirmed = 0)
+      // Inserir Cabeçalho (Incluído source e is_confirmed = 0)
       await env.DB.prepare(
-        'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, total_cost, status, created_at, size_list, is_confirmed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)'
+        'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, total_cost, status, created_at, size_list, is_confirmed, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)'
       ).bind(
         newId,
         nextOrderNumber,
@@ -85,7 +87,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         0, 
         status,
         now,
-        size_list
+        size_list,
+        source
       ).run();
 
       // Inserir Itens
@@ -123,9 +126,6 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             .bind(calculatedTotal, calculatedCost, newId).run();
       }
 
-      // Notificações e Emails (Logica de Resend mantida)
-      // ... (simplificado para focar na persistência) ...
-
       return Response.json({ 
         success: true,
         id: newId,
@@ -139,7 +139,6 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     if (request.method === 'PUT' && id) {
       const body = await request.json() as any;
 
-      // Suporte para atualização rápida de is_confirmed (Admin Production Tab)
       if (body.hasOwnProperty('is_confirmed')) {
           await env.DB.prepare('UPDATE orders SET is_confirmed = ? WHERE id = ?')
             .bind(Number(body.is_confirmed), String(id))
@@ -164,12 +163,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         'UPDATE orders SET description = ?, order_date = ?, due_date = ?, status = ?, size_list = ? WHERE id = ?'
       ).bind(description, order_date, due_date, status, size_list, id).run();
 
-      // ... (re-inserção de itens mantida) ...
-
       return Response.json({ success: true });
     }
 
-    // DELETE
     if (request.method === 'DELETE' && id) {
       if (user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso restrito' }), { status: 403 });
       await env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(id).run();

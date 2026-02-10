@@ -63,6 +63,8 @@ export interface Order {
   paid_at?: string;
   formattedOrderNumber?: string;
   client_name?: string;
+  client_credit_limit?: number; // Novo: para filtro de produção
+  source?: 'shop' | 'admin'; // Novo: origem do pedido
   size_list?: SizeListItem[] | string; // Suporta JSON string vindo do DB
   is_confirmed?: number; // 0 ou 1
   has_files?: number;

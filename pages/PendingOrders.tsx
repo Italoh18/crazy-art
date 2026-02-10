@@ -4,7 +4,7 @@ import { useData } from '../contexts/DataContext';
 import { 
   CheckCircle, Clock, AlertTriangle, Eye, Edit, 
   Trash2, Search, Filter, Layers, Package, User, 
-  ArrowRight, X, ListChecks, Download, Check
+  ArrowRight, X, ListChecks, Download, Check, ShoppingBag
 } from 'lucide-react';
 import { Order, SizeListItem } from '../types';
 
@@ -13,12 +13,35 @@ export default function PendingOrders() {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
 
-  // Filtra apenas pedidos pagos ou faturados que ainda não foram marcados como confirmados/feitos
+  /**
+   * REGRAS PARA FILA DE PRODUÇÃO:
+   * 1. Pedido não confirmado (is_confirmed !== 1).
+   * 2. Pedido PAGO (se for produto) OU faturado em conta (se for serviço com crédito).
+   * 3. CRITÉRIO DE EXIBIÇÃO SOLICITADO:
+   *    - Pedidos gerados pelo cliente na LOJA (source === 'shop').
+   *    - OU Pedidos de clientes que NÃO TEM CRÉDITO (client_credit_limit === 0).
+   *    - Adicionalmente: Pedidos com lista (size_list) entram pois exigem produção.
+   */
   const pendingOrders = useMemo(() => {
-    return orders.filter(o => 
-      (o.status === 'paid' || (o.total > 0 && o.status === 'open')) && 
-      o.is_confirmed !== 1
-    ).sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime());
+    return orders.filter(o => {
+      // Pedido já finalizado? Fora.
+      if (o.is_confirmed === 1) return false;
+
+      // Pedido cancelado? Fora.
+      if (o.status === 'cancelled') return false;
+
+      const isFromShop = o.source === 'shop';
+      const isNoCreditClient = (o.client_credit_limit || 0) === 0;
+      const hasSizeList = !!o.size_list;
+
+      // Se atende aos critérios de "Produção Automática"
+      const isProductionTarget = isFromShop || isNoCreditClient || hasSizeList;
+
+      // Só aparece se estiver pago ou se for um serviço que foi "faturado" (status open)
+      const isEffectivelyActive = o.status === 'paid' || (o.status === 'open' && !isNoCreditClient);
+
+      return isProductionTarget && isEffectivelyActive;
+    }).sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime());
   }, [orders]);
 
   const filtered = pendingOrders.filter(o => 
@@ -37,11 +60,11 @@ export default function PendingOrders() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
            <h1 className="text-3xl font-bold text-white tracking-tight font-heading">Fila de Produção</h1>
-           <p className="text-zinc-400 text-sm mt-1">Gerencie os pedidos pagos aguardando execução.</p>
+           <p className="text-zinc-400 text-sm mt-1">Pedidos da loja ou de clientes sem crédito aguardando execução.</p>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl flex items-center gap-3">
             <span className="text-primary font-black text-2xl">{pendingOrders.length}</span>
-            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest leading-tight">Pedidos<br/>Pendentes</span>
+            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest leading-tight">Itens em<br/>Produção</span>
         </div>
       </div>
 
@@ -60,17 +83,19 @@ export default function PendingOrders() {
           {filtered.length === 0 ? (
               <div className="col-span-full py-24 text-center border-2 border-dashed border-zinc-800 rounded-3xl bg-zinc-900/20">
                   <Package size={64} className="mx-auto text-zinc-800 mb-4 opacity-20" />
-                  <p className="text-zinc-600 font-medium">Tudo em dia! Nenhuma pendência de produção encontrada.</p>
+                  <p className="text-zinc-600 font-medium">Fila vazia. Pedidos administrativos seguem o fluxo normal de faturamento.</p>
               </div>
           ) : (
               filtered.map(order => (
                   <div key={order.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-primary/30 transition-all group relative overflow-hidden shadow-lg">
                       <div className="flex justify-between items-start mb-4">
                           <div className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 group-hover:border-primary/50 transition shadow-inner">
-                             {order.status === 'paid' ? <CheckCircle size={24} className="text-emerald-500" /> : <Clock size={24} className="text-amber-500" />}
+                             {order.source === 'shop' ? <ShoppingBag size={24} className="text-primary" /> : <User size={24} className="text-zinc-400" />}
                           </div>
                           <div className="text-right">
-                              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Pedido</span>
+                              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                                  {order.source === 'shop' ? 'Venda Loja' : 'Venda Manual'}
+                              </span>
                               <p className="text-white font-mono font-bold">#{order.formattedOrderNumber}</p>
                           </div>
                       </div>
@@ -87,17 +112,16 @@ export default function PendingOrders() {
                                      <ListChecks size={12} /> POSSUI LISTA
                                  </span>
                              )}
-                             <span className="bg-zinc-800 text-zinc-400 text-[10px] font-bold px-2 py-1 rounded-lg border border-zinc-700">
-                                 R$ {order.total.toFixed(2)}
+                             <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border ${order.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
+                                 {order.status === 'paid' ? 'PAGO' : 'EM CONTA'}
                              </span>
                           </div>
 
                           <div className="pt-4 border-t border-zinc-800 flex gap-2">
                               <button onClick={() => setViewingOrder(order)} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2">
-                                  <Eye size={14} /> DETALHES
+                                  <Eye size={14} /> VER DETALHES
                               </button>
-                              {/* Fix: Added missing 'Check' import from lucide-react above */}
-                              <button onClick={() => handleConfirm(order.id)} className="w-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition flex items-center justify-center shadow-lg shadow-emerald-900/20">
+                              <button onClick={() => handleConfirm(order.id)} className="w-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition flex items-center justify-center shadow-lg shadow-emerald-900/20" title="Marcar como Concluído">
                                   <Check size={20} strokeWidth={3} />
                               </button>
                           </div>
@@ -120,13 +144,17 @@ export default function PendingOrders() {
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
-                      <div className="grid grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                           <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
                               <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Cliente</span>
                               <p className="text-white font-bold">{viewingOrder.client_name}</p>
                           </div>
                           <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
-                              <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Data do Pedido</span>
+                              <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Origem</span>
+                              <p className="text-white font-bold">{viewingOrder.source === 'shop' ? 'Loja Crazy Art' : 'Painel Adm'}</p>
+                          </div>
+                          <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
+                              <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Data</span>
                               <p className="text-white font-bold">{new Date(viewingOrder.order_date).toLocaleDateString()}</p>
                           </div>
                       </div>
@@ -170,7 +198,7 @@ export default function PendingOrders() {
                   </div>
 
                   <div className="p-6 bg-zinc-950 border-t border-zinc-800 flex gap-4">
-                      <button onClick={() => window.print()} className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-3 rounded-xl font-bold transition flex items-center gap-2">
+                      <button onClick={() => window.print()} className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2">
                           <Download size={18} /> IMPRIMIR
                       </button>
                       <button onClick={() => handleConfirm(viewingOrder.id)} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-emerald-900/20">
