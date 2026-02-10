@@ -53,7 +53,6 @@ export default function CustomerDetails() {
   const [viewingOrder, setViewingOrder] = useState<any | null>(null);
 
   // Determina qual ID usar: URL (Admin) ou Contexto (Cliente)
-  // IMPORTANTE: Garantir que activeId seja string válida
   const activeId = role === 'client' ? currentCustomer?.id : paramId;
 
   // Proteção de rota para Admin (se tentar acessar sem ID na URL)
@@ -72,10 +71,20 @@ export default function CustomerDetails() {
   }
 
   // Busca o objeto do cliente. 
-  // CORREÇÃO: Fallback robusto para quando `customers` ainda não carregou mas `currentCustomer` existe
-  const customer = role === 'client' 
+  let rawCustomer = role === 'client' 
       ? currentCustomer 
       : customers.find(c => c.id === activeId);
+
+  // Normalização de Segurança para evitar crash se o objeto vier 'flat' do DB
+  const customer = rawCustomer ? {
+      ...rawCustomer,
+      creditLimit: Number(rawCustomer.creditLimit || 0),
+      address: rawCustomer.address || {
+          street: (rawCustomer as any).street || '',
+          number: (rawCustomer as any).number || '',
+          zipCode: (rawCustomer as any).zipCode || ''
+      }
+  } : null;
 
   if (!customer) {
       return (
@@ -124,7 +133,8 @@ export default function CustomerDetails() {
 
   // Lista completa de pedidos pagáveis (abertos + atrasados) para o botão "Pagar Tudo"
   const allPayableOrders = [..._openOrders, ..._overdueOrders];
-  const totalPayableValue = allPayableOrders.reduce((acc, o) => acc + (o.total || 0), 0);
+  // FIX: Garantir que o total seja número para evitar crash no reduce/toFixed
+  const totalPayableValue = allPayableOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
 
   // Lógica de Seleção em Massa
   const currentTabPayableOrders = useMemo(() => 
@@ -145,9 +155,10 @@ export default function CustomerDetails() {
       }
   };
 
-  const totalPaid = _paidOrders.reduce((acc, o) => acc + (o.total || 0), 0);
-  const totalOpen = _openOrders.reduce((acc, o) => acc + (o.total || 0), 0) + _overdueOrders.reduce((acc, o) => acc + (o.total || 0), 0);
-  const totalOverdueValue = _overdueOrders.reduce((acc, o) => acc + (o.total || 0), 0);
+  // FIX: Conversão explícita para Number em todos os reduces
+  const totalPaid = _paidOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
+  const totalOpen = _openOrders.reduce((acc, o) => acc + Number(o.total || 0), 0) + _overdueOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
+  const totalOverdueValue = _overdueOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
 
   const creditLimit = customer.creditLimit || 50;
   const availableCredit = creditLimit - totalOpen;
@@ -156,7 +167,7 @@ export default function CustomerDetails() {
   const selectedTotal = useMemo(() => {
     return allCustomerOrders
       .filter(o => selectedOrderIds.includes(o.id))
-      .reduce((acc, curr) => acc + (curr.total || 0), 0);
+      .reduce((acc, curr) => acc + Number(curr.total || 0), 0);
   }, [allCustomerOrders, selectedOrderIds]);
 
   const toggleSelectOrder = (orderId: string, e: React.MouseEvent) => {
@@ -172,7 +183,7 @@ export default function CustomerDetails() {
     setIsBatchProcessing(true);
     try {
         const targetOrders = allCustomerOrders.filter(o => orderIds.includes(o.id));
-        const amountToPay = targetOrders.reduce((acc, o) => acc + (o.total || 0), 0);
+        const amountToPay = targetOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
 
         const title = orderIds.length === 1 
             ? `Pedido #${targetOrders[0]?.formattedOrderNumber} - Crazy Art`
@@ -548,9 +559,376 @@ export default function CustomerDetails() {
             </div>
         </div>
 
-        {/* ... Resto do componente ... */}
+        {/* Status Cards Row - FIX: Garantir que valores numéricos não crashem o .toFixed */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-[#0c0c0e] border border-white/5 p-6 rounded-2xl relative overflow-hidden group">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-500">
+                        <Clock size={20} />
+                    </div>
+                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Em Aberto</span>
+                </div>
+                <div className="relative z-10">
+                    <span className="text-zinc-500 text-lg font-medium mr-1">R$</span>
+                    <span className="text-4xl font-black text-white tracking-tight">{Number(totalOpen).toFixed(2)}</span>
+                </div>
+            </div>
+
+            <div className={`bg-[#0c0c0e] border p-6 rounded-2xl relative overflow-hidden group transition-colors ${totalOverdueValue > 0 ? 'border-red-500/30' : 'border-white/5'}`}>
+                <div className="flex items-center gap-3 mb-4">
+                    <div className={`p-2 rounded-lg border ${totalOverdueValue > 0 ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-zinc-800/50 text-zinc-600 border-zinc-700/50'}`}>
+                        <AlertTriangle size={20} />
+                    </div>
+                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Vencido</span>
+                </div>
+                <div className="relative z-10">
+                    <span className="text-zinc-600 text-lg font-medium mr-1">R$</span>
+                    <span className={`text-4xl font-black tracking-tight ${totalOverdueValue > 0 ? 'text-zinc-300' : 'text-zinc-700'}`}>{Number(totalOverdueValue).toFixed(2)}</span>
+                </div>
+            </div>
+
+            <div className="bg-[#0c0c0e] border border-white/5 p-6 rounded-2xl relative overflow-hidden group">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-500">
+                        <CheckCircle size={20} />
+                    </div>
+                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Total Pago</span>
+                </div>
+                <div className="relative z-10">
+                    <span className="text-zinc-500 text-lg font-medium mr-1">R$</span>
+                    <span className={`text-4xl font-black tracking-tight ${totalPaid > 0 ? 'text-emerald-400' : 'text-zinc-700'}`}>{Number(totalPaid).toFixed(2)}</span>
+                </div>
+            </div>
+        </div>
+
+        {/* Info & Credit Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1 space-y-4">
+                <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 ml-1">Informações de Contato</h3>
+                
+                <div className="bg-[#121215] border border-white/5 p-4 rounded-xl flex items-center gap-4 group hover:border-white/10 transition-colors">
+                    <div className="bg-zinc-900 p-2.5 rounded-lg text-zinc-400 group-hover:text-white transition-colors">
+                        <Phone size={18} />
+                    </div>
+                    <span className="text-zinc-300 font-mono text-sm">{customer.phone}</span>
+                </div>
+
+                <div className="bg-[#121215] border border-white/5 p-4 rounded-xl flex items-center gap-4 group hover:border-white/10 transition-colors">
+                    <div className="bg-zinc-900 p-2.5 rounded-lg text-zinc-400 group-hover:text-white transition-colors">
+                        <Mail size={18} />
+                    </div>
+                    <span className="text-zinc-300 font-mono text-sm truncate">{customer.email || 'Sem email'}</span>
+                </div>
+
+                <div className="bg-[#121215] border border-white/5 p-4 rounded-xl flex items-start gap-4 group hover:border-white/10 transition-colors">
+                    <div className="bg-zinc-900 p-2.5 rounded-lg text-zinc-400 group-hover:text-white transition-colors">
+                        <MapPin size={18} />
+                    </div>
+                    <span className="text-zinc-300 text-sm leading-relaxed">
+                        {customer.address?.street ? `${customer.address.street}, ${customer.address.number}` : 'Endereço não cadastrado'}
+                    </span>
+                </div>
+            </div>
+
+            <div className="lg:col-span-2 bg-gradient-to-br from-[#121215] to-[#09090b] border border-white/5 rounded-2xl p-8 relative overflow-hidden flex flex-col justify-between min-h-[280px]">
+                <div className="absolute right-0 top-0 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+
+                <div className="relative z-10 flex justify-between items-start">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <CreditCard className="text-primary" size={24} />
+                            <h2 className="text-xl font-bold text-white">Limite de Crédito</h2>
+                        </div>
+                        <p className="text-zinc-500 text-sm">Status da conta</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Disponível</p>
+                        <p className="text-3xl font-bold text-emerald-500 font-mono">R$ {Number(availableCredit).toFixed(2)}</p>
+                    </div>
+                </div>
+
+                <div className="relative z-10 mt-auto">
+                    <div className="flex justify-between text-xs text-zinc-400 mb-3 font-mono tracking-wide">
+                        <span>Utilizado: R$ {Number(totalOpen).toFixed(2)}</span>
+                        <span>Total: R$ {Number(creditLimit).toFixed(2)}</span>
+                    </div>
+                    
+                    <div className="w-full h-5 bg-zinc-900/50 rounded-full overflow-hidden border border-white/5 relative">
+                        <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,#000_10px,#000_20px)]"></div>
+                        
+                        <div 
+                            className="h-full bg-primary relative transition-all duration-1000 ease-out"
+                            style={{ width: `${usedPercentage}%` }}
+                        >
+                            <div className="absolute top-0 right-0 bottom-0 w-[1px] bg-white/50 shadow-[0_0_10px_white]"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div className="bg-[#121215] border border-white/5 rounded-2xl overflow-hidden shadow-xl mt-4">
+            <div className="flex flex-col sm:flex-row border-b border-white/5 bg-[#0c0c0e]">
+                <button 
+                    onClick={() => setActiveTab('open')}
+                    className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'open' ? 'text-primary bg-primary/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}
+                >
+                    Abertos
+                    {_openOrders.length > 0 && <span className="ml-2 text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">{_openOrders.length}</span>}
+                    {activeTab === 'open' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_-2px_10px_rgba(245,158,11,0.5)]"></div>}
+                </button>
+
+                <button 
+                    onClick={() => setActiveTab('overdue')}
+                    className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'overdue' ? 'text-red-500 bg-red-500/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}
+                >
+                    Atrasados
+                    {_overdueOrders.length > 0 && <span className="ml-2 text-[10px] bg-red-500/20 text-red-500 px-2 py-0.5 rounded-full">{_overdueOrders.length}</span>}
+                    {activeTab === 'overdue' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-red-500 shadow-[0_-2px_10px_rgba(239,68,68,0.5)]"></div>}
+                </button>
+
+                <button 
+                    onClick={() => setActiveTab('paid')}
+                    className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'paid' ? 'text-emerald-500 bg-emerald-500/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}
+                >
+                    Pagos
+                    {_paidOrders.length > 0 && <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-500 px-2 py-0.5 rounded-full">{_paidOrders.length}</span>}
+                    {activeTab === 'paid' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-emerald-500 shadow-[0_-2px_10px_rgba(16,185,129,0.5)]"></div>}
+                </button>
+
+                <button 
+                    onClick={() => setActiveTab('all')}
+                    className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'all' ? 'text-white bg-white/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}
+                >
+                    Histórico
+                    {activeTab === 'all' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-zinc-500"></div>}
+                </button>
+            </div>
+
+            <div className="overflow-x-auto pb-24">
+                <table className="w-full text-left text-sm text-zinc-400">
+                    <thead className="bg-white/[0.02] text-zinc-500 font-bold uppercase text-[10px] tracking-wider border-b border-white/5">
+                        <tr>
+                            <th className="px-4 md:px-6 py-4 w-10">
+                                {currentTabPayableOrders.length > 0 && (
+                                    <input 
+                                        type="checkbox" 
+                                        checked={isAllSelected}
+                                        onChange={() => {}}
+                                        onClick={handleSelectAll}
+                                        className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary"
+                                        title="Selecionar todos os pedidos pagáveis desta lista"
+                                    />
+                                )}
+                            </th>
+                            <th className="px-4 md:px-6 py-4">Pedido / Info</th>
+                            <th className="px-6 py-4 hidden md:table-cell">Data</th>
+                            <th className="px-6 py-4 hidden md:table-cell">Vencimento</th>
+                            <th className="px-6 py-4 hidden md:table-cell">Status</th>
+                            <th className="px-4 md:px-6 py-4 text-right">Valor / Venc.</th>
+                            <th className="px-4 md:px-6 py-4 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                        {displayedOrders.length === 0 ? (
+                            <tr><td colSpan={7} className="text-center py-16 text-zinc-600">
+                                <div className="flex flex-col items-center gap-2">
+                                    <Layers size={32} className="opacity-20" />
+                                    <p>Nenhum pedido nesta categoria.</p>
+                                </div>
+                            </td></tr>
+                        ) : (
+                            displayedOrders.map(order => {
+                                const isLate = order.status === 'open' && new Date(order.due_date) < new Date();
+                                const isSelected = selectedOrderIds.includes(order.id);
+                                return (
+                                    <tr key={order.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? 'bg-primary/5' : ''}`}>
+                                        <td className="px-4 md:px-6 py-4">
+                                            {order.status === 'open' && (
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={isSelected}
+                                                    onChange={() => {}}
+                                                    onClick={(e) => toggleSelectOrder(order.id, e)}
+                                                    className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary"
+                                                />
+                                            )}
+                                        </td>
+                                        <td className="px-4 md:px-6 py-4">
+                                            <div className="font-mono text-zinc-300 font-bold">
+                                                #{order.formattedOrderNumber || order.order_number}
+                                            </div>
+                                            
+                                            <div className="md:hidden mt-1.5">
+                                                {renderStatusBadge(order.status, isLate)}
+                                            </div>
+
+                                            <div className="text-xs text-zinc-600 max-w-[200px] truncate font-sans mt-1">
+                                                {order.description || "Sem descrição"}
+                                            </div>
+                                        </td>
+                                        
+                                        <td className="px-6 py-4 hidden md:table-cell">{new Date(order.order_date).toLocaleDateString()}</td>
+                                        <td className={`px-6 py-4 hidden md:table-cell ${isLate ? 'text-red-400 font-bold' : ''}`}>{new Date(order.due_date).toLocaleDateString()}</td>
+                                        <td className="px-6 py-4 hidden md:table-cell">
+                                            {renderStatusBadge(order.status, isLate)}
+                                        </td>
+
+                                        <td className="px-4 md:px-6 py-4 text-right">
+                                            <div className="font-mono font-bold text-white text-sm md:text-base">
+                                                R$ {Number(order.total || 0).toFixed(2)}
+                                            </div>
+                                            <div className={`md:hidden text-[10px] mt-1 font-medium ${isLate ? 'text-red-400' : 'text-zinc-500'}`}>
+                                                Vence: {new Date(order.due_date).toLocaleDateString().slice(0,5)}
+                                            </div>
+                                        </td>
+
+                                        <td className="px-4 md:px-6 py-4 text-center">
+                                            <div className="flex items-center justify-end md:justify-center gap-2">
+                                                {order.status === 'open' ? (
+                                                    <>
+                                                        <button 
+                                                            onClick={() => handlePayment([order.id])}
+                                                            disabled={isBatchProcessing}
+                                                            className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1.5 rounded-lg transition font-bold inline-flex items-center gap-1 shadow-lg shadow-emerald-600/20"
+                                                            title="Pagar agora"
+                                                        >
+                                                            <DollarSign size={12} /> <span className="hidden md:inline">Pagar</span>
+                                                        </button>
+                                                        {role === 'admin' && (
+                                                            <button 
+                                                                onClick={() => handleManualPayment(order.id)}
+                                                                className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white px-2.5 py-1.5 rounded-lg transition font-bold inline-flex items-center gap-1 border border-zinc-700 hover:border-zinc-600"
+                                                                title="Confirmar Pagamento Manual"
+                                                            >
+                                                                <Check size={12} />
+                                                            </button>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <span className="hidden md:inline text-xs text-zinc-700 italic">Concluído</span>
+                                                )}
+                                                
+                                                <button 
+                                                    onClick={() => setViewingOrder(order)}
+                                                    className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition border border-transparent hover:border-zinc-700"
+                                                    title="Ver Detalhes"
+                                                >
+                                                    <Eye size={16} />
+                                                </button>
+
+                                                {role === 'admin' && (
+                                                    <button 
+                                                        onClick={() => handleDeleteOrder(order.id)}
+                                                        className="hidden md:block p-1.5 text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition ml-1"
+                                                        title="Excluir Pedido"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {/* ... Resto do componente mantido (Modais de Visualização e Novo Pedido) ... */}
+        {/* Lembrete: O modal de novo pedido já foi atualizado para input manual no turno anterior e está mantido neste conteúdo */}
+        {/* ... */}
         
-        {/* TRECHO DO MODAL DE NOVO PEDIDO (ITENS) - Atualizado para input manual */}
+        {viewingOrder && (
+            <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative flex flex-col max-h-[85vh] animate-scale-in">
+                    
+                    <div className="p-6 border-b border-white/5 flex justify-between items-start bg-[#0c0c0e] rounded-t-2xl">
+                        <div>
+                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                <Package size={20} className="text-primary" /> 
+                                Pedido #{viewingOrder.formattedOrderNumber || viewingOrder.order_number}
+                            </h2>
+                            <p className="text-zinc-500 text-xs mt-1">{viewingOrder.description || "Sem descrição adicional"}</p>
+                        </div>
+                        <button onClick={() => setViewingOrder(null)} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button>
+                    </div>
+
+                    <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5">
+                                <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Data do Pedido</span>
+                                <span className="text-white font-mono text-sm">{new Date(viewingOrder.order_date).toLocaleDateString()}</span>
+                            </div>
+                            <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5">
+                                <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Vencimento</span>
+                                <span className={`font-mono text-sm ${new Date(viewingOrder.due_date) < new Date() && viewingOrder.status === 'open' ? 'text-red-400 font-bold' : 'text-white'}`}>
+                                    {new Date(viewingOrder.due_date).toLocaleDateString()}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <ListChecks size={14} /> Itens do Pedido
+                            </h3>
+                            <div className="space-y-2">
+                                <div className="bg-zinc-900/30 p-3 rounded-xl border border-white/5 flex justify-between items-center">
+                                    <span className="text-zinc-300 text-sm">Resumo do Pedido</span>
+                                    <span className="text-white font-mono font-bold text-sm">R$ {Number(viewingOrder.total || 0).toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-between items-center bg-zinc-900 p-4 rounded-xl border border-white/5">
+                            <span className="text-sm text-zinc-400">Status Atual</span>
+                            {renderStatusBadge(viewingOrder.status, new Date(viewingOrder.due_date) < new Date())}
+                        </div>
+                    </div>
+
+                    <div className="p-6 border-t border-white/5 bg-[#0c0c0e] rounded-b-2xl">
+                        {role === 'admin' ? (
+                            <div className="flex flex-col gap-3">
+                                {viewingOrder.status === 'open' && (
+                                    <div className="flex gap-3">
+                                        <button 
+                                            onClick={() => handleManualPayment(viewingOrder.id)}
+                                            className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2 border border-zinc-700"
+                                        >
+                                            <Check size={16} /> Marcar Pago
+                                        </button>
+                                        <button 
+                                            onClick={() => handleEditOrder(viewingOrder)}
+                                            className="flex-1 py-3 bg-primary hover:bg-amber-600 text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2"
+                                        >
+                                            <Edit size={16} /> Editar
+                                        </button>
+                                    </div>
+                                )}
+                                <button 
+                                    onClick={() => handleDeleteOrder(viewingOrder.id)}
+                                    className="w-full py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2"
+                                >
+                                    <Trash2 size={16} /> Excluir Pedido
+                                </button>
+                            </div>
+                        ) : (
+                            viewingOrder.status === 'open' && (
+                                <button 
+                                    onClick={() => handlePayment([viewingOrder.id])}
+                                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition shadow-lg shadow-emerald-500/20 text-sm flex items-center justify-center gap-2"
+                                >
+                                    <DollarSign size={16} /> Realizar Pagamento
+                                </button>
+                            )
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
+
         {isNewOrderModalOpen && (
             <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/60 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
                 <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col animate-scale-in">
@@ -708,7 +1086,7 @@ export default function CustomerDetails() {
                                                     />
                                                     <button onClick={() => updateItemQuantity(idx, String(Number(item.quantity || 0) + 1))} className="p-1 hover:text-white text-zinc-500"><Plus size={12} /></button>
                                                 </div>
-                                                <span className="text-sm font-mono text-emerald-400 w-20 text-right">R$ {typeof item.quantity === 'number' ? item.total.toFixed(2) : '0.00'}</span>
+                                                <span className="text-sm font-mono text-emerald-400 w-20 text-right">R$ {Number(item.total).toFixed(2)}</span>
                                                 <button onClick={() => handleRemoveItem(idx)} className="text-zinc-600 hover:text-red-500 transition"><Trash2 size={16} /></button>
                                             </div>
                                         </div>
@@ -721,7 +1099,7 @@ export default function CustomerDetails() {
                     <div className="p-6 border-t border-white/5 bg-[#0c0c0e] flex justify-between items-center rounded-b-2xl shrink-0">
                         <div>
                             <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-0.5">Total Geral</p>
-                            <h2 className="text-3xl font-black text-white">R$ {orderTotal.toFixed(2)}</h2>
+                            <h2 className="text-3xl font-black text-white">R$ {Number(orderTotal).toFixed(2)}</h2>
                         </div>
                         <button 
                             onClick={handleFinalizeOrder}
