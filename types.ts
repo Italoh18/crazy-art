@@ -33,10 +33,21 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   total: number;
-  cost_price?: number; // Adicionado para garantir tipagem no calculo
+  cost_price?: number; 
+  type?: ItemType;
 }
 
 export type OrderStatus = 'open' | 'paid' | 'cancelled';
+
+export interface SizeListItem {
+  id: string;
+  category: 'unisex' | 'feminina' | 'infantil';
+  size: string;
+  number: string;
+  name: string;
+  shortSize: string;
+  shortNumber: string;
+}
 
 export interface Order {
   id: string;
@@ -44,14 +55,17 @@ export interface Order {
   client_id: string;
   description: string;
   total: number;
-  total_cost?: number; // Novo campo para calculo de liquido
+  total_cost?: number; 
   order_date: string;
   due_date: string;
   status: OrderStatus;
   created_at?: string;
   paid_at?: string;
   formattedOrderNumber?: string;
-  client_name?: string; // Opcional para listagens com join visual
+  client_name?: string;
+  size_list?: SizeListItem[] | string; // Suporta JSON string vindo do DB
+  is_confirmed?: number; // 0 ou 1
+  has_files?: number;
 }
 
 export interface DREData {

@@ -15,7 +15,7 @@ export default function Customers() {
   // Form State
   const [formData, setFormData] = useState({
     name: '', phone: '', email: '', cpf: '',
-    street: '', number: '', zipCode: '', creditLimit: '50', cloudLink: ''
+    street: '', number: '', zipCode: '', creditLimit: '0', cloudLink: ''
   });
 
   const filteredCustomers = customers.filter(c => 
@@ -80,10 +80,10 @@ export default function Customers() {
         number: formData.number,
         zipCode: formData.zipCode
       },
-      creditLimit: parseFloat(formData.creditLimit) || 50.00,
+      creditLimit: parseFloat(formData.creditLimit) || 0,
       cloudLink: formData.cloudLink
     });
-    setFormData({ name: '', phone: '', email: '', cpf: '', street: '', number: '', zipCode: '', creditLimit: '50', cloudLink: '' });
+    setFormData({ name: '', phone: '', email: '', cpf: '', street: '', number: '', zipCode: '', creditLimit: '0', cloudLink: '' });
     setIsModalOpen(false);
     setShowAdvanced(false);
   };

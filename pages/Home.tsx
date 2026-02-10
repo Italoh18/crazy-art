@@ -138,7 +138,7 @@ export default function Home() {
                 number: regData.number,
                 zipCode: regData.zipCode
             },
-            creditLimit: 50.00 // Limite padrão para novos cadastros
+            creditLimit: 0.00 // Limite zerado por padrão para aprovação manual do adm
         });
         
         // Após cadastrar, tenta logar automaticamente com o CPF

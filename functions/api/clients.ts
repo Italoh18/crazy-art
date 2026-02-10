@@ -49,7 +49,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         body.address?.street ? String(body.address.street).trim() : null,
         body.address?.number ? String(body.address.number).trim() : null,
         body.address?.zipCode ? String(body.address.zipCode).trim() : null,
-        parseFloat(body.creditLimit) || 50.0,
+        parseFloat(body.creditLimit) || 0,
         now,
         body.cloudLink ? String(body.cloudLink).trim() : null
       ).run();
