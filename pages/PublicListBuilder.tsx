@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { 
   Plus, Trash2, Download, MessageCircle, FileText, 
-  ArrowLeft, ListChecks, ToggleRight, ToggleLeft 
+  ArrowLeft, ListChecks, ToggleRight, ToggleLeft, Share2
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -33,12 +33,18 @@ export default function PublicListBuilder() {
   const [destinationPhone, setDestinationPhone] = useState('');
   const [listTitle, setListTitle] = useState('Minha Lista de Pedido');
   const [isGlobalSimple, setIsGlobalSimple] = useState(false);
+  const [creatorName, setCreatorName] = useState('CRAZY ART'); // Padrão
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const phone = params.get('phone');
+    const createdBy = params.get('createdBy'); // Pega o nome do criador
+
     if (phone) {
         setDestinationPhone(phone.replace(/\D/g, ''));
+    }
+    if (createdBy) {
+        setCreatorName(decodeURIComponent(createdBy));
     }
     // Adiciona uma linha inicial
     addListRow();
@@ -84,7 +90,7 @@ export default function PublicListBuilder() {
       return list.reduce((acc, item) => acc + (item.quantity || 1), 0);
   };
 
-  const generatePDF = () => {
+  const createPDFDoc = () => {
     const doc = new jsPDF();
     
     // Header
@@ -92,7 +98,8 @@ export default function PublicListBuilder() {
     doc.rect(0, 0, 210, 20, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
-    doc.text("CRAZY ART - Lista de Produção", 105, 13, { align: 'center' });
+    // Usa o nome do criador em maiúsculo
+    doc.text(`${creatorName.toUpperCase()} - Lista de Produção`, 105, 13, { align: 'center' });
 
     // Meta Info
     doc.setTextColor(0, 0, 0);
@@ -127,22 +134,54 @@ export default function PublicListBuilder() {
       alternateRowStyles: { fillColor: [240, 240, 240] }
     });
 
-    doc.save(`${listTitle.replace(/\s+/g, '_')}.pdf`);
-    return true;
+    return doc;
   };
 
-  const handleSendWhatsApp = () => {
-    if (!destinationPhone) {
-        const phone = prompt("Digite o número do WhatsApp para enviar (com DDD):", "");
-        if (phone) setDestinationPhone(phone.replace(/\D/g, ''));
+  const handleDownloadPDF = () => {
+      const doc = createPDFDoc();
+      doc.save(`${listTitle.replace(/\s+/g, '_')}.pdf`);
+  };
+
+  const handleSendWhatsApp = async () => {
+    // Se não tiver telefone definido na URL, pede
+    let targetPhone = destinationPhone;
+    if (!targetPhone) {
+        const phoneInput = prompt("Digite o número do WhatsApp para enviar (com DDD):", "");
+        if (phoneInput) targetPhone = phoneInput.replace(/\D/g, '');
         else return;
     }
 
-    if (generatePDF()) {
-        const message = `Olá! Preenchi a lista "${listTitle}" com ${calculateTotal()} itens.\n\nO arquivo PDF foi baixado no meu dispositivo. Vou anexá-lo agora para você.`;
-        const link = `https://wa.me/55${destinationPhone}?text=${encodeURIComponent(message)}`;
-        window.open(link, '_blank');
+    const doc = createPDFDoc();
+    const fileName = `${listTitle.replace(/\s+/g, '_')}.pdf`;
+    const messageText = `Olá! Preenchi a lista "${listTitle}" com ${calculateTotal()} itens.`;
+
+    // 1. Tentar Web Share API (Mobile Nativo - Anexa o arquivo)
+    // Nota: O Web Share geralmente não permite definir o contato exato do WhatsApp, 
+    // ele abre a lista de apps e o usuário escolhe o contato.
+    try {
+        const blob = doc.output('blob');
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+        
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                files: [file],
+                title: listTitle,
+                text: messageText,
+            });
+            // Se o compartilhamento nativo foi chamado com sucesso, paramos aqui.
+            // O usuário selecionará o WhatsApp na lista do celular.
+            return; 
+        }
+    } catch (error) {
+        console.log("Compartilhamento nativo cancelado ou falhou, usando método manual.");
+        // Se falhar ou cancelar, continua para o método de link
     }
+
+    // 2. Fallback (Desktop/Navegadores sem suporte a arquivo)
+    // Baixa o arquivo e abre o link do WhatsApp para o número específico
+    doc.save(fileName);
+    const link = `https://wa.me/55${targetPhone}?text=${encodeURIComponent(messageText + "\n\n(O arquivo PDF foi baixado no meu dispositivo, vou anexá-lo aqui.)")}`;
+    window.open(link, '_blank');
   };
 
   return (
@@ -291,7 +330,7 @@ export default function PublicListBuilder() {
             {/* Actions */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button 
-                    onClick={generatePDF}
+                    onClick={handleDownloadPDF}
                     className="bg-zinc-800 hover:bg-zinc-700 text-white py-4 rounded-2xl font-bold transition flex items-center justify-center gap-3 shadow-lg"
                 >
                     <Download size={20} /> Baixar PDF
@@ -300,12 +339,12 @@ export default function PublicListBuilder() {
                     onClick={handleSendWhatsApp}
                     className="bg-[#25D366] hover:bg-[#1da851] text-white py-4 rounded-2xl font-bold transition flex items-center justify-center gap-3 shadow-lg shadow-green-900/20"
                 >
-                    <MessageCircle size={20} /> Enviar no WhatsApp
+                    <Share2 size={20} /> Compartilhar / Enviar
                 </button>
             </div>
             
             <p className="text-center text-xs text-zinc-500 max-w-md mx-auto">
-                <span className="font-bold text-amber-500">Nota:</span> Ao clicar em "Enviar no WhatsApp", o PDF será baixado automaticamente. Você precisará anexar o arquivo na conversa do WhatsApp que será aberta.
+                <span className="font-bold text-amber-500">Nota:</span> Em celulares, o botão "Compartilhar" tenta anexar o PDF automaticamente. Se não for possível, o arquivo será baixado e você será redirecionado para o WhatsApp.
             </p>
         </div>
     </div>
