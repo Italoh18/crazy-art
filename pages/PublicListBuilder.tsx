@@ -227,47 +227,47 @@ export default function PublicListBuilder() {
 
                 <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar">
                     {list.map((item, idx) => (
-                        <div key={item.id} className="grid grid-cols-1 sm:grid-cols-12 gap-2 p-3 bg-black/40 rounded-xl border border-zinc-800/50 items-end hover:border-zinc-700 transition">
+                        <div key={item.id} className="grid grid-cols-12 gap-2 p-3 bg-black/40 rounded-xl border border-zinc-800/50 items-end hover:border-zinc-700 transition">
                             {/* Categoria */}
-                            <div className="sm:col-span-2">
+                            <div className="col-span-4 sm:col-span-2">
                                 <label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tipo</label>
                                 <select 
                                     value={item.category} 
                                     onChange={(e) => updateRow(item.id, 'category', e.target.value as any)}
-                                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-primary"
+                                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-1 py-2 text-xs text-white outline-none focus:border-primary"
                                 >
-                                    <option value="unisex">Unisex</option>
-                                    <option value="feminina">Feminina</option>
-                                    <option value="infantil">Infantil</option>
+                                    <option value="unisex">Uni</option>
+                                    <option value="feminina">Fem</option>
+                                    <option value="infantil">Inf</option>
                                 </select>
                             </div>
                             
                             {/* Tamanho */}
-                            <div className="sm:col-span-2">
+                            <div className="col-span-4 sm:col-span-2">
                                 <label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tam</label>
                                 <select 
                                     value={item.size} 
                                     onChange={(e) => updateRow(item.id, 'size', e.target.value)}
-                                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-primary"
+                                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-1 py-2 text-xs text-white outline-none focus:border-primary"
                                 >
                                     {sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
                             
                             {item.isSimple ? (
-                                <div className="sm:col-span-4">
+                                <div className="col-span-2 sm:col-span-4">
                                     <label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Qtd</label>
                                     <input 
                                         type="number" 
                                         min="1"
                                         value={item.quantity || 1} 
                                         onChange={(e) => updateRow(item.id, 'quantity', parseInt(e.target.value) || 1)}
-                                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-primary font-mono text-center" 
+                                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-1 py-2 text-xs text-white outline-none focus:border-primary font-mono text-center" 
                                     />
                                 </div>
                             ) : (
                                 <>
-                                    <div className="sm:col-span-1">
+                                    <div className="col-span-4 sm:col-span-1">
                                         <label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nº</label>
                                         <input 
                                             type="text" 
@@ -277,7 +277,7 @@ export default function PublicListBuilder() {
                                             className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-1 py-2 text-xs text-white outline-none focus:border-primary text-center font-mono" 
                                         />
                                     </div>
-                                    <div className="sm:col-span-3">
+                                    <div className="col-span-12 sm:col-span-3">
                                         <label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nome</label>
                                         <input 
                                             type="text" 
@@ -290,19 +290,19 @@ export default function PublicListBuilder() {
                                 </>
                             )}
 
-                            <div className="sm:col-span-2">
+                            <div className="col-span-5 sm:col-span-2">
                                 <label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Short</label>
                                 <select 
                                     value={item.shortSize} 
                                     onChange={(e) => updateRow(item.id, 'shortSize', e.target.value)}
-                                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-primary"
+                                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-1 py-2 text-xs text-white outline-none focus:border-primary"
                                 >
                                     <option value="">-</option>
                                     {sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
                             
-                            <div className="sm:col-span-1">
+                            <div className="col-span-5 sm:col-span-1">
                                 <label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">S.Nº</label>
                                 <input 
                                     type="text" 
@@ -313,7 +313,7 @@ export default function PublicListBuilder() {
                                 />
                             </div>
 
-                            <div className="sm:col-span-1 flex items-end h-full pb-0.5">
+                            <div className="col-span-2 sm:col-span-1 flex items-end h-full pb-0.5">
                                 <button onClick={() => removeRow(item.id)} className="w-full p-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition flex items-center justify-center"><Trash2 size={16} /></button>
                             </div>
                         </div>
