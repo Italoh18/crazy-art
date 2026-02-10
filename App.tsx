@@ -20,7 +20,6 @@ import BackgroundRemover from './pages/BackgroundRemover';
 import PixelArt from './pages/PixelArt'; 
 import EmailTemplates from './pages/EmailTemplates';
 import PendingOrders from './pages/PendingOrders'; // Nova página
-import PublicListBuilder from './pages/PublicListBuilder'; // NOVA PÁGINA PÚBLICA
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
 
@@ -70,7 +69,6 @@ const AppRoutes = () => {
             <Route path="/layout-builder" element={<LayoutBuilder />} />
             <Route path="/remove-bg" element={<BackgroundRemover />} />
             <Route path="/pixel-art" element={<PixelArt />} />
-            <Route path="/public-list" element={<PublicListBuilder />} /> {/* Rota Pública */}
             <Route path="/my-area" element={<ClientRoute />} />
             <Route path="/pending-confirmations" element={<ProtectedRoute requiredRole="admin"><PendingOrders /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><Orders /></ProtectedRoute>} />
