@@ -10,6 +10,7 @@ import {
   Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal
 } from 'lucide-react';
 import { api } from '../src/services/api';
+import { SizeListItem } from '../types';
 
 export default function CustomerDetails() {
   const { id: paramId } = useParams<{ id: string }>();
@@ -870,13 +871,33 @@ export default function CustomerDetails() {
                             </div>
                         </div>
 
+                        {viewingOrder.size_list && (
+                            <div>
+                                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <ListChecks size={14} /> Lista de Produção
+                                </h3>
+                                <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                                    {(typeof viewingOrder.size_list === 'string' ? JSON.parse(viewingOrder.size_list) : viewingOrder.size_list).map((item: SizeListItem, idx: number) => (
+                                        <div key={idx} className="bg-zinc-900/30 p-2 rounded border border-white/5 flex justify-between items-center text-xs">
+                                            <span className="text-zinc-300 font-bold">{item.size} <span className="text-zinc-500 font-normal">({item.category})</span></span>
+                                            {item.isSimple ? (
+                                                <span className="text-white bg-zinc-700 px-2 py-0.5 rounded font-mono">x{item.quantity}</span>
+                                            ) : (
+                                                <span className="text-primary font-bold uppercase">{item.name || '-'} <span className="text-white font-mono">{item.number ? `#${item.number}` : ''}</span></span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <div>
                             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                <ListChecks size={14} /> Itens do Pedido
+                                <ListChecks size={14} /> Resumo Financeiro
                             </h3>
                             <div className="space-y-2">
                                 <div className="bg-zinc-900/30 p-3 rounded-xl border border-white/5 flex justify-between items-center">
-                                    <span className="text-zinc-300 text-sm">Resumo do Pedido</span>
+                                    <span className="text-zinc-300 text-sm">Valor Total</span>
                                     <span className="text-white font-mono font-bold text-sm">R$ {Number(viewingOrder.total || 0).toFixed(2)}</span>
                                 </div>
                             </div>

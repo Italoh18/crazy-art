@@ -185,8 +185,14 @@ export default function PendingOrders() {
                                               <tr key={item.id} className="hover:bg-white/[0.02]">
                                                   <td className="p-3"><span className="bg-zinc-800 px-2 py-0.5 rounded text-[10px] uppercase font-bold">{item.category}</span></td>
                                                   <td className="p-3 font-bold text-white">{item.size}</td>
-                                                  <td className="p-3 text-center font-mono">{item.number || '-'}</td>
-                                                  <td className="p-3 font-bold uppercase text-primary">{item.name || 'SEM NOME'}</td>
+                                                  <td className="p-3 text-center font-mono">{item.isSimple ? '-' : (item.number || '-')}</td>
+                                                  <td className="p-3 font-bold uppercase text-primary">
+                                                      {item.isSimple ? (
+                                                          <span className="text-zinc-400 italic">SEM NOME ({item.quantity} unidades)</span>
+                                                      ) : (
+                                                          item.name || 'SEM NOME'
+                                                      )}
+                                                  </td>
                                                   <td className="p-3 font-mono">{item.shortSize ? `${item.shortSize}${item.shortNumber ? ` (${item.shortNumber})` : ''}` : '-'}</td>
                                               </tr>
                                           ))}

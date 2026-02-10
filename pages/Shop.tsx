@@ -6,7 +6,7 @@ import {
   CheckCircle, AlertOctagon, Send, X, Trash2, Minus, 
   Plus as PlusIcon, CreditCard, Loader2, MessageCircle, 
   Lock, UserPlus, ChevronRight, ListChecks, Upload, 
-  Info, AlertTriangle, Wallet, Check, Film, FileText, Layers
+  Info, AlertTriangle, Wallet, Check, Film, FileText, Layers, Hash
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -130,13 +130,30 @@ export default function Shop() {
       number: '',
       name: '',
       shortSize: 'M',
-      shortNumber: ''
+      shortNumber: '',
+      quantity: 1,
+      isSimple: false // Default: Personalizado
     };
     setSizeList([...sizeList, newItem]);
   };
 
-  const updateListRow = (id: string, field: keyof SizeListItem, value: string) => {
+  const updateListRow = (id: string, field: keyof SizeListItem, value: any) => {
     setSizeList(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
+  };
+
+  const toggleSimpleMode = (id: string) => {
+      setSizeList(prev => prev.map(item => {
+          if (item.id === id) {
+              return { 
+                  ...item, 
+                  isSimple: !item.isSimple, 
+                  quantity: 1,
+                  name: '',
+                  number: ''
+              };
+          }
+          return item;
+      }));
   };
 
   const removeListRow = (id: string) => {
@@ -150,11 +167,17 @@ export default function Shop() {
     setIsListModalOpen(false);
   };
 
+  const calculateTotalItemsInList = () => {
+      return sizeList.reduce((acc, item) => acc + (item.quantity || 1), 0);
+  };
+
   // --- Lógica de Cálculo de Preço (REGRA DE NEGÓCIO DA LISTA) ---
 
   const calculateFinalOrder = () => {
       const itemsPayload: any[] = [];
       let totalValue = 0;
+      
+      const totalListItems = calculateTotalItemsInList();
 
       // 1. Itens do Carrinho
       cart.forEach(item => {
@@ -166,12 +189,12 @@ export default function Shop() {
           if (sizeList.length > 0) {
               // Regra 1: Camisas (PV ou Dry Fit) pegam a quantidade da lista
               if (nameLower.includes('camisa')) {
-                  qty = sizeList.length;
+                  qty = totalListItems;
               }
               // Regra 2: Réplica de Molde vira R$ 2,00 por item da lista
               else if (nameLower.includes('replica') || nameLower.includes('réplica')) {
                   unitPrice = 2.00;
-                  qty = sizeList.length;
+                  qty = totalListItems;
               }
           }
 
@@ -454,7 +477,7 @@ export default function Shop() {
                                     <p className="text-white font-bold text-sm">{item.productName} <span className="text-primary">x{item.quantity}</span></p>
                                     {/* Feedback visual se a quantidade foi alterada pela lista */}
                                     {sizeList.length > 0 && item.productName.toLowerCase().includes('camisa') && (
-                                        <p className="text-[10px] text-zinc-500 italic mt-0.5">Qtd atualizada pela lista de nomes</p>
+                                        <p className="text-[10px] text-zinc-500 italic mt-0.5">Qtd atualizada pela lista de nomes ({calculateTotalItemsInList()})</p>
                                     )}
                                 </div>
                                 <div className="flex items-center gap-4">
@@ -464,7 +487,6 @@ export default function Shop() {
                                 </div>
                             </div>
                         ))}
-                        {/* Se não houver itens mas houver serviços fixos adicionados via opções abaixo, eles aparecem no total, mas não aqui na lista editável */}
                     </div>
                 </div>
 
@@ -491,7 +513,7 @@ export default function Shop() {
                     <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl flex items-center justify-between">
                         <div className="flex items-center gap-3 text-emerald-400">
                             <CheckCircle size={20} />
-                            <span className="text-sm font-bold">Lista configurada ({sizeList.length} itens)</span>
+                            <span className="text-sm font-bold">Lista configurada ({calculateTotalItemsInList()} itens)</span>
                         </div>
                         <button onClick={() => setIsListModalOpen(true)} className="text-xs font-bold text-zinc-400 hover:text-white underline">Editar lista</button>
                     </div>
@@ -663,7 +685,7 @@ export default function Shop() {
                 <ShoppingBag className="text-primary" size={24} />
              </div>
              <h1 className="text-3xl font-bold text-white tracking-tight font-heading">
-                {step === 'list' ? 'Loja Crazy Art' : step === 'detail' ? 'Produto' : step === 'questionnaire' ? 'Revisar Pedido' : 'Finalizar Pedido'}
+                {step === 'list' ? 'Loja Crazy Art' : step === 'detail' ? 'Produto' : step === 'questionnaire' ? 'Detalhar Pedido' : 'Finalizar Pedido'}
              </h1>
           </div>
         </div>
@@ -739,26 +761,64 @@ export default function Shop() {
                                           {sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
                                       </select>
                                   </div>
-                                  <div className="md:col-span-1">
-                                      <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Nº</label>
-                                      <input 
-                                        type="text" 
-                                        placeholder="00" 
-                                        value={item.number} 
-                                        onChange={(e) => updateListRow(item.id, 'number', e.target.value)}
-                                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-primary text-center font-mono" 
-                                      />
-                                  </div>
-                                  <div className="md:col-span-3">
-                                      <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Nome na Camisa</label>
-                                      <input 
-                                        type="text" 
-                                        placeholder="NOME" 
-                                        value={item.name} 
-                                        onChange={(e) => updateListRow(item.id, 'name', e.target.value)}
-                                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary uppercase" 
-                                      />
-                                  </div>
+                                  
+                                  {/* Coluna Nome/Número com Toggle */}
+                                  {item.isSimple ? (
+                                      <div className="md:col-span-4 relative">
+                                          <div className="flex gap-2 items-end h-full">
+                                              <button 
+                                                  onClick={() => toggleSimpleMode(item.id)}
+                                                  className="bg-zinc-800 text-zinc-400 hover:text-white p-2 rounded-lg border border-zinc-700 h-[34px] w-[34px] flex items-center justify-center shrink-0"
+                                                  title="Voltar para Nome/Número"
+                                              >
+                                                  <X size={14} />
+                                              </button>
+                                              <div className="flex-1">
+                                                  <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Quantidade</label>
+                                                  <input 
+                                                      type="number" 
+                                                      min="1"
+                                                      value={item.quantity || 1} 
+                                                      onChange={(e) => updateListRow(item.id, 'quantity', parseInt(e.target.value) || 1)}
+                                                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary font-mono text-center" 
+                                                  />
+                                              </div>
+                                          </div>
+                                      </div>
+                                  ) : (
+                                      <>
+                                          <div className="md:col-span-1 relative">
+                                              <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Nº</label>
+                                              <input 
+                                                  type="text" 
+                                                  placeholder="00" 
+                                                  value={item.number} 
+                                                  onChange={(e) => updateListRow(item.id, 'number', e.target.value)}
+                                                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-primary text-center font-mono" 
+                                              />
+                                          </div>
+                                          <div className="md:col-span-3 relative">
+                                              <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Nome na Camisa</label>
+                                              <div className="relative">
+                                                  <input 
+                                                      type="text" 
+                                                      placeholder="NOME" 
+                                                      value={item.name} 
+                                                      onChange={(e) => updateListRow(item.id, 'name', e.target.value)}
+                                                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg pl-3 pr-8 py-2 text-xs text-white outline-none focus:border-primary uppercase" 
+                                                  />
+                                                  <button 
+                                                      onClick={() => toggleSimpleMode(item.id)}
+                                                      className="absolute right-1 top-1 p-1 text-zinc-500 hover:text-primary transition"
+                                                      title="Mudar para Quantidade (Sem nome)"
+                                                  >
+                                                      <Hash size={14} />
+                                                  </button>
+                                              </div>
+                                          </div>
+                                      </>
+                                  )}
+
                                   <div className="md:col-span-2">
                                       <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Short (Tamanho)</label>
                                       <select 
@@ -793,7 +853,7 @@ export default function Shop() {
                   </div>
 
                   <div className="p-6 bg-zinc-950 border-t border-zinc-800 flex justify-between items-center">
-                      <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">{sizeList.length} itens na lista</span>
+                      <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">{calculateTotalItemsInList()} itens na lista</span>
                       <button onClick={finalizeList} className="bg-emerald-600 hover:bg-emerald-500 text-white px-10 py-3 rounded-xl font-bold transition shadow-lg shadow-emerald-900/20 active:scale-95">FINALIZAR LISTA</button>
                   </div>
               </div>

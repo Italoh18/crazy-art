@@ -47,6 +47,8 @@ export interface SizeListItem {
   name: string;
   shortSize: string;
   shortNumber: string;
+  quantity?: number; // Novo: Multiplicador
+  isSimple?: boolean; // Novo: Se é apenas quantidade (sem nome/número)
 }
 
 export interface Order {
