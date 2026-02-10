@@ -376,27 +376,29 @@ export default function Shop() {
                 </div>
 
                 <div className="pt-6 space-y-4">
-                    {canAddToAccount ? (
-                        <button 
-                            onClick={handleAddToAccount}
-                            className="w-full bg-zinc-100 text-black py-5 rounded-2xl font-black text-lg hover:bg-white transition flex items-center justify-center gap-3 shadow-xl"
-                        >
-                            <Wallet size={24} /> ADICIONAR À MINHA CONTA
-                        </button>
-                    ) : (
+                    <div className={canAddToAccount ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-4"}>
+                        {canAddToAccount && (
+                            <button 
+                                onClick={handleAddToAccount}
+                                className="w-full bg-zinc-100 text-black py-4 rounded-2xl font-bold hover:bg-white transition flex items-center justify-center gap-3 shadow-xl active:scale-95 text-xs sm:text-sm uppercase tracking-wider"
+                            >
+                                <Wallet size={18} /> Adicionar à Conta
+                            </button>
+                        )}
+                        
                         <button 
                             onClick={handlePayMercadoPago}
                             disabled={isProcessing}
-                            className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-lg hover:bg-blue-500 transition flex items-center justify-center gap-3 shadow-xl shadow-blue-900/20"
+                            className={`w-full bg-blue-600 text-white rounded-2xl font-black transition flex items-center justify-center gap-3 shadow-xl shadow-blue-900/20 active:scale-95 ${canAddToAccount ? 'py-4 text-xs sm:text-sm' : 'py-5 text-lg'}`}
                         >
-                            {isProcessing ? <Loader2 className="animate-spin" /> : <CreditCard size={24} />} 
-                            PAGAR COM PIX / CARTÃO
+                            {isProcessing ? <Loader2 className="animate-spin" /> : <CreditCard size={canAddToAccount ? 18 : 24} />} 
+                            {canAddToAccount ? "PAGAR AGORA" : "PAGAR COM PIX / CARTÃO"}
                         </button>
-                    )}
+                    </div>
                     
                     <p className="text-[10px] text-zinc-500 text-center uppercase tracking-widest leading-relaxed">
                         {canAddToAccount 
-                            ? "Você possui limite disponível para este serviço. O valor será cobrado no fechamento da sua conta." 
+                            ? "Você possui limite disponível para este serviço. Você pode escolher pagar agora via PIX/Cartão ou faturar para o fechamento da sua conta." 
                             : "Para este pedido (produto ou falta de crédito), é necessário o pagamento imediato para confirmação."}
                     </p>
                 </div>
