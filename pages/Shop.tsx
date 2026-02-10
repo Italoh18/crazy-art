@@ -6,7 +6,7 @@ import {
   CheckCircle, AlertOctagon, Send, X, Trash2, Minus, 
   Plus as PlusIcon, CreditCard, Loader2, MessageCircle, 
   Lock, UserPlus, ChevronRight, ListChecks, Upload, 
-  Info, AlertTriangle, Wallet, Check, Film
+  Info, AlertTriangle, Wallet, Check, Film, FileText, Layers
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,24 +15,41 @@ import { api } from '../src/services/api';
 
 type ShopStep = 'list' | 'detail' | 'questionnaire' | 'checkout' | 'success';
 
+interface CartItem {
+    product: Product;
+    quantity: number;
+    description?: string;
+    tempId: string;
+}
+
 export default function Shop() {
-  const { products, addOrder, orders, deleteProduct } = useData();
+  const { products, addOrder, orders } = useData();
   const { role, currentCustomer } = useAuth();
   const navigate = useNavigate();
 
   // Estados de Fluxo
   const [step, setStep] = useState<ShopStep>('list');
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeTab, setActiveTab] = useState<'product' | 'service'>('product');
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Estados do Formulário de Pedido
-  const [orderDescription, setOrderDescription] = useState('');
-  const [orderQuantity, setOrderQuantity] = useState(1);
+  // Carrinho e Seleção Atual
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
+  
+  // Detalhes do Produto Atual (Sendo adicionado)
+  const [currentOrderDesc, setCurrentOrderDesc] = useState('');
+  const [currentOrderQty, setCurrentOrderQty] = useState(1);
+
+  // Estados do Formulário Geral (Aplicados ao pedido como um todo)
   const [hasSizeList, setHasSizeList] = useState(false);
   const [sizeList, setSizeList] = useState<SizeListItem[]>([]);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   
+  // Novas Opções de Produção
+  const [layoutOption, setLayoutOption] = useState<'sim' | 'precisa' | null>(null);
+  const [moldOption, setMoldOption] = useState<'sim' | 'precisa' | null>(null);
+  const [artLink, setArtLink] = useState('');
+
   // Estados do Checkout
   const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -48,12 +65,12 @@ export default function Shop() {
   });
 
   const recommendations = useMemo(() => {
-    if (!selectedProduct) return [];
+    if (!viewingProduct) return [];
     return products
-      .filter(p => p.id !== selectedProduct.id)
+      .filter(p => p.id !== viewingProduct.id)
       .sort(() => 0.5 - Math.random())
       .slice(0, 3);
-  }, [selectedProduct, products]);
+  }, [viewingProduct, products]);
 
   const sizes = {
     unisex: ['PP', 'P', 'M', 'G', 'GG', 'EG', 'XG1', 'XG2', 'XG3', 'XG4', 'XG5'],
@@ -61,21 +78,46 @@ export default function Shop() {
     infantil: ['RN', '2', '4', '6', '8', '10', '12', '14', '16']
   };
 
-  // --- Ações de Navegação ---
+  // --- Ações de Navegação e Carrinho ---
 
   const openProduct = (product: Product) => {
-    setSelectedProduct(product);
-    setOrderQuantity(1);
-    setOrderDescription('');
-    setHasSizeList(false);
-    setSizeList([]);
+    setViewingProduct(product);
+    setCurrentOrderQty(1);
+    setCurrentOrderDesc('');
     setStep('detail');
     window.scrollTo(0, 0);
   };
 
+  const addToCart = () => {
+      if (!viewingProduct) return;
+      const newItem: CartItem = {
+          product: viewingProduct,
+          quantity: currentOrderQty,
+          description: currentOrderDesc,
+          tempId: crypto.randomUUID()
+      };
+      setCart(prev => [...prev, newItem]);
+      setViewingProduct(null);
+      setStep('questionnaire'); // Vai para "Detalhar Pedido"
+  };
+
+  const removeFromCart = (tempId: string) => {
+      setCart(prev => prev.filter(item => item.tempId !== tempId));
+      if (cart.length <= 1) { // Se remover o último, volta pra lista
+          setStep('list');
+      }
+  };
+
   const goBack = () => {
     if (step === 'detail') setStep('list');
-    else if (step === 'questionnaire') setStep('detail');
+    else if (step === 'questionnaire') {
+        if (cart.length > 0) {
+            // Se tem itens, volta para adicionar mais (list) mas mantém o carrinho
+            setStep('list'); 
+        } else {
+            setStep('list');
+        }
+    }
     else if (step === 'checkout') setStep('questionnaire');
     else navigate('/');
   };
@@ -104,39 +146,102 @@ export default function Shop() {
   };
 
   const finalizeList = () => {
-    // Ordenar a lista: Unisex -> Feminina -> Infantil
     const orderMap = { unisex: 1, feminina: 2, infantil: 3 };
     const sorted = [...sizeList].sort((a, b) => orderMap[a.category] - orderMap[b.category]);
     setSizeList(sorted);
-    setOrderQuantity(sorted.length > 0 ? sorted.length : orderQuantity);
     setIsListModalOpen(false);
   };
 
-  // --- Lógica de Checkout ---
+  // --- Lógica de Cálculo de Preço (Incluindo Réplica e Serviços) ---
+
+  const calculateFinalOrder = () => {
+      const itemsPayload: any[] = [];
+      let totalValue = 0;
+
+      // 1. Itens do Carrinho
+      cart.forEach(item => {
+          let unitPrice = item.product.price;
+          let qty = item.quantity;
+
+          // LÓGICA RÉPLICA DE MOLDE
+          if (item.product.name.toLowerCase().includes('replica de molde') || item.product.name.toLowerCase().includes('réplica de molde')) {
+              unitPrice = 2.00;
+              qty = sizeList.length > 0 ? sizeList.length : qty; // Usa tamanho da lista se houver
+          }
+
+          const subtotal = unitPrice * qty;
+          totalValue += subtotal;
+
+          itemsPayload.push({
+              productId: item.product.id,
+              productName: item.product.name,
+              quantity: qty,
+              unitPrice: unitPrice,
+              total: subtotal,
+              type: item.product.type
+          });
+      });
+
+      // 2. Serviços Adicionais (Layout/Molde)
+      const findServicePrice = (namePart: string, defaultPrice: number) => {
+          const service = products.find(p => p.name.toLowerCase().includes(namePart.toLowerCase()));
+          return service ? service.price : defaultPrice;
+      };
+
+      if (layoutOption === 'precisa') {
+          const price = findServicePrice('layout simples', 30.00); // Preço base fallback
+          totalValue += price;
+          itemsPayload.push({
+              productId: 'service-layout',
+              productName: 'Serviço: Criação de Layout',
+              quantity: 1,
+              unitPrice: price,
+              total: price,
+              type: 'service'
+          });
+      }
+
+      if (moldOption === 'precisa') {
+          const price = findServicePrice('molde', 50.00); // Preço base fallback
+          totalValue += price;
+          itemsPayload.push({
+              productId: 'service-mold',
+              productName: 'Serviço: Criação de Molde',
+              quantity: 1,
+              unitPrice: price,
+              total: price,
+              type: 'service'
+          });
+      }
+
+      return { items: itemsPayload, total: totalValue };
+  };
 
   const handleCreateOrder = async () => {
-    if (role !== 'client' || !currentCustomer || !selectedProduct) {
+    if (role !== 'client' || !currentCustomer) {
         setNotification({ message: 'Faça login para continuar.', type: 'error' });
         return;
     }
 
+    if (cart.length === 0) return;
+
     setIsProcessing(true);
     try {
-        const total = selectedProduct.price * orderQuantity;
+        const { items, total } = calculateFinalOrder();
+        
         const dueDate = new Date();
         dueDate.setDate(dueDate.getDate() + 7);
 
+        // Monta descrição combinada
+        let fullDesc = cart.map(i => `${i.product.name} (x${i.quantity})` + (i.description ? `: ${i.description}` : '')).join('; ');
+        if (artLink) fullDesc += `\nLink da Arte: ${artLink}`;
+        if (layoutOption === 'precisa') fullDesc += `\n[Precisa de Layout]`;
+        if (moldOption === 'precisa') fullDesc += `\n[Precisa de Molde]`;
+
         const orderData = {
             client_id: currentCustomer.id,
-            description: orderDescription || `Pedido: ${selectedProduct.name}`,
-            items: [{
-                productId: selectedProduct.id,
-                productName: selectedProduct.name,
-                quantity: orderQuantity,
-                unitPrice: selectedProduct.price,
-                total: total,
-                type: selectedProduct.type
-            }],
+            description: fullDesc,
+            items: items,
             total: total,
             size_list: sizeList.length > 0 ? JSON.stringify(sizeList) : null,
             status: 'open',
@@ -168,9 +273,7 @@ export default function Shop() {
         });
         
         if (res?.init_point) {
-            // ABRIR EM NOVA ABA
             window.open(res.init_point, '_blank');
-            // AVANÇAR PARA SUCESSO NO APP PRINCIPAL
             setStep('success');
         }
     } catch (e: any) {
@@ -185,20 +288,21 @@ export default function Shop() {
     setStep('success');
   };
 
-  // Verificação de Crédito e Tipo de Item para Step 4
   const canAddToAccount = useMemo(() => {
     if (!currentCustomer || !lastCreatedOrder) return false;
-    const isService = selectedProduct?.type === 'service';
     
-    // Crédito disponível
+    // Verifica se TODOS os itens são serviços
+    const { items } = calculateFinalOrder(); // Recalcula para garantir
+    const allServices = items.every(i => i.type === 'service');
+    
     const openOrders = orders.filter(o => o.client_id === currentCustomer.id && o.status === 'open' && o.id !== lastCreatedOrder.id);
     const usedCredit = openOrders.reduce((acc, o) => acc + (o.total || 0), 0);
     const hasCredit = (currentCustomer.creditLimit || 0) >= (usedCredit + lastCreatedOrder.total);
 
-    return isService && hasCredit;
-  }, [currentCustomer, lastCreatedOrder, orders, selectedProduct]);
+    return allServices && hasCredit;
+  }, [currentCustomer, lastCreatedOrder, orders, cart, layoutOption, moldOption]); // Dependências atualizadas
 
-  // --- Renderizadores de Etapa ---
+  // --- Renderizadores ---
 
   const renderStepList = () => (
     <div className="animate-fade-in">
@@ -243,8 +347,8 @@ export default function Shop() {
     <div className="animate-fade-in max-w-5xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 aspect-square flex items-center justify-center shadow-2xl relative group">
-                {selectedProduct?.imageUrl ? (
-                    <img src={selectedProduct.imageUrl} className="w-full h-full object-cover" alt={selectedProduct.name} />
+                {viewingProduct?.imageUrl ? (
+                    <img src={viewingProduct.imageUrl} className="w-full h-full object-cover" alt={viewingProduct.name} />
                 ) : (
                     <ShoppingBag size={120} className="text-zinc-800" />
                 )}
@@ -253,18 +357,42 @@ export default function Shop() {
             
             <div className="flex flex-col justify-center space-y-8">
                 <div>
-                    <span className="bg-primary/10 text-primary text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-[0.2em] border border-primary/20">{selectedProduct?.type === 'product' ? 'Produto' : 'Serviço'}</span>
-                    <h2 className="text-4xl font-bold text-white mt-4 font-heading">{selectedProduct?.name}</h2>
-                    <p className="text-3xl font-black text-emerald-400 mt-2">R$ {selectedProduct?.price.toFixed(2)}</p>
+                    <span className="bg-primary/10 text-primary text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-[0.2em] border border-primary/20">{viewingProduct?.type === 'product' ? 'Produto' : 'Serviço'}</span>
+                    <h2 className="text-4xl font-bold text-white mt-4 font-heading">{viewingProduct?.name}</h2>
+                    <p className="text-3xl font-black text-emerald-400 mt-2">R$ {viewingProduct?.price.toFixed(2)}</p>
                 </div>
                 
                 <div className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800">
                     <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">Descrição</h4>
-                    <p className="text-zinc-300 leading-relaxed">{selectedProduct?.description || 'Nenhuma descrição adicional disponível para este item.'}</p>
+                    <p className="text-zinc-300 leading-relaxed mb-4">{viewingProduct?.description || 'Nenhuma descrição adicional disponível para este item.'}</p>
+                    
+                    {/* Campos de Quantidade e Observação do Item */}
+                    <div className="flex items-center gap-4 mb-4">
+                        <div className="flex items-center gap-2 bg-black rounded-xl p-2 border border-zinc-800">
+                            <button onClick={() => setCurrentOrderQty(Math.max(1, currentOrderQty - 1))} className="p-2 text-zinc-500 hover:text-white transition"><Minus size={16} /></button>
+                            <input 
+                                type="number" 
+                                value={currentOrderQty} 
+                                onChange={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (!isNaN(val) && val > 0) setCurrentOrderQty(val);
+                                }}
+                                className="w-10 bg-transparent text-white text-center font-bold outline-none appearance-none"
+                            />
+                            <button onClick={() => setCurrentOrderQty(currentOrderQty + 1)} className="p-2 text-zinc-500 hover:text-white transition"><PlusIcon size={16} /></button>
+                        </div>
+                        <input 
+                            type="text" 
+                            placeholder="Obs. (Cor, Tamanho...)" 
+                            className="flex-1 bg-black rounded-xl px-4 py-3 border border-zinc-800 text-white focus:border-primary outline-none text-sm"
+                            value={currentOrderDesc}
+                            onChange={(e) => setCurrentOrderDesc(e.target.value)}
+                        />
+                    </div>
                 </div>
 
-                <button onClick={() => setStep('questionnaire')} className="w-full bg-crazy-gradient text-white py-5 rounded-2xl font-bold text-lg hover:scale-105 transition-all shadow-xl shadow-primary/20 flex items-center justify-center gap-3 active:scale-95">
-                    <ShoppingCart size={24} /> FAZER PEDIDO
+                <button onClick={addToCart} className="w-full bg-crazy-gradient text-white py-5 rounded-2xl font-bold text-lg hover:scale-105 transition-all shadow-xl shadow-primary/20 flex items-center justify-center gap-3 active:scale-95">
+                    <ShoppingCart size={24} /> ADICIONAR AO PEDIDO
                 </button>
             </div>
         </div>
@@ -291,135 +419,213 @@ export default function Shop() {
     </div>
   );
 
-  const renderStepQuestionnaire = () => (
-    <div className="animate-fade-in max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 p-8 rounded-3xl shadow-2xl">
-        <h2 className="text-2xl font-bold text-white mb-8 flex items-center gap-3">
-            <ListChecks className="text-primary" /> Questionário do Pedido
-        </h2>
-        
-        <div className="space-y-8">
-            <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 ml-1">Detalhes do Pedido</label>
-                <textarea 
-                    className="w-full bg-black/40 border border-zinc-800 rounded-2xl px-5 py-4 text-white focus:border-primary outline-none transition min-h-[120px]" 
-                    placeholder="Descreva detalhes como cores, referências ou observações específicas..."
-                    value={orderDescription}
-                    onChange={(e) => setOrderDescription(e.target.value)}
-                />
-            </div>
-
-            <div className="flex items-center justify-between p-6 bg-zinc-950 rounded-2xl border border-zinc-800 group hover:border-zinc-700 transition">
-                <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-xl transition ${hasSizeList ? 'bg-primary text-white shadow-glow' : 'bg-zinc-800 text-zinc-500'}`}>
-                        <Film size={24} />
-                    </div>
-                    <div>
-                        <h4 className="font-bold text-white">O pedido terá lista?</h4>
-                        <p className="text-xs text-zinc-500">Nomes, números e tamanhos específicos.</p>
-                    </div>
-                </div>
-                <button 
-                    onClick={() => { setHasSizeList(!hasSizeList); if(!hasSizeList) setIsListModalOpen(true); }}
-                    className={`w-14 h-8 rounded-full transition-colors relative flex items-center px-1 ${hasSizeList ? 'bg-primary' : 'bg-zinc-800'}`}
-                >
-                    <div className={`w-6 h-6 bg-white rounded-full transition-transform shadow-lg ${hasSizeList ? 'translate-x-6' : 'translate-x-0'}`}></div>
-                </button>
-            </div>
-
-            {hasSizeList && sizeList.length > 0 && (
-                <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-emerald-400">
-                        <CheckCircle size={20} />
-                        <span className="text-sm font-bold">Lista configurada ({sizeList.length} itens)</span>
-                    </div>
-                    <button onClick={() => setIsListModalOpen(true)} className="text-xs font-bold text-zinc-400 hover:text-white underline">Editar lista</button>
-                </div>
-            )}
-
-            {!hasSizeList && (
-                <div className="flex items-center justify-between bg-zinc-950 p-6 rounded-2xl border border-zinc-800">
-                    <span className="text-sm font-bold text-zinc-400 uppercase tracking-widest">Quantidade</span>
-                    <div className="flex items-center gap-6 bg-black rounded-xl p-2 border border-zinc-800">
-                        <button onClick={() => setOrderQuantity(Math.max(1, orderQuantity - 1))} className="p-2 text-zinc-500 hover:text-white transition"><Minus size={20} /></button>
-                        <span className="text-xl font-bold text-white w-8 text-center">{orderQuantity}</span>
-                        <button onClick={() => setOrderQuantity(orderQuantity + 1)} className="p-2 text-zinc-500 hover:text-white transition"><PlusIcon size={20} /></button>
-                    </div>
-                </div>
-            )}
-
-            <button 
-                onClick={handleCreateOrder}
-                disabled={isProcessing}
-                className="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg hover:bg-amber-600 transition shadow-xl shadow-primary/20 flex items-center justify-center gap-3 disabled:opacity-50"
-            >
-                {isProcessing ? <Loader2 className="animate-spin" /> : <ChevronRight />} 
-                PROSSEGUIR PARA PAGAMENTO
-            </button>
-        </div>
-    </div>
-  );
-
-  const renderStepCheckout = () => (
-    <div className="animate-fade-in max-w-xl mx-auto">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
-            <div className="p-8 border-b border-zinc-800 bg-zinc-950">
-                <h2 className="text-2xl font-bold text-white mb-2">Resumo do Pedido</h2>
-                <p className="text-zinc-500 text-sm">Pedido gerado: <span className="text-white font-mono">#{lastCreatedOrder?.order_number}</span></p>
-            </div>
+  const renderStepQuestionnaire = () => {
+      // Calcular prévia do total
+      const calc = calculateFinalOrder();
+      
+      return (
+        <div className="animate-fade-in max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 p-8 rounded-3xl shadow-2xl relative">
+            <h2 className="text-2xl font-bold text-white mb-8 flex items-center gap-3">
+                <ListChecks className="text-primary" /> Detalhar Pedido
+            </h2>
             
-            <div className="p-8 space-y-6">
-                <div className="flex justify-between items-center text-zinc-400">
-                    <span>{selectedProduct?.name} (x{orderQuantity})</span>
-                    <span className="text-white font-mono">R$ {lastCreatedOrder?.total.toFixed(2)}</span>
-                </div>
+            <div className="space-y-8">
                 
-                <div className="h-px bg-zinc-800"></div>
-                
-                <div className="flex justify-between items-center">
-                    <span className="text-lg font-bold text-white">Total a Pagar</span>
-                    <span className="text-2xl font-black text-emerald-400 font-mono">R$ {lastCreatedOrder?.total.toFixed(2)}</span>
-                </div>
-
-                <div className="pt-6 space-y-4">
-                    <div className={canAddToAccount ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-4"}>
-                        {canAddToAccount && (
-                            <button 
-                                onClick={handleAddToAccount}
-                                className="w-full bg-zinc-100 text-black py-4 rounded-2xl font-bold hover:bg-white transition flex items-center justify-center gap-3 shadow-xl active:scale-95 text-xs sm:text-sm uppercase tracking-wider"
-                            >
-                                <Wallet size={18} /> Adicionar à Conta
-                            </button>
-                        )}
-                        
-                        <button 
-                            onClick={handlePayMercadoPago}
-                            disabled={isProcessing}
-                            className={`w-full bg-blue-600 text-white rounded-2xl font-black transition flex items-center justify-center gap-3 shadow-xl shadow-blue-900/20 active:scale-95 ${canAddToAccount ? 'py-4 text-xs sm:text-sm' : 'py-5 text-lg'}`}
-                        >
-                            {isProcessing ? <Loader2 className="animate-spin" /> : <CreditCard size={canAddToAccount ? 18 : 24} />} 
-                            {canAddToAccount ? "PAGAR AGORA" : "PAGAR COM PIX / CARTÃO"}
+                {/* 1. Lista de Itens no Carrinho */}
+                <div className="bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden">
+                    <div className="p-4 bg-zinc-950 border-b border-zinc-800 flex justify-between items-center">
+                        <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Itens Selecionados</span>
+                        <button onClick={() => setStep('list')} className="text-xs font-bold text-primary hover:text-white transition flex items-center gap-1">
+                            <PlusIcon size={12} /> Adicionar mais produto/serviço
                         </button>
                     </div>
-                    
-                    <p className="text-[10px] text-zinc-500 text-center uppercase tracking-widest leading-relaxed">
-                        {canAddToAccount 
-                            ? "Você possui limite disponível para este serviço. Você pode escolher pagar agora via PIX/Cartão ou faturar para o fechamento da sua conta." 
-                            : "Para este pedido (produto ou falta de crédito), é necessário o pagamento imediato para confirmação."}
-                    </p>
+                    <div className="divide-y divide-zinc-800">
+                        {cart.map((item, idx) => (
+                            <div key={item.tempId} className="p-4 flex justify-between items-center group">
+                                <div>
+                                    <p className="text-white font-bold text-sm">{item.product.name} <span className="text-zinc-500">x{item.quantity}</span></p>
+                                    {item.description && <p className="text-xs text-zinc-500 italic">"{item.description}"</p>}
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <span className="text-emerald-400 font-mono text-sm">R$ {(item.product.price * item.quantity).toFixed(2)}</span>
+                                    <button onClick={() => removeFromCart(item.tempId)} className="text-zinc-600 hover:text-red-500 transition"><Trash2 size={16} /></button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* 2. Opções de Produção */}
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Layout Option */}
+                        <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800">
+                            <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">Seu pedido tem Layout?</p>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => setLayoutOption('sim')} 
+                                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${layoutOption === 'sim' ? 'bg-emerald-600 text-white' : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'}`}
+                                >Sim</button>
+                                <button 
+                                    onClick={() => setLayoutOption('precisa')} 
+                                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${layoutOption === 'precisa' ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'}`}
+                                >Precisa Montar</button>
+                            </div>
+                        </div>
+
+                        {/* Mold Option */}
+                        <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800">
+                            <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">Seu pedido tem Molde?</p>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => setMoldOption('sim')} 
+                                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${moldOption === 'sim' ? 'bg-emerald-600 text-white' : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'}`}
+                                >Sim</button>
+                                <button 
+                                    onClick={() => setMoldOption('precisa')} 
+                                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${moldOption === 'precisa' ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'}`}
+                                >Precisa Montar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {(layoutOption === 'sim' || moldOption === 'sim') && (
+                        <div className="animate-fade-in">
+                            <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Link dos Arquivos (Drive/Nuvem)</label>
+                            <div className="relative">
+                                <input 
+                                    type="text" 
+                                    placeholder="Cole o link aqui..." 
+                                    className="w-full bg-black/40 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary outline-none transition"
+                                    value={artLink}
+                                    onChange={(e) => setArtLink(e.target.value)}
+                                />
+                                <Upload className="absolute left-3 top-3.5 text-zinc-600" size={16} />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* 3. Lista de Tamanhos */}
+                <div className="flex items-center justify-between p-6 bg-zinc-950 rounded-2xl border border-zinc-800 group hover:border-zinc-700 transition">
+                    <div className="flex items-center gap-4">
+                        <div className={`p-3 rounded-xl transition ${hasSizeList ? 'bg-primary text-white shadow-glow' : 'bg-zinc-800 text-zinc-500'}`}>
+                            <Film size={24} />
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-white">Lista de Produção?</h4>
+                            <p className="text-xs text-zinc-500">Nomes, números e tamanhos.</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => { setHasSizeList(!hasSizeList); if(!hasSizeList) setIsListModalOpen(true); }}
+                        className={`w-14 h-8 rounded-full transition-colors relative flex items-center px-1 ${hasSizeList ? 'bg-primary' : 'bg-zinc-800'}`}
+                    >
+                        <div className={`w-6 h-6 bg-white rounded-full transition-transform shadow-lg ${hasSizeList ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                    </button>
+                </div>
+
+                {hasSizeList && sizeList.length > 0 && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl flex items-center justify-between">
+                        <div className="flex items-center gap-3 text-emerald-400">
+                            <CheckCircle size={20} />
+                            <span className="text-sm font-bold">Lista configurada ({sizeList.length} itens)</span>
+                        </div>
+                        <button onClick={() => setIsListModalOpen(true)} className="text-xs font-bold text-zinc-400 hover:text-white underline">Editar lista</button>
+                    </div>
+                )}
+
+                <div className="border-t border-zinc-800 pt-6 mt-6">
+                    <div className="flex justify-between items-end mb-6">
+                        <span className="text-zinc-500 text-sm font-bold uppercase tracking-wider">Total Estimado</span>
+                        <span className="text-3xl font-black text-white">R$ {calc.total.toFixed(2)}</span>
+                    </div>
+
+                    <button 
+                        onClick={handleCreateOrder}
+                        disabled={isProcessing}
+                        className="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg hover:bg-amber-600 transition shadow-xl shadow-primary/20 flex items-center justify-center gap-3 disabled:opacity-50"
+                    >
+                        {isProcessing ? <Loader2 className="animate-spin" /> : <ChevronRight />} 
+                        PROSSEGUIR PARA PAGAMENTO
+                    </button>
                 </div>
             </div>
         </div>
-    </div>
-  );
+      );
+  };
+
+  const renderStepCheckout = () => {
+    // Recalcular total baseando-se no último pedido criado
+    // Mas para exibição, podemos confiar no lastCreatedOrder
+    
+    return (
+        <div className="animate-fade-in max-w-xl mx-auto">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
+                <div className="p-8 border-b border-zinc-800 bg-zinc-950">
+                    <h2 className="text-2xl font-bold text-white mb-2">Resumo do Pedido</h2>
+                    <p className="text-zinc-500 text-sm">Pedido gerado: <span className="text-white font-mono">#{lastCreatedOrder?.order_number}</span></p>
+                </div>
+                
+                <div className="p-8 space-y-6">
+                    {/* Lista Resumida */}
+                    <div className="space-y-2">
+                        {lastCreatedOrder?.items?.map((item: any, idx: number) => (
+                            <div key={idx} className="flex justify-between text-sm">
+                                <span className="text-zinc-400">{item.productName || item.name} (x{item.quantity})</span>
+                                <span className="text-white font-mono">R$ {item.total.toFixed(2)}</span>
+                            </div>
+                        ))}
+                    </div>
+                    
+                    <div className="h-px bg-zinc-800"></div>
+                    
+                    <div className="flex justify-between items-center">
+                        <span className="text-lg font-bold text-white">Total a Pagar</span>
+                        <span className="text-2xl font-black text-emerald-400 font-mono">R$ {lastCreatedOrder?.total.toFixed(2)}</span>
+                    </div>
+
+                    <div className="pt-6 space-y-4">
+                        <div className={canAddToAccount ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-4"}>
+                            {canAddToAccount && (
+                                <button 
+                                    onClick={handleAddToAccount}
+                                    className="w-full bg-zinc-100 text-black py-4 rounded-2xl font-bold hover:bg-white transition flex items-center justify-center gap-3 shadow-xl active:scale-95 text-xs sm:text-sm uppercase tracking-wider"
+                                >
+                                    <Wallet size={18} /> Adicionar à Conta
+                                </button>
+                            )}
+                            
+                            <button 
+                                onClick={handlePayMercadoPago}
+                                disabled={isProcessing}
+                                className={`w-full bg-blue-600 text-white rounded-2xl font-black transition flex items-center justify-center gap-3 shadow-xl shadow-blue-900/20 active:scale-95 ${canAddToAccount ? 'py-4 text-xs sm:text-sm' : 'py-5 text-lg'}`}
+                            >
+                                {isProcessing ? <Loader2 className="animate-spin" /> : <CreditCard size={canAddToAccount ? 18 : 24} />} 
+                                {canAddToAccount ? "PAGAR AGORA" : "PAGAR COM PIX / CARTÃO"}
+                            </button>
+                        </div>
+                        
+                        <p className="text-[10px] text-zinc-500 text-center uppercase tracking-widest leading-relaxed">
+                            {canAddToAccount 
+                                ? "Você possui limite disponível para este serviço. Você pode escolher pagar agora via PIX/Cartão ou faturar para o fechamento da sua conta." 
+                                : "Para este pedido (produto ou falta de crédito), é necessário o pagamento imediato para confirmação."}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+  };
 
   const renderStepSuccess = () => (
     <div className="animate-fade-in flex flex-col items-center justify-center py-20 text-center max-w-md mx-auto">
         <div className="w-24 h-24 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mb-8 ring-8 ring-emerald-500/5">
             <Check size={48} strokeWidth={3} />
         </div>
-        <h2 className="text-4xl font-bold text-white mb-4 font-heading">Aguardando Pagamento</h2>
+        <h2 className="text-4xl font-bold text-white mb-4 font-heading">Pedido Confirmado!</h2>
         <p className="text-zinc-400 mb-10 leading-relaxed">
-            Seu pedido <strong>#{lastCreatedOrder?.order_number}</strong> foi gerado. Se você pagou na nova aba, o status será atualizado automaticamente em instantes.
+            Seu pedido <strong>#{lastCreatedOrder?.order_number}</strong> foi recebido e já está em nossa fila de processamento.
         </p>
         <div className="grid grid-cols-1 w-full gap-4">
             <button onClick={() => navigate('/my-area')} className="w-full bg-white text-black py-4 rounded-2xl font-bold hover:bg-zinc-200 transition">Ver Meus Pedidos</button>
