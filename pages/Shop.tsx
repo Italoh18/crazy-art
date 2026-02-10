@@ -6,7 +6,7 @@ import {
   CheckCircle, AlertOctagon, Send, X, Trash2, Minus, 
   Plus as PlusIcon, CreditCard, Loader2, MessageCircle, 
   Lock, UserPlus, ChevronRight, ListChecks, Upload, 
-  Info, AlertTriangle, Wallet, Check, Film, FileText, Layers, Hash
+  Info, AlertTriangle, Wallet, Check, Film, FileText, Layers, Hash, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -44,6 +44,7 @@ export default function Shop() {
   const [hasSizeList, setHasSizeList] = useState(false);
   const [sizeList, setSizeList] = useState<SizeListItem[]>([]);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
+  const [isGlobalSimple, setIsGlobalSimple] = useState(false); // Estado para controlar o modo da lista
   
   // Novas Opções de Produção
   const [layoutOption, setLayoutOption] = useState<'sim' | 'precisa' | null>(null);
@@ -122,6 +123,20 @@ export default function Shop() {
 
   // --- Lógica da Lista de Tamanhos ---
 
+  const toggleGlobalSimpleMode = () => {
+      const newValue = !isGlobalSimple;
+      setIsGlobalSimple(newValue);
+      
+      // Atualiza todos os itens existentes para o novo modo
+      setSizeList(prev => prev.map(item => ({
+          ...item,
+          isSimple: newValue,
+          quantity: newValue ? (item.quantity || 1) : 1,
+          name: newValue ? '' : item.name, // Limpa nome se for para simples, ou mantém vazio se voltar
+          number: newValue ? '' : item.number
+      })));
+  };
+
   const addListRow = () => {
     const newItem: SizeListItem = {
       id: crypto.randomUUID(),
@@ -132,28 +147,13 @@ export default function Shop() {
       shortSize: 'M',
       shortNumber: '',
       quantity: 1,
-      isSimple: false // Default: Personalizado
+      isSimple: isGlobalSimple // Usa o estado global ao criar
     };
     setSizeList([...sizeList, newItem]);
   };
 
   const updateListRow = (id: string, field: keyof SizeListItem, value: any) => {
     setSizeList(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
-  };
-
-  const toggleSimpleMode = (id: string) => {
-      setSizeList(prev => prev.map(item => {
-          if (item.id === id) {
-              return { 
-                  ...item, 
-                  isSimple: !item.isSimple, 
-                  quantity: 1,
-                  name: '',
-                  number: ''
-              };
-          }
-          return item;
-      }));
   };
 
   const removeListRow = (id: string) => {
@@ -736,6 +736,18 @@ export default function Shop() {
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                      
+                      {/* Global Mode Toggle */}
+                      <div className="flex items-center justify-end mb-4 px-2">
+                          <button 
+                              onClick={toggleGlobalSimpleMode}
+                              className={`flex items-center gap-3 px-4 py-2 rounded-xl transition-all border ${isGlobalSimple ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600'}`}
+                          >
+                              <span className="text-xs font-bold uppercase tracking-wider">Lista sem nomes (Apenas Quantidade)</span>
+                              {isGlobalSimple ? <ToggleRight size={24} className="text-primary" /> : <ToggleLeft size={24} />}
+                          </button>
+                      </div>
+
                       <div className="space-y-4">
                           {sizeList.map((item, idx) => (
                               <div key={item.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 p-4 bg-zinc-950 rounded-2xl border border-zinc-800 items-end animate-fade-in-up" style={{ animationDelay: `${idx * 50}ms` }}>
@@ -762,28 +774,17 @@ export default function Shop() {
                                       </select>
                                   </div>
                                   
-                                  {/* Coluna Nome/Número com Toggle */}
+                                  {/* Coluna Nome/Número OU Quantidade baseada no modo GLOBAL */}
                                   {item.isSimple ? (
                                       <div className="md:col-span-4 relative">
-                                          <div className="flex gap-2 items-end h-full">
-                                              <button 
-                                                  onClick={() => toggleSimpleMode(item.id)}
-                                                  className="bg-zinc-800 text-zinc-400 hover:text-white p-2 rounded-lg border border-zinc-700 h-[34px] w-[34px] flex items-center justify-center shrink-0"
-                                                  title="Voltar para Nome/Número"
-                                              >
-                                                  <X size={14} />
-                                              </button>
-                                              <div className="flex-1">
-                                                  <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Quantidade</label>
-                                                  <input 
-                                                      type="number" 
-                                                      min="1"
-                                                      value={item.quantity || 1} 
-                                                      onChange={(e) => updateListRow(item.id, 'quantity', parseInt(e.target.value) || 1)}
-                                                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary font-mono text-center" 
-                                                  />
-                                              </div>
-                                          </div>
+                                          <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Quantidade</label>
+                                          <input 
+                                              type="number" 
+                                              min="1"
+                                              value={item.quantity || 1} 
+                                              onChange={(e) => updateListRow(item.id, 'quantity', parseInt(e.target.value) || 1)}
+                                              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary font-mono text-center" 
+                                          />
                                       </div>
                                   ) : (
                                       <>
@@ -799,22 +800,13 @@ export default function Shop() {
                                           </div>
                                           <div className="md:col-span-3 relative">
                                               <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Nome na Camisa</label>
-                                              <div className="relative">
-                                                  <input 
-                                                      type="text" 
-                                                      placeholder="NOME" 
-                                                      value={item.name} 
-                                                      onChange={(e) => updateListRow(item.id, 'name', e.target.value)}
-                                                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg pl-3 pr-8 py-2 text-xs text-white outline-none focus:border-primary uppercase" 
-                                                  />
-                                                  <button 
-                                                      onClick={() => toggleSimpleMode(item.id)}
-                                                      className="absolute right-1 top-1 p-1 text-zinc-500 hover:text-primary transition"
-                                                      title="Mudar para Quantidade (Sem nome)"
-                                                  >
-                                                      <Hash size={14} />
-                                                  </button>
-                                              </div>
+                                              <input 
+                                                  type="text" 
+                                                  placeholder="NOME" 
+                                                  value={item.name} 
+                                                  onChange={(e) => updateListRow(item.id, 'name', e.target.value)}
+                                                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg pl-3 pr-4 py-2 text-xs text-white outline-none focus:border-primary uppercase" 
+                                              />
                                           </div>
                                       </>
                                   )}
