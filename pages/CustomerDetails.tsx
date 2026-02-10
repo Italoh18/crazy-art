@@ -132,15 +132,12 @@ export default function CustomerDetails() {
   const isAllSelected = currentTabPayableOrders.length > 0 && currentTabPayableOrders.every(o => selectedOrderIds.includes(o.id));
 
   const handleSelectAll = (e: React.MouseEvent) => {
-      // Se for selecionar tudo, usamos a posição do header ou um padrão
       if (e) setFloatingY(e.clientY);
       
       if (isAllSelected) {
-          // Desmarcar todos da visualização atual
           const idsToDeselect = currentTabPayableOrders.map(o => { return o.id; });
           setSelectedOrderIds(prev => prev.filter(id => !idsToDeselect.includes(id)));
       } else {
-          // Marcar todos da visualização atual
           const idsToSelect = currentTabPayableOrders.map(o => { return o.id; });
           setSelectedOrderIds(prev => Array.from(new Set([...prev, ...idsToSelect])));
       }
@@ -161,7 +158,6 @@ export default function CustomerDetails() {
   }, [allCustomerOrders, selectedOrderIds]);
 
   const toggleSelectOrder = (orderId: string, e: React.MouseEvent) => {
-    // Captura a posição Y do clique para posicionar o modal
     setFloatingY(e.clientY);
 
     setSelectedOrderIds(prev => 
@@ -173,8 +169,6 @@ export default function CustomerDetails() {
     if (orderIds.length === 0) return;
     setIsBatchProcessing(true);
     try {
-        // CORREÇÃO: Calcular o total baseando-se EXATAMENTE nos IDs passados
-        // Isso impede que pegue o total global se orderIds for apenas 1 item
         const targetOrders = allCustomerOrders.filter(o => orderIds.includes(o.id));
         const amountToPay = targetOrders.reduce((acc, o) => acc + (o.total || 0), 0);
 
@@ -191,7 +185,8 @@ export default function CustomerDetails() {
         });
 
         if (res && res.init_point) {
-            window.location.href = res.init_point;
+            // ABRIR EM NOVA ABA
+            window.open(res.init_point, '_blank');
         } else {
             alert('Erro ao gerar link de pagamento.');
         }
@@ -206,7 +201,7 @@ export default function CustomerDetails() {
   const handleManualPayment = async (orderId: string) => {
       if (confirm("Confirmar recebimento manual deste pedido?")) {
           await updateOrderStatus(orderId, 'paid');
-          if (viewingOrder?.id === orderId) setViewingOrder(null); // Fecha modal se aberto
+          if (viewingOrder?.id === orderId) setViewingOrder(null);
       }
   };
 
@@ -227,7 +222,8 @@ export default function CustomerDetails() {
           });
 
           if (res && res.init_point) {
-              window.location.href = res.init_point;
+              // ABRIR EM NOVA ABA
+              window.open(res.init_point, '_blank');
           } else {
               alert('Erro ao gerar link.');
           }
@@ -285,14 +281,12 @@ export default function CustomerDetails() {
   };
 
   const handleEditOrder = async (order: any) => {
-      // Fecha o modal de detalhes se estiver aberto
       setViewingOrder(null);
       setIsLoadingOrderDetails(true);
       setEditingOrderId(order.id);
-      setIsNewOrderModalOpen(true); // Abre modal imediatamente com loading
+      setIsNewOrderModalOpen(true);
 
       try {
-          // Busca detalhes completos do pedido (incluindo itens)
           const fullOrder = await api.getOrder(order.id);
           
           setNewOrderData({
@@ -368,9 +362,6 @@ export default function CustomerDetails() {
           return;
       }
 
-      // --- VALIDAÇÃO AUTOMÁTICA: INADIMPLÊNCIA E LIMITE ---
-      
-      // 1. Verifica se há pedidos vencidos
       if (_overdueOrders.length > 0) {
           if (role === 'admin') {
               const confirmOverdue = window.confirm(
@@ -384,22 +375,17 @@ export default function CustomerDetails() {
           }
       }
 
-      // 2. Calcula a projeção da dívida total
       let projectedDebt = totalOpen;
 
       if (editingOrderId) {
-          // Se estiver editando, removemos o valor atual deste pedido da dívida total
-          // para somar o novo valor (evita contagem dupla)
           const currentEditingOrder = orders.find(o => o.id === editingOrderId);
           if (currentEditingOrder && currentEditingOrder.status === 'open') {
               projectedDebt -= (currentEditingOrder.total || 0);
           }
       }
 
-      // Adiciona o valor do novo pedido (ou o novo valor do pedido editado)
       projectedDebt += orderTotal;
 
-      // 3. Verifica se ultrapassa o limite
       if (projectedDebt > creditLimit) {
           if (role === 'admin') {
               const confirmLimit = window.confirm(
@@ -417,8 +403,6 @@ export default function CustomerDetails() {
               return;
           }
       }
-
-      // --- FIM DA VALIDAÇÃO ---
 
       const payload = {
           client_id: customer.id,
@@ -452,7 +436,6 @@ export default function CustomerDetails() {
               description: 'Criado via pedido rápido'
           });
           
-          // Adiciona imediatamente ao pedido
           handleAddItem({
               id: newItem.id,
               name: newItem.name,
@@ -510,7 +493,6 @@ export default function CustomerDetails() {
             
             <div className="flex flex-wrap items-center gap-2">
                 
-                {/* BOTÃO PAGAR TUDO - FIXO NAS AÇÕES */}
                 {totalPayableValue > 0 && (
                     <button 
                         onClick={handlePayAll}
@@ -522,7 +504,6 @@ export default function CustomerDetails() {
                     </button>
                 )}
 
-                {/* Botão Nuvem de Arquivos */}
                 {cloudUrl && (
                     <a 
                         href={cloudUrl} 
@@ -552,7 +533,6 @@ export default function CustomerDetails() {
 
         {/* Status Cards Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Card Em Aberto */}
             <div className="bg-[#0c0c0e] border border-white/5 p-6 rounded-2xl relative overflow-hidden group">
                 <div className="flex items-center gap-3 mb-4">
                     <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-500">
@@ -566,7 +546,6 @@ export default function CustomerDetails() {
                 </div>
             </div>
 
-            {/* Card Vencido */}
             <div className={`bg-[#0c0c0e] border p-6 rounded-2xl relative overflow-hidden group transition-colors ${totalOverdueValue > 0 ? 'border-red-500/30' : 'border-white/5'}`}>
                 <div className="flex items-center gap-3 mb-4">
                     <div className={`p-2 rounded-lg border ${totalOverdueValue > 0 ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-zinc-800/50 text-zinc-600 border-zinc-700/50'}`}>
@@ -580,7 +559,6 @@ export default function CustomerDetails() {
                 </div>
             </div>
 
-            {/* Card Total Pago */}
             <div className="bg-[#0c0c0e] border border-white/5 p-6 rounded-2xl relative overflow-hidden group">
                 <div className="flex items-center gap-3 mb-4">
                     <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-500">
@@ -597,8 +575,6 @@ export default function CustomerDetails() {
 
         {/* Info & Credit Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {/* Left Column: Contact Info */}
             <div className="lg:col-span-1 space-y-4">
                 <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 ml-1">Informações de Contato</h3>
                 
@@ -626,9 +602,7 @@ export default function CustomerDetails() {
                 </div>
             </div>
 
-            {/* Right Column: Credit Card */}
             <div className="lg:col-span-2 bg-gradient-to-br from-[#121215] to-[#09090b] border border-white/5 rounded-2xl p-8 relative overflow-hidden flex flex-col justify-between min-h-[280px]">
-                {/* Background Glow */}
                 <div className="absolute right-0 top-0 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
 
                 <div className="relative z-10 flex justify-between items-start">
@@ -652,7 +626,6 @@ export default function CustomerDetails() {
                     </div>
                     
                     <div className="w-full h-5 bg-zinc-900/50 rounded-full overflow-hidden border border-white/5 relative">
-                        {/* Pattern background for bar */}
                         <div className="absolute inset-0 opacity-20 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,#000_10px,#000_20px)]"></div>
                         
                         <div 
@@ -666,10 +639,7 @@ export default function CustomerDetails() {
             </div>
         </div>
 
-        {/* Orders List Container */}
         <div className="bg-[#121215] border border-white/5 rounded-2xl overflow-hidden shadow-xl mt-4">
-            
-            {/* ABAS DE NAVEGAÇÃO */}
             <div className="flex flex-col sm:flex-row border-b border-white/5 bg-[#0c0c0e]">
                 <button 
                     onClick={() => setActiveTab('open')}
@@ -761,7 +731,6 @@ export default function CustomerDetails() {
                                                 #{order.formattedOrderNumber || order.order_number}
                                             </div>
                                             
-                                            {/* Mobile: Status Badge abaixo do número */}
                                             <div className="md:hidden mt-1.5">
                                                 {renderStatusBadge(order.status, isLate)}
                                             </div>
@@ -771,19 +740,16 @@ export default function CustomerDetails() {
                                             </div>
                                         </td>
                                         
-                                        {/* Desktop Only Columns */}
                                         <td className="px-6 py-4 hidden md:table-cell">{new Date(order.order_date).toLocaleDateString()}</td>
                                         <td className={`px-6 py-4 hidden md:table-cell ${isLate ? 'text-red-400 font-bold' : ''}`}>{new Date(order.due_date).toLocaleDateString()}</td>
                                         <td className="px-6 py-4 hidden md:table-cell">
                                             {renderStatusBadge(order.status, isLate)}
                                         </td>
 
-                                        {/* Valor / Vencimento (Mobile) */}
                                         <td className="px-4 md:px-6 py-4 text-right">
                                             <div className="font-mono font-bold text-white text-sm md:text-base">
                                                 R$ {order.total.toFixed(2)}
                                             </div>
-                                            {/* Mobile: Vencimento abaixo do valor */}
                                             <div className={`md:hidden text-[10px] mt-1 font-medium ${isLate ? 'text-red-400' : 'text-zinc-500'}`}>
                                                 Vence: {new Date(order.due_date).toLocaleDateString().slice(0,5)}
                                             </div>
@@ -815,7 +781,6 @@ export default function CustomerDetails() {
                                                     <span className="hidden md:inline text-xs text-zinc-700 italic">Concluído</span>
                                                 )}
                                                 
-                                                {/* Botão de Detalhes (Olho) */}
                                                 <button 
                                                     onClick={() => setViewingOrder(order)}
                                                     className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition border border-transparent hover:border-zinc-700"
@@ -824,7 +789,6 @@ export default function CustomerDetails() {
                                                     <Eye size={16} />
                                                 </button>
 
-                                                {/* Desktop: Excluir direto se Admin (mas manter no modal para mobile) */}
                                                 {role === 'admin' && (
                                                     <button 
                                                         onClick={() => handleDeleteOrder(order.id)}
@@ -845,7 +809,6 @@ export default function CustomerDetails() {
             </div>
         </div>
 
-        {/* Zona de Perigo (Admin Only) - Movida para o final */}
         {role === 'admin' && (
             <div className="mt-12 border-t border-white/5 pt-8 animate-fade-in-up">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-6 rounded-2xl border border-red-500/20 bg-red-500/5">
@@ -867,14 +830,11 @@ export default function CustomerDetails() {
             </div>
         )}
 
-        {/* BARRA DE AÇÃO FLUTUANTE (PAGAMENTO EM MASSA) - PÍLULA COMPACTA SEGUINDO SELEÇÃO */}
         {selectedOrderIds.length >= 2 && (
             <div 
                 className="fixed right-4 z-[100] bg-[#18181b]/95 backdrop-blur-md border border-white/10 shadow-2xl p-2 pl-4 rounded-full flex items-center gap-4 animate-fade-in w-auto transition-all duration-300 ring-1 ring-white/5 transform -translate-y-1/2"
-                style={{ top: Math.max(120, Math.min(window.innerHeight - 120, floatingY - 40)) }} // Garante que não suba demais nem desça demais, com z-index alto
+                style={{ top: Math.max(120, Math.min(window.innerHeight - 120, floatingY - 40)) }}
             >
-                
-                {/* Informações da Seleção */}
                 <div className="flex items-center gap-4 shrink-0">
                     <div className="flex items-center gap-2">
                         <span className="bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide hidden sm:inline-block">Selecionados</span>
@@ -890,7 +850,6 @@ export default function CustomerDetails() {
                     </div>
                 </div>
 
-                {/* Ações */}
                 <div className="flex items-center gap-1">
                     <button 
                         onClick={() => setSelectedOrderIds([])}
@@ -911,12 +870,10 @@ export default function CustomerDetails() {
             </div>
         )}
 
-        {/* MODAL DETALHES DO PEDIDO */}
         {viewingOrder && (
             <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
                 <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative flex flex-col max-h-[85vh] animate-scale-in">
                     
-                    {/* Header */}
                     <div className="p-6 border-b border-white/5 flex justify-between items-start bg-[#0c0c0e] rounded-t-2xl">
                         <div>
                             <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -928,9 +885,7 @@ export default function CustomerDetails() {
                         <button onClick={() => setViewingOrder(null)} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button>
                     </div>
 
-                    {/* Content */}
                     <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
-                        {/* Status Grid */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5">
                                 <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Data do Pedido</span>
@@ -944,7 +899,6 @@ export default function CustomerDetails() {
                             </div>
                         </div>
 
-                        {/* Items List (Mocked logic if items are not loaded, in real app items should be fetched) */}
                         <div>
                             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                                 <ListChecks size={14} /> Itens do Pedido
@@ -957,14 +911,12 @@ export default function CustomerDetails() {
                             </div>
                         </div>
 
-                        {/* Status */}
                         <div className="flex justify-between items-center bg-zinc-900 p-4 rounded-xl border border-white/5">
                             <span className="text-sm text-zinc-400">Status Atual</span>
                             {renderStatusBadge(viewingOrder.status, new Date(viewingOrder.due_date) < new Date())}
                         </div>
                     </div>
 
-                    {/* Footer / Actions */}
                     <div className="p-6 border-t border-white/5 bg-[#0c0c0e] rounded-b-2xl">
                         {role === 'admin' ? (
                             <div className="flex flex-col gap-3">
@@ -1006,12 +958,10 @@ export default function CustomerDetails() {
             </div>
         )}
 
-        {/* MODAL NOVO/EDITAR PEDIDO - Reposicionado para cima (pt-12 md:pt-24) */}
         {isNewOrderModalOpen && (
             <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/60 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
                 <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col animate-scale-in">
                     
-                    {/* Header */}
                     <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] rounded-t-2xl shrink-0">
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
                             <div className="bg-primary/20 p-2 rounded-lg text-primary">
@@ -1028,7 +978,6 @@ export default function CustomerDetails() {
                         </div>
                     ) : (
                         <div className="overflow-y-auto p-6 space-y-6 custom-scrollbar">
-                            {/* Descrição */}
                             <div>
                                 <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Descrição do Pedido</label>
                                 <input 
@@ -1039,7 +988,6 @@ export default function CustomerDetails() {
                                 />
                             </div>
 
-                            {/* Datas */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Data do Pedido</label>
@@ -1066,7 +1014,6 @@ export default function CustomerDetails() {
                                     <Package size={14} /> Itens do Pedido
                                 </h3>
                                 
-                                {/* Create/Search Area */}
                                 {isQuickCreateOpen ? (
                                     <div className="bg-zinc-900/50 p-4 rounded-xl border border-primary/30 animate-fade-in relative">
                                         <button 
@@ -1134,7 +1081,6 @@ export default function CustomerDetails() {
                                             </div>
                                         )}
 
-                                        {/* Quick Buttons */}
                                         <div className="grid grid-cols-2 gap-4 mt-3">
                                             <button 
                                                 onClick={() => { setQuickCreateType('product'); setIsQuickCreateOpen(true); }}
@@ -1154,7 +1100,6 @@ export default function CustomerDetails() {
                                     </div>
                                 )}
 
-                                {/* Added Items List */}
                                 <div className="mt-6 space-y-2">
                                     {orderItems.map((item, idx) => (
                                         <div key={idx} className="flex items-center justify-between bg-zinc-900/40 p-3 rounded-xl border border-white/5 group hover:border-white/10 transition">
@@ -1175,7 +1120,6 @@ export default function CustomerDetails() {
                         </div>
                     )}
 
-                    {/* Footer */}
                     <div className="p-6 border-t border-white/5 bg-[#0c0c0e] flex justify-between items-center rounded-b-2xl shrink-0">
                         <div>
                             <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-0.5">Total Geral</p>
@@ -1192,9 +1136,8 @@ export default function CustomerDetails() {
             </div>
         )}
 
-        {/* Edit Modal - Reposicionado para cima (pt-12 md:pt-24) */}
         {isEditModalOpen && (
-             <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/80 backdrop-blur-sm p-4 animate-fade-in-up overflow-y-auto">
+             <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/80 backdrop-blur-md p-4 animate-fade-in-up overflow-y-auto">
                 <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative">
                     <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] rounded-t-2xl">
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">

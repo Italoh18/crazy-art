@@ -140,7 +140,7 @@ export default function Shop() {
             total: total,
             size_list: sizeList.length > 0 ? JSON.stringify(sizeList) : null,
             status: 'open',
-            source: 'shop', // ORIGEM IDENTIFICADA
+            source: 'shop',
             order_date: new Date().toISOString().split('T')[0],
             due_date: dueDate.toISOString().split('T')[0],
         };
@@ -166,7 +166,13 @@ export default function Shop() {
             payerEmail: currentCustomer?.email,
             payerName: currentCustomer?.name
         });
-        if (res?.init_point) window.location.href = res.init_point;
+        
+        if (res?.init_point) {
+            // ABRIR EM NOVA ABA
+            window.open(res.init_point, '_blank');
+            // AVANÇAR PARA SUCESSO NO APP PRINCIPAL
+            setStep('success');
+        }
     } catch (e: any) {
         alert(e.message);
     } finally {
@@ -176,7 +182,6 @@ export default function Shop() {
 
   const handleAddToAccount = async () => {
     if (!lastCreatedOrder) return;
-    // O pedido já é criado como 'open', então apenas confirmamos o sucesso visualmente
     setStep('success');
   };
 
@@ -412,9 +417,9 @@ export default function Shop() {
         <div className="w-24 h-24 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mb-8 ring-8 ring-emerald-500/5">
             <Check size={48} strokeWidth={3} />
         </div>
-        <h2 className="text-4xl font-bold text-white mb-4 font-heading">Pedido Confirmado!</h2>
+        <h2 className="text-4xl font-bold text-white mb-4 font-heading">Aguardando Pagamento</h2>
         <p className="text-zinc-400 mb-10 leading-relaxed">
-            Seu pedido <strong>#{lastCreatedOrder?.order_number}</strong> foi recebido e já está em nossa fila de processamento.
+            Seu pedido <strong>#{lastCreatedOrder?.order_number}</strong> foi gerado. Se você pagou na nova aba, o status será atualizado automaticamente em instantes.
         </p>
         <div className="grid grid-cols-1 w-full gap-4">
             <button onClick={() => navigate('/my-area')} className="w-full bg-white text-black py-4 rounded-2xl font-bold hover:bg-zinc-200 transition">Ver Meus Pedidos</button>

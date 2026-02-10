@@ -35,7 +35,6 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             console.log(`[Payment] Lote criado: ${batchId}`);
         } catch (dbErr: any) {
             console.error("[Payment] Erro ao criar lote:", dbErr.message);
-            // Se falhar o banco, mas a string for pequena, tenta enviar direto
             if (cleanOrderId.length > 250) throw new Error("Erro ao processar lote. Tente pagar individualmente.");
         }
     } else {
@@ -55,7 +54,10 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     const origin = urlObj.origin;
     const notificationUrl = `${origin}/api/mp-webhook`;
 
-    console.log(`[Payment] Configurando Webhook em: ${notificationUrl}`);
+    // URL de retorno customizada para cair direto no pedido ou área do cliente
+    const successUrl = `${origin}/#/my-area?status=success&orderId=${externalRef}`;
+    const failureUrl = `${origin}/#/my-area?status=failure`;
+    const pendingUrl = `${origin}/#/my-area?status=pending`;
 
     const preferencePayload = {
       items: [
@@ -63,7 +65,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
           id: "payment_transaction",
           title: String(title || 'Faturas Crazy Art').substring(0, 255),
           description: "Pagamento de serviços/produtos Crazy Art Studio",
-          category_id: "services", // ADICIONADO: Melhora aprovação e remove aviso de recomendação
+          category_id: "services",
           quantity: 1,
           currency_id: 'BRL',
           unit_price: Number(cleanAmount.toFixed(2))
@@ -76,14 +78,14 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
       },
       external_reference: externalRef,
       back_urls: {
-        success: `${origin}/my-area?status=success`,
-        failure: `${origin}/my-area?status=failure`,
-        pending: `${origin}/my-area?status=pending`
+        success: successUrl,
+        failure: failureUrl,
+        pending: pendingUrl
       },
       auto_return: "approved",
       statement_descriptor: "CRAZYART",
       binary_mode: false,
-      notification_url: notificationUrl // Campo obrigatório para Webhook
+      notification_url: notificationUrl
     };
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
