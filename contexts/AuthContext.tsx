@@ -17,9 +17,19 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children?: ReactNode }) => {
   const [role, setRole] = useState<UserRole>((localStorage.getItem('user_role') as UserRole) || 'guest');
-  const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
+  
+  // CORREÇÃO: Inicialização síncrona (Lazy) para garantir que os dados estejam disponíveis na primeira renderização
+  const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(() => {
+      const saved = localStorage.getItem('current_customer');
+      try {
+          return saved ? JSON.parse(saved) : null;
+      } catch {
+          return null;
+      }
+  });
 
   useEffect(() => {
+      // Sync extra caso o localStorage mude externamente (opcional, mas boa prática)
       const savedCustomer = localStorage.getItem('current_customer');
       if (savedCustomer) setCurrentCustomer(JSON.parse(savedCustomer));
   }, []);

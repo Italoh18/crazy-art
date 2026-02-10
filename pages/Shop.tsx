@@ -38,7 +38,8 @@ export default function Shop() {
   
   // Detalhes do Produto Atual (Sendo adicionado)
   const [currentOrderDesc, setCurrentOrderDesc] = useState('');
-  const [currentOrderQty, setCurrentOrderQty] = useState(1);
+  // Aceita string vazia para permitir apagar o input
+  const [currentOrderQty, setCurrentOrderQty] = useState<number | string>(1);
 
   // Estados do Formulário Geral (Aplicados ao pedido como um todo)
   const [hasSizeList, setHasSizeList] = useState(false);
@@ -90,9 +91,11 @@ export default function Shop() {
 
   const addToCart = () => {
       if (!viewingProduct) return;
+      const qty = Number(currentOrderQty) || 1; // Garante mínimo 1 se estiver vazio
+      
       const newItem: CartItem = {
           product: viewingProduct,
-          quantity: currentOrderQty,
+          quantity: qty,
           description: currentOrderDesc,
           tempId: crypto.randomUUID()
       };
@@ -112,7 +115,6 @@ export default function Shop() {
     if (step === 'detail') setStep('list');
     else if (step === 'questionnaire') {
         if (cart.length > 0) {
-            // Se tem itens, volta para adicionar mais (list) mas mantém o carrinho
             setStep('list'); 
         } else {
             setStep('list');
@@ -369,17 +371,18 @@ export default function Shop() {
                     {/* Campos de Quantidade e Observação do Item */}
                     <div className="flex items-center gap-4 mb-4">
                         <div className="flex items-center gap-2 bg-black rounded-xl p-2 border border-zinc-800">
-                            <button onClick={() => setCurrentOrderQty(Math.max(1, currentOrderQty - 1))} className="p-2 text-zinc-500 hover:text-white transition"><Minus size={16} /></button>
+                            <button onClick={() => setCurrentOrderQty(Math.max(1, Number(currentOrderQty) - 1))} className="p-2 text-zinc-500 hover:text-white transition"><Minus size={16} /></button>
                             <input 
                                 type="number" 
                                 value={currentOrderQty} 
                                 onChange={(e) => {
-                                    const val = parseInt(e.target.value);
-                                    if (!isNaN(val) && val > 0) setCurrentOrderQty(val);
+                                    // Permite string vazia para apagar e digitar
+                                    const val = e.target.value;
+                                    setCurrentOrderQty(val === '' ? '' : parseInt(val));
                                 }}
-                                className="w-10 bg-transparent text-white text-center font-bold outline-none appearance-none"
+                                className="w-12 bg-transparent text-white text-center font-bold outline-none appearance-none"
                             />
-                            <button onClick={() => setCurrentOrderQty(currentOrderQty + 1)} className="p-2 text-zinc-500 hover:text-white transition"><PlusIcon size={16} /></button>
+                            <button onClick={() => setCurrentOrderQty(Number(currentOrderQty) + 1)} className="p-2 text-zinc-500 hover:text-white transition"><PlusIcon size={16} /></button>
                         </div>
                         <input 
                             type="text" 
@@ -435,9 +438,6 @@ export default function Shop() {
                 <div className="bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden">
                     <div className="p-4 bg-zinc-950 border-b border-zinc-800 flex justify-between items-center">
                         <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Itens Selecionados</span>
-                        <button onClick={() => setStep('list')} className="text-xs font-bold text-primary hover:text-white transition flex items-center gap-1">
-                            <PlusIcon size={12} /> Adicionar mais produto/serviço
-                        </button>
                     </div>
                     <div className="divide-y divide-zinc-800">
                         {cart.map((item, idx) => (
@@ -536,6 +536,11 @@ export default function Shop() {
                 )}
 
                 <div className="border-t border-zinc-800 pt-6 mt-6">
+                    {/* Botão Adicionar Mais - Posicionado ABAIXO da lista conforme pedido */}
+                    <button onClick={() => setStep('list')} className="w-full mb-6 py-4 border-2 border-dashed border-zinc-800 rounded-2xl text-zinc-500 hover:text-primary hover:border-primary/50 transition flex items-center justify-center gap-3 font-bold uppercase tracking-widest text-xs">
+                        <PlusIcon size={18} /> Adicionar mais produto/serviço
+                    </button>
+
                     <div className="flex justify-between items-end mb-6">
                         <span className="text-zinc-500 text-sm font-bold uppercase tracking-wider">Total Estimado</span>
                         <span className="text-3xl font-black text-white">R$ {calc.total.toFixed(2)}</span>
@@ -650,7 +655,7 @@ export default function Shop() {
                 <ShoppingBag className="text-primary" size={24} />
              </div>
              <h1 className="text-3xl font-bold text-white tracking-tight font-heading">
-                {step === 'list' ? 'Loja Crazy Art' : step === 'detail' ? 'Produto' : 'Finalizar Pedido'}
+                {step === 'list' ? 'Loja Crazy Art' : step === 'detail' ? 'Produto' : step === 'questionnaire' ? 'Detalhar Pedido' : 'Finalizar Pedido'}
              </h1>
           </div>
         </div>

@@ -53,6 +53,7 @@ export default function CustomerDetails() {
   const [viewingOrder, setViewingOrder] = useState<any | null>(null);
 
   // Determina qual ID usar: URL (Admin) ou Contexto (Cliente)
+  // IMPORTANTE: Garantir que activeId seja string válida
   const activeId = role === 'client' ? currentCustomer?.id : paramId;
 
   // Proteção de rota para Admin (se tentar acessar sem ID na URL)
@@ -71,6 +72,7 @@ export default function CustomerDetails() {
   }
 
   // Busca o objeto do cliente. 
+  // CORREÇÃO: Fallback robusto para quando `customers` ainda não carregou mas `currentCustomer` existe
   const customer = role === 'client' 
       ? currentCustomer 
       : customers.find(c => c.id === activeId);
@@ -90,7 +92,7 @@ export default function CustomerDetails() {
 
   // Todos os pedidos do cliente ordenados
   const allCustomerOrders = orders
-    .filter(o => o.client_id === activeId)
+    .filter(o => o.client_id === customer.id)
     .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
 
   // --- LÓGICA DE CATEGORIZAÇÃO E FILTROS ---
@@ -340,8 +342,14 @@ export default function CustomerDetails() {
       setOrderItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  const updateItemQuantity = (index: number, newQty: number | string) => {
-      const parsedQty = parseInt(String(newQty));
+  const updateItemQuantity = (index: number, newQty: string) => {
+      // Permite string vazia para apagar e digitar
+      if (newQty === '') {
+          setOrderItems(prev => prev.map((item, i) => i === index ? { ...item, quantity: '' as any, total: 0 } : item));
+          return;
+      }
+      
+      const parsedQty = parseInt(newQty);
       if (isNaN(parsedQty) || parsedQty < 1) return;
       
       setOrderItems(prev => prev.map((item, i) => {
@@ -356,11 +364,18 @@ export default function CustomerDetails() {
       p.name.toLowerCase().includes(itemSearch.toLowerCase())
   );
 
-  const orderTotal = orderItems.reduce((acc, item) => acc + item.total, 0);
+  // Calcula total com segurança para quantidades vazias
+  const orderTotal = orderItems.reduce((acc, item) => acc + (typeof item.quantity === 'number' ? item.total : 0), 0);
 
   const handleFinalizeOrder = async () => {
       if (orderItems.length === 0 && !newOrderData.description) {
           alert('Adicione itens ou uma descrição para o pedido.');
+          return;
+      }
+
+      // Validação de quantidade vazia
+      if (orderItems.some(i => typeof i.quantity !== 'number' || i.quantity < 1)) {
+          alert("Corrija as quantidades vazias ou inválidas.");
           return;
       }
 
@@ -533,9 +548,9 @@ export default function CustomerDetails() {
             </div>
         </div>
 
-        {/* ... (Resto do componente mantido até o modal de itens do pedido) ... */}
+        {/* ... Resto do componente ... */}
         
-        {/* TRECHO DO MODAL DE NOVO PEDIDO (ITENS) */}
+        {/* TRECHO DO MODAL DE NOVO PEDIDO (ITENS) - Atualizado para input manual */}
         {isNewOrderModalOpen && (
             <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/60 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
                 <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col animate-scale-in">
@@ -594,7 +609,6 @@ export default function CustomerDetails() {
                                 
                                 {isQuickCreateOpen ? (
                                     <div className="bg-zinc-900/50 p-4 rounded-xl border border-primary/30 animate-fade-in relative">
-                                        {/* ... Código Quick Create Mantido ... */}
                                         <button 
                                             onClick={() => setIsQuickCreateOpen(false)} 
                                             className="absolute top-2 right-2 text-zinc-500 hover:text-white"
@@ -685,16 +699,16 @@ export default function CustomerDetails() {
                                             <span className="text-sm text-zinc-300 font-medium truncate flex-1">{item.productName}</span>
                                             <div className="flex items-center gap-4">
                                                 <div className="flex items-center bg-black/40 rounded-lg p-1">
-                                                    <button onClick={() => updateItemQuantity(idx, item.quantity - 1)} className="p-1 hover:text-white text-zinc-500"><Minus size={12} /></button>
+                                                    <button onClick={() => updateItemQuantity(idx, String(Number(item.quantity || 0) - 1))} className="p-1 hover:text-white text-zinc-500"><Minus size={12} /></button>
                                                     <input 
                                                         type="number"
                                                         className="w-10 bg-transparent text-center text-xs font-bold text-white outline-none appearance-none"
                                                         value={item.quantity}
                                                         onChange={(e) => updateItemQuantity(idx, e.target.value)}
                                                     />
-                                                    <button onClick={() => updateItemQuantity(idx, item.quantity + 1)} className="p-1 hover:text-white text-zinc-500"><Plus size={12} /></button>
+                                                    <button onClick={() => updateItemQuantity(idx, String(Number(item.quantity || 0) + 1))} className="p-1 hover:text-white text-zinc-500"><Plus size={12} /></button>
                                                 </div>
-                                                <span className="text-sm font-mono text-emerald-400 w-20 text-right">R$ {item.total.toFixed(2)}</span>
+                                                <span className="text-sm font-mono text-emerald-400 w-20 text-right">R$ {typeof item.quantity === 'number' ? item.total.toFixed(2) : '0.00'}</span>
                                                 <button onClick={() => handleRemoveItem(idx)} className="text-zinc-600 hover:text-red-500 transition"><Trash2 size={16} /></button>
                                             </div>
                                         </div>
