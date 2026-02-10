@@ -43,8 +43,7 @@ export default function Shop() {
   // Estados do Formulário Geral (Aplicados ao pedido como um todo)
   const [hasSizeList, setHasSizeList] = useState(false);
   const [sizeList, setSizeList] = useState<SizeListItem[]>([]);
-  const [isListModalOpen, setIsListModalOpen] = useState(false);
-  const [isGlobalSimple, setIsGlobalSimple] = useState(false); // Estado para controlar o modo da lista
+  const [isGlobalSimple, setIsGlobalSimple] = useState(false); // Estado para controlar o modo da lista globalmente
   
   // Novas Opções de Produção
   const [layoutOption, setLayoutOption] = useState<'sim' | 'precisa' | null>(null);
@@ -132,7 +131,7 @@ export default function Shop() {
           ...item,
           isSimple: newValue,
           quantity: newValue ? (item.quantity || 1) : 1,
-          name: newValue ? '' : item.name, // Limpa nome se for para simples, ou mantém vazio se voltar
+          name: newValue ? '' : item.name, // Limpa nome se for para simples, ou mantém se voltar
           number: newValue ? '' : item.number
       })));
   };
@@ -158,13 +157,6 @@ export default function Shop() {
 
   const removeListRow = (id: string) => {
     setSizeList(prev => prev.filter(item => item.id !== id));
-  };
-
-  const finalizeList = () => {
-    const orderMap = { unisex: 1, feminina: 2, infantil: 3 };
-    const sorted = [...sizeList].sort((a, b) => orderMap[a.category] - orderMap[b.category]);
-    setSizeList(sorted);
-    setIsListModalOpen(false);
   };
 
   const calculateTotalItemsInList = () => {
@@ -254,6 +246,10 @@ export default function Shop() {
 
     if (cart.length === 0) return;
 
+    // Ordena a lista antes de salvar
+    const orderMap = { unisex: 1, feminina: 2, infantil: 3 };
+    const sortedList = [...sizeList].sort((a, b) => orderMap[a.category] - orderMap[b.category]);
+
     setIsProcessing(true);
     try {
         const { items, total } = calculateFinalOrder();
@@ -272,7 +268,7 @@ export default function Shop() {
             description: fullDesc,
             items: items,
             total: total,
-            size_list: sizeList.length > 0 ? JSON.stringify(sizeList) : null,
+            size_list: sortedList.length > 0 ? JSON.stringify(sortedList) : null,
             status: 'open',
             source: 'shop',
             order_date: new Date().toISOString().split('T')[0],
@@ -490,7 +486,7 @@ export default function Shop() {
                     </div>
                 </div>
 
-                {/* 2. Lista de Tamanhos */}
+                {/* 2. Toggle Lista de Produção */}
                 <div className="flex items-center justify-between p-6 bg-zinc-950 rounded-2xl border border-zinc-800 group hover:border-zinc-700 transition">
                     <div className="flex items-center gap-4">
                         <div className={`p-3 rounded-xl transition ${hasSizeList ? 'bg-primary text-white shadow-glow' : 'bg-zinc-800 text-zinc-500'}`}>
@@ -502,20 +498,142 @@ export default function Shop() {
                         </div>
                     </div>
                     <button 
-                        onClick={() => { setHasSizeList(!hasSizeList); if(!hasSizeList) setIsListModalOpen(true); }}
+                        onClick={() => { 
+                            setHasSizeList(!hasSizeList); 
+                            // Se estiver ativando, cria uma linha inicial se vazia
+                            if (!hasSizeList && sizeList.length === 0) {
+                                addListRow();
+                            }
+                        }}
                         className={`w-14 h-8 rounded-full transition-colors relative flex items-center px-1 ${hasSizeList ? 'bg-primary' : 'bg-zinc-800'}`}
                     >
                         <div className={`w-6 h-6 bg-white rounded-full transition-transform shadow-lg ${hasSizeList ? 'translate-x-6' : 'translate-x-0'}`}></div>
                     </button>
                 </div>
 
-                {hasSizeList && sizeList.length > 0 && (
-                    <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-emerald-400">
-                            <CheckCircle size={20} />
-                            <span className="text-sm font-bold">Lista configurada ({calculateTotalItemsInList()} itens)</span>
+                {/* 2.1 Editor de Lista Embutido */}
+                {hasSizeList && (
+                    <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 animate-fade-in relative shadow-inner">
+                        {/* Global Mode Toggle Header */}
+                        <div className="flex items-center justify-between mb-4 pb-2 border-b border-zinc-800">
+                            <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                                <ListChecks size={14} /> Detalhes da Lista ({calculateTotalItemsInList()})
+                            </span>
+                            <button 
+                                onClick={toggleGlobalSimpleMode}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all border text-[10px] font-bold uppercase tracking-wider ${isGlobalSimple ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600'}`}
+                            >
+                                <span>Lista sem nomes (Apenas Quantidade)</span>
+                                {isGlobalSimple ? <ToggleRight size={18} className="text-primary" /> : <ToggleLeft size={18} />}
+                            </button>
                         </div>
-                        <button onClick={() => setIsListModalOpen(true)} className="text-xs font-bold text-zinc-400 hover:text-white underline">Editar lista</button>
+
+                        {/* List Rows */}
+                        <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+                            {sizeList.length === 0 && (
+                                <p className="text-center text-zinc-600 text-xs py-4">Nenhum item na lista. Adicione abaixo.</p>
+                            )}
+                            
+                            {sizeList.map((item, idx) => (
+                                <div key={item.id} className="grid grid-cols-1 sm:grid-cols-12 gap-2 p-3 bg-zinc-900 rounded-xl border border-zinc-800 items-end">
+                                    {/* Categoria */}
+                                    <div className="sm:col-span-2">
+                                        <label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tipo</label>
+                                        <select 
+                                            value={item.category} 
+                                            onChange={(e) => updateListRow(item.id, 'category', e.target.value as any)}
+                                            className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-primary"
+                                        >
+                                            <option value="unisex">Unisex</option>
+                                            <option value="feminina">Feminina</option>
+                                            <option value="infantil">Infantil</option>
+                                        </select>
+                                    </div>
+                                    
+                                    {/* Tamanho */}
+                                    <div className="sm:col-span-2">
+                                        <label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tam</label>
+                                        <select 
+                                            value={item.size} 
+                                            onChange={(e) => updateListRow(item.id, 'size', e.target.value)}
+                                            className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-primary"
+                                        >
+                                            {sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </div>
+                                    
+                                    {/* Campos Dinâmicos (Simples vs Completo) */}
+                                    {item.isSimple ? (
+                                        <div className="sm:col-span-4">
+                                            <label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Qtd</label>
+                                            <input 
+                                                type="number" 
+                                                min="1"
+                                                value={item.quantity || 1} 
+                                                onChange={(e) => updateListRow(item.id, 'quantity', parseInt(e.target.value) || 1)}
+                                                className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-primary font-mono text-center" 
+                                            />
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="sm:col-span-1">
+                                                <label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nº</label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="00" 
+                                                    value={item.number} 
+                                                    onChange={(e) => updateListRow(item.id, 'number', e.target.value)}
+                                                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-1 py-1.5 text-xs text-white outline-none focus:border-primary text-center font-mono" 
+                                                />
+                                            </div>
+                                            <div className="sm:col-span-3">
+                                                <label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nome</label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="NOME" 
+                                                    value={item.name} 
+                                                    onChange={(e) => updateListRow(item.id, 'name', e.target.value)}
+                                                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg pl-2 pr-2 py-1.5 text-xs text-white outline-none focus:border-primary uppercase" 
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* Shorts Opcionais */}
+                                    <div className="sm:col-span-2">
+                                        <label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Short</label>
+                                        <select 
+                                            value={item.shortSize} 
+                                            onChange={(e) => updateListRow(item.id, 'shortSize', e.target.value)}
+                                            className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-primary"
+                                        >
+                                            <option value="">-</option>
+                                            {sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </div>
+                                    
+                                    <div className="sm:col-span-1">
+                                        <label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">S.Nº</label>
+                                        <input 
+                                            type="text" 
+                                            placeholder="00" 
+                                            value={item.shortNumber} 
+                                            onChange={(e) => updateListRow(item.id, 'shortNumber', e.target.value)}
+                                            className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-1 py-1.5 text-xs text-white outline-none focus:border-primary text-center font-mono" 
+                                        />
+                                    </div>
+
+                                    {/* Delete Button */}
+                                    <div className="sm:col-span-1 flex items-end h-full pb-0.5">
+                                        <button onClick={() => removeListRow(item.id)} className="w-full p-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition flex items-center justify-center"><Trash2 size={14} /></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button onClick={addListRow} className="w-full mt-4 py-3 border-2 border-dashed border-zinc-800 rounded-xl text-zinc-500 hover:text-primary hover:border-primary/50 transition flex items-center justify-center gap-2 font-bold uppercase tracking-widest text-[10px]">
+                            <PlusIcon size={14} /> Adicionar Integrante
+                        </button>
                     </div>
                 )}
 
@@ -722,135 +840,6 @@ export default function Shop() {
               </>
           )}
       </div>
-
-      {/* MODAL DE LISTA DE TAMANHOS */}
-      {isListModalOpen && (
-          <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-              <div className="bg-zinc-900 border border-zinc-800 w-full max-w-4xl max-h-[90vh] rounded-3xl flex flex-col shadow-2xl overflow-hidden animate-scale-in">
-                  <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-950">
-                      <div>
-                        <h3 className="text-xl font-bold text-white flex items-center gap-3"><ListChecks className="text-primary" /> Lista de Pedido</h3>
-                        <p className="text-xs text-zinc-500 mt-1">Preencha os dados de cada integrante da sua lista.</p>
-                      </div>
-                      <button onClick={() => setIsListModalOpen(false)} className="p-2 text-zinc-500 hover:text-white transition"><X size={24} /></button>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                      
-                      {/* Global Mode Toggle */}
-                      <div className="flex items-center justify-end mb-4 px-2">
-                          <button 
-                              onClick={toggleGlobalSimpleMode}
-                              className={`flex items-center gap-3 px-4 py-2 rounded-xl transition-all border ${isGlobalSimple ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-600'}`}
-                          >
-                              <span className="text-xs font-bold uppercase tracking-wider">Lista sem nomes (Apenas Quantidade)</span>
-                              {isGlobalSimple ? <ToggleRight size={24} className="text-primary" /> : <ToggleLeft size={24} />}
-                          </button>
-                      </div>
-
-                      <div className="space-y-4">
-                          {sizeList.map((item, idx) => (
-                              <div key={item.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 p-4 bg-zinc-950 rounded-2xl border border-zinc-800 items-end animate-fade-in-up" style={{ animationDelay: `${idx * 50}ms` }}>
-                                  <div className="md:col-span-2">
-                                      <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Categoria</label>
-                                      <select 
-                                        value={item.category} 
-                                        onChange={(e) => updateListRow(item.id, 'category', e.target.value as any)}
-                                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-primary"
-                                      >
-                                          <option value="unisex">Unisex</option>
-                                          <option value="feminina">Feminina</option>
-                                          <option value="infantil">Infantil</option>
-                                      </select>
-                                  </div>
-                                  <div className="md:col-span-2">
-                                      <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Tamanho</label>
-                                      <select 
-                                        value={item.size} 
-                                        onChange={(e) => updateListRow(item.id, 'size', e.target.value)}
-                                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-primary"
-                                      >
-                                          {sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
-                                      </select>
-                                  </div>
-                                  
-                                  {/* Coluna Nome/Número OU Quantidade baseada no modo GLOBAL */}
-                                  {item.isSimple ? (
-                                      <div className="md:col-span-4 relative">
-                                          <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Quantidade</label>
-                                          <input 
-                                              type="number" 
-                                              min="1"
-                                              value={item.quantity || 1} 
-                                              onChange={(e) => updateListRow(item.id, 'quantity', parseInt(e.target.value) || 1)}
-                                              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-primary font-mono text-center" 
-                                          />
-                                      </div>
-                                  ) : (
-                                      <>
-                                          <div className="md:col-span-1 relative">
-                                              <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Nº</label>
-                                              <input 
-                                                  type="text" 
-                                                  placeholder="00" 
-                                                  value={item.number} 
-                                                  onChange={(e) => updateListRow(item.id, 'number', e.target.value)}
-                                                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-primary text-center font-mono" 
-                                              />
-                                          </div>
-                                          <div className="md:col-span-3 relative">
-                                              <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Nome na Camisa</label>
-                                              <input 
-                                                  type="text" 
-                                                  placeholder="NOME" 
-                                                  value={item.name} 
-                                                  onChange={(e) => updateListRow(item.id, 'name', e.target.value)}
-                                                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg pl-3 pr-4 py-2 text-xs text-white outline-none focus:border-primary uppercase" 
-                                              />
-                                          </div>
-                                      </>
-                                  )}
-
-                                  <div className="md:col-span-2">
-                                      <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Short (Tamanho)</label>
-                                      <select 
-                                        value={item.shortSize} 
-                                        onChange={(e) => updateListRow(item.id, 'shortSize', e.target.value)}
-                                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-primary"
-                                      >
-                                          <option value="">Nenhum</option>
-                                          {sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
-                                      </select>
-                                  </div>
-                                  <div className="md:col-span-1">
-                                      <label className="block text-[10px] font-bold text-zinc-600 uppercase mb-2">Short Nº</label>
-                                      <input 
-                                        type="text" 
-                                        placeholder="00" 
-                                        value={item.shortNumber} 
-                                        onChange={(e) => updateListRow(item.id, 'shortNumber', e.target.value)}
-                                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-xs text-white outline-none focus:border-primary text-center font-mono" 
-                                      />
-                                  </div>
-                                  <div className="md:col-span-1">
-                                      <button onClick={() => removeListRow(item.id)} className="w-full p-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition flex items-center justify-center"><Trash2 size={16} /></button>
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-
-                      <button onClick={addListRow} className="w-full mt-6 py-4 border-2 border-dashed border-zinc-800 rounded-2xl text-zinc-500 hover:text-primary hover:border-primary/50 transition flex items-center justify-center gap-3 font-bold uppercase tracking-widest text-xs">
-                          <PlusIcon size={18} /> Adicionar Integrante
-                      </button>
-                  </div>
-
-                  <div className="p-6 bg-zinc-950 border-t border-zinc-800 flex justify-between items-center">
-                      <span className="text-zinc-500 text-xs font-bold uppercase tracking-widest">{calculateTotalItemsInList()} itens na lista</span>
-                      <button onClick={finalizeList} className="bg-emerald-600 hover:bg-emerald-500 text-white px-10 py-3 rounded-xl font-bold transition shadow-lg shadow-emerald-900/20 active:scale-95">FINALIZAR LISTA</button>
-                  </div>
-              </div>
-          </div>
-      )}
     </div>
   );
 }
