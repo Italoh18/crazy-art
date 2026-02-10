@@ -7,7 +7,7 @@ import {
   User, Phone, Mail, MapPin, DollarSign, Calendar, 
   CheckCircle, AlertTriangle, Trash2, Edit, Plus, X, 
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
-  Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal
+  Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal, Share2, Copy
 } from 'lucide-react';
 import { api } from '../src/services/api';
 import { SizeListItem } from '../types';
@@ -246,6 +246,18 @@ export default function CustomerDetails() {
       } finally {
           setIsBatchProcessing(false);
       }
+  };
+
+  const handleCreatePublicListLink = () => {
+      // Limpa o telefone para garantir apenas números
+      const phone = customer.phone.replace(/\D/g, '');
+      const baseUrl = window.location.origin + window.location.pathname;
+      // Garante que a URL base termine antes do hash se estiver usando HashRouter
+      const rootUrl = baseUrl.split('#')[0]; 
+      const link = `${rootUrl}#/public-list?phone=${phone}`;
+      
+      navigator.clipboard.writeText(link);
+      alert("Link da lista copiado para a área de transferência! Envie para quem precisar preencher.");
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -533,6 +545,15 @@ export default function CustomerDetails() {
                     </button>
                 )}
 
+                {/* BOTÃO NOVA LISTA PÚBLICA */}
+                <button 
+                    onClick={handleCreatePublicListLink}
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95"
+                    title="Copiar link de lista preenchível para enviar a terceiros"
+                >
+                    <Share2 size={18} /> Criar Lista Compartilhável
+                </button>
+
                 {cloudUrl && (
                     <a 
                         href={cloudUrl} 
@@ -560,6 +581,7 @@ export default function CustomerDetails() {
             </div>
         </div>
 
+        {/* ... Resto do código existente (Status Cards, Info Section, Orders Table, Modals) ... */}
         {/* Status Cards Row - FIX: Garantir que valores numéricos não crashem o .toFixed */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-[#0c0c0e] border border-white/5 p-6 rounded-2xl relative overflow-hidden group">
@@ -838,10 +860,6 @@ export default function CustomerDetails() {
             </div>
         </div>
 
-        {/* ... Resto do componente mantido (Modais de Visualização e Novo Pedido) ... */}
-        {/* Lembrete: O modal de novo pedido já foi atualizado para input manual no turno anterior e está mantido neste conteúdo */}
-        {/* ... */}
-        
         {viewingOrder && (
             <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
                 <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative flex flex-col max-h-[85vh] animate-scale-in">
@@ -950,6 +968,7 @@ export default function CustomerDetails() {
             </div>
         )}
 
+        {/* Modal de Novo Pedido / Editar Pedido (incluindo o que já existia) */}
         {isNewOrderModalOpen && (
             <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/60 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
                 <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col animate-scale-in">
@@ -1006,6 +1025,7 @@ export default function CustomerDetails() {
                                     <Package size={14} /> Itens do Pedido
                                 </h3>
                                 
+                                {/* ... (Criação de Itens / Quick Create) ... */}
                                 {isQuickCreateOpen ? (
                                     <div className="bg-zinc-900/50 p-4 rounded-xl border border-primary/30 animate-fade-in relative">
                                         <button 
@@ -1143,7 +1163,6 @@ export default function CustomerDetails() {
                         <button onClick={() => setIsEditModalOpen(false)} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button>
                     </div>
                     <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
-                        {/* ... Conteúdo do modal de edição de cliente ... */}
                         <div>
                             <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Nome Completo</label>
                             <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
