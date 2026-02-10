@@ -38,7 +38,6 @@ export default function Shop() {
   
   // Detalhes do Produto Atual (Sendo adicionado)
   const [currentOrderDesc, setCurrentOrderDesc] = useState('');
-  // Aceita string vazia para permitir apagar o input
   const [currentOrderQty, setCurrentOrderQty] = useState<number | string>(1);
 
   // Estados do Formulário Geral (Aplicados ao pedido como um todo)
@@ -91,7 +90,7 @@ export default function Shop() {
 
   const addToCart = () => {
       if (!viewingProduct) return;
-      const qty = Number(currentOrderQty) || 1; // Garante mínimo 1 se estiver vazio
+      const qty = Number(currentOrderQty) || 1; 
       
       const newItem: CartItem = {
           product: viewingProduct,
@@ -101,12 +100,13 @@ export default function Shop() {
       };
       setCart(prev => [...prev, newItem]);
       setViewingProduct(null);
-      setStep('questionnaire'); // Vai para "Detalhar Pedido"
+      setStep('list'); // Volta para a lista para continuar comprando (o user verá o float bar)
   };
 
   const removeFromCart = (tempId: string) => {
       setCart(prev => prev.filter(item => item.tempId !== tempId));
-      if (cart.length <= 1) { // Se remover o último, volta pra lista
+      if (cart.length <= 1 && step === 'questionnaire') { 
+          // Se esvaziar o carrinho, volta pra loja
           setStep('list');
       }
   };
@@ -114,11 +114,7 @@ export default function Shop() {
   const goBack = () => {
     if (step === 'detail') setStep('list');
     else if (step === 'questionnaire') {
-        if (cart.length > 0) {
-            setStep('list'); 
-        } else {
-            setStep('list');
-        }
+        setStep('list');
     }
     else if (step === 'checkout') setStep('questionnaire');
     else navigate('/');
@@ -154,7 +150,7 @@ export default function Shop() {
     setIsListModalOpen(false);
   };
 
-  // --- Lógica de Cálculo de Preço (Incluindo Réplica e Serviços) ---
+  // --- Lógica de Cálculo de Preço (REGRA DE NEGÓCIO DA LISTA) ---
 
   const calculateFinalOrder = () => {
       const itemsPayload: any[] = [];
@@ -164,11 +160,19 @@ export default function Shop() {
       cart.forEach(item => {
           let unitPrice = item.product.price;
           let qty = item.quantity;
+          const nameLower = item.product.name.toLowerCase();
 
-          // LÓGICA RÉPLICA DE MOLDE
-          if (item.product.name.toLowerCase().includes('replica de molde') || item.product.name.toLowerCase().includes('réplica de molde')) {
-              unitPrice = 2.00;
-              qty = sizeList.length > 0 ? sizeList.length : qty; // Usa tamanho da lista se houver
+          // LÓGICA ESPECÍFICA DE LISTA
+          if (sizeList.length > 0) {
+              // Regra 1: Camisas (PV ou Dry Fit) pegam a quantidade da lista
+              if (nameLower.includes('camisa')) {
+                  qty = sizeList.length;
+              }
+              // Regra 2: Réplica de Molde vira R$ 2,00 por item da lista
+              else if (nameLower.includes('replica') || nameLower.includes('réplica')) {
+                  unitPrice = 2.00;
+                  qty = sizeList.length;
+              }
           }
 
           const subtotal = unitPrice * qty;
@@ -184,14 +188,14 @@ export default function Shop() {
           });
       });
 
-      // 2. Serviços Adicionais (Layout/Molde)
+      // 2. Serviços Adicionais (Layout/Molde) - PREÇOS FIXOS
       const findServicePrice = (namePart: string, defaultPrice: number) => {
           const service = products.find(p => p.name.toLowerCase().includes(namePart.toLowerCase()));
           return service ? service.price : defaultPrice;
       };
 
       if (layoutOption === 'precisa') {
-          const price = findServicePrice('layout simples', 30.00); // Preço base fallback
+          const price = findServicePrice('layout simples', 30.00); 
           totalValue += price;
           itemsPayload.push({
               productId: 'service-layout',
@@ -204,7 +208,7 @@ export default function Shop() {
       }
 
       if (moldOption === 'precisa') {
-          const price = findServicePrice('molde', 50.00); // Preço base fallback
+          const price = findServicePrice('molde', 50.00); 
           totalValue += price;
           itemsPayload.push({
               productId: 'service-mold',
@@ -302,12 +306,13 @@ export default function Shop() {
     const hasCredit = (currentCustomer.creditLimit || 0) >= (usedCredit + lastCreatedOrder.total);
 
     return allServices && hasCredit;
-  }, [currentCustomer, lastCreatedOrder, orders, cart, layoutOption, moldOption]); // Dependências atualizadas
+  }, [currentCustomer, lastCreatedOrder, orders, cart, layoutOption, moldOption]); 
 
   // --- Renderizadores ---
 
   const renderStepList = () => (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in relative pb-24">
+        {/* Barra de Busca e Abas */}
         <div className="flex flex-col items-center mb-10 space-y-6">
             <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-80 border border-zinc-800 shadow-xl relative">
                 <button onClick={() => setActiveTab('product')} className={`flex-1 py-2.5 rounded-full text-xs font-bold tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${activeTab === 'product' ? 'bg-white text-black' : 'text-zinc-500 hover:text-white'}`}>
@@ -323,6 +328,7 @@ export default function Shop() {
             </div>
         </div>
 
+        {/* Grid de Produtos */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredItems.map((item) => (
                 <div key={item.id} onClick={() => openProduct(item)} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-primary/50 transition-all group cursor-pointer shadow-lg hover:-translate-y-1">
@@ -342,6 +348,29 @@ export default function Shop() {
                 </div>
             ))}
         </div>
+
+        {/* BARRA FLUTUANTE DE CARRINHO - Só aparece se tiver itens */}
+        {cart.length > 0 && (
+            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 w-[90%] max-w-md animate-fade-in-up">
+                <div className="bg-zinc-900/90 backdrop-blur-md border border-primary/50 p-4 rounded-2xl shadow-2xl flex items-center justify-between ring-1 ring-white/10">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-primary text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-lg">
+                            {cart.length}
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-white text-sm font-bold">Itens no Carrinho</span>
+                            <span className="text-zinc-400 text-xs">Total aprox: R$ {calculateFinalOrder().total.toFixed(2)}</span>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => setStep('questionnaire')}
+                        className="bg-white text-black px-6 py-2.5 rounded-xl font-bold text-sm hover:scale-105 transition shadow-lg flex items-center gap-2"
+                    >
+                        Ver Carrinho <ArrowLeft className="rotate-180" size={16} />
+                    </button>
+                </div>
+            </div>
+        )}
     </div>
   );
 
@@ -376,7 +405,6 @@ export default function Shop() {
                                 type="number" 
                                 value={currentOrderQty} 
                                 onChange={(e) => {
-                                    // Permite string vazia para apagar e digitar
                                     const val = e.target.value;
                                     setCurrentOrderQty(val === '' ? '' : parseInt(val));
                                 }}
@@ -395,67 +423,81 @@ export default function Shop() {
                 </div>
 
                 <button onClick={addToCart} className="w-full bg-crazy-gradient text-white py-5 rounded-2xl font-bold text-lg hover:scale-105 transition-all shadow-xl shadow-primary/20 flex items-center justify-center gap-3 active:scale-95">
-                    <ShoppingCart size={24} /> ADICIONAR AO PEDIDO
+                    <ShoppingCart size={24} /> ADICIONAR AO CARRINHO
                 </button>
-            </div>
-        </div>
-
-        {/* Recomendações */}
-        <div className="mt-24">
-            <h3 className="text-xl font-bold text-white mb-8 flex items-center gap-3">
-                <PlusIcon className="text-primary" /> Sugestões para você
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                {recommendations.map(p => (
-                    <div key={p.id} onClick={() => openProduct(p)} className="bg-zinc-900/40 border border-zinc-800 p-4 rounded-2xl hover:border-zinc-600 transition cursor-pointer flex items-center gap-4">
-                        <div className="w-16 h-16 bg-zinc-800 rounded-xl overflow-hidden shrink-0">
-                            {p.imageUrl && <img src={p.imageUrl} className="w-full h-full object-cover" alt="" />}
-                        </div>
-                        <div className="min-w-0">
-                            <h4 className="text-white font-bold text-sm truncate">{p.name}</h4>
-                            <p className="text-primary font-mono text-xs">R$ {p.price.toFixed(2)}</p>
-                        </div>
-                    </div>
-                ))}
             </div>
         </div>
     </div>
   );
 
   const renderStepQuestionnaire = () => {
-      // Calcular prévia do total
+      // Calcular prévia do total usando a lógica atualizada
       const calc = calculateFinalOrder();
       
       return (
         <div className="animate-fade-in max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 p-8 rounded-3xl shadow-2xl relative">
             <h2 className="text-2xl font-bold text-white mb-8 flex items-center gap-3">
-                <ListChecks className="text-primary" /> Detalhar Pedido
+                <ListChecks className="text-primary" /> Revisar Pedido
             </h2>
             
             <div className="space-y-8">
                 
-                {/* 1. Lista de Itens no Carrinho */}
+                {/* 1. Lista de Itens no Carrinho (Com Preview da Lógica da Lista) */}
                 <div className="bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden">
                     <div className="p-4 bg-zinc-950 border-b border-zinc-800 flex justify-between items-center">
                         <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Itens Selecionados</span>
                     </div>
                     <div className="divide-y divide-zinc-800">
-                        {cart.map((item, idx) => (
-                            <div key={item.tempId} className="p-4 flex justify-between items-center group">
+                        {calc.items.filter(i => i.productId !== 'service-layout' && i.productId !== 'service-mold').map((item, idx) => (
+                            <div key={idx} className="p-4 flex justify-between items-center group">
                                 <div>
-                                    <p className="text-white font-bold text-sm">{item.product.name} <span className="text-zinc-500">x{item.quantity}</span></p>
-                                    {item.description && <p className="text-xs text-zinc-500 italic">"{item.description}"</p>}
+                                    <p className="text-white font-bold text-sm">{item.productName} <span className="text-primary">x{item.quantity}</span></p>
+                                    {/* Feedback visual se a quantidade foi alterada pela lista */}
+                                    {sizeList.length > 0 && item.productName.toLowerCase().includes('camisa') && (
+                                        <p className="text-[10px] text-zinc-500 italic mt-0.5">Qtd atualizada pela lista de nomes</p>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-4">
-                                    <span className="text-emerald-400 font-mono text-sm">R$ {(item.product.price * item.quantity).toFixed(2)}</span>
-                                    <button onClick={() => removeFromCart(item.tempId)} className="text-zinc-600 hover:text-red-500 transition"><Trash2 size={16} /></button>
+                                    <span className="text-emerald-400 font-mono text-sm">R$ {item.total.toFixed(2)}</span>
+                                    {/* Botão de remover busca pelo item original no carrinho */}
+                                    <button onClick={() => removeFromCart(cart[idx]?.tempId)} className="text-zinc-600 hover:text-red-500 transition"><Trash2 size={16} /></button>
                                 </div>
                             </div>
                         ))}
+                        {/* Se não houver itens mas houver serviços fixos adicionados via opções abaixo, eles aparecem no total, mas não aqui na lista editável */}
                     </div>
                 </div>
 
-                {/* 2. Opções de Produção */}
+                {/* 2. Lista de Tamanhos */}
+                <div className="flex items-center justify-between p-6 bg-zinc-950 rounded-2xl border border-zinc-800 group hover:border-zinc-700 transition">
+                    <div className="flex items-center gap-4">
+                        <div className={`p-3 rounded-xl transition ${hasSizeList ? 'bg-primary text-white shadow-glow' : 'bg-zinc-800 text-zinc-500'}`}>
+                            <Film size={24} />
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-white">Lista de Produção?</h4>
+                            <p className="text-xs text-zinc-500">Nomes, números e tamanhos.</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => { setHasSizeList(!hasSizeList); if(!hasSizeList) setIsListModalOpen(true); }}
+                        className={`w-14 h-8 rounded-full transition-colors relative flex items-center px-1 ${hasSizeList ? 'bg-primary' : 'bg-zinc-800'}`}
+                    >
+                        <div className={`w-6 h-6 bg-white rounded-full transition-transform shadow-lg ${hasSizeList ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                    </button>
+                </div>
+
+                {hasSizeList && sizeList.length > 0 && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl flex items-center justify-between">
+                        <div className="flex items-center gap-3 text-emerald-400">
+                            <CheckCircle size={20} />
+                            <span className="text-sm font-bold">Lista configurada ({sizeList.length} itens)</span>
+                        </div>
+                        <button onClick={() => setIsListModalOpen(true)} className="text-xs font-bold text-zinc-400 hover:text-white underline">Editar lista</button>
+                    </div>
+                )}
+
+                {/* 3. Opções de Produção */}
                 <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Layout Option */}
@@ -506,37 +548,7 @@ export default function Shop() {
                     )}
                 </div>
 
-                {/* 3. Lista de Tamanhos */}
-                <div className="flex items-center justify-between p-6 bg-zinc-950 rounded-2xl border border-zinc-800 group hover:border-zinc-700 transition">
-                    <div className="flex items-center gap-4">
-                        <div className={`p-3 rounded-xl transition ${hasSizeList ? 'bg-primary text-white shadow-glow' : 'bg-zinc-800 text-zinc-500'}`}>
-                            <Film size={24} />
-                        </div>
-                        <div>
-                            <h4 className="font-bold text-white">Lista de Produção?</h4>
-                            <p className="text-xs text-zinc-500">Nomes, números e tamanhos.</p>
-                        </div>
-                    </div>
-                    <button 
-                        onClick={() => { setHasSizeList(!hasSizeList); if(!hasSizeList) setIsListModalOpen(true); }}
-                        className={`w-14 h-8 rounded-full transition-colors relative flex items-center px-1 ${hasSizeList ? 'bg-primary' : 'bg-zinc-800'}`}
-                    >
-                        <div className={`w-6 h-6 bg-white rounded-full transition-transform shadow-lg ${hasSizeList ? 'translate-x-6' : 'translate-x-0'}`}></div>
-                    </button>
-                </div>
-
-                {hasSizeList && sizeList.length > 0 && (
-                    <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-emerald-400">
-                            <CheckCircle size={20} />
-                            <span className="text-sm font-bold">Lista configurada ({sizeList.length} itens)</span>
-                        </div>
-                        <button onClick={() => setIsListModalOpen(true)} className="text-xs font-bold text-zinc-400 hover:text-white underline">Editar lista</button>
-                    </div>
-                )}
-
                 <div className="border-t border-zinc-800 pt-6 mt-6">
-                    {/* Botão Adicionar Mais - Posicionado ABAIXO da lista conforme pedido */}
                     <button onClick={() => setStep('list')} className="w-full mb-6 py-4 border-2 border-dashed border-zinc-800 rounded-2xl text-zinc-500 hover:text-primary hover:border-primary/50 transition flex items-center justify-center gap-3 font-bold uppercase tracking-widest text-xs">
                         <PlusIcon size={18} /> Adicionar mais produto/serviço
                     </button>
@@ -561,9 +573,6 @@ export default function Shop() {
   };
 
   const renderStepCheckout = () => {
-    // Recalcular total baseando-se no último pedido criado
-    // Mas para exibição, podemos confiar no lastCreatedOrder
-    
     return (
         <div className="animate-fade-in max-w-xl mx-auto">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
@@ -573,7 +582,6 @@ export default function Shop() {
                 </div>
                 
                 <div className="p-8 space-y-6">
-                    {/* Lista Resumida */}
                     <div className="space-y-2">
                         {lastCreatedOrder?.items?.map((item: any, idx: number) => (
                             <div key={idx} className="flex justify-between text-sm">
@@ -655,7 +663,7 @@ export default function Shop() {
                 <ShoppingBag className="text-primary" size={24} />
              </div>
              <h1 className="text-3xl font-bold text-white tracking-tight font-heading">
-                {step === 'list' ? 'Loja Crazy Art' : step === 'detail' ? 'Produto' : step === 'questionnaire' ? 'Detalhar Pedido' : 'Finalizar Pedido'}
+                {step === 'list' ? 'Loja Crazy Art' : step === 'detail' ? 'Produto' : step === 'questionnaire' ? 'Revisar Pedido' : 'Finalizar Pedido'}
              </h1>
           </div>
         </div>
