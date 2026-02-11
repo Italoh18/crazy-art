@@ -63,3 +63,10 @@ CREATE TABLE IF NOT EXISTS coupons (
     type TEXT NOT NULL, -- 'product', 'service', 'art', 'all'
     created_at TEXT NOT NULL
 );
+
+-- 7. Tabela de Configurações Gerais (Identidade/Favicon)
+CREATE TABLE IF NOT EXISTS site_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at TEXT
+);

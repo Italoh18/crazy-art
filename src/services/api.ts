@@ -187,5 +187,15 @@ export const api = {
   async deleteCoupon(id: string) {
     const res = await fetch(`/api/coupons?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
+  },
+
+  // Configurações do Site (Favicon, etc)
+  async getSettings() {
+    const res = await fetch(`/api/settings?_t=${Date.now()}`);
+    return handleResponse(res);
+  },
+  async updateSetting(key: string, value: string) {
+    const res = await fetch('/api/settings', { method: 'POST', headers: getHeaders(), body: JSON.stringify({ key, value }) });
+    return handleResponse(res);
   }
 };

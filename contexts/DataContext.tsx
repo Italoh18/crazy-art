@@ -11,6 +11,7 @@ interface DataContextType {
   trustedCompanies: TrustedCompany[];
   driveFiles: DriveFile[];
   coupons: Coupon[];
+  faviconUrl: string | null; // Novo State
   isLoading: boolean;
   addCustomer: (customer: any) => Promise<void>;
   updateCustomer: (id: string, data: any) => Promise<void>;
@@ -33,6 +34,7 @@ interface DataContextType {
   deleteCoupon: (id: string) => Promise<void>;
   validateCoupon: (code: string) => Promise<Coupon | null>;
   loadCoupons: () => Promise<void>;
+  updateFavicon: (url: string) => Promise<void>; // Nova função
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -58,6 +60,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [trustedCompanies, setTrustedCompanies] = useState<TrustedCompany[]>([]);
   const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // loadData now accepts a silent flag to prevent UI blocking
@@ -72,7 +75,8 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
         token ? api.getProducts() : Promise.resolve([]),
         token ? api.getOrders() : Promise.resolve([]),
         api.getCarousel(),
-        api.getTrustedCompanies()
+        api.getTrustedCompanies(),
+        api.getSettings() // Carrega Configurações
       ];
 
       // Carrega cupons apenas se for admin
@@ -110,7 +114,12 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       }
 
       if (results[5].status === 'fulfilled') {
-        setCoupons(results[5].value || []);
+        const settings = results[5].value || {};
+        if (settings.favicon_url) setFaviconUrl(settings.favicon_url);
+      }
+
+      if (results[6] && results[6].status === 'fulfilled') {
+        setCoupons(results[6].value || []);
       }
 
     } catch (e) {
@@ -143,7 +152,6 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       if (confirm("Deseja realmente excluir este cliente? Esta ação não pode ser desfeita.")) {
         setCustomers(prev => prev.filter(c => c.id !== id));
         await api.deleteClient(id);
-        // await loadData(true); // Removido para evitar race condition
       }
     } catch (e: any) { 
       await loadData(true); 
@@ -173,26 +181,12 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   const deleteProduct = async (id: string) => {
-    if (!id) {
-        console.error("ID inválido para exclusão");
-        return;
-    }
-
-    // Backup state for rollback
+    if (!id) return;
     const previousProducts = [...products];
-
-    // Optimistic Update: Remove immediately from UI
     setProducts(prev => prev.filter(p => p.id !== id));
-    
     try {
-      // Execute Delete on API
       await api.deleteProduct(id);
-      
-      // NÃO recarregamos os dados aqui. 
-      // O D1 tem consistência eventual, então se lermos agora, o item ainda pode estar lá.
-      // Como já removemos da UI via setProducts, confiamos nisso.
     } catch (e: any) { 
-      // Revert Optimistic Update
       setProducts(previousProducts);
       console.error("Failed to delete product:", e);
       throw e; 
@@ -222,7 +216,6 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       if (confirm("Deseja realmente excluir este pedido? Esta ação não pode ser desfeita.")) {
         setOrders(prev => prev.filter(o => o.id !== id));
         await api.deleteOrder(id);
-        // await loadData(true); // Removido para evitar race condition
       }
     } catch (e: any) {
       await loadData(true);
@@ -249,7 +242,6 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       if (confirm("Deseja remover esta imagem do carrossel?")) {
         setCarouselImages(prev => prev.filter(img => img.id !== id));
         await api.deleteCarouselImage(id);
-        // await loadData(true); // Removido para evitar race condition
       }
     } catch (e: any) { 
       await loadData(true);
@@ -340,16 +332,27 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       }
   };
 
+  // --- SETTINGS (FAVICON) ---
+  const updateFavicon = async (url: string) => {
+      try {
+          await api.updateSetting('favicon_url', url);
+          setFaviconUrl(url);
+      } catch (e: any) {
+          alert(e.message);
+      }
+  };
+
   return (
     <DataContext.Provider value={{ 
-      customers, products, orders, carouselImages, trustedCompanies, driveFiles, coupons, isLoading, 
+      customers, products, orders, carouselImages, trustedCompanies, driveFiles, coupons, faviconUrl, isLoading, 
       addCustomer, updateCustomer, deleteCustomer,
       addProduct, updateProduct, deleteProduct, 
       addOrder, updateOrder, deleteOrder, updateOrderStatus,
       addCarouselImage, deleteCarouselImage,
       addTrustedCompany, deleteTrustedCompany,
       loadDriveFiles, addDriveFile, deleteDriveFile,
-      addCoupon, deleteCoupon, validateCoupon, loadCoupons
+      addCoupon, deleteCoupon, validateCoupon, loadCoupons,
+      updateFavicon
     }}>
       {children}
     </DataContext.Provider>

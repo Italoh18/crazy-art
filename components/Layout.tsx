@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { SeasonalEffects } from './SeasonalEffects';
 import { StickManCleaner } from './StickManCleaner';
@@ -104,11 +104,12 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     { name: 'Pedidos', path: '/orders', icon: ClipboardList }, 
     { name: 'Clientes', path: '/customers', icon: Users },
     { name: 'Produtos', path: '/products', icon: Package },
-    { name: 'Cupons', path: '/coupons', icon: Ticket }, // Novo Item
+    { name: 'Cupons', path: '/coupons', icon: Ticket }, 
     { name: 'Carrossel', path: '/carousel-manager', icon: ImageIcon },
     { name: 'Financeiro', path: '/dre', icon: FileText },
     { name: 'Empresas que Confiam', path: '/trusted-companies', icon: Building },
     { name: 'Templates E-mail', path: '/email-templates', icon: Mail }, 
+    { name: 'Identidade', path: '/identity', icon: Fingerprint }, // Nova Aba
   ];
 
   const isActive = (path: string) => {
@@ -129,8 +130,9 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                      <Link to="/" className="text-zinc-400 hover:text-white transition p-2 hover:bg-white/10 rounded-full hover:scale-110">
                         <ArrowLeft size={20} />
                      </Link>
-                     <div className="flex items-center">
-                        <span className="font-bold text-lg bg-clip-text text-transparent bg-crazy-gradient hidden sm:block uppercase tracking-wider font-heading drop-shadow-sm" style={timesFont}>CRAZY ART</span>
+                     <div className="flex items-center gap-3">
+                        <img src="/logo.png" alt="Crazy Art" className="h-8 w-auto object-contain" />
+                        <span className="text-lg font-bold font-heading tracking-wider hidden sm:block text-transparent bg-clip-text bg-crazy-gradient">CRAZY ART</span>
                      </div>
                 </div>
                 <div className="flex items-center space-x-4 sm:space-x-6">
@@ -171,16 +173,11 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
         lg:translate-x-0 lg:static lg:inset-0
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="flex items-center justify-between h-20 px-8 border-b border-white/5 bg-white/[0.02]">
-          <div className="flex items-center group cursor-default">
-             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mr-3 group-hover:rotate-12 transition-transform duration-500">
-                <Sparkles size={18} className="text-white" />
-             </div>
-             <div>
-                <span className="text-xl font-bold text-white uppercase tracking-wider font-heading block leading-none bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400" style={timesFont}>CRAZY ART</span>
-             </div>
-          </div>
-          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-zinc-400 hover:text-white transition-transform hover:rotate-90">
+        <div className="flex items-center justify-center h-24 px-6 border-b border-white/5 bg-white/[0.02] gap-3">
+          <img src="/logo.png" alt="Crazy Art" className="h-10 w-auto object-contain" />
+          <span className="text-xl font-bold font-heading tracking-wider text-transparent bg-clip-text bg-crazy-gradient" style={timesFont}>CRAZY ART</span>
+          
+          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden absolute top-6 right-4 text-zinc-400 hover:text-white transition-transform hover:rotate-90">
             <X size={24} />
           </button>
         </div>
@@ -239,8 +236,9 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                 </div>
             </div>
             
-            <div className="flex items-center lg:hidden">
-              <span className="font-bold text-sm bg-clip-text text-transparent bg-crazy-gradient uppercase tracking-widest font-heading" style={timesFont}>CRAZY ART</span>
+            <div className="flex items-center gap-3 lg:hidden">
+              <img src="/logo.png" alt="Crazy Art" className="h-8 w-auto object-contain" />
+              <span className="text-lg font-bold font-heading tracking-wider text-transparent bg-clip-text bg-crazy-gradient">CRAZY ART</span>
             </div>
             
             <div className="flex items-center gap-4">

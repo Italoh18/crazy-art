@@ -20,7 +20,8 @@ import BackgroundRemover from './pages/BackgroundRemover';
 import PixelArt from './pages/PixelArt'; 
 import EmailTemplates from './pages/EmailTemplates';
 import PendingOrders from './pages/PendingOrders';
-import Coupons from './pages/Coupons'; // Nova Página
+import Coupons from './pages/Coupons';
+import Identity from './pages/Identity'; // Nova Página
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
 
@@ -81,12 +82,30 @@ const AppRoutes = () => {
             <Route path="/carousel-manager" element={<ProtectedRoute requiredRole="admin"><CarouselManager /></ProtectedRoute>} />
             <Route path="/trusted-companies" element={<ProtectedRoute requiredRole="admin"><TrustedCompanies /></ProtectedRoute>} />
             <Route path="/email-templates" element={<ProtectedRoute requiredRole="admin"><EmailTemplates /></ProtectedRoute>} />
+            <Route path="/identity" element={<ProtectedRoute requiredRole="admin"><Identity /></ProtectedRoute>} />
         </Routes>
     );
 }
 
 const AppContent = ({ showIntro, setShowIntro }: { showIntro: boolean, setShowIntro: (v: boolean) => void }) => {
-  const { isLoading } = useData();
+  const { isLoading, faviconUrl } = useData();
+  
+  // Atualização dinâmica do Favicon
+  useEffect(() => {
+    if (faviconUrl) {
+      const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement || document.createElement('link');
+      link.type = 'image/png';
+      link.rel = 'icon';
+      link.href = faviconUrl;
+      document.head.appendChild(link);
+      
+      // Atualiza também o ícone da Apple
+      const linkApple = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement || document.createElement('link');
+      linkApple.rel = 'apple-touch-icon';
+      linkApple.href = faviconUrl;
+      document.head.appendChild(linkApple);
+    }
+  }, [faviconUrl]);
   
   return (
     <>

@@ -49,10 +49,6 @@ export default function Shop() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
-  // States para Pagamento Parcial no Checkout
-  const [payMode, setPayMode] = useState<'total' | 'partial'>('total');
-  const [partialValue, setPartialValue] = useState<string>('');
-
   // States para Cupom
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
@@ -165,17 +161,6 @@ export default function Shop() {
       
       // Itera sobre os itens do pedido gerado
       // Se o pedido original tiver itens, usamos eles para calcular o desconto correto por tipo
-      const orderItems = lastCreatedOrder.items || [];
-      
-      // Se não tiver items populados no lastCreatedOrder (apenas referência), usamos o cálculo do carrinho
-      // mas `lastCreatedOrder` retornado pela API deve ter o total. 
-      // Para aplicar cupom corretamente por tipo, precisamos dos items.
-      // Se a API não retorna items detalhados na resposta do createOrder, assumimos proporcional ou 'all'.
-      
-      // Abordagem Simplificada: Se o cupom for 'all', aplica no total. 
-      // Se for específico, precisamos filtrar. Vamos assumir que 'items' está disponível na resposta ou recalculamos baseado no cart state.
-      // Como o usuário já está no passo checkout, o 'cart' state ainda reflete o pedido.
-      
       const { items } = calculateFinalOrder(); // Recalcula baseado no estado atual do carrinho
 
       items.forEach(item => {
@@ -220,7 +205,6 @@ export default function Shop() {
         };
         const res = await addOrder(orderData);
         setLastCreatedOrder({ ...res, items }); // Guarda itens localmente para cálculo do cupom
-        setPartialValue((total / 2).toFixed(2));
         setStep('checkout');
     } finally { setIsProcessing(false); }
   };
@@ -230,9 +214,9 @@ export default function Shop() {
     setIsProcessing(true);
     try {
         const discountedTotal = calculateDiscountedTotal();
-        const finalAmount = payMode === 'total' ? discountedTotal : parseFloat(partialValue.replace(',', '.'));
+        const finalAmount = discountedTotal;
         
-        let title = payMode === 'partial' ? `[ENTRADA] Pedido #${lastCreatedOrder.order_number}` : `Pedido #${lastCreatedOrder.order_number} - Crazy Art`;
+        let title = `Pedido #${lastCreatedOrder.order_number} - Crazy Art`;
         if (appliedCoupon) {
             title += ` (Cupom: ${appliedCoupon.code})`;
         }
@@ -405,36 +389,6 @@ export default function Shop() {
                         </div>
                     </div>
 
-                    {/* OPÇÃO DE PAGAMENTO PARCIAL (CASO > 50) */}
-                    {discountedTotal > 50 && (
-                        <div className="bg-zinc-950 p-5 rounded-2xl border border-zinc-800 space-y-4 animate-fade-in">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-xs font-bold text-primary uppercase tracking-widest flex items-center gap-2"><Coins size={14} /> Opção de Pagamento</h3>
-                                <div className="flex bg-zinc-900 p-1 rounded-lg">
-                                    <button onClick={() => setPayMode('total')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition ${payMode === 'total' ? 'bg-primary text-white' : 'text-zinc-500'}`}>TOTAL</button>
-                                    <button onClick={() => setPayMode('partial')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition ${payMode === 'partial' ? 'bg-primary text-white' : 'text-zinc-500'}`}>PARCIAL</button>
-                                </div>
-                            </div>
-                            
-                            {payMode === 'partial' ? (
-                                <div className="space-y-2">
-                                    <p className="text-[10px] text-zinc-500 leading-tight">Como o pedido é superior a R$ 50, você pode pagar apenas uma entrada agora para confirmar a produção.</p>
-                                    <div className="relative">
-                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">R$</span>
-                                        <input 
-                                            type="text" 
-                                            className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white font-mono focus:border-primary outline-none"
-                                            value={partialValue}
-                                            onChange={(e) => setPartialValue(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                            ) : (
-                                <p className="text-[10px] text-zinc-500 italic">Pagamento integral para quitação imediata.</p>
-                            )}
-                        </div>
-                    )}
-
                     <div className="pt-6 space-y-4">
                         <div className={canAddToAccount ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-4"}>
                             {canAddToAccount && (
@@ -446,7 +400,7 @@ export default function Shop() {
                                 className={`w-full bg-blue-600 text-white rounded-2xl font-black transition flex items-center justify-center gap-3 shadow-xl active:scale-95 ${canAddToAccount ? 'py-4 text-xs sm:text-sm' : 'py-5 text-lg'}`}
                             >
                                 {isProcessing ? <Loader2 className="animate-spin" /> : <CreditCard size={canAddToAccount ? 18 : 24} />} 
-                                {payMode === 'partial' ? `PAGAR ENTRADA` : `PAGAR AGORA`}
+                                PAGAR AGORA
                             </button>
                         </div>
                         <p className="text-[10px] text-zinc-500 text-center uppercase tracking-widest leading-relaxed">{canAddToAccount ? "Você possui limite disponível. Escolha pagar agora ou faturar na sua conta." : "É necessário o pagamento para confirmação do pedido."}</p>
