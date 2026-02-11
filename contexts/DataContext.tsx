@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Customer, Product, Order, OrderStatus, CarouselImage, TrustedCompany, DriveFile } from '../types';
+import { Customer, Product, Order, OrderStatus, CarouselImage, TrustedCompany, DriveFile, Coupon } from '../types';
 import { api } from '../src/services/api';
 
 interface DataContextType {
@@ -10,6 +10,7 @@ interface DataContextType {
   carouselImages: CarouselImage[];
   trustedCompanies: TrustedCompany[];
   driveFiles: DriveFile[];
+  coupons: Coupon[];
   isLoading: boolean;
   addCustomer: (customer: any) => Promise<void>;
   updateCustomer: (id: string, data: any) => Promise<void>;
@@ -28,6 +29,10 @@ interface DataContextType {
   loadDriveFiles: (folder?: string) => Promise<void>;
   addDriveFile: (file: any) => Promise<void>;
   deleteDriveFile: (id: string) => Promise<void>;
+  addCoupon: (data: any) => Promise<void>;
+  deleteCoupon: (id: string) => Promise<void>;
+  validateCoupon: (code: string) => Promise<Coupon | null>;
+  loadCoupons: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -52,6 +57,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [carouselImages, setCarouselImages] = useState<CarouselImage[]>([]);
   const [trustedCompanies, setTrustedCompanies] = useState<TrustedCompany[]>([]);
   const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // loadData now accepts a silent flag to prevent UI blocking
@@ -61,36 +67,50 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     if (!silent) setIsLoading(true);
 
     try {
-      const [clientsRes, productsRes, ordersRes, carouselRes, trustedRes] = await Promise.allSettled([
+      const promises = [
         token ? api.getClients() : Promise.resolve([]),
         token ? api.getProducts() : Promise.resolve([]),
         token ? api.getOrders() : Promise.resolve([]),
         api.getCarousel(),
         api.getTrustedCompanies()
-      ]);
+      ];
 
-      if (clientsRes.status === 'fulfilled') {
-        const data = clientsRes.value;
+      // Carrega cupons apenas se for admin
+      const role = localStorage.getItem('user_role');
+      if (token && role === 'admin') {
+          promises.push(api.getCoupons());
+      } else {
+          promises.push(Promise.resolve([]));
+      }
+
+      const results = await Promise.allSettled(promises);
+
+      if (results[0].status === 'fulfilled') {
+        const data = results[0].value;
         const customersList = Array.isArray(data) ? data : (data?.data || []);
         setCustomers(customersList.map(normalizeCustomer));
       }
 
-      if (productsRes.status === 'fulfilled') {
-        const data = productsRes.value;
+      if (results[1].status === 'fulfilled') {
+        const data = results[1].value;
         setProducts(Array.isArray(data) ? data : (data?.data || []));
       }
 
-      if (ordersRes.status === 'fulfilled') {
-        const data = ordersRes.value;
+      if (results[2].status === 'fulfilled') {
+        const data = results[2].value;
         setOrders(Array.isArray(data) ? data : (data?.data || []));
       }
 
-      if (carouselRes.status === 'fulfilled') {
-        setCarouselImages(carouselRes.value || []);
+      if (results[3].status === 'fulfilled') {
+        setCarouselImages(results[3].value || []);
       }
 
-      if (trustedRes.status === 'fulfilled') {
-        setTrustedCompanies(trustedRes.value || []);
+      if (results[4].status === 'fulfilled') {
+        setTrustedCompanies(results[4].value || []);
+      }
+
+      if (results[5].status === 'fulfilled') {
+        setCoupons(results[5].value || []);
       }
 
     } catch (e) {
@@ -284,15 +304,52 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     }
   };
 
+  // --- CUPONS ---
+  const loadCoupons = async () => {
+      try {
+          const res = await api.getCoupons();
+          setCoupons(res || []);
+      } catch (e) { console.error(e); }
+  };
+
+  const addCoupon = async (data: any) => {
+      try {
+          await api.addCoupon(data);
+          await loadCoupons();
+      } catch (e: any) { alert(e.message); }
+  };
+
+  const deleteCoupon = async (id: string) => {
+      if (confirm("Excluir este cupom permanentemente?")) {
+          try {
+              setCoupons(prev => prev.filter(c => c.id !== id));
+              await api.deleteCoupon(id);
+          } catch (e: any) { 
+              alert(e.message);
+              loadCoupons();
+          }
+      }
+  };
+
+  const validateCoupon = async (code: string) => {
+      try {
+          return await api.validateCoupon(code);
+      } catch (e: any) {
+          alert(e.message);
+          return null;
+      }
+  };
+
   return (
     <DataContext.Provider value={{ 
-      customers, products, orders, carouselImages, trustedCompanies, driveFiles, isLoading, 
+      customers, products, orders, carouselImages, trustedCompanies, driveFiles, coupons, isLoading, 
       addCustomer, updateCustomer, deleteCustomer,
       addProduct, updateProduct, deleteProduct, 
       addOrder, updateOrder, deleteOrder, updateOrderStatus,
       addCarouselImage, deleteCarouselImage,
       addTrustedCompany, deleteTrustedCompany,
-      loadDriveFiles, addDriveFile, deleteDriveFile
+      loadDriveFiles, addDriveFile, deleteDriveFile,
+      addCoupon, deleteCoupon, validateCoupon, loadCoupons
     }}>
       {children}
     </DataContext.Provider>

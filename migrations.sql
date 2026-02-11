@@ -54,3 +54,12 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TEXT,
     reference_id TEXT
 );
+
+-- 6. Tabela de Cupons de Desconto
+CREATE TABLE IF NOT EXISTS coupons (
+    id TEXT PRIMARY KEY,
+    code TEXT UNIQUE NOT NULL,
+    percentage REAL NOT NULL,
+    type TEXT NOT NULL, -- 'product', 'service', 'art', 'all'
+    created_at TEXT NOT NULL
+);

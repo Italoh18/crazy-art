@@ -7,11 +7,11 @@ import {
   Plus as PlusIcon, CreditCard, Loader2, MessageCircle, 
   Lock, UserPlus, ChevronRight, ListChecks, Upload, 
   Info, AlertTriangle, Wallet, Check, Film, FileText, Layers, Hash, ToggleLeft, ToggleRight,
-  Coins
+  Coins, Ticket
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Product, Order, SizeListItem } from '../types';
+import { Product, Order, SizeListItem, Coupon } from '../types';
 import { api } from '../src/services/api';
 
 type ShopStep = 'list' | 'detail' | 'questionnaire' | 'checkout' | 'success';
@@ -24,7 +24,7 @@ interface CartItem {
 }
 
 export default function Shop() {
-  const { products, addOrder, orders } = useData();
+  const { products, addOrder, orders, validateCoupon } = useData();
   const { role, currentCustomer } = useAuth();
   const navigate = useNavigate();
 
@@ -52,6 +52,12 @@ export default function Shop() {
   // States para Pagamento Parcial no Checkout
   const [payMode, setPayMode] = useState<'total' | 'partial'>('total');
   const [partialValue, setPartialValue] = useState<string>('');
+
+  // States para Cupom
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [couponError, setCouponError] = useState('');
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
 
   const filteredItems = products.filter(item => {
      const itemType = item.type || 'product';
@@ -148,6 +154,55 @@ export default function Shop() {
       return { items: itemsPayload, total: totalValue };
   };
 
+  // Cálculo do total com desconto aplicado
+  const calculateDiscountedTotal = () => {
+      if (!lastCreatedOrder) return 0;
+      const originalTotal = lastCreatedOrder.total;
+      
+      if (!appliedCoupon) return originalTotal;
+
+      let discountAmount = 0;
+      
+      // Itera sobre os itens do pedido gerado
+      // Se o pedido original tiver itens, usamos eles para calcular o desconto correto por tipo
+      const orderItems = lastCreatedOrder.items || [];
+      
+      // Se não tiver items populados no lastCreatedOrder (apenas referência), usamos o cálculo do carrinho
+      // mas `lastCreatedOrder` retornado pela API deve ter o total. 
+      // Para aplicar cupom corretamente por tipo, precisamos dos items.
+      // Se a API não retorna items detalhados na resposta do createOrder, assumimos proporcional ou 'all'.
+      
+      // Abordagem Simplificada: Se o cupom for 'all', aplica no total. 
+      // Se for específico, precisamos filtrar. Vamos assumir que 'items' está disponível na resposta ou recalculamos baseado no cart state.
+      // Como o usuário já está no passo checkout, o 'cart' state ainda reflete o pedido.
+      
+      const { items } = calculateFinalOrder(); // Recalcula baseado no estado atual do carrinho
+
+      items.forEach(item => {
+          if (appliedCoupon.type === 'all' || item.type === appliedCoupon.type) {
+              discountAmount += item.total * (appliedCoupon.percentage / 100);
+          }
+      });
+
+      return Math.max(0, originalTotal - discountAmount);
+  };
+
+  const handleApplyCoupon = async () => {
+      setCouponError('');
+      setAppliedCoupon(null);
+      if (!couponCode) return;
+
+      setIsValidatingCoupon(true);
+      const coupon = await validateCoupon(couponCode);
+      setIsValidatingCoupon(false);
+
+      if (coupon) {
+          setAppliedCoupon(coupon);
+      } else {
+          setCouponError('Cupom inválido ou expirado.');
+      }
+  };
+
   const handleCreateOrder = async () => {
     if (role !== 'client' || !currentCustomer) return;
     setIsProcessing(true);
@@ -164,7 +219,7 @@ export default function Shop() {
             due_date: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
         };
         const res = await addOrder(orderData);
-        setLastCreatedOrder(res);
+        setLastCreatedOrder({ ...res, items }); // Guarda itens localmente para cálculo do cupom
         setPartialValue((total / 2).toFixed(2));
         setStep('checkout');
     } finally { setIsProcessing(false); }
@@ -174,10 +229,17 @@ export default function Shop() {
     if (!lastCreatedOrder) return;
     setIsProcessing(true);
     try {
-        const finalAmount = payMode === 'total' ? lastCreatedOrder.total : parseFloat(partialValue.replace(',', '.'));
+        const discountedTotal = calculateDiscountedTotal();
+        const finalAmount = payMode === 'total' ? discountedTotal : parseFloat(partialValue.replace(',', '.'));
+        
+        let title = payMode === 'partial' ? `[ENTRADA] Pedido #${lastCreatedOrder.order_number}` : `Pedido #${lastCreatedOrder.order_number} - Crazy Art`;
+        if (appliedCoupon) {
+            title += ` (Cupom: ${appliedCoupon.code})`;
+        }
+
         const res = await api.createPayment({
             orderId: lastCreatedOrder.id,
-            title: payMode === 'partial' ? `[ENTRADA] Pedido #${lastCreatedOrder.order_number}` : `Pedido #${lastCreatedOrder.order_number} - Crazy Art`,
+            title: title,
             amount: finalAmount,
             payerEmail: currentCustomer?.email,
             payerName: currentCustomer?.name
@@ -191,8 +253,8 @@ export default function Shop() {
     const { items } = calculateFinalOrder();
     const allServices = items.every(i => i.type === 'service');
     const openOrdersTotal = orders.filter(o => o.client_id === currentCustomer.id && o.status === 'open').reduce((a, o) => a + Number(o.total || 0), 0);
-    return allServices && (currentCustomer.creditLimit || 0) >= (openOrdersTotal + lastCreatedOrder.total);
-  }, [currentCustomer, lastCreatedOrder, orders]);
+    return allServices && (currentCustomer.creditLimit || 0) >= (openOrdersTotal + calculateDiscountedTotal());
+  }, [currentCustomer, lastCreatedOrder, orders, appliedCoupon]);
 
   const renderStepList = () => (
     <div className="animate-fade-in relative pb-24">
@@ -284,6 +346,8 @@ export default function Shop() {
 
   const renderStepCheckout = () => {
     const total = lastCreatedOrder?.total || 0;
+    const discountedTotal = calculateDiscountedTotal();
+    
     return (
         <div className="animate-fade-in max-w-xl mx-auto space-y-6">
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
@@ -301,11 +365,48 @@ export default function Shop() {
                             </div>
                         ))}
                     </div>
+                    
                     <div className="h-px bg-zinc-800"></div>
-                    <div className="flex justify-between items-center"><span className="text-lg font-bold text-white">Valor Total</span><span className="text-2xl font-black text-white font-mono">R$ {total.toFixed(2)}</span></div>
+                    
+                    {/* Área de Cupom */}
+                    <div className="flex gap-2">
+                        <div className="relative flex-1">
+                            <Ticket className="absolute left-3 top-3.5 text-zinc-500" size={16} />
+                            <input 
+                                type="text"
+                                placeholder="Cupom de Desconto"
+                                className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary outline-none text-sm uppercase font-mono"
+                                value={couponCode}
+                                onChange={(e) => setCouponCode(e.target.value)}
+                                disabled={!!appliedCoupon}
+                            />
+                        </div>
+                        {appliedCoupon ? (
+                            <button onClick={() => { setAppliedCoupon(null); setCouponCode(''); }} className="bg-zinc-800 hover:bg-red-500/20 text-zinc-400 hover:text-red-500 px-4 rounded-xl transition">
+                                <X size={18} />
+                            </button>
+                        ) : (
+                            <button onClick={handleApplyCoupon} disabled={!couponCode || isValidatingCoupon} className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 rounded-xl font-bold text-xs transition disabled:opacity-50">
+                                {isValidatingCoupon ? <Loader2 className="animate-spin" size={16} /> : 'APLICAR'}
+                            </button>
+                        )}
+                    </div>
+                    
+                    {couponError && <p className="text-xs text-red-500">{couponError}</p>}
+                    {appliedCoupon && <p className="text-xs text-emerald-500 flex items-center gap-1"><Check size={12} /> Cupom aplicado! {appliedCoupon.percentage}% OFF em itens elegíveis.</p>}
+
+                    <div className="flex justify-between items-center">
+                        <span className="text-lg font-bold text-white">Valor Total</span>
+                        <div className="text-right">
+                            {appliedCoupon && (
+                                <span className="block text-sm text-zinc-500 line-through">R$ {total.toFixed(2)}</span>
+                            )}
+                            <span className="text-2xl font-black text-white font-mono">R$ {discountedTotal.toFixed(2)}</span>
+                        </div>
+                    </div>
 
                     {/* OPÇÃO DE PAGAMENTO PARCIAL (CASO > 50) */}
-                    {total > 50 && (
+                    {discountedTotal > 50 && (
                         <div className="bg-zinc-950 p-5 rounded-2xl border border-zinc-800 space-y-4 animate-fade-in">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-xs font-bold text-primary uppercase tracking-widest flex items-center gap-2"><Coins size={14} /> Opção de Pagamento</h3>

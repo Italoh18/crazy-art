@@ -55,55 +55,98 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
           if (!orderId) continue;
 
           try {
-            await env.DB.prepare("UPDATE orders SET status = 'paid', paid_at = ? WHERE id = ?")
-                .bind(nowTs, orderId).run();
-            
+            // 1. Buscar dados do pedido e cliente ANTES de atualizar status
             const orderInfo: any = await env.DB.prepare(`
-                SELECT o.order_number, c.name as client_name, c.id as client_id, c.email as client_email
+                SELECT o.status, o.total, o.due_date, o.order_number, 
+                       c.id as client_id, c.name as client_name, c.email as client_email, c.creditLimit
                 FROM orders o 
                 JOIN clients c ON o.client_id = c.id 
                 WHERE o.id = ?
             `).bind(orderId).first();
 
-            if (orderInfo) {
-                const formattedNum = String(orderInfo.order_number).padStart(5, '0');
-                
-                // NOTIFICAÇÃO ADMIN
-                await env.DB.prepare(`
-                    INSERT INTO notifications (
-                        id, target_role, type, title, message, created_at, reference_id, is_read
-                    ) VALUES (?, 'admin', 'success', 'Pagamento Recebido', ?, ?, ?, 0)
-                `).bind(
-                    crypto.randomUUID(),
-                    `O pedido #${formattedNum} (${orderInfo.client_name}) foi pago.`,
-                    nowTs,
-                    orderId
-                ).run();
-
-                // EMAIL ADMIN (DINÂMICO)
-                const emailAdmin = await getRenderedTemplate(env, 'paymentConfirmedAdmin', {
-                    orderNumber: formattedNum,
-                    customerName: orderInfo.client_name
-                });
-                await sendEmail(env, {
-                    to: getAdminEmail(env),
-                    subject: emailAdmin.subject,
-                    html: emailAdmin.html
-                });
-
-                // NOTIFICAÇÃO CLIENTE
-                await env.DB.prepare(`
-                    INSERT INTO notifications (
-                        id, target_role, user_id, type, title, message, created_at, reference_id, is_read
-                    ) VALUES (?, 'client', ?, 'success', 'Pagamento Confirmado', ?, ?, ?, 0)
-                `).bind(
-                    crypto.randomUUID(),
-                    orderInfo.client_id,
-                    `Recebemos o pagamento do seu pedido #${formattedNum}. Obrigado!`,
-                    nowTs,
-                    orderId
-                ).run();
+            // Se não achar ou já estiver pago, pula lógica de crédito
+            if (!orderInfo || orderInfo.status === 'paid') {
+                console.log(`[Webhook] Pedido ${orderId} já pago ou não encontrado.`);
+                continue;
             }
+
+            // 2. Lógica de Crédito Dinâmico
+            const now = new Date();
+            const dueDate = new Date(orderInfo.due_date);
+            // Zera as horas para comparar apenas datas
+            now.setHours(0,0,0,0);
+            dueDate.setHours(0,0,0,0);
+
+            const diffTime = now.getTime() - dueDate.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            let newLimit = Number(orderInfo.creditLimit || 0);
+            const orderTotal = Number(orderInfo.total || 0);
+            let creditMessage = "";
+
+            if (diffDays > 30) {
+                // REGRA 3: Atraso > 30 dias -> Crédito cai para R$ 20,00
+                newLimit = 20.00;
+                creditMessage = "Devido ao atraso superior a 30 dias, seu limite de crédito foi reajustado para R$ 20,00.";
+            } else if (diffDays > 5) {
+                // REGRA 2: Atraso > 5 dias -> Diminui metade do valor do pedido
+                newLimit = Math.max(0, newLimit - (orderTotal / 2));
+                creditMessage = `Pagamento com atraso (+${diffDays} dias). Seu limite de crédito foi reduzido em R$ ${(orderTotal/2).toFixed(2)}.`;
+            } else if (diffDays <= 0) {
+                // REGRA 1: Pagamento em dia ou adiantado -> Aumenta metade do valor do pedido
+                newLimit = newLimit + (orderTotal / 2);
+                creditMessage = `Pagamento pontual! Seu limite de crédito aumentou em R$ ${(orderTotal/2).toFixed(2)}.`;
+            } else {
+                // Entre 1 e 5 dias de atraso: Mantém o crédito (sem penalidade, sem bônus)
+                creditMessage = "Pagamento recebido.";
+            }
+
+            // Atualiza o limite do cliente
+            await env.DB.prepare("UPDATE clients SET creditLimit = ? WHERE id = ?")
+                .bind(newLimit, orderInfo.client_id).run();
+
+            // 3. Atualiza Pedido para Pago
+            await env.DB.prepare("UPDATE orders SET status = 'paid', paid_at = ? WHERE id = ?")
+                .bind(nowTs, orderId).run();
+            
+            const formattedNum = String(orderInfo.order_number).padStart(5, '0');
+                
+            // NOTIFICAÇÃO ADMIN
+            await env.DB.prepare(`
+                INSERT INTO notifications (
+                    id, target_role, type, title, message, created_at, reference_id, is_read
+                ) VALUES (?, 'admin', 'success', 'Pagamento Recebido', ?, ?, ?, 0)
+            `).bind(
+                crypto.randomUUID(),
+                `Pedido #${formattedNum} pago. ${creditMessage}`,
+                nowTs,
+                orderId
+            ).run();
+
+            // EMAIL ADMIN
+            const emailAdmin = await getRenderedTemplate(env, 'paymentConfirmedAdmin', {
+                orderNumber: formattedNum,
+                customerName: orderInfo.client_name
+            });
+            await sendEmail(env, {
+                to: getAdminEmail(env),
+                subject: emailAdmin.subject,
+                html: emailAdmin.html
+            });
+
+            // NOTIFICAÇÃO CLIENTE
+            await env.DB.prepare(`
+                INSERT INTO notifications (
+                    id, target_role, user_id, type, title, message, created_at, reference_id, is_read
+                ) VALUES (?, 'client', ?, 'success', 'Pagamento Confirmado', ?, ?, ?, 0)
+            `).bind(
+                crypto.randomUUID(),
+                orderInfo.client_id,
+                `Recebemos o pagamento do pedido #${formattedNum}. ${creditMessage} Novo limite: R$ ${newLimit.toFixed(2)}`,
+                nowTs,
+                orderId
+            ).run();
+            
           } catch (err: any) {
             console.error(`[Webhook] Erro processando ID ${orderId}:`, err.message);
           }

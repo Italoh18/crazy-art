@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { SeasonalEffects } from './SeasonalEffects';
 import { StickManCleaner } from './StickManCleaner';
@@ -104,6 +104,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     { name: 'Pedidos', path: '/orders', icon: ClipboardList }, 
     { name: 'Clientes', path: '/customers', icon: Users },
     { name: 'Produtos', path: '/products', icon: Package },
+    { name: 'Cupons', path: '/coupons', icon: Ticket }, // Novo Item
     { name: 'Carrossel', path: '/carousel-manager', icon: ImageIcon },
     { name: 'Financeiro', path: '/dre', icon: FileText },
     { name: 'Empresas que Confiam', path: '/trusted-companies', icon: Building },

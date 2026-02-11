@@ -72,6 +72,14 @@ export interface Order {
   has_files?: number;
 }
 
+export interface Coupon {
+  id: string;
+  code: string;
+  percentage: number;
+  type: 'product' | 'service' | 'art' | 'all';
+  created_at: string;
+}
+
 export interface DREData {
   month: string;
   grossRevenue: number;

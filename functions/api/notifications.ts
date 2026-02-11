@@ -14,24 +14,48 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     if (request.method === 'GET') {
       
       try {
-        // 1. VERIFICAÇÃO AUTOMÁTICA DE ATRASOS
-        const now = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const nowStr = now.toISOString().split('T')[0];
         
+        // 1. VERIFICAÇÃO AUTOMÁTICA DE ATRASOS
         const { results: overdueOrders } = await env.DB.prepare(
           `SELECT 
              o.id, o.order_number, o.client_id, o.description, o.due_date, 
-             c.email as client_email, c.name as client_name 
+             c.email as client_email, c.name as client_name, c.creditLimit
            FROM orders o 
            JOIN clients c ON o.client_id = c.id
            WHERE o.status = 'open' AND o.due_date < ?`
-        ).bind(now).all();
+        ).bind(nowStr).all();
 
         if (overdueOrders && overdueOrders.length > 0) {
           for (const order of overdueOrders) {
             const refId = `overdue_${order.id}`;
             const formattedOrder = String(order.order_number).padStart(5, '0');
-            const dateStr = new Date(order.due_date).toLocaleDateString();
+            const dueDate = new Date(order.due_date);
+            const dateStr = dueDate.toLocaleDateString();
             
+            // --- NOVA LÓGICA: Penalidade Severa Automática (> 30 dias) ---
+            const diffTime = now.getTime() - dueDate.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays > 30 && order.creditLimit > 20) {
+                // Se deve mais de 30 dias e ainda tem limite alto, corta pra 20
+                console.log(`[Auto-Penalty] Cliente ${order.client_name} tem atraso de ${diffDays} dias. Reduzindo limite.`);
+                await env.DB.prepare("UPDATE clients SET creditLimit = 20.00 WHERE id = ?").bind(order.client_id).run();
+                
+                // Notifica a redução
+                const penaltyId = `penalty_${order.client_id}_${order.id}`;
+                const existingPenalty = await env.DB.prepare("SELECT id FROM notifications WHERE reference_id = ?").bind(penaltyId).first();
+                
+                if (!existingPenalty) {
+                    await env.DB.prepare(`
+                        INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, reference_id, is_read) 
+                        VALUES (?, 'client', ?, 'error', 'Limite Reduzido', 'Devido a um atraso superior a 30 dias, seu limite foi reduzido para R$ 20,00.', ?, ?, 0)
+                    `).bind(crypto.randomUUID(), order.client_id, new Date().toISOString(), penaltyId).run();
+                }
+            }
+            // -----------------------------------------------------------
+
             try {
                 const existing = await env.DB.prepare("SELECT id FROM notifications WHERE reference_id = ?").bind(refId).first();
                 

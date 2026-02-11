@@ -169,5 +169,23 @@ export const api = {
   async deleteDriveFile(id: string) {
     const res = await fetch(`/api/files?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
+  },
+
+  // Cupons
+  async getCoupons() {
+    const res = await fetch(`/api/coupons?_t=${Date.now()}`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
+  async validateCoupon(code: string) {
+    const res = await fetch(`/api/coupons?code=${encodeURIComponent(code)}`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
+  async addCoupon(data: { code: string, percentage: number, type: string }) {
+    const res = await fetch('/api/coupons', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+    return handleResponse(res);
+  },
+  async deleteCoupon(id: string) {
+    const res = await fetch(`/api/coupons?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
+    return handleResponse(res);
   }
 };

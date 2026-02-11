@@ -19,7 +19,8 @@ import LayoutBuilder from './pages/LayoutBuilder';
 import BackgroundRemover from './pages/BackgroundRemover';
 import PixelArt from './pages/PixelArt'; 
 import EmailTemplates from './pages/EmailTemplates';
-import PendingOrders from './pages/PendingOrders'; // Nova página
+import PendingOrders from './pages/PendingOrders';
+import Coupons from './pages/Coupons'; // Nova Página
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
 
@@ -75,6 +76,7 @@ const AppRoutes = () => {
             <Route path="/customers" element={<ProtectedRoute requiredRole="admin"><Customers /></ProtectedRoute>} />
             <Route path="/customers/:id" element={<ProtectedRoute requiredRole="admin"><CustomerDetails /></ProtectedRoute>} />
             <Route path="/products" element={<ProtectedRoute requiredRole="admin"><Products /></ProtectedRoute>} />
+            <Route path="/coupons" element={<ProtectedRoute requiredRole="admin"><Coupons /></ProtectedRoute>} />
             <Route path="/dre" element={<ProtectedRoute requiredRole="admin"><DRE /></ProtectedRoute>} />
             <Route path="/carousel-manager" element={<ProtectedRoute requiredRole="admin"><CarouselManager /></ProtectedRoute>} />
             <Route path="/trusted-companies" element={<ProtectedRoute requiredRole="admin"><TrustedCompanies /></ProtectedRoute>} />
@@ -117,13 +119,23 @@ const ClientRoute = () => {
 };
 
 export default function App() {
-  const [showIntro, setShowIntro] = useState(true);
+  // Verifica sessionStorage para garantir que a intro só rode uma vez por sessão
+  const [showIntro, setShowIntro] = useState(() => {
+    return !sessionStorage.getItem('intro_played');
+  });
+
+  const handleSetShowIntro = (value: boolean) => {
+    if (!value) {
+        sessionStorage.setItem('intro_played', 'true');
+    }
+    setShowIntro(value);
+  };
 
   return (
     <DataProvider>
       <AuthProvider>
         <Router>
-          <AppContent showIntro={showIntro} setShowIntro={setShowIntro} />
+          <AppContent showIntro={showIntro} setShowIntro={handleSetShowIntro} />
         </Router>
       </AuthProvider>
     </DataProvider>
