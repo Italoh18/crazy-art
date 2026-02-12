@@ -575,10 +575,28 @@ export default function CustomerDetails() {
                                 return (
                                     <tr key={order.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? 'bg-primary/5' : ''}`}>
                                         <td className="px-4 md:px-6 py-4">{order.status === 'open' && <input type="checkbox" checked={isSelected} onChange={() => {}} onClick={(e) => toggleSelectOrder(order.id, e)} className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" />}</td>
-                                        <td className="px-4 md:px-6 py-4"><div className="font-mono text-zinc-300 font-bold">#{order.formattedOrderNumber || order.order_number}</div><div className="md:hidden mt-1.5">{renderStatusBadge(order.status, isLate)}</div><div className="text-xs text-zinc-600 max-w-[200px] truncate font-sans mt-1">{order.description || "Sem descrição"}</div></td>
+                                        <td className="px-4 md:px-6 py-4">
+                                            <div className="font-mono text-zinc-300 font-bold">#{order.formattedOrderNumber || order.order_number}</div>
+                                            <div className="md:hidden mt-1.5">
+                                                {renderStatusBadge(order.status, isLate)}
+                                                {role === 'admin' && order.status === 'paid' && order.paid_at && (
+                                                    <span className="text-[9px] text-zinc-500 ml-2 font-mono">
+                                                       {new Date(order.paid_at).toLocaleDateString()}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="text-xs text-zinc-600 max-w-[200px] truncate font-sans mt-1">{order.description || "Sem descrição"}</div>
+                                        </td>
                                         <td className="px-6 py-4 hidden md:table-cell">{new Date(order.order_date).toLocaleDateString()}</td>
                                         <td className={`px-6 py-4 hidden md:table-cell ${isLate ? 'text-red-400 font-bold' : ''}`}>{new Date(order.due_date).toLocaleDateString()}</td>
-                                        <td className="px-6 py-4 hidden md:table-cell">{renderStatusBadge(order.status, isLate)}</td>
+                                        <td className="px-6 py-4 hidden md:table-cell">
+                                            {renderStatusBadge(order.status, isLate)}
+                                            {role === 'admin' && order.status === 'paid' && order.paid_at && (
+                                                <div className="text-[10px] text-zinc-500 mt-1 font-mono">
+                                                    Pg: {new Date(order.paid_at).toLocaleDateString()}
+                                                </div>
+                                            )}
+                                        </td>
                                         <td className="px-4 md:px-6 py-4 text-right"><div className="font-mono font-bold text-white text-sm md:text-base">R$ {Number(order.total || 0).toFixed(2)}</div><div className={`md:hidden text-[10px] mt-1 font-medium ${isLate ? 'text-red-400' : 'text-zinc-500'}`}>Vence: {new Date(order.due_date).toLocaleDateString().slice(0,5)}</div></td>
                                         <td className="px-4 md:px-6 py-4 text-center">
                                             <div className="flex items-center justify-end md:justify-center gap-2">
