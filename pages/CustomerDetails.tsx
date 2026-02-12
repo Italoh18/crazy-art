@@ -193,12 +193,21 @@ export default function CustomerDetails() {
           ? `Pedido #${targetOrders[0]?.formattedOrderNumber} - Crazy Art`
           : `Faturas (${orderIds.length}) - Crazy Art`;
 
-      if (amountToPay > 50) {
+      // REGRAS ESTRITAS PARA PAGAMENTO PARCIAL:
+      // 1. Apenas 1 pedido selecionado (pagamento único de fatura)
+      // 2. Valor maior que R$ 50
+      // 3. Usuário logado como cliente (role === 'client')
+      const isSingleOrder = orderIds.length === 1;
+      const isEligibleForPartial = isSingleOrder && amountToPay > 50 && role === 'client';
+
+      if (isEligibleForPartial) {
+          // Abre modal para escolher entre Total ou Parcial
           setPendingPaymentData({ ids: orderIds, total: amountToPay, title });
           setCustomAmount((amountToPay / 2).toFixed(2));
           setPaymentType('total');
           setIsValueModalOpen(true);
       } else {
+          // Lote, Admin ou Valor Baixo -> Força Pagamento Total direto
           executePayment(orderIds, amountToPay, title);
       }
   };
