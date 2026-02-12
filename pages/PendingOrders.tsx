@@ -133,7 +133,7 @@ export default function PendingOrders() {
 
       {/* Modal Detalhes do Pedido Pendente */}
       {viewingOrder && (
-          <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-md flex items-start justify-center pt-12 md:pt-24 p-4 animate-fade-in overflow-y-auto">
               <div className="bg-[#121215] border border-zinc-800 w-full max-w-2xl max-h-[85vh] rounded-3xl flex flex-col shadow-2xl overflow-hidden">
                   <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-950">
                       <div className="flex items-center gap-4">

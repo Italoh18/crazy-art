@@ -627,7 +627,7 @@ export default function CustomerDetails() {
 
         {/* MODAL SELEÇÃO DE VALOR (TOTAL VS PARCIAL) */}
         {isValueModalOpen && pendingPaymentData && (
-             <div className="fixed inset-0 z-[120] flex justify-center items-center bg-black/90 backdrop-blur-md p-4 animate-fade-in">
+             <div className="fixed inset-0 z-[120] flex justify-center items-start pt-12 md:pt-24 bg-black/90 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
                 <div className="bg-[#121215] border border-zinc-800 rounded-3xl w-full max-w-sm shadow-2xl relative overflow-hidden animate-scale-in">
                     <div className="p-6 border-b border-zinc-800 bg-[#0c0c0e] text-center">
                         <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
@@ -690,7 +690,7 @@ export default function CustomerDetails() {
 
         {/* Order Details View */}
         {viewingOrder && (
-            <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/80 backdrop-blur-sm p-4 animate-fade-in overflow-y-auto">
                 <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative flex flex-col max-h-[85vh] animate-scale-in">
                     
                     <div className="p-6 border-b border-white/5 flex justify-between items-start bg-[#0c0c0e] rounded-t-2xl">

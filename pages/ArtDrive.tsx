@@ -233,7 +233,7 @@ export default function ArtDrive() {
 
       {/* Upload Modal */}
       {isUploadModalOpen && (
-          <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/80 backdrop-blur-sm p-4 animate-fade-in overflow-y-auto">
               <div className="bg-[#121215] border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl relative">
                   <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
                       <h2 className="text-xl font-bold text-white">Upload de Arquivo</h2>
