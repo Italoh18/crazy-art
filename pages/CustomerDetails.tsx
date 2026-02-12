@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useData } from '../contexts/DataContext';
@@ -7,7 +8,7 @@ import {
   CheckCircle, AlertTriangle, Trash2, Edit, Plus, X, 
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
   Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal,
-  Coins
+  Coins, Lock
 } from 'lucide-react';
 import { api } from '../src/services/api';
 import { SizeListItem } from '../types';
@@ -125,6 +126,9 @@ export default function CustomerDetails() {
       const due = new Date(o.due_date);
       return due < today;
   });
+
+  // Lógica de Bloqueio da Nuvem
+  const isCloudLocked = role === 'client' && _overdueOrders.length > 0;
 
   const _paidOrders = allCustomerOrders.filter(o => o.status === 'paid');
 
@@ -408,21 +412,41 @@ export default function CustomerDetails() {
             </div>
             
             <div className="flex flex-wrap items-center gap-2">
-                {totalPayableValue > 0 && (
+                {selectedOrderIds.length > 0 ? (
                     <button 
-                        onClick={() => initiatePaymentFlow(allPayableOrders.map(o => o.id))}
+                        onClick={() => initiatePaymentFlow(selectedOrderIds)}
                         disabled={isBatchProcessing}
-                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 disabled:opacity-50"
+                        className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 disabled:opacity-50"
                     >
                         {isBatchProcessing ? <Loader2 className="animate-spin" size={18} /> : <ListChecks size={18} />}
-                        <span>Pagar Tudo (R$ {totalPayableValue.toFixed(2)})</span>
+                        <span>Pagar Selecionados (R$ {selectedTotal.toFixed(2)})</span>
                     </button>
+                ) : (
+                    totalPayableValue > 0 && (
+                        <button 
+                            onClick={() => initiatePaymentFlow(allPayableOrders.map(o => o.id))}
+                            disabled={isBatchProcessing}
+                            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 disabled:opacity-50"
+                        >
+                            {isBatchProcessing ? <Loader2 className="animate-spin" size={18} /> : <ListChecks size={18} />}
+                            <span>Pagar Tudo (R$ {totalPayableValue.toFixed(2)})</span>
+                        </button>
+                    )
                 )}
 
                 {cloudUrl && (
-                    <a href={cloudUrl} target="_blank" rel="noopener noreferrer" className="px-5 py-2.5 bg-[#1e1b4b] hover:bg-[#2e2a5b] border border-indigo-500/30 text-indigo-400 hover:text-indigo-300 rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-indigo-900/20">
-                        <Cloud size={18} /> Nuvem
-                    </a>
+                    isCloudLocked ? (
+                        <button 
+                            onClick={() => alert("O acesso à nuvem está bloqueado temporariamente devido a pendências financeiras. Por favor, regularize seus pedidos atrasados para liberar o acesso.")}
+                            className="px-5 py-2.5 bg-red-900/20 hover:bg-red-900/30 border border-red-500/30 text-red-400 hover:text-red-300 rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-red-900/10 cursor-not-allowed opacity-90"
+                        >
+                            <Lock size={18} /> Nuvem
+                        </button>
+                    ) : (
+                        <a href={cloudUrl} target="_blank" rel="noopener noreferrer" className="px-5 py-2.5 bg-[#1e1b4b] hover:bg-[#2e2a5b] border border-indigo-500/30 text-indigo-400 hover:text-indigo-300 rounded-xl transition flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-indigo-900/20">
+                            <Cloud size={18} /> Nuvem
+                        </a>
+                    )
                 )}
 
                 {role === 'admin' && (

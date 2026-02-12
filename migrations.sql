@@ -1,23 +1,55 @@
 
--- SCRIPT DE ATUALIZAÇÃO DE SCHEMA - CRAZY ART D1
+-- ==========================================================
+-- CRAZY ART - SCHEMA COMPLETO PARA CLOUDFLARE D1
+-- Execute estes comandos no console do Cloudflare D1
+-- ==========================================================
 
--- 1. Atualização da Tabela de Pedidos (Orders)
--- Execute estes comandos se encontrar erros de "no column named"
-ALTER TABLE orders ADD COLUMN size_list TEXT;
-ALTER TABLE orders ADD COLUMN source TEXT DEFAULT 'admin';
-ALTER TABLE orders ADD COLUMN is_confirmed INTEGER DEFAULT 0;
+-- 1. Tabela de Configurações do Site (Favicon, Logo, etc)
+CREATE TABLE IF NOT EXISTS site_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at TEXT
+);
 
--- 2. Atualização da Tabela de Clientes (Clients)
-ALTER TABLE clients ADD COLUMN cloud_link TEXT;
--- ALTER TABLE clients ADD COLUMN street TEXT;
--- ALTER TABLE clients ADD COLUMN number TEXT;
--- ALTER TABLE clients ADD COLUMN zipCode TEXT;
+-- 2. Tabela de Clientes
+CREATE TABLE IF NOT EXISTS clients (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    cpf TEXT UNIQUE,
+    street TEXT,
+    number TEXT,
+    zipCode TEXT,
+    creditLimit REAL DEFAULT 0,
+    cloud_link TEXT,
+    created_at TEXT NOT NULL
+);
 
--- 3. Criação da Tabela de Itens de Pedido (caso não exista)
+-- 3. Tabela de Pedidos
+CREATE TABLE IF NOT EXISTS orders (
+    id TEXT PRIMARY KEY,
+    order_number INTEGER,
+    client_id TEXT NOT NULL,
+    description TEXT,
+    order_date TEXT,
+    due_date TEXT,
+    total REAL DEFAULT 0,
+    total_cost REAL DEFAULT 0,
+    status TEXT DEFAULT 'open',
+    source TEXT DEFAULT 'admin',
+    size_list TEXT,
+    is_confirmed INTEGER DEFAULT 0,
+    paid_at TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (client_id) REFERENCES clients(id)
+);
+
+-- 4. Tabela de Itens de Pedido
 CREATE TABLE IF NOT EXISTS order_items (
     id TEXT PRIMARY KEY,
     order_id TEXT NOT NULL,
-    catalog_id TEXT, -- Referência ao produto/serviço no catálogo
+    catalog_id TEXT,
     name TEXT,
     type TEXT,
     unit_price REAL DEFAULT 0,
@@ -27,20 +59,51 @@ CREATE TABLE IF NOT EXISTS order_items (
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
 
--- 4. Tabela para Lotes de Pagamento (Múltiplos pedidos em um link do MP)
-CREATE TABLE IF NOT EXISTS payment_batches (
+-- 5. Tabela de Catálogo (Produtos e Serviços)
+CREATE TABLE IF NOT EXISTS catalog (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT DEFAULT 'product',
+    name TEXT NOT NULL,
+    price REAL NOT NULL,
+    cost REAL DEFAULT 0,
+    cost_price REAL DEFAULT 0,
+    image_url TEXT,
+    description TEXT,
+    active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. Tabela de Cupons de Desconto
+CREATE TABLE IF NOT EXISTS coupons (
     id TEXT PRIMARY KEY,
-    order_ids TEXT NOT NULL, 
+    code TEXT UNIQUE NOT NULL,
+    percentage REAL NOT NULL,
+    type TEXT NOT NULL, -- 'product', 'service', 'art', 'all'
     created_at TEXT NOT NULL
 );
 
--- 5. Outras Tabelas de Suporte
-CREATE TABLE IF NOT EXISTS email_templates (
-    type TEXT PRIMARY KEY,
-    subject TEXT,
-    html_body TEXT,
-    logo_url TEXT,
-    updated_at TEXT
+-- 7. Outras tabelas de suporte (Imagens, Drive, Notificações)
+CREATE TABLE IF NOT EXISTS carousel (
+    id TEXT PRIMARY KEY,
+    url TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS trusted_companies (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    image_url TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS drive_files (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    folder TEXT NOT NULL,
+    url TEXT NOT NULL,
+    type TEXT,
+    size TEXT,
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS notifications (
@@ -55,18 +118,16 @@ CREATE TABLE IF NOT EXISTS notifications (
     reference_id TEXT
 );
 
--- 6. Tabela de Cupons de Desconto
-CREATE TABLE IF NOT EXISTS coupons (
+CREATE TABLE IF NOT EXISTS payment_batches (
     id TEXT PRIMARY KEY,
-    code TEXT UNIQUE NOT NULL,
-    percentage REAL NOT NULL,
-    type TEXT NOT NULL, -- 'product', 'service', 'art', 'all'
+    order_ids TEXT NOT NULL, 
     created_at TEXT NOT NULL
 );
 
--- 7. Tabela de Configurações Gerais (Identidade/Favicon)
-CREATE TABLE IF NOT EXISTS site_settings (
-    key TEXT PRIMARY KEY,
-    value TEXT,
+CREATE TABLE IF NOT EXISTS email_templates (
+    type TEXT PRIMARY KEY,
+    subject TEXT,
+    html_body TEXT,
+    logo_url TEXT,
     updated_at TEXT
 );
