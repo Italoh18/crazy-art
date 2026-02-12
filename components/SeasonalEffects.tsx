@@ -24,6 +24,32 @@ export const SeasonalEffects = () => {
     else setSeason('spring');
   }, []);
 
+  // Atualiza Variáveis CSS Globais conforme a estação
+  useEffect(() => {
+    const root = document.documentElement;
+    switch(season) {
+        case 'winter':
+            root.style.setProperty('--season-primary', '#38bdf8'); // sky-400 (Cyan/Blue)
+            root.style.setProperty('--season-glow', 'rgba(56, 189, 248, 0.4)');
+            break;
+        case 'summer':
+            root.style.setProperty('--season-primary', '#f59e0b'); // amber-500 (Golden)
+            root.style.setProperty('--season-glow', 'rgba(245, 158, 11, 0.4)');
+            break;
+        case 'spring':
+            root.style.setProperty('--season-primary', '#f472b6'); // pink-400 (Pink/Sakura)
+            root.style.setProperty('--season-glow', 'rgba(244, 114, 182, 0.4)');
+            break;
+        case 'autumn':
+            root.style.setProperty('--season-primary', '#f97316'); // orange-500 (Rust/Orange)
+            root.style.setProperty('--season-glow', 'rgba(249, 115, 22, 0.4)');
+            break;
+        default:
+            root.style.setProperty('--season-primary', 'rgba(255, 255, 255, 0.2)'); // White subtle
+            root.style.setProperty('--season-glow', 'rgba(255, 255, 255, 0.1)');
+    }
+  }, [season]);
+
   // Listener do Mouse
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -47,7 +73,7 @@ export const SeasonalEffects = () => {
   // Gerenciador de Partículas (Canvas)
   useEffect(() => {
     // Agora permitimos spring na animação
-    if (season === 'off' || season === 'summer') {
+    if (season === 'off') {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       const ctx = canvasRef.current?.getContext('2d');
       if (ctx && canvasRef.current) ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
@@ -174,6 +200,12 @@ export const SeasonalEffects = () => {
           ctx.fillStyle = colors[colorIndex];
           ctx.globalAlpha = p.opacity;
           ctx.fill();
+        } else if (season === 'summer') {
+            // Desenhar "Calor" (Partículas amarelas/brancas subindo levemente ou flutuando)
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 200, 50, ${p.opacity * 0.5})`;
+            ctx.fill();
         }
         
         ctx.restore();
@@ -192,149 +224,60 @@ export const SeasonalEffects = () => {
 
   // Estilos CSS Globais para Botões e Alvos Sazonais
   const getButtonStyles = () => {
-    // Seletor unificado: Botões normais, botões com efeito explícito, e containers alvo (Home cards, Footer)
+    // Seletor unificado: Botões normais, botões com efeito explícito, e containers alvo
     const targets = `button:not(.no-effect), .btn-effect, .seasonal-target`;
+
+    // Regras CSS baseadas na estação
+    let seasonalRules = '';
 
     switch (season) {
       case 'winter':
-        return `
+        seasonalRules = `
           /* Efeito Neve Acumulada */
-          ${targets} {
-            position: relative;
-            border-top: 1px solid rgba(255,255,255,0.4) !important;
-          }
-          ${targets.replace(/,/g, '::before,') + '::before'} {
-            content: '';
-            position: absolute;
-            top: -4px;
-            left: 2px;
-            right: 2px;
-            height: 6px;
-            background: white;
-            border-radius: 4px 4px 2px 2px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-            pointer-events: none;
-            z-index: 20;
-            opacity: 0.9;
-          }
-          /* Pequenos floquinhos extras na borda */
-          ${targets.replace(/,/g, '::after,') + '::after'} {
-            content: '';
-            position: absolute;
-            top: -6px;
-            right: 10px;
-            width: 4px;
-            height: 4px;
-            background: white;
-            border-radius: 50%;
-            box-shadow: -15px 1px 0 white, 20px 2px 0 white;
-            pointer-events: none;
-            z-index: 20;
-          }
+          ${targets} { position: relative; border-top: 1px solid rgba(255,255,255,0.4) !important; }
+          ${targets.replace(/,/g, '::before,') + '::before'} { content: ''; position: absolute; top: -4px; left: 2px; right: 2px; height: 6px; background: white; border-radius: 4px 4px 2px 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); pointer-events: none; z-index: 20; opacity: 0.9; }
         `;
+        break;
       case 'summer':
-        return `
+        seasonalRules = `
           /* Efeito Suor/Calor */
-          @keyframes sweat-drop {
-            0% { top: 0; opacity: 0; height: 4px; }
-            20% { opacity: 0.8; height: 8px; }
-            80% { opacity: 0.8; height: 8px; }
-            100% { top: 100%; opacity: 0; height: 4px; }
-          }
-          ${targets} {
-            position: relative;
-            overflow: hidden; /* Mantém a gota dentro */
-          }
-          ${targets.replace(/,/g, '::before,') + '::before'} {
-            content: '';
-            position: absolute;
-            left: 20%;
-            width: 3px;
-            background: rgba(255,255,255,0.6);
-            border-radius: 2px;
-            animation: sweat-drop 3s infinite ease-in;
-            pointer-events: none;
-            box-shadow: 0 0 2px rgba(255,255,255,0.8);
-          }
-          ${targets.replace(/,/g, '::after,') + '::after'} {
-            content: '';
-            position: absolute;
-            left: 70%;
-            width: 2px;
-            background: rgba(255,255,255,0.5);
-            border-radius: 2px;
-            animation: sweat-drop 4.5s infinite ease-in 1s; /* Delay diferente */
-            pointer-events: none;
-          }
+          @keyframes sweat-drop { 0% { top: 0; opacity: 0; height: 4px; } 20% { opacity: 0.8; height: 8px; } 100% { top: 100%; opacity: 0; height: 4px; } }
+          ${targets} { position: relative; overflow: hidden; }
+          ${targets.replace(/,/g, '::before,') + '::before'} { content: ''; position: absolute; left: 20%; width: 3px; background: rgba(255,255,255,0.6); border-radius: 2px; animation: sweat-drop 3s infinite ease-in; pointer-events: none; }
         `;
+        break;
       case 'spring':
-        return `
-          /* Efeito Flores Nascendo */
-          ${targets} {
-            position: relative;
-          }
-          /* Flor 1 */
-          ${targets.replace(/,/g, '::before,') + '::before'} {
-            content: '🌸';
-            position: absolute;
-            top: -8px;
-            right: -4px;
-            font-size: 14px;
-            animation: grow 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            pointer-events: none;
-            z-index: 20;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-          }
-          /* Flor 2 */
-          ${targets.replace(/,/g, '::after,') + '::after'} {
-            content: '🌱';
-            position: absolute;
-            top: -6px;
-            left: -2px;
-            font-size: 10px;
-            animation: grow 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards 0.2s;
-            pointer-events: none;
-            z-index: 20;
-          }
-          @keyframes grow {
-            from { transform: scale(0) translateY(5px); opacity: 0; }
-            to { transform: scale(1) translateY(0); opacity: 1; }
-          }
+        seasonalRules = `
+          /* Efeito Flores */
+          ${targets} { position: relative; }
+          ${targets.replace(/,/g, '::before,') + '::before'} { content: '🌸'; position: absolute; top: -8px; right: -4px; font-size: 14px; animation: grow 0.5s forwards; pointer-events: none; z-index: 20; }
+          @keyframes grow { from { transform: scale(0) translateY(5px); } to { transform: scale(1) translateY(0); } }
         `;
+        break;
       case 'autumn':
-        return `
-          /* Efeito Folhas Acumuladas */
-          ${targets} {
-            position: relative;
-          }
-          /* Folha Esquerda */
-          ${targets.replace(/,/g, '::before,') + '::before'} {
-            content: '🍂';
-            position: absolute;
-            top: -12px;
-            left: 10%;
-            font-size: 14px;
-            transform: rotate(-15deg);
-            pointer-events: none;
-            z-index: 20;
-            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
-          }
-          /* Folha Direita */
-          ${targets.replace(/,/g, '::after,') + '::after'} {
-            content: '🍁';
-            position: absolute;
-            top: -10px;
-            right: 15%;
-            font-size: 13px;
-            transform: rotate(25deg);
-            pointer-events: none;
-            z-index: 20;
-            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
-          }
+        seasonalRules = `
+          /* Efeito Folhas */
+          ${targets} { position: relative; }
+          ${targets.replace(/,/g, '::before,') + '::before'} { content: '🍂'; position: absolute; top: -12px; left: 10%; font-size: 14px; transform: rotate(-15deg); pointer-events: none; z-index: 20; }
         `;
+        break;
       default:
-        return '';
+        seasonalRules = '';
     }
+
+    return `
+      ${seasonalRules}
+      
+      /* CLASSE PARA BORDAS DO MENU REATIVAS */
+      .seasonal-border {
+         transition: border-color 0.5s ease, box-shadow 0.5s ease;
+         border-color: rgba(255,255,255,0.1);
+      }
+      .seasonal-border:hover, .seasonal-border:focus-within, .seasonal-border.active {
+         border-color: var(--season-primary, rgba(255,255,255,0.2)) !important;
+         box-shadow: 0 0 25px var(--season-glow, rgba(255,255,255,0.1)) !important;
+      }
+    `;
   };
 
   return (

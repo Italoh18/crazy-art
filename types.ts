@@ -15,7 +15,7 @@ export interface Customer {
   created_at: string;
 }
 
-export type ItemType = 'product' | 'service';
+export type ItemType = 'product' | 'service' | 'art';
 
 export interface Product {
   id: string;
@@ -25,6 +25,7 @@ export interface Product {
   description?: string;
   type: ItemType;
   imageUrl?: string;
+  downloadLink?: string; // Novo: Link para download (apenas para 'art')
 }
 
 export interface OrderItem {
@@ -35,6 +36,7 @@ export interface OrderItem {
   total: number;
   cost_price?: number; 
   type?: ItemType;
+  downloadLink?: string; // Persistido no pedido
 }
 
 export type OrderStatus = 'open' | 'paid' | 'cancelled';
@@ -70,6 +72,7 @@ export interface Order {
   size_list?: SizeListItem[] | string; // Suporta JSON string vindo do DB
   is_confirmed?: number; // 0 ou 1
   has_files?: number;
+  items?: OrderItem[]; // Para visualização detalhada
 }
 
 export interface Coupon {

@@ -1,17 +1,17 @@
 
-import React, { useState, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   ArrowLeft, ShoppingBag, Wrench, Search, ShoppingCart, 
   CheckCircle, AlertOctagon, Send, X, Trash2, Minus, 
   Plus as PlusIcon, CreditCard, Loader2, MessageCircle, 
   Lock, UserPlus, ChevronRight, ListChecks, Upload, 
   Info, AlertTriangle, Wallet, Check, Film, FileText, Layers, Hash, ToggleLeft, ToggleRight,
-  Coins, Ticket
+  Coins, Ticket, Palette, CloudDownload
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Product, Order, SizeListItem, Coupon } from '../types';
+import { Product, Order, SizeListItem, Coupon, ItemType } from '../types';
 import { api } from '../src/services/api';
 
 type ShopStep = 'list' | 'detail' | 'questionnaire' | 'checkout' | 'success';
@@ -27,9 +27,10 @@ export default function Shop() {
   const { products, addOrder, orders, validateCoupon } = useData();
   const { role, currentCustomer } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [step, setStep] = useState<ShopStep>('list');
-  const [activeTab, setActiveTab] = useState<'product' | 'service'>('product');
+  const [activeTab, setActiveTab] = useState<ItemType>('product');
   const [searchTerm, setSearchTerm] = useState('');
   
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -54,6 +55,15 @@ export default function Shop() {
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [couponError, setCouponError] = useState('');
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+
+  // Inicializa a aba com base na URL (ex: ?tab=art)
+  useEffect(() => {
+      const params = new URLSearchParams(location.search);
+      const tab = params.get('tab');
+      if (tab === 'art') setActiveTab('art');
+      else if (tab === 'service') setActiveTab('service');
+      else setActiveTab('product');
+  }, [location.search]);
 
   const filteredItems = products.filter(item => {
      const itemType = item.type || 'product';
@@ -131,7 +141,16 @@ export default function Shop() {
           }
           const subtotal = unitPrice * qty;
           totalValue += subtotal;
-          itemsPayload.push({ productId: item.product.id, productName: item.product.name, quantity: qty, unitPrice: unitPrice, total: subtotal, type: item.product.type });
+          
+          itemsPayload.push({ 
+              productId: item.product.id, 
+              productName: item.product.name, 
+              quantity: qty, 
+              unitPrice: unitPrice, 
+              total: subtotal, 
+              type: item.product.type,
+              downloadLink: item.product.downloadLink 
+          });
       });
 
       const findServicePrice = (n: string, d: number) => {
@@ -158,10 +177,7 @@ export default function Shop() {
       if (!appliedCoupon) return originalTotal;
 
       let discountAmount = 0;
-      
-      // Itera sobre os itens do pedido gerado
-      // Se o pedido original tiver itens, usamos eles para calcular o desconto correto por tipo
-      const { items } = calculateFinalOrder(); // Recalcula baseado no estado atual do carrinho
+      const { items } = calculateFinalOrder(); 
 
       items.forEach(item => {
           if (appliedCoupon.type === 'all' || item.type === appliedCoupon.type) {
@@ -204,7 +220,7 @@ export default function Shop() {
             due_date: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
         };
         const res = await addOrder(orderData);
-        setLastCreatedOrder({ ...res, items }); // Guarda itens localmente para cálculo do cupom
+        setLastCreatedOrder({ ...res, items }); 
         setStep('checkout');
     } finally { setIsProcessing(false); }
   };
@@ -235,7 +251,10 @@ export default function Shop() {
   const canAddToAccount = useMemo(() => {
     if (!currentCustomer || !lastCreatedOrder) return false;
     const { items } = calculateFinalOrder();
+    // Permite adicionar à conta se todos forem serviços OU se o cliente tiver crédito suficiente
     const allServices = items.every(i => i.type === 'service');
+    // Para produtos/artes, precisa ter limite. Serviços podem ser debitados mesmo sem limite (se política permitir),
+    // mas aqui vamos manter a regra do limite.
     const openOrdersTotal = orders.filter(o => o.client_id === currentCustomer.id && o.status === 'open').reduce((a, o) => a + Number(o.total || 0), 0);
     return allServices && (currentCustomer.creditLimit || 0) >= (openOrdersTotal + calculateDiscountedTotal());
   }, [currentCustomer, lastCreatedOrder, orders, appliedCoupon]);
@@ -243,26 +262,57 @@ export default function Shop() {
   const renderStepList = () => (
     <div className="animate-fade-in relative pb-24">
         <div className="flex flex-col items-center mb-10 space-y-6">
-            <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-80 border border-zinc-800 shadow-xl">
-                <button onClick={() => setActiveTab('product')} className={`flex-1 py-2.5 rounded-full text-xs font-bold tracking-widest transition ${activeTab === 'product' ? 'bg-white text-black' : 'text-zinc-500'}`}>PRODUTOS</button>
-                <button onClick={() => setActiveTab('service')} className={`flex-1 py-2.5 rounded-full text-xs font-bold tracking-widest transition ${activeTab === 'service' ? 'bg-white text-black' : 'text-zinc-500'}`}>SERVIÇOS</button>
+            <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-full max-w-md border border-zinc-800 shadow-xl overflow-x-auto">
+                <button onClick={() => setActiveTab('product')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'product' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>PRODUTOS</button>
+                <button onClick={() => setActiveTab('service')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'service' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>SERVIÇOS</button>
+                <button onClick={() => setActiveTab('art')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap flex items-center justify-center gap-1 ${activeTab === 'art' ? 'bg-purple-500 text-white shadow-sm' : 'text-zinc-500 hover:text-purple-400'}`}><Palette size={12} /> QUITANDA</button>
             </div>
+            
             <div className="w-full max-w-md relative">
-                <input type="text" placeholder={`Buscar na loja...`} className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-primary outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                <input type="text" placeholder={activeTab === 'art' ? "Buscar artes digitais..." : "Buscar na loja..."} className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-primary outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
             </div>
         </div>
+
+        {activeTab === 'art' && filteredItems.length > 0 && (
+            <div className="max-w-5xl mx-auto mb-6 p-4 bg-purple-900/20 border border-purple-500/30 rounded-xl flex items-center gap-3">
+                <CloudDownload className="text-purple-400" />
+                <p className="text-xs text-purple-200">As artes digitais da <strong>Quitanda</strong> são arquivos prontos para baixar. O link de download será liberado imediatamente após a confirmação do pagamento.</p>
+            </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredItems.map((item) => (
-                <div key={item.id} onClick={() => openProduct(item)} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-primary/50 transition cursor-pointer">
-                    <div className="h-56 bg-zinc-800 flex items-center justify-center relative">
-                        {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />}
-                        <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase">R$ {item.price.toFixed(2)}</div>
+                <div key={item.id} onClick={() => openProduct(item)} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-primary/50 transition cursor-pointer group h-full flex flex-col">
+                    <div className="h-56 bg-zinc-800 flex items-center justify-center relative overflow-hidden">
+                        {item.imageUrl ? (
+                            <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                        ) : (
+                            item.type === 'art' ? <Palette size={64} className="text-purple-500/50" /> : <ShoppingBag size={64} className="text-zinc-700" />
+                        )}
+                        <div className={`absolute bottom-3 left-3 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase backdrop-blur-md ${item.type === 'art' ? 'bg-purple-600/80' : 'bg-black/60'}`}>
+                            R$ {item.price.toFixed(2)}
+                        </div>
                     </div>
-                    <div className="p-5"><h3 className="font-bold text-white">{item.name}</h3><p className="text-zinc-500 text-xs mt-1 line-clamp-2">{item.description || 'Clique para ver detalhes'}</p></div>
+                    <div className="p-5 flex-1 flex flex-col">
+                        <h3 className="font-bold text-white text-lg leading-tight">{item.name}</h3>
+                        <p className="text-zinc-500 text-xs mt-2 line-clamp-2 flex-1">{item.description || 'Clique para ver detalhes'}</p>
+                        {item.type === 'art' && (
+                            <div className="mt-3 flex items-center gap-1 text-[10px] text-purple-400 font-bold uppercase tracking-wider">
+                                <CloudDownload size={12} /> Download Digital
+                            </div>
+                        )}
+                    </div>
                 </div>
             ))}
         </div>
+        
+        {filteredItems.length === 0 && (
+            <div className="text-center py-20 opacity-50">
+                <p>Nenhum item encontrado.</p>
+            </div>
+        )}
+
         {cart.length > 0 && (
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[90%] max-w-md animate-fade-in-up">
                 <div className="bg-zinc-900/90 backdrop-blur-md border border-primary/50 p-4 rounded-2xl shadow-2xl flex items-center justify-between">
@@ -276,54 +326,125 @@ export default function Shop() {
 
   const renderStepDetail = () => (
     <div className="animate-fade-in max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
-        <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 aspect-square flex items-center justify-center">{viewingProduct?.imageUrl ? <img src={viewingProduct.imageUrl} className="w-full h-full object-cover" /> : <ShoppingBag size={120} className="text-zinc-800" />}</div>
+        <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 aspect-square flex items-center justify-center relative">
+            {viewingProduct?.imageUrl ? <img src={viewingProduct.imageUrl} className="w-full h-full object-cover" /> : viewingProduct?.type === 'art' ? <Palette size={120} className="text-purple-500/20" /> : <ShoppingBag size={120} className="text-zinc-800" />}
+            {viewingProduct?.type === 'art' && (
+                <div className="absolute top-4 right-4 bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
+                    <CloudDownload size={12} /> Digital
+                </div>
+            )}
+        </div>
         <div className="flex flex-col justify-center space-y-8">
-            <div><span className="bg-primary/10 text-primary text-[10px] font-bold px-3 py-1 rounded-full uppercase">{viewingProduct?.type === 'product' ? 'Produto' : 'Serviço'}</span><h2 className="text-4xl font-bold text-white mt-4">{viewingProduct?.name}</h2><p className="text-3xl font-black text-emerald-400 mt-2">R$ {viewingProduct?.price.toFixed(2)}</p></div>
-            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800"><h4 className="text-xs font-bold text-zinc-500 uppercase mb-3">Descrição</h4><p className="text-zinc-300 leading-relaxed mb-4">{viewingProduct?.description || 'Nenhum detalhe adicional.'}</p>
-                <div className="flex items-center gap-4"><div className="flex items-center gap-2 bg-black rounded-xl p-2 border border-zinc-800"><button onClick={() => setCurrentOrderQty(Math.max(1, Number(currentOrderQty) - 1))} className="p-2 text-zinc-500"><Minus size={16} /></button><input type="number" value={currentOrderQty} onChange={(e) => setCurrentOrderQty(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-12 bg-transparent text-white text-center font-bold outline-none" /><button onClick={() => setCurrentOrderQty(Number(currentOrderQty) + 1)} className="p-2 text-zinc-500"><PlusIcon size={16} /></button></div><input type="text" placeholder="Obs. (Cor, Tamanho...)" className="flex-1 bg-black rounded-xl px-4 py-3 border border-zinc-800 text-white outline-none text-sm" value={currentOrderDesc} onChange={(e) => setCurrentOrderDesc(e.target.value)} /></div>
+            <div>
+                <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase ${viewingProduct?.type === 'art' ? 'bg-purple-500/10 text-purple-400' : 'bg-primary/10 text-primary'}`}>
+                    {viewingProduct?.type === 'art' ? 'Arte Digital' : viewingProduct?.type === 'service' ? 'Serviço' : 'Produto'}
+                </span>
+                <h2 className="text-4xl font-bold text-white mt-4">{viewingProduct?.name}</h2>
+                <p className="text-3xl font-black text-emerald-400 mt-2">R$ {viewingProduct?.price.toFixed(2)}</p>
             </div>
-            <button onClick={addToCart} className="w-full bg-crazy-gradient text-white py-5 rounded-2xl font-bold text-lg hover:scale-105 transition shadow-xl active:scale-95 flex items-center justify-center gap-3"><ShoppingCart size={24} /> ADICIONAR AO CARRINHO</button>
+            
+            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800">
+                <h4 className="text-xs font-bold text-zinc-500 uppercase mb-3">Descrição</h4>
+                <p className="text-zinc-300 leading-relaxed mb-4">{viewingProduct?.description || 'Nenhum detalhe adicional.'}</p>
+                {viewingProduct?.type === 'art' && (
+                    <div className="bg-purple-900/10 p-3 rounded-lg border border-purple-500/20 mb-4 text-xs text-purple-300">
+                        Este é um produto digital. Você receberá o link para download automaticamente após a confirmação do pagamento.
+                    </div>
+                )}
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 bg-black rounded-xl p-2 border border-zinc-800">
+                        <button onClick={() => setCurrentOrderQty(Math.max(1, Number(currentOrderQty) - 1))} className="p-2 text-zinc-500"><Minus size={16} /></button>
+                        <input type="number" value={currentOrderQty} onChange={(e) => setCurrentOrderQty(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-12 bg-transparent text-white text-center font-bold outline-none" />
+                        <button onClick={() => setCurrentOrderQty(Number(currentOrderQty) + 1)} className="p-2 text-zinc-500"><PlusIcon size={16} /></button>
+                    </div>
+                    <input type="text" placeholder="Obs. (Cor, Tamanho...)" className="flex-1 bg-black rounded-xl px-4 py-3 border border-zinc-800 text-white outline-none text-sm" value={currentOrderDesc} onChange={(e) => setCurrentOrderDesc(e.target.value)} />
+                </div>
+            </div>
+            <button onClick={addToCart} className="w-full bg-crazy-gradient text-white py-5 rounded-2xl font-bold text-lg hover:scale-105 transition shadow-xl active:scale-95 flex items-center justify-center gap-3">
+                <ShoppingCart size={24} /> ADICIONAR AO CARRINHO
+            </button>
         </div>
     </div>
   );
 
   const renderStepQuestionnaire = () => {
       const calc = calculateFinalOrder();
+      const hasPhysicalItems = calc.items.some(i => i.type === 'product');
+      
       return (
         <div className="animate-fade-in max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 p-8 rounded-3xl shadow-2xl relative space-y-8">
             <h2 className="text-2xl font-bold text-white flex items-center gap-3"><ListChecks className="text-primary" /> Revisar Pedido</h2>
             <div className="bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden divide-y divide-zinc-800">
                 {calc.items.filter(i => i.productId !== 'service-layout' && i.productId !== 'service-mold').map((item, idx) => (
-                    <div key={idx} className="p-4 flex justify-between items-center group"><div><p className="text-white font-bold text-sm">{item.productName} <span className="text-primary">x{item.quantity}</span></p></div><div className="flex items-center gap-4"><span className="text-emerald-400 font-mono text-sm">R$ {item.total.toFixed(2)}</span><button onClick={() => removeFromCart(cart[idx]?.tempId)} className="text-zinc-600 hover:text-red-500 transition"><Trash2 size={16} /></button></div></div>
+                    <div key={idx} className="p-4 flex justify-between items-center group">
+                        <div>
+                            <p className="text-white font-bold text-sm">
+                                {item.productName} <span className="text-primary">x{item.quantity}</span>
+                            </p>
+                            {item.type === 'art' && <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">Download Digital</span>}
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <span className="text-emerald-400 font-mono text-sm">R$ {item.total.toFixed(2)}</span>
+                            <button onClick={() => removeFromCart(cart[idx]?.tempId)} className="text-zinc-600 hover:text-red-500 transition"><Trash2 size={16} /></button>
+                        </div>
+                    </div>
                 ))}
             </div>
-            <div className="flex items-center justify-between p-6 bg-zinc-950 rounded-2xl border border-zinc-800 transition"><div className="flex items-center gap-4"><div className={`p-3 rounded-xl ${hasSizeList ? 'bg-primary text-white' : 'bg-zinc-800 text-zinc-500'}`}><Film size={24} /></div><div><h4 className="font-bold text-white">Lista de Produção?</h4><p className="text-xs text-zinc-500">Nomes, números e tamanhos.</p></div></div><button onClick={() => { setHasSizeList(!hasSizeList); if (!hasSizeList && sizeList.length === 0) addListRow(); }} className={`w-14 h-8 rounded-full transition relative flex items-center px-1 ${hasSizeList ? 'bg-primary' : 'bg-zinc-800'}`}><div className={`w-6 h-6 bg-white rounded-full transition ${hasSizeList ? 'translate-x-6' : 'translate-x-0'}`}></div></button></div>
-            {hasSizeList && (
-                <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 space-y-3">
-                    <div className="flex justify-between items-center mb-4 border-b border-zinc-800 pb-2"><span className="text-xs font-bold text-zinc-500 uppercase">Detalhes da Lista ({calculateTotalItemsInList()})</span><button onClick={toggleGlobalSimpleMode} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase transition ${isGlobalSimple ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400'}`}><span>Lista sem nomes</span>{isGlobalSimple ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}</button></div>
-                    {sizeList.map((item, idx) => (
-                        <div key={item.id} className="grid grid-cols-1 sm:grid-cols-12 gap-2 p-3 bg-zinc-900 rounded-xl border border-zinc-800 items-end">
-                            <div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tipo</label><select value={item.category} onChange={(e) => updateListRow(item.id, 'category', e.target.value as any)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none"><option value="unisex">Unisex</option><option value="feminina">Feminina</option><option value="infantil">Infantil</option></select></div>
-                            <div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tam</label><select value={item.size} onChange={(e) => updateListRow(item.id, 'size', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none">{sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                            {item.isSimple ? (<div className="sm:col-span-4"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Qtd</label><input type="number" min="1" value={item.quantity || 1} onChange={(e) => updateListRow(item.id, 'quantity', parseInt(e.target.value) || 1)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div>) : (<><div className="sm:col-span-1"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nº</label><input type="text" value={item.number} onChange={(e) => updateListRow(item.id, 'number', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div><div className="sm:col-span-3"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nome</label><input type="text" value={item.name} onChange={(e) => updateListRow(item.id, 'name', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white uppercase" /></div></>)}
-                            <div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Short</label><select value={item.shortSize} onChange={(e) => updateListRow(item.id, 'shortSize', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none"><option value="">-</option>{sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                            <div className="sm:col-span-1"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">S.Nº</label><input type="text" value={item.shortNumber} onChange={(e) => updateListRow(item.id, 'shortNumber', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div>
-                            <div className="sm:col-span-1 flex items-end pb-0.5"><button onClick={() => removeListRow(item.id)} className="w-full p-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition flex items-center justify-center"><Trash2 size={14} /></button></div>
+            
+            {/* Lista de Produção apenas se houver itens físicos (produtos) */}
+            {hasPhysicalItems && (
+                <>
+                    <div className="flex items-center justify-between p-6 bg-zinc-950 rounded-2xl border border-zinc-800 transition">
+                        <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-xl ${hasSizeList ? 'bg-primary text-white' : 'bg-zinc-800 text-zinc-500'}`}><Film size={24} /></div>
+                            <div><h4 className="font-bold text-white">Lista de Produção?</h4><p className="text-xs text-zinc-500">Nomes, números e tamanhos.</p></div>
                         </div>
-                    ))}
-                    <button onClick={addListRow} className="w-full mt-4 py-3 border-2 border-dashed border-zinc-800 rounded-xl text-zinc-500 hover:text-primary transition flex items-center justify-center gap-2 font-bold uppercase text-[10px]"><PlusIcon size={14} /> Adicionar Integrante</button>
-                </div>
+                        <button onClick={() => { setHasSizeList(!hasSizeList); if (!hasSizeList && sizeList.length === 0) addListRow(); }} className={`w-14 h-8 rounded-full transition relative flex items-center px-1 ${hasSizeList ? 'bg-primary' : 'bg-zinc-800'}`}><div className={`w-6 h-6 bg-white rounded-full transition ${hasSizeList ? 'translate-x-6' : 'translate-x-0'}`}></div></button>
+                    </div>
+                    
+                    {hasSizeList && (
+                        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 space-y-3">
+                            <div className="flex justify-between items-center mb-4 border-b border-zinc-800 pb-2"><span className="text-xs font-bold text-zinc-500 uppercase">Detalhes da Lista ({calculateTotalItemsInList()})</span><button onClick={toggleGlobalSimpleMode} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase transition ${isGlobalSimple ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400'}`}><span>Lista sem nomes</span>{isGlobalSimple ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}</button></div>
+                            {sizeList.map((item, idx) => (
+                                <div key={item.id} className="grid grid-cols-1 sm:grid-cols-12 gap-2 p-3 bg-zinc-900 rounded-xl border border-zinc-800 items-end">
+                                    <div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tipo</label><select value={item.category} onChange={(e) => updateListRow(item.id, 'category', e.target.value as any)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none"><option value="unisex">Unisex</option><option value="feminina">Feminina</option><option value="infantil">Infantil</option></select></div>
+                                    <div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tam</label><select value={item.size} onChange={(e) => updateListRow(item.id, 'size', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none">{sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                                    {item.isSimple ? (<div className="sm:col-span-4"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Qtd</label><input type="number" min="1" value={item.quantity || 1} onChange={(e) => updateListRow(item.id, 'quantity', parseInt(e.target.value) || 1)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div>) : (<><div className="sm:col-span-1"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nº</label><input type="text" value={item.number} onChange={(e) => updateListRow(item.id, 'number', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div><div className="sm:col-span-3"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nome</label><input type="text" value={item.name} onChange={(e) => updateListRow(item.id, 'name', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white uppercase" /></div></>)}
+                                    <div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Short</label><select value={item.shortSize} onChange={(e) => updateListRow(item.id, 'shortSize', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none"><option value="">-</option>{sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                                    <div className="sm:col-span-1"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">S.Nº</label><input type="text" value={item.shortNumber} onChange={(e) => updateListRow(item.id, 'shortNumber', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div>
+                                    <div className="sm:col-span-1 flex items-end pb-0.5"><button onClick={() => removeListRow(item.id)} className="w-full p-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition flex items-center justify-center"><Trash2 size={14} /></button></div>
+                                </div>
+                            ))}
+                            <button onClick={addListRow} className="w-full mt-4 py-3 border-2 border-dashed border-zinc-800 rounded-xl text-zinc-500 hover:text-primary transition flex items-center justify-center gap-2 font-bold uppercase text-[10px]"><PlusIcon size={14} /> Adicionar Integrante</button>
+                        </div>
+                    )}
+                </>
             )}
+
             <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800"><p className="text-xs font-bold text-zinc-500 uppercase mb-3">Tem Layout?</p><div className="flex gap-2"><button onClick={() => setLayoutOption('sim')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${layoutOption === 'sim' ? 'bg-emerald-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Sim</button><button onClick={() => setLayoutOption('precisa')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${layoutOption === 'precisa' ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Precisa Montar</button></div></div>
-                    <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800"><p className="text-xs font-bold text-zinc-500 uppercase mb-3">Tem Molde?</p><div className="flex gap-2"><button onClick={() => setMoldOption('sim')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${moldOption === 'sim' ? 'bg-emerald-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Sim</button><button onClick={() => setMoldOption('precisa')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${moldOption === 'precisa' ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Precisa Montar</button></div></div>
+                    {hasPhysicalItems && (
+                        <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800"><p className="text-xs font-bold text-zinc-500 uppercase mb-3">Tem Molde?</p><div className="flex gap-2"><button onClick={() => setMoldOption('sim')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${moldOption === 'sim' ? 'bg-emerald-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Sim</button><button onClick={() => setMoldOption('precisa')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${moldOption === 'precisa' ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Precisa Montar</button></div></div>
+                    )}
                 </div>
                 {(layoutOption === 'sim' || moldOption === 'sim') && (
                     <div className="animate-fade-in"><label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Link dos Arquivos</label><div className="relative"><input type="text" placeholder="Cole o link aqui..." className="w-full bg-black/40 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-white outline-none focus:border-primary transition" value={artLink} onChange={(e) => setArtLink(e.target.value)} /><Upload className="absolute left-3 top-3.5 text-zinc-600" size={16} /></div></div>
                 )}
             </div>
-            <div className="border-t border-zinc-800 pt-6 mt-6"><button onClick={() => setStep('list')} className="w-full mb-6 py-4 border-2 border-dashed border-zinc-800 rounded-2xl text-zinc-500 hover:text-primary transition flex items-center justify-center gap-3 font-bold uppercase text-xs"><PlusIcon size={18} /> Adicionar mais produto/serviço</button><div className="flex justify-between items-end mb-6"><span className="text-zinc-500 text-sm font-bold uppercase">Total Estimado</span><span className="text-3xl font-black text-white">R$ {calc.total.toFixed(2)}</span></div><button onClick={handleCreateOrder} disabled={isProcessing} className="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg hover:bg-amber-600 transition shadow-xl disabled:opacity-50 flex items-center justify-center gap-3">{isProcessing ? <Loader2 className="animate-spin" /> : <ChevronRight />} PROSSEGUIR PARA PAGAMENTO</button></div>
+            
+            <div className="border-t border-zinc-800 pt-6 mt-6">
+                <button onClick={() => setStep('list')} className="w-full mb-6 py-4 border-2 border-dashed border-zinc-800 rounded-2xl text-zinc-500 hover:text-primary transition flex items-center justify-center gap-3 font-bold uppercase text-xs">
+                    <PlusIcon size={18} /> Adicionar mais item
+                </button>
+                <div className="flex justify-between items-end mb-6">
+                    <span className="text-zinc-500 text-sm font-bold uppercase">Total Estimado</span>
+                    <span className="text-3xl font-black text-white">R$ {calc.total.toFixed(2)}</span>
+                </div>
+                <button onClick={handleCreateOrder} disabled={isProcessing} className="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg hover:bg-amber-600 transition shadow-xl disabled:opacity-50 flex items-center justify-center gap-3">
+                    {isProcessing ? <Loader2 className="animate-spin" /> : <ChevronRight />} PROSSEGUIR PARA PAGAMENTO
+                </button>
+            </div>
         </div>
       );
   };

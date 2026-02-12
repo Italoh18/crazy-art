@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 
 -- 4. Tabela de Itens de Pedido
+-- Atualizado: download_link para artes digitais
 CREATE TABLE IF NOT EXISTS order_items (
     id TEXT PRIMARY KEY,
     order_id TEXT NOT NULL,
@@ -56,18 +57,21 @@ CREATE TABLE IF NOT EXISTS order_items (
     cost_price REAL DEFAULT 0,
     quantity INTEGER DEFAULT 1,
     total REAL DEFAULT 0,
+    download_link TEXT, 
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
 
--- 5. Tabela de Catálogo (Produtos e Serviços)
+-- 5. Tabela de Catálogo (Produtos, Serviços e Artes)
+-- Atualizado: download_link para artes digitais
 CREATE TABLE IF NOT EXISTS catalog (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT DEFAULT 'product',
+    type TEXT DEFAULT 'product', -- 'product', 'service', 'art'
     name TEXT NOT NULL,
     price REAL NOT NULL,
     cost REAL DEFAULT 0,
     cost_price REAL DEFAULT 0,
     image_url TEXT,
+    download_link TEXT,
     description TEXT,
     active INTEGER DEFAULT 1,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP

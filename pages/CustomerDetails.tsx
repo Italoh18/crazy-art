@@ -8,7 +8,7 @@ import {
   CheckCircle, AlertTriangle, Trash2, Edit, Plus, X, 
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
   Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal,
-  Coins, Lock, RotateCcw
+  Coins, Lock, RotateCcw, CloudDownload
 } from 'lucide-react';
 import { api } from '../src/services/api';
 import { SizeListItem } from '../types';
@@ -193,21 +193,15 @@ export default function CustomerDetails() {
           ? `Pedido #${targetOrders[0]?.formattedOrderNumber} - Crazy Art`
           : `Faturas (${orderIds.length}) - Crazy Art`;
 
-      // REGRAS ESTRITAS PARA PAGAMENTO PARCIAL:
-      // 1. Apenas 1 pedido selecionado (pagamento único de fatura)
-      // 2. Valor maior que R$ 50
-      // 3. Usuário logado como cliente (role === 'client')
       const isSingleOrder = orderIds.length === 1;
       const isEligibleForPartial = isSingleOrder && amountToPay > 50 && role === 'client';
 
       if (isEligibleForPartial) {
-          // Abre modal para escolher entre Total ou Parcial
           setPendingPaymentData({ ids: orderIds, total: amountToPay, title });
           setCustomAmount((amountToPay / 2).toFixed(2));
           setPaymentType('total');
           setIsValueModalOpen(true);
       } else {
-          // Lote, Admin ou Valor Baixo -> Força Pagamento Total direto
           executePayment(orderIds, amountToPay, title);
       }
   };
@@ -284,13 +278,6 @@ export default function CustomerDetails() {
       setIsEditModalOpen(true);
   };
 
-  const confirmDelete = async () => {
-      if (confirm("ATENÇÃO: Você tem certeza que deseja excluir este cliente?")) {
-          await deleteCustomer(customer.id);
-          navigate('/customers');
-      }
-  };
-
   const handleDeleteOrder = async (orderId: string) => {
       if (confirm('Excluir este pedido permanentemente?')) {
           await deleteOrder(orderId);
@@ -308,6 +295,18 @@ export default function CustomerDetails() {
       setOrderItems([]);
       setItemSearch('');
       setIsNewOrderModalOpen(true);
+  };
+
+  // Carrega detalhes completos do pedido quando clica em visualizar
+  const fetchAndSetViewingOrder = async (order: any) => {
+      setViewingOrder(order);
+      try {
+          // Busca detalhes completos, incluindo itens com links de download
+          const fullOrder = await api.getOrder(order.id);
+          setViewingOrder(fullOrder);
+      } catch (e) {
+          console.error("Erro ao carregar detalhes do pedido", e);
+      }
   };
 
   const handleEditOrder = async (order: any) => {
@@ -351,14 +350,14 @@ export default function CustomerDetails() {
               productName: product.name,
               quantity: 1,
               unitPrice: product.price,
-              total: product.price
+              total: product.price,
+              type: product.type // Guarda o tipo para salvar corretamente
           }];
       });
       setItemSearch('');
       setShowSearchResults(false);
   };
 
-  // Fix: Added handleRemoveItem function which was missing and causing errors
   const handleRemoveItem = (index: number) => {
       setOrderItems(prev => prev.filter((_, i) => i !== index));
   };
@@ -400,7 +399,7 @@ export default function CustomerDetails() {
           type: quickCreateType,
           description: 'Criado via pedido rápido'
       });
-      handleAddItem({ id: newItem.id, name: newItem.name, price: newItem.price });
+      handleAddItem({ id: newItem.id, name: newItem.name, price: newItem.price, type: newItem.type });
       setIsQuickCreateOpen(false);
       setQuickItemData({ name: '', price: '' });
   };
@@ -612,7 +611,7 @@ export default function CustomerDetails() {
                                                 {order.status === 'open' ? (
                                                     <button onClick={() => initiatePaymentFlow([order.id])} className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1.5 rounded-lg transition font-bold inline-flex items-center gap-1 shadow-lg shadow-emerald-600/20" title="Pagar agora"><DollarSign size={12} /> <span className="hidden md:inline">Pagar</span></button>
                                                 ) : <span className="hidden md:inline text-xs text-zinc-700 italic">Concluído</span>}
-                                                <button onClick={() => setViewingOrder(order)} className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition border border-transparent hover:border-zinc-700" title="Ver Detalhes"><Eye size={16} /></button>
+                                                <button onClick={() => fetchAndSetViewingOrder(order)} className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition border border-transparent hover:border-zinc-700" title="Ver Detalhes"><Eye size={16} /></button>
                                                 {role === 'admin' && <button onClick={() => handleDeleteOrder(order.id)} className="hidden md:block p-1.5 text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition ml-1" title="Excluir Pedido"><Trash2 size={16} /></button>}
                                             </div>
                                         </td>
@@ -624,6 +623,32 @@ export default function CustomerDetails() {
                 </table>
             </div>
         </div>
+
+        {/* MODAL FLUTUANTE DE PAGAMENTO (RESTAURADO) */}
+        {selectedOrderIds.length > 0 && !isBatchProcessing && (
+            <div 
+                className="absolute z-30 transition-all duration-300 animate-fade-in"
+                style={{ 
+                    top: Math.min(Math.max(floatingY - 150, 0), 1000) + 'px', 
+                    right: '10px'
+                }}
+            >
+                <div className="bg-[#121215] border border-white/10 rounded-xl shadow-2xl p-4 flex flex-col gap-3 backdrop-blur-md w-48">
+                    <div className="text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-white/5 pb-2 mb-1">
+                        {selectedOrderIds.length} Selecionados
+                    </div>
+                    <div className="text-xl font-bold text-white font-mono mb-1">
+                        R$ {selectedTotal.toFixed(2)}
+                    </div>
+                    <button 
+                        onClick={() => initiatePaymentFlow(selectedOrderIds)}
+                        className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 active:scale-95 transition"
+                    >
+                        <DollarSign size={14} /> PAGAR AGORA
+                    </button>
+                </div>
+            </div>
+        )}
 
         {/* MODAL SELEÇÃO DE VALOR (TOTAL VS PARCIAL) */}
         {isValueModalOpen && pendingPaymentData && (
@@ -709,6 +734,34 @@ export default function CustomerDetails() {
                         {viewingOrder.size_list && (
                             <div><h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Lista de Produção</h3><div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">{(typeof viewingOrder.size_list === 'string' ? JSON.parse(viewingOrder.size_list) : viewingOrder.size_list).map((item: SizeListItem, idx: number) => (<div key={idx} className="bg-zinc-900/30 p-2 rounded border border-white/5 flex justify-between items-center text-xs"><span className="text-zinc-300 font-bold">{item.size} <span className="text-zinc-500 font-normal">({item.category})</span></span>{item.isSimple ? <span className="text-white bg-zinc-700 px-2 py-0.5 rounded font-mono">x{item.quantity}</span> : <span className="text-primary font-bold uppercase">{item.name || '-'} <span className="text-white font-mono">{item.number ? `#${item.number}` : ''}</span></span>}</div>))}</div></div>
                         )}
+                        
+                        {/* LISTA DE ITENS COM DOWNLOAD SE APLICÁVEL */}
+                        {viewingOrder.items && viewingOrder.items.length > 0 && (
+                            <div>
+                                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Layers size={14} /> Itens do Pedido</h3>
+                                <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                                    {viewingOrder.items.map((item: any, idx: number) => (
+                                        <div key={idx} className="bg-zinc-900/30 p-2 rounded border border-white/5 flex justify-between items-center text-xs">
+                                            <span className="text-zinc-300 truncate flex-1">{item.name} (x{item.quantity})</span>
+                                            {/* Botão de Download para Artes Pagas */}
+                                            {item.type === 'art' && viewingOrder.status === 'paid' && item.downloadLink ? (
+                                                <a 
+                                                    href={item.downloadLink} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="ml-2 px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded flex items-center gap-1 font-bold text-[10px] transition"
+                                                >
+                                                    <CloudDownload size={12} /> Baixar
+                                                </a>
+                                            ) : (
+                                                <span className="text-white font-mono ml-2">R$ {Number(item.total).toFixed(2)}</span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <div><h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Resumo Financeiro</h3><div className="space-y-2"><div className="bg-zinc-900/30 p-3 rounded-xl border border-white/5 flex justify-between items-center"><span className="text-zinc-300 text-sm">Valor Total</span><span className="text-white font-mono font-bold text-sm">R$ {Number(viewingOrder.total || 0).toFixed(2)}</span></div></div></div>
                         <div className="flex justify-between items-center bg-zinc-900 p-4 rounded-xl border border-white/5"><span className="text-sm text-zinc-400">Status Atual</span>{renderStatusBadge(viewingOrder.status, new Date(viewingOrder.due_date) < new Date())}</div>
                     </div>

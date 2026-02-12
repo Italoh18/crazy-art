@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { SeasonalEffects } from './SeasonalEffects';
 import { StickManCleaner } from './StickManCleaner';
@@ -11,6 +11,7 @@ import { NotificationCenter } from './NotificationCenter';
 
 export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
+  const [isClientMenuOpen, setIsClientMenuOpen] = React.useState(false); // Novo state para menu cliente
   const location = useLocation();
   const navigate = useNavigate();
   const { role, logout, currentCustomer } = useAuth();
@@ -121,10 +122,11 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     return (
         <div className="min-h-screen flex flex-col relative selection:bg-primary/30 selection:text-white overflow-x-hidden">
             <BackgroundEffects />
-            <FluidTrail /> {/* Feature: Rastro Fluido */}
+            <FluidTrail />
             <SeasonalEffects />
             <StickManCleaner />
             <CosmicPulseSystem />
+            
             <header className="glass-panel h-16 flex items-center justify-between px-6 sticky top-4 mx-4 rounded-2xl z-30 transition-all duration-300 border border-white/10 shadow-2xl mt-4 backdrop-blur-2xl">
                 <div className="flex items-center space-x-4">
                      <Link to="/" className="text-zinc-400 hover:text-white transition p-2 hover:bg-white/10 rounded-full hover:scale-110">
@@ -135,15 +137,52 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                         <span className="text-lg font-bold font-heading tracking-wider hidden sm:block text-transparent bg-clip-text bg-crazy-gradient">CRAZY ART</span>
                      </div>
                 </div>
-                <div className="flex items-center space-x-4 sm:space-x-6">
+                
+                {/* Desktop Menu */}
+                <div className="hidden md:flex items-center space-x-6">
                     <NotificationCenter />
-                    <span className="text-zinc-400 text-sm hidden sm:block">Olá, <span className="text-white font-semibold tracking-wide">{currentCustomer?.name.split(' ')[0]}</span></span>
+                    <Link to="/my-area" className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition">
+                       <User size={16} />
+                       <span className="font-semibold">{currentCustomer?.name.split(' ')[0]}</span>
+                    </Link>
                     <button onClick={handleLogout} className="text-zinc-400 hover:text-red-400 flex items-center space-x-2 transition-colors hover:scale-105">
                         <LogOut size={18} />
                         <span className="text-sm font-medium">Sair</span>
                     </button>
                 </div>
+
+                {/* Mobile Menu Toggle */}
+                <div className="flex items-center gap-4 md:hidden">
+                    <NotificationCenter />
+                    <button onClick={() => setIsClientMenuOpen(true)} className="text-zinc-300">
+                        <Menu size={24} />
+                    </button>
+                </div>
             </header>
+
+            {/* Mobile Menu Overlay */}
+            {isClientMenuOpen && (
+                <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col justify-center items-center gap-8 animate-fade-in md:hidden">
+                    <button onClick={() => setIsClientMenuOpen(false)} className="absolute top-6 right-6 text-zinc-500 hover:text-white p-2">
+                        <X size={32} />
+                    </button>
+                    
+                    <div className="flex flex-col items-center gap-2 mb-4">
+                        <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center border border-zinc-800">
+                            <User size={40} className="text-primary" />
+                        </div>
+                        <span className="text-xl font-bold text-white">{currentCustomer?.name}</span>
+                    </div>
+
+                    <Link to="/my-area" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-primary uppercase tracking-widest">Minha Área</Link>
+                    <Link to="/shop" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-white uppercase tracking-widest">Loja</Link>
+                    
+                    <button onClick={handleLogout} className="text-xl font-bold text-red-500 uppercase tracking-widest flex items-center gap-2 mt-8">
+                        <LogOut size={20} /> Sair
+                    </button>
+                </div>
+            )}
+
             <main key={location.pathname} className="flex-1 p-6 max-w-7xl mx-auto w-full animate-page-enter">
                 {children}
             </main>

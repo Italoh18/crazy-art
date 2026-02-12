@@ -53,6 +53,7 @@
               'twinkle': 'twinkle 4s ease-in-out infinite',
               'letter-slam': 'letterSlam 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
               'zoom-pulse': 'zoomPulse 2s ease-in-out infinite',
+              'slide-down-reveal': 'slideDownReveal 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards',
             },
             keyframes: {
               fadeInUp: {
@@ -100,6 +101,10 @@
               zoomPulse: {
                 '0%, 100%': { transform: 'scale(1)' },
                 '50%': { transform: 'scale(1.1)' }
+              },
+              slideDownReveal: {
+                '0%': { transform: 'translateY(-80px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' }
               }
             },
             boxShadow: {

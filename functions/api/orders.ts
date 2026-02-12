@@ -17,7 +17,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         const order: any = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
         if (!order) return new Response(JSON.stringify({ error: 'Pedido não encontrado' }), { status: 404 });
         
-        const { results: items } = await env.DB.prepare('SELECT * FROM order_items WHERE order_id = ?').bind(id).all();
+        // Agora busca o download_link dos itens
+        const { results: items } = await env.DB.prepare(`
+            SELECT id, order_id, catalog_id, name, type, unit_price, quantity, total, download_link as downloadLink 
+            FROM order_items WHERE order_id = ?
+        `).bind(id).all();
         
         return Response.json({
           ...order,
@@ -26,7 +30,6 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         });
       }
 
-      // Query atualizada para trazer o creditLimit do cliente para filtros de produção
       let query = `
         SELECT o.*, c.name as client_name, c.creditLimit as client_credit_limit
         FROM orders o 
@@ -68,12 +71,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const order_date = String(body.order_date || now.split('T')[0]);
       const due_date = String(body.due_date || order_date);
       const status = String(body.status || 'open');
-      const source = String(body.source || 'admin'); // Identifica se veio da shop
+      const source = String(body.source || 'admin');
       const size_list = body.size_list ? String(body.size_list) : null;
 
       if (!client_id) return new Response(JSON.stringify({ error: 'client_id é obrigatório' }), { status: 400 });
 
-      // Inserir Cabeçalho (Incluído source e is_confirmed = 0)
       await env.DB.prepare(
         'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, total_cost, status, created_at, size_list, is_confirmed, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)'
       ).bind(
@@ -91,7 +93,6 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         source
       ).run();
 
-      // Inserir Itens
       const items = Array.isArray(body.items) ? body.items : [];
       let calculatedTotal = 0;
       let calculatedCost = 0;
@@ -103,12 +104,17 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           const p = Number(item.unitPrice || item.unit_price || item.price || 0);
           const c = Number(item.cost_price || item.costPrice || item.cost || 0);
           const subtotal = Number(item.total || (p * q));
+          const dl = item.downloadLink || (item.product ? item.product.downloadLink : null); // Tenta pegar do payload ou objeto produto
           
           calculatedTotal += subtotal;
           calculatedCost += (c * q);
 
+          // Se o download link não veio no payload mas temos o ID do produto, poderíamos buscar no DB,
+          // mas para performance assumimos que o frontend enviou ou que será null.
+          // Se for uma "arte", é crucial que o frontend envie o downloadLink no objeto item.
+
           await env.DB.prepare(
-            'INSERT INTO order_items (id, order_id, catalog_id, name, type, unit_price, cost_price, quantity, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO order_items (id, order_id, catalog_id, name, type, unit_price, cost_price, quantity, total, download_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
           ).bind(
             itemId,
             newId,
@@ -118,7 +124,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             p,
             c,
             q,
-            subtotal
+            subtotal,
+            dl ? String(dl) : null
           ).run();
         }
 

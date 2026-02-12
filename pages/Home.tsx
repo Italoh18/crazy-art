@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers, MapPin, UserPlus } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers, MapPin, UserPlus, Menu, LogOut, Wrench, Grid, Palette } from 'lucide-react';
 import { GalaxyGame } from '../components/GalaxyGame';
 
 export default function Home() {
@@ -14,6 +14,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [gameMode, setGameMode] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Registration Form State
   const [regData, setRegData] = useState({
@@ -21,8 +22,8 @@ export default function Home() {
     street: '', number: '', zipCode: ''
   });
   
-  const { loginAdmin, loginClient, role, logout } = useAuth();
-  const { carouselImages, addCustomer, trustedCompanies } = useData();
+  const { loginAdmin, loginClient, role, logout, currentCustomer } = useAuth();
+  const { carouselImages, addCustomer, trustedCompanies, faviconUrl } = useData();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -197,31 +198,14 @@ export default function Home() {
     setRegData({ ...regData, [name]: value });
   };
 
-  const handleHeaderButtonClick = () => {
-      if (role !== 'guest') {
-          logout();
-          navigate('/');
-      } else {
-          setIsModalOpen(true);
-          setIsRegisterMode(false);
-      }
-  };
-
-  const sections = [
-    { name: 'Minha Área', icon: User, status: 'active', path: '/my-area' },
-    { name: 'Loja', icon: ShoppingBag, status: 'active', path: '/shop' },
-    { name: 'Blog', icon: BookOpen, status: 'soon', path: '' },
+  // Menu Items Definition
+  const menuItems = [
+    ...(role !== 'guest' ? [{ name: 'Minha Área', icon: User, path: '/my-area', color: 'text-primary' }] : []),
+    { name: 'Loja', icon: ShoppingBag, path: '/shop', color: 'text-emerald-400' },
+    { name: 'Quitanda', sub: 'de Artes', icon: Palette, path: '/shop?tab=art', color: 'text-purple-400' }, 
+    { name: 'Ferramentas', icon: Wrench, path: '/programs', color: 'text-blue-400' },
+    { name: 'Blog', icon: BookOpen, path: '', color: 'text-zinc-400', disabled: true },
   ];
-
-  const handleSectionClick = (section: any) => {
-      if (section.status !== 'active') return;
-      if (section.path === '/my-area' && role === 'guest') {
-          setIsModalOpen(true);
-          setIsRegisterMode(false);
-          return;
-      }
-      navigate(section.path);
-  };
 
   const headerFont = { fontFamily: '"Times New Roman", Times, serif' };
 
@@ -233,21 +217,168 @@ export default function Home() {
       </div>
 
       {role === 'guest' && (
-        <header className="fixed top-0 left-0 w-full z-40 h-20 px-6 flex items-center justify-between bg-black/80 backdrop-blur-sm border-b border-white/5 transition-all duration-300">
-          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <h1 className="text-xl md:text-2xl font-bold tracking-[0.15em] bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap uppercase drop-shadow-sm" style={headerFont}>
-              CRAZY ART
-            </h1>
-          </div>
-          <div className="ml-auto relative group z-10">
-              <button 
-                onClick={handleHeaderButtonClick} 
-                className="relative bg-zinc-900 text-white px-6 py-2 rounded-full border border-primary/50 shadow-[0_0_15px_rgba(245,158,11,0.5)] hover:shadow-[0_0_25px_rgba(245,158,11,0.7)] hover:text-white transition duration-300 text-[11px] font-bold tracking-widest flex items-center justify-center min-w-[80px] uppercase hover:bg-black hover:border-primary"
-              >
-                  Login
-              </button>
-          </div>
-        </header>
+        <>
+            {/* CABEÇALHO (HEADER) - Z-INDEX 50 (Fica por cima) */}
+            <header className="fixed top-0 left-0 w-full z-50 h-20 px-6 grid grid-cols-3 items-center bg-black/80 backdrop-blur-md border-b border-white/5 transition-all duration-300">
+              
+              {/* Esquerda: Menu Mobile Trigger (Visível apenas em mobile) */}
+              <div className="flex justify-start">
+                  <button 
+                    className={`md:hidden transition p-2 rounded-full ${isMobileMenuOpen ? 'text-white bg-white/10' : 'text-zinc-300 hover:text-white'}`}
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  >
+                      <Menu size={24} />
+                  </button>
+              </div>
+              
+              {/* Centro: Logo Crazy Art (Texto no Desktop / Imagem ou Texto no Mobile) */}
+              <div className="flex justify-center items-center">
+                {/* Desktop: Sempre Texto */}
+                <h1 
+                  className="hidden md:block text-2xl font-bold tracking-[0.15em] bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap uppercase drop-shadow-sm cursor-pointer hover:scale-105 transition-transform" 
+                  style={headerFont} 
+                  onClick={() => window.scrollTo(0,0)}
+                >
+                  CRAZY ART
+                </h1>
+
+                {/* Mobile: Imagem da Identidade se houver, senão Texto */}
+                <div className="md:hidden" onClick={() => window.scrollTo(0,0)}>
+                  {faviconUrl ? (
+                    <img src={faviconUrl} alt="Logo" className="h-12 w-auto object-contain drop-shadow-lg" />
+                  ) : (
+                    <h1 className="text-xl font-bold tracking-[0.15em] bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap uppercase drop-shadow-sm" style={headerFont}>
+                      CRAZY ART
+                    </h1>
+                  )}
+                </div>
+              </div>
+              
+              {/* Direita: Botão de Login */}
+              <div className="flex justify-end">
+                  <button 
+                    onClick={() => { setIsModalOpen(true); setIsRegisterMode(false); }}
+                    className="relative group p-[1px] rounded-full transition-all duration-300 active:scale-95 hover:scale-105"
+                  >
+                      {/* Aura/Flare de fundo */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary via-orange-500 to-secondary rounded-full blur-[6px] opacity-70 group-hover:opacity-100 transition-opacity duration-500"></div>
+                      
+                      {/* Conteúdo do Botão */}
+                      <div className="relative bg-black h-full px-6 py-2 rounded-full flex items-center gap-2 border border-white/10 group-hover:border-white/30 transition-colors shadow-2xl">
+                        <User size={14} className="text-primary group-hover:text-white transition-colors" />
+                        <span className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-widest">Login</span>
+                      </div>
+                  </button>
+              </div>
+            </header>
+
+            {/* NAV BAR DESKTOP (MENU HORIZONTAL) - Z-INDEX 40 (Sai de baixo do header) */}
+            <nav className="fixed top-24 left-0 w-full z-40 hidden md:flex justify-center items-start pt-2 pb-2 pointer-events-none">
+                {/* Container dos botões com EFEITO SAZONAL (seasonal-border) */}
+                <div className="flex gap-8 items-center pointer-events-auto bg-[#09090b]/80 backdrop-blur-xl border border-white/10 rounded-full px-10 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)] animate-slide-down-reveal transition-all duration-500 group relative seasonal-border">
+                    
+                    {/* Brilho interno sutil */}
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+
+                    {menuItems.map((item) => (
+                        <div key={item.name} className="relative group/item">
+                            {item.disabled ? (
+                                <span className="px-4 py-2 text-xs font-bold uppercase tracking-widest text-zinc-600 cursor-not-allowed flex items-center gap-2">
+                                    <item.icon size={14} />
+                                    <div className="flex flex-col items-start leading-none">
+                                        <span>{item.name}</span>
+                                        {item.sub && <span className="text-[8px] opacity-50 mt-0.5 tracking-tight font-normal">{item.sub}</span>}
+                                    </div>
+                                    <span className="text-[8px] opacity-50 ml-1 bg-zinc-800 px-1 rounded">(Breve)</span>
+                                </span>
+                            ) : (
+                                <Link 
+                                    to={item.path}
+                                    className={`
+                                        flex items-center gap-3 px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300
+                                        hover:bg-white/10 hover:text-white hover:scale-105
+                                        ${item.color} bg-transparent
+                                    `}
+                                >
+                                    <item.icon size={16} />
+                                    <div className="flex flex-col items-start leading-none">
+                                        <span>{item.name}</span>
+                                        {item.sub && <span className="text-[8px] opacity-80 mt-0.5 tracking-tight font-normal group-hover/item:text-white transition-colors">{item.sub}</span>}
+                                    </div>
+                                </Link>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </nav>
+        </>
+      )}
+
+      {/* Mobile Menu Floating Pill (Substitui o overlay tela cheia) */}
+      {isMobileMenuOpen && (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] md:hidden transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
+            <div className="fixed top-24 left-4 right-4 z-50 md:hidden animate-scale-in origin-top">
+                {/* Container Mobile com EFEITO SAZONAL (seasonal-border) */}
+                <div className="bg-[#121215]/95 backdrop-blur-xl border border-white/10 rounded-3xl p-5 shadow-2xl flex flex-col gap-2 relative overflow-hidden ring-1 ring-white/5 seasonal-border">
+                     {/* Decorative top glow */}
+                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1 bg-white/20 rounded-b-full shadow-[0_0_15px_rgba(255,255,255,0.2)]"></div>
+                     
+                     <div className="flex justify-between items-center mb-1 border-b border-white/5 pb-3">
+                        <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                            <Menu size={14} /> Menu
+                        </span>
+                        <button onClick={() => setIsMobileMenuOpen(false)} className="text-zinc-400 hover:text-white bg-white/5 p-1.5 rounded-full transition active:scale-90"><X size={16} /></button>
+                     </div>
+
+                     {role === 'guest' ? (
+                        <button 
+                            onClick={() => { setIsMobileMenuOpen(false); setIsModalOpen(true); setIsRegisterMode(false); }}
+                            className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group"
+                        >
+                            <div className="bg-primary/10 p-2 rounded-lg text-primary group-hover:bg-primary group-hover:text-white transition"><User size={20} /></div>
+                            <div>
+                                <span className="block text-white font-bold text-sm uppercase tracking-wide">Login / Cadastro</span>
+                                <span className="text-[10px] text-zinc-500">Acesse sua conta</span>
+                            </div>
+                        </button>
+                     ) : (
+                        <Link to="/my-area" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
+                            <div className="bg-primary/10 p-2 rounded-lg text-primary group-hover:bg-primary group-hover:text-white transition"><User size={20} /></div>
+                            <div>
+                                <span className="block text-white font-bold text-sm uppercase tracking-wide">Minha Área</span>
+                                <span className="text-[10px] text-zinc-500">Gerenciar conta</span>
+                            </div>
+                        </Link>
+                     )}
+
+                     <div className="h-px bg-white/5 my-1"></div>
+
+                     <Link to="/shop" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
+                        <div className="bg-emerald-500/10 p-2 rounded-lg text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition"><ShoppingBag size={20} /></div>
+                        <span className="text-white font-bold text-sm uppercase tracking-wide">Loja</span>
+                     </Link>
+
+                     <Link to="/shop?tab=art" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
+                        <div className="bg-purple-500/10 p-2 rounded-lg text-purple-500 group-hover:bg-purple-500 group-hover:text-white transition"><Palette size={20} /></div>
+                        <div>
+                            <span className="block text-white font-bold text-sm uppercase tracking-wide">Quitanda</span>
+                            <span className="text-[10px] text-purple-400 font-bold">de Artes</span>
+                        </div>
+                     </Link>
+                     
+                     <Link to="/programs" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
+                        <div className="bg-blue-500/10 p-2 rounded-lg text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition"><Wrench size={20} /></div>
+                        <span className="text-white font-bold text-sm uppercase tracking-wide">Ferramentas</span>
+                     </Link>
+
+                     <div className="w-full text-left px-4 py-3 rounded-xl opacity-50 cursor-not-allowed flex items-center gap-4">
+                        <div className="bg-zinc-800 p-2 rounded-lg text-zinc-500"><BookOpen size={20} /></div>
+                        <span className="text-zinc-500 font-bold text-sm uppercase tracking-wide">Blog (Em Breve)</span>
+                     </div>
+                </div>
+            </div>
+          </>
       )}
 
       <main className={`relative z-10 flex-1 flex flex-col items-center w-full ${role === 'guest' ? 'pt-20' : 'pt-0'}`}>
@@ -329,50 +460,6 @@ export default function Home() {
                 )}
             </div>
           )}
-        </div>
-
-        <div className="w-full max-w-4xl px-6 mb-24 mt-8 relative z-50">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sections.map((section, idx) => (
-              <div key={section.name} onClick={() => handleSectionClick(section)} className="h-full">
-                <div className={`h-64 rounded-2xl seasonal-target transition-all duration-200 group relative bg-zinc-900 border border-zinc-800 ${section.status === 'active' ? 'cursor-pointer active:scale-95' : 'opacity-60 cursor-not-allowed grayscale'}`}>
-                    <div className="relative h-full flex flex-col items-center justify-center gap-6 p-8">
-                        <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 text-zinc-400 group-hover:text-primary group-hover:border-primary/50 transition duration-300 shadow-lg">
-                            <section.icon size={36} strokeWidth={1.5} />
-                        </div>
-                        <span className="text-lg font-bold text-zinc-300 group-hover:text-white uppercase tracking-wider transition-colors" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
-                            {section.name}
-                        </span>
-                        {section.status === 'soon' && (
-                            <div className="absolute top-4 right-4"><span className="text-[10px] bg-black border border-zinc-800 text-zinc-500 px-3 py-1 rounded-full font-bold uppercase tracking-widest">Em Breve</span></div>
-                        )}
-                    </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          {/* Card Programas & Ferramentas movido para destaque principal */}
-          <div className="mt-6 max-w-2xl mx-auto">
-              <div 
-                onClick={() => navigate('/programs')}
-                className="w-full h-28 rounded-2xl bg-zinc-900 seasonal-target border border-zinc-800 flex items-center justify-between px-8 group cursor-pointer active:scale-95 transition-all duration-300 hover:border-zinc-600 overflow-hidden relative"
-              >
-                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <div className="flex items-center gap-6 relative z-10">
-                      <div className="p-4 bg-zinc-950 rounded-xl border border-zinc-800 text-zinc-400 group-hover:text-primary transition-all duration-300 group-hover:rotate-12">
-                          <Tv size={32} strokeWidth={1.5} />
-                      </div>
-                      <div>
-                          <h3 className="text-xl font-bold text-white tracking-[0.1em] uppercase group-hover:text-primary transition-colors" style={headerFont}>Programas & Ferramentas</h3>
-                          <p className="text-zinc-500 text-xs tracking-wider uppercase mt-1">Layout 3D • Fontes • IA</p>
-                      </div>
-                  </div>
-                  <div className="relative z-10 opacity-40 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-2">
-                      <LayoutGrid size={24} className="text-zinc-400 group-hover:text-white transition-colors" />
-                  </div>
-              </div>
-          </div>
         </div>
 
         {/* Empresas que Confiam - Seção Pública */}

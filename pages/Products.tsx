@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, Search, CheckCircle, AlertOctagon, AlertTriangle, Loader2, Edit, X } from 'lucide-react';
+import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, Search, CheckCircle, AlertOctagon, AlertTriangle, Loader2, Edit, X, Palette, CloudDownload } from 'lucide-react';
 import { ItemType, Product } from '../types';
 
 export default function Products() {
@@ -24,7 +24,8 @@ export default function Products() {
     price: '', 
     costPrice: '',
     description: '', 
-    imageUrl: '' 
+    imageUrl: '',
+    downloadLink: '' 
   });
 
   // Filter list based on active tab and search term
@@ -32,14 +33,13 @@ export default function Products() {
     const itemType = p.type || 'product';
     const matchesTab = itemType === activeTab;
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-    // Ensure we are not rendering invalid items without IDs
     return matchesTab && matchesSearch && p.id;
   });
 
   const openNewModal = () => {
       setIsEditMode(false);
       setEditId(null);
-      setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '' });
+      setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '', downloadLink: '' });
       setIsModalOpen(true);
   };
 
@@ -51,7 +51,8 @@ export default function Products() {
           price: item.price.toString(),
           costPrice: item.costPrice ? item.costPrice.toString() : '',
           description: item.description || '',
-          imageUrl: item.imageUrl || ''
+          imageUrl: item.imageUrl || '',
+          downloadLink: item.downloadLink || ''
       });
       setIsModalOpen(true);
   };
@@ -66,7 +67,8 @@ export default function Products() {
         costPrice: formData.costPrice ? parseFloat(formData.costPrice.replace(',', '.')) : 0,
         description: formData.description,
         type: activeTab,
-        imageUrl: formData.imageUrl
+        imageUrl: formData.imageUrl,
+        downloadLink: activeTab === 'art' ? formData.downloadLink : null
     };
 
     try {
@@ -75,10 +77,10 @@ export default function Products() {
           setNotification({ message: 'Item atualizado com sucesso!', type: 'success' });
       } else {
           await addProduct(payload);
-          setNotification({ message: `${activeTab === 'product' ? 'Produto' : 'Serviço'} adicionado com sucesso!`, type: 'success' });
+          setNotification({ message: 'Item adicionado com sucesso!', type: 'success' });
       }
       
-      setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '' });
+      setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '', downloadLink: '' });
       setIsModalOpen(false);
       setTimeout(() => setNotification(null), 3000);
     } catch (err: any) {
@@ -108,6 +110,22 @@ export default function Products() {
     }
   };
 
+  const getTabLabel = (type: ItemType) => {
+      switch(type) {
+          case 'product': return 'PRODUTOS';
+          case 'service': return 'SERVIÇOS';
+          case 'art': return 'ARTES';
+      }
+  };
+
+  const getTabIcon = (type: ItemType) => {
+      switch(type) {
+          case 'product': return <Package size={14} />;
+          case 'service': return <Wrench size={14} />;
+          case 'art': return <Palette size={14} />;
+      }
+  };
+
   return (
     <div className="space-y-8 pb-20 relative">
       
@@ -123,38 +141,30 @@ export default function Products() {
       <div className="flex flex-col md:flex-row justify-between items-center gap-6">
         <div>
             <h1 className="text-3xl font-bold text-white tracking-tight">Gerenciar Catálogo</h1>
-            <p className="text-zinc-400 text-sm mt-1">Adicione ou edite produtos e serviços.</p>
+            <p className="text-zinc-400 text-sm mt-1">Adicione ou edite produtos, serviços e artes digitais.</p>
         </div>
         
-        <div className="flex items-center gap-4 w-full md:w-auto">
+        <div className="flex items-center gap-4 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
              <div className="bg-zinc-900 p-1.5 rounded-xl flex items-center border border-zinc-800 shadow-sm flex-1 md:flex-none">
-                <button
-                    onClick={() => setActiveTab('product')}
-                    className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-xs font-bold tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
-                        activeTab === 'product' 
-                        ? 'bg-zinc-800 text-white shadow-md ring-1 ring-zinc-700' 
-                        : 'text-zinc-500 hover:text-white'
-                    }`}
-                >
-                    <Package size={14} />
-                    PRODUTOS
-                </button>
-                <button
-                    onClick={() => setActiveTab('service')}
-                    className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-xs font-bold tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
-                        activeTab === 'service' 
-                        ? 'bg-zinc-800 text-white shadow-md ring-1 ring-zinc-700' 
-                        : 'text-zinc-500 hover:text-white'
-                    }`}
-                >
-                    <Wrench size={14} />
-                    SERVIÇOS
-                </button>
+                {(['product', 'service', 'art'] as ItemType[]).map(type => (
+                    <button
+                        key={type}
+                        onClick={() => setActiveTab(type)}
+                        className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-xs font-bold tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
+                            activeTab === type
+                            ? 'bg-zinc-800 text-white shadow-md ring-1 ring-zinc-700' 
+                            : 'text-zinc-500 hover:text-white'
+                        }`}
+                    >
+                        {getTabIcon(type)}
+                        {getTabLabel(type)}
+                    </button>
+                ))}
             </div>
 
             <button
             onClick={openNewModal}
-            className="flex items-center justify-center space-x-2 bg-primary text-white w-12 h-12 md:w-auto md:h-auto md:px-5 md:py-3 rounded-xl hover:bg-amber-600 hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95"
+            className="flex items-center justify-center space-x-2 bg-primary text-white w-12 h-12 md:w-auto md:h-auto md:px-5 md:py-3 rounded-xl hover:bg-amber-600 hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95 shrink-0"
             >
             <Plus size={20} />
             <span className="hidden md:inline font-bold text-sm">Novo Item</span>
@@ -167,7 +177,7 @@ export default function Products() {
           <div className="absolute -inset-0.5 bg-zinc-800 rounded-xl blur opacity-20 group-hover:opacity-100 transition duration-500"></div>
           <input
             type="text"
-            placeholder={`Buscar por nome de ${activeTab === 'product' ? 'produto' : 'serviço'}...`}
+            placeholder={`Buscar por nome...`}
             className="relative w-full bg-zinc-900 border border-zinc-800 text-white pl-12 pr-4 py-4 rounded-xl focus:border-primary/50 focus:ring-1 focus:ring-primary/50 outline-none shadow-sm placeholder-zinc-500 transition-all text-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -183,6 +193,7 @@ export default function Products() {
                 <th className="px-6 py-5 w-24">Imagem</th>
                 <th className="px-6 py-5">Nome</th>
                 <th className="px-6 py-5">Descrição</th>
+                {activeTab === 'art' && <th className="px-6 py-5">Download</th>}
                 <th className="px-6 py-5">Custo</th>
                 <th className="px-6 py-5">Venda</th>
                 <th className="px-6 py-5 text-right">Ações</th>
@@ -191,12 +202,12 @@ export default function Products() {
             <tbody className="divide-y divide-zinc-800/50">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-16 text-center text-zinc-600">
+                  <td colSpan={activeTab === 'art' ? 7 : 6} className="px-6 py-16 text-center text-zinc-600">
                     <div className="flex flex-col items-center justify-center gap-4">
                       <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center">
-                          {activeTab === 'product' ? <Package size={40} className="opacity-20" /> : <Wrench size={40} className="opacity-20" />}
+                          {activeTab === 'product' ? <Package size={40} className="opacity-20" /> : activeTab === 'service' ? <Wrench size={40} className="opacity-20" /> : <Palette size={40} className="opacity-20" />}
                       </div>
-                      <p className="text-sm">Nenhum {activeTab === 'product' ? 'produto' : 'serviço'} encontrado.</p>
+                      <p className="text-sm">Nenhum item encontrado nesta categoria.</p>
                     </div>
                   </td>
                 </tr>
@@ -215,13 +226,22 @@ export default function Products() {
                                     src={item.imageUrl} 
                                     alt={item.name} 
                                     className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500 relative z-10"
-                                    onError={(e) => e.currentTarget.style.display = 'none'} // Esconde a imagem se quebrar, revelando o ícone
+                                    onError={(e) => e.currentTarget.style.display = 'none'} 
                                 />
                             )}
                         </div>
                     </td>
                     <td className="px-6 py-4 font-bold text-white group-hover:text-primary transition-colors">{item.name}</td>
                     <td className="px-6 py-4 max-w-xs truncate opacity-70">{item.description || '-'}</td>
+                    {activeTab === 'art' && (
+                        <td className="px-6 py-4">
+                            {item.downloadLink ? (
+                                <a href={item.downloadLink} target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:text-emerald-400 flex items-center gap-1 text-xs font-bold" title={item.downloadLink}>
+                                    <CloudDownload size={14} /> Link
+                                </a>
+                            ) : <span className="text-zinc-600 text-xs">Sem link</span>}
+                        </td>
+                    )}
                     <td className="px-6 py-4 text-zinc-500 font-mono text-xs">
                         {item.costPrice ? `R$ ${Number(item.costPrice).toFixed(2)}` : '-'}
                     </td>
@@ -252,14 +272,14 @@ export default function Products() {
         </div>
       </div>
 
-      {/* Add/Edit Item Modal - Reposicionado para cima */}
+      {/* Add/Edit Item Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/90 backdrop-blur-sm p-4 animate-fade-in-up overflow-y-auto">
           <div className="bg-surface border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col relative">
             <div className="flex justify-between items-center p-6 border-b border-zinc-800 bg-surface/95 backdrop-blur rounded-t-2xl shrink-0">
               <h2 className="text-xl font-bold text-white capitalize flex items-center gap-2">
-                  {isEditMode ? <Edit className="text-primary" size={20} /> : (activeTab === 'product' ? <Package className="text-primary" size={20} /> : <Wrench className="text-primary" size={20} />)}
-                  {isEditMode ? 'Editar' : 'Novo'} {activeTab === 'product' ? 'Produto' : 'Serviço'}
+                  {isEditMode ? <Edit className="text-primary" size={20} /> : getTabIcon(activeTab)}
+                  {isEditMode ? 'Editar' : 'Novo'} {activeTab === 'product' ? 'Produto' : activeTab === 'service' ? 'Serviço' : 'Arte'}
               </h2>
               <button onClick={() => setIsModalOpen(false)} className="text-zinc-500 hover:text-white transition-transform hover:rotate-90">
                 <X size={24} />
@@ -276,7 +296,7 @@ export default function Products() {
                       className="w-full bg-black/40 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
                       value={formData.name}
                       onChange={e => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Ex: Cartão de Visita"
+                      placeholder="Ex: Item Exemplo"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -316,6 +336,24 @@ export default function Products() {
                         <LinkIcon className="absolute left-3 top-3.5 text-zinc-600" size={16} />
                     </div>
                   </div>
+
+                  {activeTab === 'art' && (
+                      <div className="animate-fade-in">
+                        <label className="block text-xs font-bold text-emerald-500 uppercase mb-1.5 ml-1">Link para Download (Arquivo)</label>
+                        <div className="relative">
+                            <input
+                            type="text"
+                            placeholder="Link do Drive/Dropbox..."
+                            className="w-full bg-black/40 border border-emerald-500/50 rounded-xl pl-10 pr-4 py-3 text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition"
+                            value={formData.downloadLink}
+                            onChange={e => setFormData({ ...formData, downloadLink: e.target.value })}
+                            />
+                            <CloudDownload className="absolute left-3 top-3.5 text-emerald-500" size={16} />
+                        </div>
+                        <p className="text-[10px] text-zinc-500 mt-1 ml-1">Este link aparecerá para o cliente após o pagamento.</p>
+                      </div>
+                  )}
+
                   <div>
                     <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Descrição (Opcional)</label>
                     <textarea
@@ -347,7 +385,7 @@ export default function Products() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal - Reposicionado para cima */}
+      {/* Delete Confirmation Modal */}
       {deleteId && (
         <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/90 backdrop-blur-md p-4 animate-scale-in">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl">
