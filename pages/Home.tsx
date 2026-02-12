@@ -51,12 +51,11 @@ export default function Home() {
     }));
   }, []);
 
-  // Verificar se há solicitação de login via URL (vindo da loja por exemplo)
+  // Verificar se há solicitação de login via URL
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('action') === 'login' && role === 'guest') {
         setIsModalOpen(true);
-        // Limpar URL para não reabrir se der refresh
         window.history.replaceState({}, '', '/');
     }
   }, [location, role]);
@@ -139,10 +138,9 @@ export default function Home() {
                 number: regData.number,
                 zipCode: regData.zipCode
             },
-            creditLimit: 0.00 // Limite zerado por padrão para aprovação manual do adm
+            creditLimit: 0.00 
         });
         
-        // Após cadastrar, tenta logar automaticamente com o CPF
         const success = await loginClient(regData.cpf);
         if (success) {
             setIsModalOpen(false);
@@ -158,7 +156,6 @@ export default function Home() {
     }
   };
 
-  // Máscaras de Input
   const maskDocument = (value: string) => {
     let v = value.replace(/\D/g, '');
     if (v.length <= 11) {
@@ -198,7 +195,6 @@ export default function Home() {
     setRegData({ ...regData, [name]: value });
   };
 
-  // Menu Items Definition
   const menuItems = [
     ...(role !== 'guest' ? [{ name: 'Minha Área', icon: User, path: '/my-area', color: 'text-primary' }] : []),
     { name: 'Loja', icon: ShoppingBag, path: '/shop', color: 'text-emerald-400' },
@@ -216,112 +212,103 @@ export default function Home() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-red-600/5 rounded-full blur-[80px]"></div>
       </div>
 
-      {role === 'guest' && (
-        <>
-            {/* CABEÇALHO (HEADER) - Z-INDEX 50 (Fica por cima) */}
-            <header className="fixed top-0 left-0 w-full z-50 h-20 px-6 grid grid-cols-3 items-center bg-black/80 backdrop-blur-md border-b border-white/5 transition-all duration-300">
-              
-              {/* Esquerda: Menu Mobile Trigger (Visível apenas em mobile) */}
-              <div className="flex justify-start">
-                  <button 
-                    className={`md:hidden transition p-2 rounded-full ${isMobileMenuOpen ? 'text-white bg-white/10' : 'text-zinc-300 hover:text-white'}`}
-                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                  >
-                      <Menu size={24} />
-                  </button>
-              </div>
-              
-              {/* Centro: Logo Crazy Art (Texto no Desktop / Imagem ou Texto no Mobile) */}
-              <div className="flex justify-center items-center">
-                {/* Desktop: Sempre Texto */}
-                <h1 
-                  className="hidden md:block text-2xl font-bold tracking-[0.15em] bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap uppercase drop-shadow-sm cursor-pointer hover:scale-105 transition-transform" 
-                  style={headerFont} 
-                  onClick={() => window.scrollTo(0,0)}
-                >
-                  CRAZY ART
-                </h1>
+      {/* CABEÇALHO (HEADER) - VISÍVEL PARA TODOS NA HOME */}
+      <header className="fixed top-0 left-0 w-full z-50 h-20 px-6 grid grid-cols-3 items-center bg-black/80 backdrop-blur-md border-b border-white/5 transition-all duration-300">
+        <div className="flex justify-start">
+            <button 
+              className={`md:hidden transition p-2 rounded-full ${isMobileMenuOpen ? 'text-white bg-white/10' : 'text-zinc-300 hover:text-white'}`}
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+                <Menu size={24} />
+            </button>
+        </div>
+        
+        <div className="flex justify-center items-center">
+          <h1 
+            className="hidden md:block text-2xl font-bold tracking-[0.15em] bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap uppercase drop-shadow-sm cursor-pointer hover:scale-105 transition-transform" 
+            style={headerFont} 
+            onClick={() => window.scrollTo(0,0)}
+          >
+            CRAZY ART
+          </h1>
 
-                {/* Mobile: Imagem da Identidade se houver, senão Texto */}
-                <div className="md:hidden" onClick={() => window.scrollTo(0,0)}>
-                  {faviconUrl ? (
-                    <img src={faviconUrl} alt="Logo" className="h-12 w-auto object-contain drop-shadow-lg" />
-                  ) : (
-                    <h1 className="text-xl font-bold tracking-[0.15em] bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap uppercase drop-shadow-sm" style={headerFont}>
-                      CRAZY ART
-                    </h1>
-                  )}
+          <div className="md:hidden" onClick={() => window.scrollTo(0,0)}>
+            {faviconUrl ? (
+              <img src={faviconUrl} alt="Logo" className="h-12 w-auto object-contain drop-shadow-lg" />
+            ) : (
+              <h1 className="text-xl font-bold tracking-[0.15em] bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap uppercase drop-shadow-sm" style={headerFont}>
+                CRAZY ART
+              </h1>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex justify-end">
+            <button 
+              onClick={() => {
+                if (role === 'guest') {
+                  setIsModalOpen(true);
+                  setIsRegisterMode(false);
+                } else {
+                  navigate(role === 'admin' ? '/customers' : '/my-area');
+                }
+              }}
+              className="relative group p-[1px] rounded-full transition-all duration-300 active:scale-95 hover:scale-105"
+            >
+                <div className="absolute inset-0 bg-gradient-to-r from-primary via-orange-500 to-secondary rounded-full blur-[6px] opacity-70 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="relative bg-black h-full px-6 py-2 rounded-full flex items-center gap-2 border border-white/10 group-hover:border-white/30 transition-colors shadow-2xl">
+                  <User size={14} className="text-primary group-hover:text-white transition-colors" />
+                  <span className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-widest">
+                    {role === 'guest' ? 'Login' : (role === 'admin' ? 'Painel ADM' : 'Minha Área')}
+                  </span>
                 </div>
-              </div>
-              
-              {/* Direita: Botão de Login */}
-              <div className="flex justify-end">
-                  <button 
-                    onClick={() => { setIsModalOpen(true); setIsRegisterMode(false); }}
-                    className="relative group p-[1px] rounded-full transition-all duration-300 active:scale-95 hover:scale-105"
-                  >
-                      {/* Aura/Flare de fundo */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-primary via-orange-500 to-secondary rounded-full blur-[6px] opacity-70 group-hover:opacity-100 transition-opacity duration-500"></div>
-                      
-                      {/* Conteúdo do Botão */}
-                      <div className="relative bg-black h-full px-6 py-2 rounded-full flex items-center gap-2 border border-white/10 group-hover:border-white/30 transition-colors shadow-2xl">
-                        <User size={14} className="text-primary group-hover:text-white transition-colors" />
-                        <span className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-widest">Login</span>
-                      </div>
-                  </button>
-              </div>
-            </header>
+            </button>
+        </div>
+      </header>
 
-            {/* NAV BAR DESKTOP (MENU HORIZONTAL) - Z-INDEX 40 (Sai de baixo do header) */}
-            <nav className="fixed top-24 left-0 w-full z-40 hidden md:flex justify-center items-start pt-2 pb-2 pointer-events-none">
-                {/* Container dos botões com EFEITO SAZONAL (seasonal-border) */}
-                <div className="flex gap-8 items-center pointer-events-auto bg-[#09090b]/80 backdrop-blur-xl border border-white/10 rounded-full px-10 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)] animate-slide-down-reveal transition-all duration-500 group relative seasonal-border">
-                    
-                    {/* Brilho interno sutil */}
-                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+      {/* NAV BAR DESKTOP (MENU HORIZONTAL) - VISÍVEL PARA TODOS NA HOME */}
+      <nav className="fixed top-24 left-0 w-full z-40 hidden md:flex justify-center items-start pt-2 pb-2 pointer-events-none">
+          <div className="flex gap-8 items-center pointer-events-auto bg-[#09090b]/80 backdrop-blur-xl border border-white/10 rounded-full px-10 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)] animate-slide-down-reveal transition-all duration-500 group relative seasonal-border">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
 
-                    {menuItems.map((item) => (
-                        <div key={item.name} className="relative group/item">
-                            {item.disabled ? (
-                                <span className="px-4 py-2 text-xs font-bold uppercase tracking-widest text-zinc-600 cursor-not-allowed flex items-center gap-2">
-                                    <item.icon size={14} />
-                                    <div className="flex flex-col items-start leading-none">
-                                        <span>{item.name}</span>
-                                        {item.sub && <span className="text-[8px] opacity-50 mt-0.5 tracking-tight font-normal">{item.sub}</span>}
-                                    </div>
-                                    <span className="text-[8px] opacity-50 ml-1 bg-zinc-800 px-1 rounded">(Breve)</span>
-                                </span>
-                            ) : (
-                                <Link 
-                                    to={item.path}
-                                    className={`
-                                        flex items-center gap-3 px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300
-                                        hover:bg-white/10 hover:text-white hover:scale-105
-                                        ${item.color} bg-transparent
-                                    `}
-                                >
-                                    <item.icon size={16} />
-                                    <div className="flex flex-col items-start leading-none">
-                                        <span>{item.name}</span>
-                                        {item.sub && <span className="text-[8px] opacity-80 mt-0.5 tracking-tight font-normal group-hover/item:text-white transition-colors">{item.sub}</span>}
-                                    </div>
-                                </Link>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </nav>
-        </>
-      )}
+              {menuItems.map((item) => (
+                  <div key={item.name} className="relative group/item">
+                      {item.disabled ? (
+                          <span className="px-4 py-2 text-xs font-bold uppercase tracking-widest text-zinc-600 cursor-not-allowed flex items-center gap-2">
+                              <item.icon size={14} />
+                              <div className="flex flex-col items-start leading-none">
+                                  <span>{item.name}</span>
+                                  {item.sub && <span className="text-[8px] opacity-50 mt-0.5 tracking-tight font-normal">{item.sub}</span>}
+                              </div>
+                              <span className="text-[8px] opacity-50 ml-1 bg-zinc-800 px-1 rounded">(Breve)</span>
+                          </span>
+                      ) : (
+                          <Link 
+                              to={item.path}
+                              className={`
+                                  flex items-center gap-3 px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all duration-300
+                                  hover:bg-white/10 hover:text-white hover:scale-105
+                                  ${item.color} bg-transparent
+                              `}
+                          >
+                              <item.icon size={16} />
+                              <div className="flex flex-col items-start leading-none">
+                                  <span>{item.name}</span>
+                                  {item.sub && <span className="text-[8px] opacity-80 mt-0.5 tracking-tight font-normal group-hover/item:text-white transition-colors">{item.sub}</span>}
+                              </div>
+                          </Link>
+                      )}
+                  </div>
+              ))}
+          </div>
+      </nav>
 
-      {/* Mobile Menu Floating Pill (Substitui o overlay tela cheia) */}
+      {/* Mobile Menu Floating Pill */}
       {isMobileMenuOpen && (
           <>
             <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] md:hidden transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
             <div className="fixed top-24 left-4 right-4 z-50 md:hidden animate-scale-in origin-top">
-                {/* Container Mobile com EFEITO SAZONAL (seasonal-border) */}
                 <div className="bg-[#121215]/95 backdrop-blur-xl border border-white/10 rounded-3xl p-5 shadow-2xl flex flex-col gap-2 relative overflow-hidden ring-1 ring-white/5 seasonal-border">
-                     {/* Decorative top glow */}
                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1 bg-white/20 rounded-b-full shadow-[0_0_15px_rgba(255,255,255,0.2)]"></div>
                      
                      <div className="flex justify-between items-center mb-1 border-b border-white/5 pb-3">
@@ -343,10 +330,12 @@ export default function Home() {
                             </div>
                         </button>
                      ) : (
-                        <Link to="/my-area" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
+                        <Link to={role === 'admin' ? '/customers' : '/my-area'} onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
                             <div className="bg-primary/10 p-2 rounded-lg text-primary group-hover:bg-primary group-hover:text-white transition"><User size={20} /></div>
                             <div>
-                                <span className="block text-white font-bold text-sm uppercase tracking-wide">Minha Área</span>
+                                <span className="block text-white font-bold text-sm uppercase tracking-wide">
+                                    {role === 'admin' ? 'Painel Administrativo' : 'Minha Área'}
+                                </span>
                                 <span className="text-[10px] text-zinc-500">Gerenciar conta</span>
                             </div>
                         </Link>
@@ -381,17 +370,13 @@ export default function Home() {
           </>
       )}
 
-      <main className={`relative z-10 flex-1 flex flex-col items-center w-full ${role === 'guest' ? 'pt-20' : 'pt-0'}`}>
-        
+      <main className="relative z-10 flex-1 flex flex-col items-center w-full pt-20">
         <div 
             onClick={handleGalaxyTap}
             className="w-full h-[60vh] md:h-[70vh] relative overflow-hidden bg-black group shadow-2xl cursor-pointer select-none"
         >
           <div className="absolute inset-0 z-0 overflow-hidden bg-black">
              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#1e1b4b_0%,_#000000_100%)] opacity-80"></div>
-             <div className="absolute inset-0 pointer-events-none opacity-20">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] h-[100vw] bg-gradient-to-tr from-purple-900/20 to-transparent blur-[60px] animate-spin-slow"></div>
-             </div>
              <div className="absolute inset-0 z-10">
                 {stars.map((star) => (
                     <div key={star.id} className="absolute" style={{ left: star.left, top: star.top }}>
@@ -462,7 +447,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* Empresas que Confiam - Seção Pública */}
         {trustedCompanies.length > 0 && (
             <div className="w-full bg-zinc-950/80 backdrop-blur-sm py-12 border-t border-zinc-900 mb-8 animate-fade-in-up">
                 <div className="max-w-7xl mx-auto px-6">
@@ -485,14 +469,12 @@ export default function Home() {
 
       </main>
 
-      {/* MODAL REPOSICIONADO PARA CIMA (pt-12 md:pt-24) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/80 backdrop-blur-md p-4 animate-fade-in-up overflow-y-auto">
           <div className={`bg-zinc-900 border border-zinc-800 rounded-3xl w-full p-8 shadow-2xl relative overflow-hidden transition-all duration-500 ${isRegisterMode ? 'max-w-2xl max-h-[90vh] overflow-y-auto' : 'max-w-md'}`}>
             <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-transform hover:rotate-90 z-20"><X size={24} /></button>
             
             {!isRegisterMode ? (
-              // MODO LOGIN
               <div className="animate-fade-in">
                 <div className="flex flex-col items-center mb-8 relative z-10">
                     <div className="w-20 h-20 bg-black rounded-full flex items-center justify-center mb-4 ring-1 ring-zinc-800 shadow-xl">
@@ -529,7 +511,6 @@ export default function Home() {
                 </div>
               </div>
             ) : (
-              // MODO CADASTRO (AUTO-REGISTRO CLIENTE)
               <div className="animate-fade-in">
                 <div className="flex items-center gap-4 mb-8">
                     <div className="p-3 bg-primary/10 rounded-2xl text-primary">
