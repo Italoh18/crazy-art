@@ -8,7 +8,7 @@ import {
   CheckCircle, AlertTriangle, Trash2, Edit, Plus, X, 
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
   Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal,
-  Coins, Lock
+  Coins, Lock, RotateCcw
 } from 'lucide-react';
 import { api } from '../src/services/api';
 import { SizeListItem } from '../types';
@@ -245,6 +245,13 @@ export default function CustomerDetails() {
   const handleManualPayment = async (orderId: string) => {
       if (confirm("Confirmar recebimento manual deste pedido?")) {
           await updateOrderStatus(orderId, 'paid');
+          if (viewingOrder?.id === orderId) setViewingOrder(null);
+      }
+  };
+
+  const handleReopenOrder = async (orderId: string) => {
+      if (confirm("ATENÇÃO: Deseja reabrir este pedido? Ele voltará para a lista de 'Abertos' e sairá do financeiro de pagos.")) {
+          await updateOrderStatus(orderId, 'open');
           if (viewingOrder?.id === orderId) setViewingOrder(null);
       }
   };
@@ -688,6 +695,16 @@ export default function CustomerDetails() {
                                         <button onClick={() => handleEditOrder(viewingOrder)} className="flex-1 py-3 bg-primary hover:bg-amber-600 text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2"><Edit size={16} /> Editar</button>
                                     </div>
                                 )}
+                                
+                                {viewingOrder.status === 'paid' && (
+                                    <button 
+                                        onClick={() => handleReopenOrder(viewingOrder.id)} 
+                                        className="w-full py-3 bg-amber-600/10 hover:bg-amber-600 text-amber-500 hover:text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2 border border-amber-600/20"
+                                    >
+                                        <RotateCcw size={16} /> Reabrir Pedido (Marcar como Pendente)
+                                    </button>
+                                )}
+
                                 <button onClick={() => handleDeleteOrder(viewingOrder.id)} className="w-full py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2"><Trash2 size={16} /> Excluir Pedido</button>
                             </div>
                         ) : (
