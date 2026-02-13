@@ -23,6 +23,8 @@ import EmailTemplates from './pages/EmailTemplates';
 import PendingOrders from './pages/PendingOrders';
 import Coupons from './pages/Coupons';
 import Identity from './pages/Identity';
+// ArtDrive removido
+import PrintCheck from './pages/PrintCheck'; 
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
 
@@ -73,6 +75,8 @@ const AppRoutes = () => {
             <Route path="/remove-bg" element={<BackgroundRemover />} />
             <Route path="/pixel-art" element={<PixelArt />} />
             <Route path="/pdf-to-word" element={<PdfToWord />} />
+            {/* Rota ArtDrive removida */}
+            <Route path="/print-check" element={<PrintCheck />} />
             <Route path="/my-area" element={<ClientRoute />} />
             <Route path="/pending-confirmations" element={<ProtectedRoute requiredRole="admin"><PendingOrders /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><Orders /></ProtectedRoute>} />

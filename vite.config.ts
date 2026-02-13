@@ -23,7 +23,13 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      // historyApiFallback removed as it is not a valid property in Vite server config
+      proxy: {
+        '/api': {
+          target: 'http://127.0.0.1:8788',
+          changeOrigin: true,
+          secure: false,
+        },
+      },
     }
   };
 });

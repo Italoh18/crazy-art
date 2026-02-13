@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Layers, Scissors, Grid, Type, Sparkles, Zap, Box, FileText } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Layers, Scissors, Grid, Type, Sparkles, Zap, Box, FileText, Printer, Cloud } from 'lucide-react';
 
 export default function Programs() {
   const tools = [
@@ -21,6 +21,21 @@ export default function Programs() {
       bgImage: 'radial-gradient(circle at 10% 20%, rgba(192, 38, 211, 0.15) 0%, transparent 50%)'
     },
     {
+      id: 'print-check',
+      name: 'Print',
+      sub: 'Check',
+      description: 'Validador de arquivos para impressão (DPI, Cores).',
+      icon: Printer,
+      path: '/print-check',
+      external: false,
+      comingSoon: false,
+      gridClass: 'md:col-span-1 md:row-span-2',
+      gradient: 'from-cyan-900/40 via-sky-900/20 to-black',
+      flareColor: 'bg-cyan-500',
+      iconColor: 'text-cyan-300',
+      bgImage: 'radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.15) 0%, transparent 60%)'
+    },
+    {
       id: 'pdf-to-word',
       name: 'PDF',
       sub: 'to Word',
@@ -29,7 +44,7 @@ export default function Programs() {
       path: '/pdf-to-word',
       external: false,
       comingSoon: false,
-      gridClass: 'md:col-span-1 md:row-span-2',
+      gridClass: 'md:col-span-1 md:row-span-1',
       gradient: 'from-blue-900/40 via-indigo-900/20 to-black',
       flareColor: 'bg-blue-500',
       iconColor: 'text-blue-300',
@@ -60,10 +75,10 @@ export default function Programs() {
       external: false,
       comingSoon: false,
       gridClass: 'md:col-span-1 md:row-span-1',
-      gradient: 'from-cyan-900/40 via-blue-900/20 to-black',
-      flareColor: 'bg-cyan-500',
-      iconColor: 'text-cyan-300',
-      bgImage: 'radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.2) 0%, transparent 70%)'
+      gradient: 'from-violet-900/40 via-purple-900/20 to-black',
+      flareColor: 'bg-violet-500',
+      iconColor: 'text-violet-300',
+      bgImage: 'radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.2) 0%, transparent 70%)'
     },
     {
       id: 'layout-builder',
