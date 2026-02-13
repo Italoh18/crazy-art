@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -477,8 +476,8 @@ export default function Shop() {
   const renderStepDetail = () => (
     <div className="animate-fade-in max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
         <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 aspect-square flex items-center justify-center relative">
-            {viewingProduct?.imageUrl ? <img src={viewingProduct.imageUrl} className="w-full h-full object-cover" /> : viewingProduct?.type === 'art' ? <Palette size={120} className="text-purple-500/20" /> : <ShoppingBag size={120} className="text-zinc-800" />}
-            {viewingProduct?.type === 'art' && (
+            {viewingProduct?.imageUrl ? <img src={viewingProduct.imageUrl} className="w-full h-full object-cover" /> : (viewingProduct?.type as string) === 'art' ? <Palette size={120} className="text-purple-500/20" /> : <ShoppingBag size={120} className="text-zinc-800" />}
+            {(viewingProduct?.type as string) === 'art' && (
                 <div className="absolute top-4 right-4 bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
                     <CloudDownload size={12} /> Digital
                 </div>

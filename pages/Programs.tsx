@@ -1,116 +1,184 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Layers, Scissors, Grid, Type } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Layers, Scissors, Grid, Type, Sparkles, Zap, Box } from 'lucide-react';
 
 export default function Programs() {
   const tools = [
     {
       id: 'font-finder',
-      name: 'Font Finder & Creator',
-      description: 'Identifique fontes em imagens, encontre alternativas e desenhe sua própria fonte.',
+      name: 'Font Finder',
+      sub: '& Creator',
+      description: 'Identifique e crie tipografias.',
       icon: Type,
-      path: '/font-finder', // Rota interna
+      path: '/font-finder',
       external: false,
-      comingSoon: false
+      comingSoon: false,
+      // Configuração Visual do Tile
+      gridClass: 'md:col-span-2 md:row-span-2', // Tile Grande (Quadrado Gigante)
+      gradient: 'from-fuchsia-900/40 via-purple-900/20 to-black',
+      flareColor: 'bg-fuchsia-500',
+      iconColor: 'text-fuchsia-300',
+      bgImage: 'radial-gradient(circle at 10% 20%, rgba(192, 38, 211, 0.15) 0%, transparent 50%)'
     },
     {
       id: 'pixel-art',
-      name: 'Pixel Art Studio',
-      description: 'Crie artes e animações em pixel art quadro a quadro com exportação GIF.',
+      name: 'Pixel Art',
+      sub: 'Studio',
+      description: 'Animação frame-a-frame.',
       icon: Grid,
       path: '/pixel-art',
       external: false,
-      comingSoon: false
+      comingSoon: false,
+      // Configuração Visual do Tile
+      gridClass: 'md:col-span-1 md:row-span-2', // Tile Vertical Alto
+      gradient: 'from-emerald-900/40 via-green-900/20 to-black',
+      flareColor: 'bg-emerald-500',
+      iconColor: 'text-emerald-300',
+      bgImage: 'radial-gradient(circle at 90% 90%, rgba(16, 185, 129, 0.15) 0%, transparent 60%)'
     },
     {
       id: 'remove-bg',
-      name: 'Cortar Fundo',
-      description: 'Remova o fundo de imagens para criar estampas limpas.',
+      name: 'Remove BG',
+      sub: 'Magic Cut',
+      description: 'Recorte automático e manual.',
       icon: Scissors,
       path: '/remove-bg',
       external: false,
-      comingSoon: false
+      comingSoon: false,
+      // Configuração Visual do Tile
+      gridClass: 'md:col-span-1 md:row-span-1', // Tile Pequeno
+      gradient: 'from-cyan-900/40 via-blue-900/20 to-black',
+      flareColor: 'bg-cyan-500',
+      iconColor: 'text-cyan-300',
+      bgImage: 'radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.2) 0%, transparent 70%)'
     },
     {
       id: 'layout-builder',
-      name: 'Monte seu Layout',
-      description: 'Visualize camisas e shorts em 3D e exporte o modelo.',
-      icon: Layers,
+      name: 'Mockup 3D',
+      sub: 'Builder',
+      description: 'Visualize camisas e shorts.',
+      icon: Box, // Trocado para Box para representar 3D
       path: '/layout-builder',
       external: false,
-      comingSoon: true
+      comingSoon: true, // Ainda em breve
+      // Configuração Visual do Tile
+      gridClass: 'md:col-span-1 md:row-span-1', // Tile Pequeno
+      gradient: 'from-orange-900/40 via-amber-900/20 to-black',
+      flareColor: 'bg-orange-500',
+      iconColor: 'text-orange-300',
+      bgImage: 'radial-gradient(circle at 0% 100%, rgba(249, 115, 22, 0.2) 0%, transparent 60%)'
     }
   ];
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-text p-6">
-      <div className="max-w-7xl mx-auto mb-8 flex items-center space-x-4">
-        <Link to="/" className="p-2 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-full transition">
-          <ArrowLeft size={24} />
-        </Link>
-        <h1 className="text-3xl font-bold text-white tracking-tight">Programas & Ferramentas</h1>
+    <div className="min-h-screen bg-black text-white p-6 pb-24 overflow-x-hidden">
+      {/* Background Decorativo */}
+      <div className="fixed inset-0 pointer-events-none">
+         <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-purple-900/20 rounded-full blur-[120px] animate-pulse-slow"></div>
+         <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-900/10 rounded-full blur-[100px] animate-float"></div>
       </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {tools.map((tool) => {
-          const CardContent = () => (
-            <>
-              <div className="w-full flex justify-between items-start">
-                  <div className={`p-3 rounded-lg transition duration-300 ${tool.comingSoon ? 'bg-zinc-800 text-zinc-600' : 'bg-primary/10 text-primary group-hover:scale-110'}`}>
-                    <tool.icon size={32} />
-                  </div>
-                  {tool.comingSoon ? (
-                    <span className="text-[10px] font-bold uppercase tracking-widest bg-zinc-800 text-zinc-500 px-2 py-1 rounded border border-zinc-700">Em Breve</span>
-                  ) : tool.external ? (
-                    <ExternalLink size={20} className="text-zinc-600 group-hover:text-white transition" />
-                  ) : null}
-              </div>
-              <div>
-                <h3 className={`text-xl font-bold mb-2 ${tool.comingSoon ? 'text-zinc-500' : 'text-white'}`}>{tool.name}</h3>
-                <p className="text-zinc-400 text-sm leading-relaxed">{tool.description}</p>
-              </div>
-            </>
-          );
-
-          const className = `bg-zinc-900 border border-zinc-800 p-8 rounded-xl flex flex-col items-start gap-4 transition group ${
-            tool.comingSoon 
-              ? 'opacity-60 cursor-not-allowed grayscale' 
-              : 'hover:border-primary/50 hover:bg-zinc-800 hover:shadow-lg hover:shadow-primary/5 cursor-pointer'
-          }`;
-
-          if (tool.comingSoon) {
-            return (
-              <div key={tool.id} className={className}>
-                <CardContent />
-              </div>
-            );
-          }
-
-          if (tool.external) {
-            return (
-              <a 
-                key={tool.id}
-                href={tool.path}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={className}
-              >
-                <CardContent />
-              </a>
-            );
-          }
-
-          return (
-            <Link 
-              key={tool.id}
-              to={tool.path}
-              className={className}
-            >
-              <CardContent />
+      <div className="max-w-6xl mx-auto relative z-10">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-12 animate-fade-in-up">
+            <Link to="/" className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-zinc-400 hover:text-white transition-all hover:scale-105 active:scale-95 backdrop-blur-md">
+                <ArrowLeft size={24} />
             </Link>
-          );
-        })}
+            <div>
+                <h1 className="text-4xl font-black text-white tracking-tight font-heading uppercase flex items-center gap-3">
+                    <Sparkles className="text-primary animate-pulse" />
+                    Ferramentas
+                </h1>
+                <p className="text-zinc-500 text-sm font-mono tracking-widest mt-1">CRAZY ART STUDIO • SUITE CRIATIVA</p>
+            </div>
+        </div>
+
+        {/* Grid Mosaico Irregular */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 auto-rows-[200px] gap-4">
+            {tools.map((tool, idx) => {
+                const CardContent = () => (
+                    <div className="relative h-full w-full p-6 flex flex-col justify-between z-10">
+                        <div className="flex justify-between items-start">
+                            <div className={`p-3 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 shadow-lg group-hover:scale-110 transition-transform duration-500 ${tool.iconColor}`}>
+                                <tool.icon size={32} strokeWidth={1.5} />
+                            </div>
+                            {tool.comingSoon ? (
+                                <span className="text-[10px] font-bold uppercase tracking-widest bg-black/40 text-zinc-500 px-2 py-1 rounded border border-white/5 backdrop-blur-md">Em Breve</span>
+                            ) : tool.external ? (
+                                <ExternalLink size={20} className="text-white/30 group-hover:text-white transition" />
+                            ) : (
+                                <div className={`w-2 h-2 rounded-full ${tool.flareColor} animate-pulse shadow-[0_0_10px_currentColor]`}></div>
+                            )}
+                        </div>
+
+                        <div className="space-y-1 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                            <h3 className="text-2xl font-black text-white leading-none uppercase tracking-wide">
+                                {tool.name}
+                                {tool.sub && <span className={`block text-lg font-medium opacity-80 ${tool.iconColor}`}>{tool.sub}</span>}
+                            </h3>
+                            <p className="text-xs text-zinc-400 line-clamp-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
+                                {tool.description}
+                            </p>
+                        </div>
+                    </div>
+                );
+
+                const WrapperClass = `
+                    relative group overflow-hidden rounded-3xl border border-white/10 
+                    bg-gradient-to-br ${tool.gradient} backdrop-blur-2xl
+                    transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:border-white/20
+                    ${tool.gridClass} ${tool.comingSoon ? 'opacity-60 grayscale cursor-not-allowed' : 'cursor-pointer'}
+                    animate-scale-in
+                `;
+
+                // Efeitos de Fundo (Flare)
+                const BackgroundEffects = () => (
+                    <>
+                        <div className="absolute inset-0 bg-grid-pattern opacity-10 mix-blend-overlay pointer-events-none"></div>
+                        <div 
+                            className="absolute inset-0 transition-opacity duration-700 opacity-60 group-hover:opacity-100"
+                            style={{ background: tool.bgImage }}
+                        ></div>
+                        {/* Flare brilhante no hover */}
+                        <div className={`absolute -right-20 -bottom-20 w-64 h-64 ${tool.flareColor} blur-[80px] opacity-0 group-hover:opacity-30 transition-opacity duration-500 rounded-full pointer-events-none`}></div>
+                    </>
+                );
+
+                if (tool.comingSoon) {
+                    return (
+                        <div key={tool.id} className={WrapperClass} style={{ animationDelay: `${idx * 100}ms` }}>
+                            <BackgroundEffects />
+                            <CardContent />
+                        </div>
+                    );
+                }
+
+                if (tool.external) {
+                    return (
+                        <a key={tool.id} href={tool.path} target="_blank" rel="noopener noreferrer" className={WrapperClass} style={{ animationDelay: `${idx * 100}ms` }}>
+                            <BackgroundEffects />
+                            <CardContent />
+                        </a>
+                    );
+                }
+
+                return (
+                    <Link key={tool.id} to={tool.path} className={WrapperClass} style={{ animationDelay: `${idx * 100}ms` }}>
+                        <BackgroundEffects />
+                        <CardContent />
+                    </Link>
+                );
+            })}
+            
+            {/* Bloco Decorativo ou Link Extra para preencher espaço se necessário */}
+            <div className="md:col-span-1 md:row-span-1 relative rounded-3xl border border-dashed border-white/10 flex items-center justify-center p-6 group hover:border-white/20 transition-colors cursor-default">
+                <div className="text-center opacity-30 group-hover:opacity-50 transition-opacity">
+                    <Zap size={32} className="mx-auto mb-2" />
+                    <p className="text-xs uppercase font-bold tracking-widest">Mais em breve</p>
+                </div>
+            </div>
+        </div>
       </div>
     </div>
   );
