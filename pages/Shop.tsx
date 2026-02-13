@@ -54,6 +54,7 @@ export default function Shop() {
   const [layoutOption, setLayoutOption] = useState<'sim' | 'precisa' | null>(null);
   const [moldOption, setMoldOption] = useState<'sim' | 'precisa' | null>(null);
   const [artLink, setArtLink] = useState('');
+  const [artExtrasDesc, setArtExtrasDesc] = useState('');
 
   const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -254,7 +255,8 @@ export default function Shop() {
       let discountAmount = 0;
       const { items } = calculateFinalOrder(); 
       items.forEach(item => {
-          if (appliedCoupon.type === 'all' || item.type === appliedCoupon.type) {
+          // Fix: cast item.type to string to avoid type overlap error with appliedCoupon.type
+          if (appliedCoupon.type === 'all' || (item.type as string) === appliedCoupon.type) {
               discountAmount += item.total * (appliedCoupon.percentage / 100);
           }
       });
@@ -279,7 +281,10 @@ export default function Shop() {
         const { items, total } = calculateFinalOrder();
         const orderData = {
             client_id: currentCustomer.id,
-            description: cart.map(i => `${i.product.name} (x${i.quantity})`).join('; ') + (artLink ? `\nArte: ${artLink}` : '') + (wantsDigitalGrid ? '\n[COM GRADE DIGITAL]' : ''),
+            description: cart.map(i => `${i.product.name} (x${i.quantity})`).join('; ') + 
+                         (artExtrasDesc ? `\nDetalhes Logos: ${artExtrasDesc}` : '') +
+                         (artLink ? `\nLink Arquivos: ${artLink}` : '') + 
+                         (wantsDigitalGrid ? '\n[COM GRADE DIGITAL]' : ''),
             items: items,
             total: total,
             size_list: sizeList.length > 0 ? JSON.stringify(sizeList) : null,
@@ -601,9 +606,31 @@ export default function Shop() {
                 </div>
             )}
             
-            {/* Input de Link (Comum se necessário) */}
+            {/* Input de Link e Descrição de Logos */}
             {(layoutOption === 'sim' || moldOption === 'sim' || isArtOnlyOrder) && (
-                <div className="animate-fade-in"><label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Link dos Arquivos</label><div className="relative"><input type="text" placeholder="Cole o link aqui..." className="w-full bg-black/40 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-white outline-none focus:border-primary transition" value={artLink} onChange={(e) => setArtLink(e.target.value)} /><Upload className="absolute left-3 top-3.5 text-zinc-600" size={16} /></div></div>
+                <div className="animate-fade-in space-y-4 pt-4 border-t border-zinc-800">
+                    <div>
+                        <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">
+                            Gostaria de inserir a própria logo ou logos extras?
+                        </label>
+                        <p className="text-[10px] text-zinc-500 mb-2 ml-1">
+                            Especifique posicionamento e tamanhos e deixe o link dos arquivos abaixo.
+                        </p>
+                        <textarea
+                            className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-primary transition min-h-[80px]"
+                            placeholder="Ex: Logo no peito esquerdo 10cm..."
+                            value={artExtrasDesc}
+                            onChange={(e) => setArtExtrasDesc(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Link dos Arquivos</label>
+                        <div className="relative">
+                            <input type="text" placeholder="Cole o link aqui..." className="w-full bg-black/40 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-white outline-none focus:border-primary transition" value={artLink} onChange={(e) => setArtLink(e.target.value)} />
+                            <Upload className="absolute left-3 top-3.5 text-zinc-600" size={16} />
+                        </div>
+                    </div>
+                </div>
             )}
             
             <div className="border-t border-zinc-800 pt-6 mt-6">
