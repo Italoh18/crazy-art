@@ -427,7 +427,7 @@ export default function Home() {
                     ) : (
                         [0, 1].map((index) => (
                             <div key={index} className="w-full h-full flex-shrink-0 relative flex items-center justify-center bg-zinc-900/50">
-                                <div className="flex items-center gap-3 opacity-50"><Sparkles size={16} /><span className="text-xs uppercase tracking-widest text-zinc-400">Destaques em Breve</span></div>
+                                <div className="flex items-center gap-3 opacity-80"><Sparkles size={16} className="text-orange-500" /><span className="text-xs uppercase tracking-widest text-orange-500 font-bold">Destaques em Breve</span></div>
                             </div>
                         ))
                     )}
