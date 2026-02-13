@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Layers, Scissors, Grid, Type, Sparkles, Zap, Box, FileText, Printer, Cloud } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Layers, Scissors, Grid, Type, Sparkles, Zap, Box, FileText, Printer, Cloud, PenTool } from 'lucide-react';
 
 export default function Programs() {
   const tools = [
@@ -19,6 +19,21 @@ export default function Programs() {
       flareColor: 'bg-fuchsia-500',
       iconColor: 'text-fuchsia-300',
       bgImage: 'radial-gradient(circle at 10% 20%, rgba(192, 38, 211, 0.15) 0%, transparent 50%)'
+    },
+    {
+      id: 'trace-magic',
+      name: 'Trace',
+      sub: 'Magic',
+      description: 'Vetorização automática (PowerTRACE).',
+      icon: PenTool,
+      path: '/trace-magic',
+      external: false,
+      comingSoon: false,
+      gridClass: 'md:col-span-1 md:row-span-2',
+      gradient: 'from-amber-900/40 via-orange-900/20 to-black',
+      flareColor: 'bg-amber-500',
+      iconColor: 'text-amber-300',
+      bgImage: 'radial-gradient(circle at 90% 10%, rgba(245, 158, 11, 0.15) 0%, transparent 50%)'
     },
     {
       id: 'print-check',
