@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { X, ChevronRight, Save, Square, Triangle, Circle, Undo, Eraser, PenTool, Spline, PaintBucket, Minus, Plus, Eye, EyeOff, Upload, Move, Maximize } from 'lucide-react';
+import { X, ChevronRight, Save, Square, Triangle, Circle, Undo, Eraser, PenTool, Spline, PaintBucket, Minus, Plus, Eye, EyeOff, Upload, Move, Maximize, Image as ImageIcon, Sliders } from 'lucide-react';
 import { Stroke, Point } from '../types';
 
 interface DrawingModalProps {
@@ -19,13 +19,17 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
   char, initialStrokes, isOpen, onClose, onSave, onNext, isLast 
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null); // Ref para o input de arquivo
-  const snapshotStrokesRef = useRef<Stroke[]>([]); // Ref para guardar estado inicial durante transformações (scale)
+  const fileInputRef = useRef<HTMLInputElement>(null); 
+  const snapshotStrokesRef = useRef<Stroke[]>([]); 
   
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [activeTool, setActiveTool] = useState<ToolType>('pen');
   const [strokeWidth, setStrokeWidth] = useState<number>(15);
   const [showGuide, setShowGuide] = useState<boolean>(true); 
+  
+  // Trace Image State (Imagem de Referência)
+  const [traceImage, setTraceImage] = useState<HTMLImageElement | null>(null);
+  const [traceOpacity, setTraceOpacity] = useState(0.3);
   
   // Interaction State
   const [isDrawing, setIsDrawing] = useState(false);
@@ -44,6 +48,7 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
       setActiveTool('pen');
       setStrokeWidth(15);
       setShowGuide(true);
+      setTraceImage(null); // Reseta imagem ao abrir novo modal
       snapshotStrokesRef.current = [];
     }
   }, [isOpen, initialStrokes]);
@@ -57,7 +62,19 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
     // 1. Limpar
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 2. Desenhar Guia (Sombra)
+    // 1.5 Desenhar Imagem de Referência (Trace)
+    if (traceImage) {
+        ctx.save();
+        ctx.globalAlpha = traceOpacity;
+        // Centralizar e ajustar imagem (contain)
+        const scale = Math.min(canvas.width / traceImage.width, canvas.height / traceImage.height);
+        const x = (canvas.width / 2) - (traceImage.width / 2) * scale;
+        const y = (canvas.height / 2) - (traceImage.height / 2) * scale;
+        ctx.drawImage(traceImage, x, y, traceImage.width * scale, traceImage.height * scale);
+        ctx.restore();
+    }
+
+    // 2. Desenhar Guia (Letra Sombra)
     if (showGuide) {
         drawGuideChar(ctx, canvas.width, canvas.height);
     }
@@ -80,35 +97,56 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
     if (activeTool !== 'pen' && activeTool !== 'bucket' && activeTool !== 'move' && activeTool !== 'scale' && startPoint && currentPoint) {
        drawPreviewShape(ctx);
     }
-  }, [strokes, startPoint, currentPoint, activeTool, isDrawing, bezierPhase, bezierControlPoint, strokeWidth, showGuide, char]);
+  }, [strokes, startPoint, currentPoint, activeTool, isDrawing, bezierPhase, bezierControlPoint, strokeWidth, showGuide, char, traceImage, traceOpacity]);
 
-  // --- SVG Import Logic ---
+  // --- Import Logic (SVG & Image) ---
 
-  const handleSvgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      parseAndLoadSvg(text);
-    };
-    reader.readAsText(file);
+    // Se for imagem (PNG, JPG, WEBP) -> Carrega como Trace
+    if (file.type.includes('image') && !file.type.includes('svg')) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => setTraceImage(img);
+            img.src = event.target?.result as string;
+        };
+        reader.readAsDataURL(file);
+    } 
+    // Se for SVG -> Tenta extrair vetores
+    else if (file.type.includes('svg')) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const text = event.target?.result as string;
+            // Tenta parsear vetores
+            const success = parseAndLoadSvg(text);
+            
+            // Se falhar ou não tiver paths, carrega como imagem de fundo
+            if (!success) {
+                const img = new Image();
+                img.onload = () => setTraceImage(img);
+                img.src = 'data:image/svg+xml;base64,' + btoa(text);
+            }
+        };
+        reader.readAsText(file);
+    }
+    else {
+        alert("Formato não suportado. Use SVG, PNG ou JPG.");
+    }
     
     // Reset input
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const parseAndLoadSvg = (svgText: string) => {
+  const parseAndLoadSvg = (svgText: string): boolean => {
     try {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(svgText, "image/svg+xml");
       const pathElements = xmlDoc.getElementsByTagName("path");
       
-      if (pathElements.length === 0) {
-        alert("Nenhum caminho (path) encontrado no SVG.");
-        return;
-      }
+      if (pathElements.length === 0) return false;
 
       // Combina todos os paths em strokes
       let newStrokes: Stroke[] = [];
@@ -130,34 +168,36 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
       }
 
       if (newStrokes.length > 0) {
+        // Normaliza para garantir que apareça na tela (500x500)
         const centeredStrokes = normalizeStrokesToCanvas(newStrokes, 500, 500);
         setStrokes(prev => [...prev, ...centeredStrokes]);
-        setActiveTool('pen'); // Reset tool
+        setActiveTool('pen'); 
+        return true;
       }
+      return false;
     } catch (err) {
       console.error("Erro ao processar SVG", err);
-      alert("Erro ao processar o arquivo SVG.");
+      return false;
     }
   };
 
   // Parser simplificado de SVG Path data para pontos
   const parseSvgPathData = (d: string): Point[] => {
-    const commands = d.match(/([a-zA-Z])|([-+]?[0-9]*\.?[0-9]+)/g);
+    // Remove vírgulas e normaliza espaços
+    const cleanD = d.replace(/,/g, ' ');
+    const commands = cleanD.match(/([a-zA-Z])|([-+]?[0-9]*\.?[0-9]+)/g);
     if (!commands) return [];
 
     let points: Point[] = [];
     let currentX = 0;
     let currentY = 0;
-    let startX = 0;
-    let startY = 0;
     
     let i = 0;
     while (i < commands.length) {
       const cmd = commands[i];
       
-      // Se for número, assume que é continuação do comando anterior (ou L implícito)
+      // Se for número, assume que é continuação do comando anterior
       if (!isNaN(parseFloat(cmd))) {
-         // Tratamento simplificado: avança
          i++;
          continue;
       }
@@ -166,59 +206,55 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
 
       switch (cmd.toUpperCase()) {
         case 'M': // Move
-          currentX = getNum();
-          currentY = getNum();
-          startX = currentX;
-          startY = currentY;
-          points.push({ x: currentX, y: currentY });
-          if (cmd === 'm') { // Relative move treated as abs for simplicity in start or accumulation needed
-             // Simplificação: SVGs complexos podem precisar de parser mais robusto
-          }
-          break;
         case 'L': // Line
           currentX = getNum();
           currentY = getNum();
-          points.push({ x: currentX, y: currentY });
+          if (!isNaN(currentX) && !isNaN(currentY)) points.push({ x: currentX, y: currentY });
           break;
         case 'H': // Horizontal
           currentX = getNum();
-          points.push({ x: currentX, y: currentY });
+          if (!isNaN(currentX)) points.push({ x: currentX, y: currentY });
           break;
         case 'V': // Vertical
           currentY = getNum();
-          points.push({ x: currentX, y: currentY });
+          if (!isNaN(currentY)) points.push({ x: currentX, y: currentY });
           break;
         case 'Z': // Close
-          points.push({ x: startX, y: startY });
+          // Opcional: fechar visualmente
           break;
-        case 'C': // Cubic Bezier (Flatenned to points)
+        case 'C': // Cubic Bezier (Flatten)
           const cp1x = getNum(); const cp1y = getNum();
           const cp2x = getNum(); const cp2y = getNum();
           const x = getNum();    const y = getNum();
           
-          // Flatten curve
-          for (let t = 0.1; t <= 1; t += 0.1) {
-            const xt = (1-t)**3 * currentX + 3*(1-t)**2*t*cp1x + 3*(1-t)*t**2*cp2x + t**3*x;
-            const yt = (1-t)**3 * currentY + 3*(1-t)**2*t*cp1y + 3*(1-t)*t**2*cp2y + t**3*y;
-            points.push({x: xt, y: yt});
+          if (!isNaN(x) && !isNaN(y)) {
+              // Flatten curve simples
+              for (let t = 0.2; t <= 1; t += 0.2) {
+                const xt = (1-t)**3 * currentX + 3*(1-t)**2*t*cp1x + 3*(1-t)*t**2*cp2x + t**3*x;
+                const yt = (1-t)**3 * currentY + 3*(1-t)**2*t*cp1y + 3*(1-t)*t**2*cp2y + t**3*y;
+                points.push({x: xt, y: yt});
+              }
+              currentX = x;
+              currentY = y;
           }
-          currentX = x;
-          currentY = y;
           break;
         case 'Q': // Quadratic Bezier
            const qcp1x = getNum(); const qcp1y = getNum();
            const qx = getNum();    const qy = getNum();
            
-           for (let t = 0.1; t <= 1; t += 0.1) {
-             const xt = (1-t)**2 * currentX + 2*(1-t)*t*qcp1x + t**2*qx;
-             const yt = (1-t)**2 * currentY + 2*(1-t)*t*qcp1y + t**2*qy;
-             points.push({x: xt, y: yt});
+           if (!isNaN(qx) && !isNaN(qy)) {
+               for (let t = 0.2; t <= 1; t += 0.2) {
+                 const xt = (1-t)**2 * currentX + 2*(1-t)*t*qcp1x + t**2*qx;
+                 const yt = (1-t)**2 * currentY + 2*(1-t)*t*qcp1y + t**2*qy;
+                 points.push({x: xt, y: yt});
+               }
+               currentX = qx;
+               currentY = qy;
            }
-           currentX = qx;
-           currentY = qy;
            break;
         default:
-           // Comandos não suportados ignorados ou tratados como params
+           // Comandos relativos (minúsculas) ou 'S', 'T', 'A' não implementados neste parser simples
+           // Em caso real, usaríamos svg-path-parser
            break;
       }
       i++;
@@ -230,18 +266,23 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
      
      // Find Bounds
+     let hasPoints = false;
      strokes.forEach(s => s.points.forEach(p => {
        if (p.x < minX) minX = p.x;
        if (p.x > maxX) maxX = p.x;
        if (p.y < minY) minY = p.y;
        if (p.y > maxY) maxY = p.y;
+       hasPoints = true;
      }));
 
-     if (minX === Infinity) return strokes;
+     if (!hasPoints || minX === Infinity) return strokes;
 
      const shapeW = maxX - minX;
      const shapeH = maxY - minY;
      
+     // Prevent division by zero
+     if (shapeW === 0 || shapeH === 0) return strokes;
+
      // Scale to fit with padding (e.g., 80% of canvas)
      const padding = 50;
      const targetW = width - (padding * 2);
@@ -721,6 +762,7 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
 
   const handleClear = () => {
     setStrokes([]);
+    setTraceImage(null); // Limpa imagem de fundo também
     setBezierPhase(0);
     setStartPoint(null);
     setCurrentPoint(null);
@@ -733,19 +775,58 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
     tempCanvas.height = 100;
     const ctx = tempCanvas.getContext('2d');
     if (ctx) {
-      // Draw background for preview consistency? No, keep transparent.
+      // NÃO desenhar a imagem de fundo no preview final
+      // Apenas os traços vetoriais importam para a fonte
       ctx.drawImage(canvasRef.current, 0, 0, 100, 100);
     }
     return tempCanvas.toDataURL('image/png');
   };
 
   const handleSaveInternal = () => {
-    const preview = generatePreview();
+    // Esconder grade e guia temporariamente para gerar preview limpo
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Render Clean
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Draw only strokes (branco no preto fica melhor para preview invertido na grid)
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'white';
+    ctx.fillStyle = 'white';
+    strokes.forEach(stroke => drawStroke(ctx, stroke));
+    
+    const preview = canvas.toDataURL('image/png');
     onSave(strokes, preview);
+    
+    // Restore Visuals (triggered by state change or re-render effectively)
+    // Mas para garantir fluidez imediata:
+    if (showGuide) drawGuideChar(ctx, canvas.width, canvas.height);
+    drawGuidelines(ctx, canvas.width, canvas.height);
+    if (traceImage) {
+        // Redraw trace (background) needs to happen before strokes usually, 
+        // but here we just need to restore visual state for the user.
+        // A próxima renderização do React cuidará da ordem correta.
+    }
   };
 
   const handleNextInternal = () => {
-    const preview = generatePreview();
+    // Mesma lógica de save clean
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'white';
+    ctx.fillStyle = 'white';
+    strokes.forEach(stroke => drawStroke(ctx, stroke));
+
+    const preview = canvas.toDataURL('image/png');
     onNext(strokes, preview);
   };
 
@@ -861,31 +942,34 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
                 </button>
              </div>
              
-             <div className="flex gap-1 items-center">
-                 <div className="h-8 w-px bg-slate-700 mx-1"></div>
+             <div className="flex gap-1 items-center bg-slate-900 p-1 rounded-lg">
                  <button 
                     onClick={() => setShowGuide(!showGuide)} 
-                    className={`p-2 rounded transition-colors ${showGuide ? 'text-blue-400 bg-slate-900' : 'text-slate-500 hover:text-white'}`} 
+                    className={`p-2 rounded transition-colors ${showGuide ? 'text-blue-400 bg-slate-800' : 'text-slate-500 hover:text-white'}`} 
                     title="Guia de Caractere (Sombra)"
                  >
                    {showGuide ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                  </button>
                  
-                 {/* Botão de Importar SVG */}
-                 <div className="relative">
+                 {/* Botão de Importar SVG/Imagem */}
+                 <div className="relative group">
                    <button 
                       onClick={() => fileInputRef.current?.click()}
                       className="p-2 rounded transition-colors text-purple-400 hover:text-white hover:bg-slate-700" 
-                      title="Importar Vetor SVG"
+                      title="Importar (SVG, PNG, JPG) para Trace"
                    >
-                     <Upload className="w-5 h-5" />
+                     {traceImage ? <ImageIcon className="w-5 h-5 text-green-400" /> : <Upload className="w-5 h-5" />}
                    </button>
+                   {/* Descrição de Medidas */}
+                   <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-black/90 text-[10px] text-white rounded hidden group-hover:block z-50">
+                      Recomendado: 500x500px (SVG/PNG/PDF convert)
+                   </span>
                    <input 
                       type="file" 
-                      accept=".svg" 
+                      accept=".svg,.png,.jpg,.jpeg,.webp" 
                       ref={fileInputRef} 
                       className="hidden" 
-                      onChange={handleSvgUpload}
+                      onChange={handleFileUpload}
                    />
                  </div>
              </div>
@@ -894,7 +978,7 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
                 <button onClick={handleUndo} className="p-2 bg-slate-700 rounded hover:bg-slate-600 text-slate-300" title="Desfazer">
                   <Undo className="w-5 h-5" />
                 </button>
-                <button onClick={handleClear} className="p-2 bg-slate-700 rounded hover:bg-slate-600 text-red-400" title="Limpar">
+                <button onClick={handleClear} className="p-2 bg-slate-700 rounded hover:bg-slate-600 text-red-400" title="Limpar Tudo">
                   <Eraser className="w-5 h-5" />
                 </button>
              </div>
@@ -906,23 +990,33 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
              {/* Slider de Espessura */}
              <div className="flex items-center gap-3 w-full md:w-auto bg-slate-900 px-4 py-2 rounded-xl border border-slate-700">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">Traço</span>
-                <Minus className="w-3 h-3 text-slate-500" />
                 <input 
                   type="range" 
                   min="2" 
                   max="60" 
                   value={strokeWidth} 
                   onChange={(e) => setStrokeWidth(Number(e.target.value))}
-                  className="w-full md:w-32 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  className="w-full md:w-24 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
-                <Plus className="w-3 h-3 text-slate-500" />
-                <span className="text-xs font-mono text-blue-400 w-6 text-right">{strokeWidth}</span>
-                {/* Visual Preview of Dot Size */}
-                <div 
-                    className="w-4 h-4 rounded-full bg-white ml-2 transition-all" 
-                    style={{ transform: `scale(${strokeWidth / 20})` }}
-                />
+                <div className="w-3 h-3 rounded-full bg-white transition-all" style={{ transform: `scale(${strokeWidth / 20})` }} />
              </div>
+
+             {/* Slider de Opacidade do Trace (Se imagem carregada) */}
+             {traceImage && (
+                 <div className="flex items-center gap-3 w-full md:w-auto bg-slate-900 px-4 py-2 rounded-xl border border-slate-700 border-purple-500/30">
+                    <Sliders className="w-3 h-3 text-purple-400" />
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="1" 
+                      step="0.1"
+                      value={traceOpacity} 
+                      onChange={(e) => setTraceOpacity(Number(e.target.value))}
+                      className="w-full md:w-20 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                      title="Opacidade da Imagem de Fundo"
+                    />
+                 </div>
+             )}
 
              <div className="flex gap-2 w-full md:w-auto flex-1 justify-end">
                 <button 

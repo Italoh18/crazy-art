@@ -12,7 +12,8 @@ import { AlertCircle, Terminal, RefreshCw, PenTool, Search, ArrowLeft } from 'lu
 const LOCAL_STORAGE_KEY = 'fontfinder_history';
 
 export default function FontFinder() {
-  const [mode, setMode] = useState<'analyze' | 'create'>('analyze');
+  // Alterado: Inicia direto no modo 'create'
+  const [mode, setMode] = useState<'analyze' | 'create'>('create');
   
   // Analyzer State
   const [currentImage, setCurrentImage] = useState<string | null>(null);
@@ -199,12 +200,10 @@ export default function FontFinder() {
 
           <div className="flex p-1 bg-neutral-900/80 rounded-lg border border-white/5">
              <button 
-               onClick={() => setMode('analyze')}
-               className={`flex items-center gap-2 px-6 py-2 rounded-md text-sm font-futura tracking-wide transition-all
-                 ${mode === 'analyze' ? 'bg-white text-black font-medium shadow-sm' : 'text-slate-400 hover:text-white'}
-               `}
+               disabled
+               className="flex items-center gap-2 px-6 py-2 rounded-md text-sm font-futura tracking-wide transition-all opacity-50 cursor-not-allowed text-slate-500"
              >
-               <Search className="w-4 h-4" /> IDENTIFICAR
+               <Search className="w-4 h-4" /> IDENTIFICAR <span className="text-[8px] uppercase font-bold bg-white/10 px-1 py-0.5 rounded ml-1">Em Breve</span>
              </button>
              <button 
                onClick={() => setMode('create')}

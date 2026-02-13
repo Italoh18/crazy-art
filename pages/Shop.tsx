@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -260,8 +261,7 @@ export default function Shop() {
       let discountAmount = 0;
       const { items } = calculateFinalOrder(); 
       items.forEach(item => {
-          // Fix: cast item.type to string to avoid type overlap error with appliedCoupon.type
-          if (appliedCoupon.type === 'all' || (item.type as string) === appliedCoupon.type) {
+          if (appliedCoupon.type === 'all' || (item.type as any) === appliedCoupon.type) {
               discountAmount += item.total * (appliedCoupon.percentage / 100);
           }
       });
