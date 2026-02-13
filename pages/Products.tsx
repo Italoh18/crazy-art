@@ -6,19 +6,6 @@ import { ItemType, Product } from '../types';
 
 const DEFAULT_SUBCATEGORIES = ['Carnaval', 'Futebol', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais', 'Logos'];
 
-const ART_COLORS = [
-    { name: 'Preto', hex: '#000000' },
-    { name: 'Branco', hex: '#FFFFFF' },
-    { name: 'Cinza', hex: '#808080' },
-    { name: 'Vermelho', hex: '#DC2626' },
-    { name: 'Laranja', hex: '#F97316' },
-    { name: 'Amarelo', hex: '#EAB308' },
-    { name: 'Verde', hex: '#16A34A' },
-    { name: 'Azul', hex: '#2563EB' },
-    { name: 'Roxo', hex: '#9333EA' },
-    { name: 'Rosa', hex: '#DB2777' },
-];
-
 export default function Products() {
   const { products, addProduct, updateProduct, deleteProduct } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -395,19 +382,14 @@ export default function Products() {
 
                         <div>
                             <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1.5 ml-1">Cor Principal</label>
-                            <div className="flex flex-wrap gap-2 bg-black/40 border border-zinc-700 rounded-xl p-3">
-                                {ART_COLORS.map(color => (
-                                    <button
-                                        type="button"
-                                        key={color.name}
-                                        onClick={() => setFormData({ ...formData, primaryColor: color.hex })}
-                                        className={`w-6 h-6 rounded-full border border-white/10 transition-transform hover:scale-110 relative ${formData.primaryColor === color.hex ? 'ring-2 ring-white scale-110' : ''}`}
-                                        style={{ backgroundColor: color.hex }}
-                                        title={color.name}
-                                    >
-                                        {formData.primaryColor === color.hex && <div className="absolute inset-0 flex items-center justify-center"><div className="w-1.5 h-1.5 bg-white rounded-full mix-blend-difference"></div></div>}
-                                    </button>
-                                ))}
+                            <div className="flex items-center gap-3 bg-black/40 border border-zinc-700 rounded-xl p-2">
+                                <input 
+                                    type="color" 
+                                    className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0"
+                                    value={formData.primaryColor}
+                                    onChange={e => setFormData({ ...formData, primaryColor: e.target.value })}
+                                />
+                                <span className="text-xs font-mono text-zinc-300">{formData.primaryColor}</span>
                             </div>
                         </div>
 

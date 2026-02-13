@@ -27,19 +27,6 @@ const DEFAULT_ART_CATEGORIES = [
     'Todos', 'Carnaval', 'Futebol', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais', 'Logos'
 ];
 
-const ART_COLORS = [
-    { name: 'Preto', hex: '#000000' },
-    { name: 'Branco', hex: '#FFFFFF' },
-    { name: 'Cinza', hex: '#808080' },
-    { name: 'Vermelho', hex: '#DC2626' },
-    { name: 'Laranja', hex: '#F97316' },
-    { name: 'Amarelo', hex: '#EAB308' },
-    { name: 'Verde', hex: '#16A34A' },
-    { name: 'Azul', hex: '#2563EB' },
-    { name: 'Roxo', hex: '#9333EA' },
-    { name: 'Rosa', hex: '#DB2777' },
-];
-
 export default function Shop() {
   const { products, addOrder, orders, validateCoupon } = useData();
   const { role, currentCustomer } = useAuth();
@@ -71,39 +58,24 @@ export default function Shop() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
+  // States para Cupom
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [couponError, setCouponError] = useState('');
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
 
-  // Inicializa a aba com base na ROTA (URL)
+  // Inicializa a aba com base na URL
   useEffect(() => {
-      const path = location.pathname;
       const params = new URLSearchParams(location.search);
-      
-      if (path === '/quitanda') {
+      const tab = params.get('tab');
+      if (tab === 'art') {
           setActiveTab('art');
-      } else if (path === '/loja') {
-          // Se estiver na loja geral, verifica se tem parametro de serviço
-          const tab = params.get('tab');
-          if (tab === 'service') {
-              setActiveTab('service');
-          } else {
-              setActiveTab('product');
-          }
-      }
-  }, [location]);
-
-  // Função para navegar entre as abas alterando a URL
-  const handleTabChange = (type: ItemType) => {
-      if (type === 'art') {
-          navigate('/quitanda');
-      } else if (type === 'service') {
-          navigate('/loja?tab=service');
+      } else if (tab === 'service') {
+          setActiveTab('service');
       } else {
-          navigate('/loja');
+          setActiveTab('product');
       }
-  };
+  }, [location.search]);
 
   // Derivar categorias dinâmicas com base nos produtos existentes + padrões
   const artCategories = useMemo(() => {
@@ -114,6 +86,15 @@ export default function Shop() {
       return Array.from(existingCats);
   }, [products]);
 
+  // Derivar cores disponíveis nos produtos de arte
+  const artColors = useMemo(() => {
+      const colors = new Set<string>();
+      products.filter(p => p.type === 'art' && p.primaryColor).forEach(p => {
+          if (p.primaryColor) colors.add(p.primaryColor);
+      });
+      return Array.from(colors);
+  }, [products]);
+
   const filteredItems = products.filter(item => {
      const itemType = item.type || 'product';
      
@@ -122,10 +103,7 @@ export default function Shop() {
      
      // Filtros específicos da Quitanda
      if (activeTab === 'art') {
-         // Filtro de Categoria
          if (activeArtCategory !== 'Todos' && item.subcategory !== activeArtCategory) matches = false;
-         
-         // Filtro de Cor
          if (selectedColor && item.primaryColor !== selectedColor) matches = false;
      }
 
@@ -316,7 +294,7 @@ export default function Shop() {
                         Quitanda de Artes
                     </h2>
                     <button 
-                        onClick={() => handleTabChange('product')}
+                        onClick={() => setActiveTab('product')}
                         className="text-[10px] text-zinc-400 hover:text-white uppercase tracking-widest flex items-center gap-1 transition group"
                     >
                         Ir para Loja Geral <ArrowUpRight size={12} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -349,23 +327,23 @@ export default function Shop() {
                         <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
                     </div>
                     
-                    {/* Color Filter - Padrão fixo */}
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 flex items-center gap-2 overflow-x-auto custom-scrollbar">
+                    {/* Color Filter */}
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 flex items-center gap-2 overflow-x-auto">
                         <div className="text-[10px] text-zinc-500 font-bold uppercase px-2">Cores</div>
                         <button 
                             onClick={() => setSelectedColor(null)}
-                            className={`w-6 h-6 rounded-full border border-zinc-700 flex items-center justify-center shrink-0 ${!selectedColor ? 'ring-2 ring-white bg-zinc-800' : 'bg-black'}`}
+                            className={`w-6 h-6 rounded-full border border-zinc-700 flex items-center justify-center ${!selectedColor ? 'ring-2 ring-white' : ''}`}
                             title="Todas"
                         >
                             <span className="block w-full h-[1px] bg-red-500 rotate-45"></span>
                         </button>
-                        {ART_COLORS.map(color => (
+                        {artColors.map(color => (
                             <button
-                                key={color.name}
-                                onClick={() => setSelectedColor(selectedColor === color.hex ? null : color.hex)}
-                                className={`w-6 h-6 rounded-full border border-white/10 transition-transform hover:scale-110 shrink-0 ${selectedColor === color.hex ? 'ring-2 ring-white scale-110' : ''}`}
-                                style={{ backgroundColor: color.hex }}
-                                title={color.name}
+                                key={color}
+                                onClick={() => setSelectedColor(selectedColor === color ? null : color)}
+                                className={`w-6 h-6 rounded-full border border-white/10 transition-transform hover:scale-110 ${selectedColor === color ? 'ring-2 ring-white scale-110' : ''}`}
+                                style={{ backgroundColor: color }}
+                                title={color}
                             />
                         ))}
                     </div>
@@ -380,9 +358,9 @@ export default function Shop() {
             // Header Padrão (Loja Geral)
             <div className="flex flex-col items-center mb-10 space-y-6">
                 <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-full max-w-md border border-zinc-800 shadow-xl overflow-x-auto">
-                    <button onClick={() => handleTabChange('product')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'product' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>PRODUTOS</button>
-                    <button onClick={() => handleTabChange('service')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'service' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>SERVIÇOS</button>
-                    <button onClick={() => handleTabChange('art')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap flex items-center justify-center gap-1 ${activeTab === 'art' ? 'bg-purple-500 text-white shadow-sm' : 'text-zinc-500 hover:text-purple-400'}`}><Palette size={12} /> QUITANDA</button>
+                    <button onClick={() => setActiveTab('product')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'product' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>PRODUTOS</button>
+                    <button onClick={() => setActiveTab('service')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'service' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>SERVIÇOS</button>
+                    <button onClick={() => setActiveTab('art')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap flex items-center justify-center gap-1 ${activeTab === 'art' ? 'bg-purple-500 text-white shadow-sm' : 'text-zinc-500 hover:text-purple-400'}`}><Palette size={12} /> QUITANDA</button>
                 </div>
                 
                 <div className="w-full max-w-md relative">
@@ -443,6 +421,9 @@ export default function Shop() {
     </div>
   );
 
+  // ... (Resto do código: renderStepDetail, renderStepQuestionnaire, etc. mantidos iguais) ...
+  // Apenas replicando para manter integridade do arquivo XML
+  
   const renderStepDetail = () => (
     <div className="animate-fade-in max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
         <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 aspect-square flex items-center justify-center relative">
