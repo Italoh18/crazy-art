@@ -122,7 +122,10 @@ export default function Shop() {
      
      // Filtros específicos da Quitanda
      if (activeTab === 'art') {
+         // Filtro de Categoria
          if (activeArtCategory !== 'Todos' && item.subcategory !== activeArtCategory) matches = false;
+         
+         // Filtro de Cor
          if (selectedColor && item.primaryColor !== selectedColor) matches = false;
      }
 
@@ -346,8 +349,8 @@ export default function Shop() {
                         <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
                     </div>
                     
-                    {/* Color Filter */}
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 flex items-center gap-2 overflow-x-auto">
+                    {/* Color Filter - Padrão fixo */}
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 flex items-center gap-2 overflow-x-auto custom-scrollbar">
                         <div className="text-[10px] text-zinc-500 font-bold uppercase px-2">Cores</div>
                         <button 
                             onClick={() => setSelectedColor(null)}
@@ -440,10 +443,6 @@ export default function Shop() {
     </div>
   );
 
-  // ... (Resto do código sem alterações: renderStepDetail, etc) ...
-  // OMITIDO PARA BREVIDADE, MAS O COMPONENTE COMPLETO DEVE SER PRESERVADO
-  // Apenas replicando a estrutura para integridade do arquivo
-  
   const renderStepDetail = () => (
     <div className="animate-fade-in max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
         <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 aspect-square flex items-center justify-center relative">
