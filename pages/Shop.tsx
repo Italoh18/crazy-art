@@ -7,7 +7,7 @@ import {
   Plus as PlusIcon, CreditCard, Loader2, MessageCircle, 
   Lock, UserPlus, ChevronRight, ListChecks, Upload, 
   Info, AlertTriangle, Wallet, Check, Film, FileText, Layers, Hash, ToggleLeft, ToggleRight,
-  Coins, Ticket, Palette, CloudDownload, Filter, ArrowUpRight
+  Coins, Ticket, Palette, CloudDownload, Filter, ArrowUpRight, Zap
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -40,6 +40,7 @@ export default function Shop() {
   // States exclusivos da Quitanda
   const [activeArtCategory, setActiveArtCategory] = useState('Todos');
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [wantsDigitalGrid, setWantsDigitalGrid] = useState(false); // Novo state para Grade Digital
   
   const [cart, setCart] = useState<CartItem[]>([]);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
@@ -136,6 +137,18 @@ export default function Shop() {
       setStep('list');
   };
 
+  const buyNow = () => {
+      if (!viewingProduct) return;
+      setCart(prev => [...prev, {
+          product: viewingProduct,
+          quantity: Number(currentOrderQty) || 1,
+          description: currentOrderDesc,
+          tempId: crypto.randomUUID()
+      }]);
+      setViewingProduct(null);
+      setStep('questionnaire');
+  };
+
   const removeFromCart = (tempId: string) => {
       setCart(prev => prev.filter(item => item.tempId !== tempId));
       if (cart.length <= 1 && step === 'questionnaire') setStep('list');
@@ -175,7 +188,9 @@ export default function Shop() {
           let unitPrice = item.product.price;
           let qty = item.quantity;
           const nameLower = item.product.name.toLowerCase();
-          if (sizeList.length > 0) {
+          
+          // Lógica existente para produtos físicos
+          if (sizeList.length > 0 && !wantsDigitalGrid) {
               if (nameLower.includes('camisa')) qty = totalListItems;
               else if (nameLower.includes('replica') || nameLower.includes('réplica')) { unitPrice = 2.00; qty = totalListItems; }
           }
@@ -198,14 +213,37 @@ export default function Shop() {
           return s ? s.price : d;
       };
 
-      if (layoutOption === 'precisa') {
-          const p = findServicePrice('layout simples', 30); totalValue += p;
-          itemsPayload.push({ productId: 'service-layout', productName: 'Serviço: Criação de Layout', quantity: 1, unitPrice: p, total: p, type: 'service' });
+      // Se NÃO for grade digital (Quitanda), aplica lógica de layout/molde normal
+      if (!wantsDigitalGrid) {
+          if (layoutOption === 'precisa') {
+              const p = findServicePrice('layout simples', 30); totalValue += p;
+              itemsPayload.push({ productId: 'service-layout', productName: 'Serviço: Criação de Layout', quantity: 1, unitPrice: p, total: p, type: 'service' });
+          }
+          if (moldOption === 'precisa') {
+              const p = findServicePrice('molde', 50); totalValue += p;
+              itemsPayload.push({ productId: 'service-mold', productName: 'Serviço: Criação de Molde', quantity: 1, unitPrice: p, total: p, type: 'service' });
+          }
       }
-      if (moldOption === 'precisa') {
-          const p = findServicePrice('molde', 50); totalValue += p;
-          itemsPayload.push({ productId: 'service-mold', productName: 'Serviço: Criação de Molde', quantity: 1, unitPrice: p, total: p, type: 'service' });
+
+      // Se FOR grade digital (Quitanda)
+      if (wantsDigitalGrid && sizeList.length > 0) {
+          const replicaService = products.find(p => p.name.toLowerCase().includes('replica') && p.name.toLowerCase().includes('molde')) 
+                              || products.find(p => p.name.toLowerCase().includes('replica'));
+          
+          const replicaPrice = replicaService ? replicaService.price : 10.00; // Fallback se não achar
+          const gridCost = replicaPrice * totalListItems;
+          
+          totalValue += gridCost;
+          itemsPayload.push({ 
+              productId: replicaService ? replicaService.id : 'service-grid-digital', 
+              productName: 'Serviço: Grade Digital (Réplica de Molde)', 
+              quantity: totalListItems, 
+              unitPrice: replicaPrice, 
+              total: gridCost, 
+              type: 'service' 
+          });
       }
+
       return { items: itemsPayload, total: totalValue };
   };
 
@@ -241,7 +279,7 @@ export default function Shop() {
         const { items, total } = calculateFinalOrder();
         const orderData = {
             client_id: currentCustomer.id,
-            description: cart.map(i => `${i.product.name} (x${i.quantity})`).join('; ') + (artLink ? `\nArte: ${artLink}` : ''),
+            description: cart.map(i => `${i.product.name} (x${i.quantity})`).join('; ') + (artLink ? `\nArte: ${artLink}` : '') + (wantsDigitalGrid ? '\n[COM GRADE DIGITAL]' : ''),
             items: items,
             total: total,
             size_list: sizeList.length > 0 ? JSON.stringify(sizeList) : null,
@@ -328,11 +366,11 @@ export default function Shop() {
                     </div>
                     
                     {/* Color Filter */}
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 flex items-center gap-2 overflow-x-auto">
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 flex items-center gap-2 overflow-x-auto custom-scrollbar">
                         <div className="text-[10px] text-zinc-500 font-bold uppercase px-2">Cores</div>
                         <button 
                             onClick={() => setSelectedColor(null)}
-                            className={`w-6 h-6 rounded-full border border-zinc-700 flex items-center justify-center ${!selectedColor ? 'ring-2 ring-white' : ''}`}
+                            className={`w-6 h-6 rounded-full border border-zinc-700 flex items-center justify-center shrink-0 ${!selectedColor ? 'ring-2 ring-white' : ''}`}
                             title="Todas"
                         >
                             <span className="block w-full h-[1px] bg-red-500 rotate-45"></span>
@@ -341,7 +379,7 @@ export default function Shop() {
                             <button
                                 key={color}
                                 onClick={() => setSelectedColor(selectedColor === color ? null : color)}
-                                className={`w-6 h-6 rounded-full border border-white/10 transition-transform hover:scale-110 ${selectedColor === color ? 'ring-2 ring-white scale-110' : ''}`}
+                                className={`w-6 h-6 rounded-full border border-white/10 transition-transform hover:scale-110 shrink-0 ${selectedColor === color ? 'ring-2 ring-white scale-110' : ''}`}
                                 style={{ backgroundColor: color }}
                                 title={color}
                             />
@@ -411,19 +449,16 @@ export default function Shop() {
         )}
 
         {cart.length > 0 && (
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[90%] max-w-md animate-fade-in-up">
-                <div className="bg-zinc-900/90 backdrop-blur-md border border-primary/50 p-4 rounded-2xl shadow-2xl flex items-center justify-between">
-                    <div className="flex items-center gap-3"><div className="bg-primary text-white w-10 h-10 rounded-full flex items-center justify-center font-bold">{cart.length}</div><div className="flex flex-col"><span className="text-white text-sm font-bold">Itens no Carrinho</span><span className="text-zinc-400 text-xs">R$ {calculateFinalOrder().total.toFixed(2)}</span></div></div>
-                    <button onClick={() => setStep('questionnaire')} className="bg-white text-black px-6 py-2.5 rounded-xl font-bold text-sm">Ver Carrinho</button>
+            <div className="fixed top-24 right-4 z-40 w-auto animate-fade-in-up">
+                <div className="bg-zinc-900/90 backdrop-blur-md border border-primary/50 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3"><div className="bg-primary text-white w-10 h-10 rounded-full flex items-center justify-center font-bold">{cart.length}</div><div className="flex flex-col"><span className="text-white text-sm font-bold">Carrinho</span><span className="text-zinc-400 text-xs">R$ {calculateFinalOrder().total.toFixed(2)}</span></div></div>
+                    <button onClick={() => setStep('questionnaire')} className="bg-white text-black px-6 py-2.5 rounded-xl font-bold text-sm">Ver</button>
                 </div>
             </div>
         )}
     </div>
   );
 
-  // ... (Resto do código: renderStepDetail, renderStepQuestionnaire, etc. mantidos iguais) ...
-  // Apenas replicando para manter integridade do arquivo XML
-  
   const renderStepDetail = () => (
     <div className="animate-fade-in max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
         <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 aspect-square flex items-center justify-center relative">
@@ -463,9 +498,15 @@ export default function Shop() {
                     <input type="text" placeholder="Obs. (Cor, Tamanho...)" className="flex-1 bg-black rounded-xl px-4 py-3 border border-zinc-800 text-white outline-none text-sm" value={currentOrderDesc} onChange={(e) => setCurrentOrderDesc(e.target.value)} />
                 </div>
             </div>
-            <button onClick={addToCart} className="w-full bg-crazy-gradient text-white py-5 rounded-2xl font-bold text-lg hover:scale-105 transition shadow-xl active:scale-95 flex items-center justify-center gap-3">
-                <ShoppingCart size={24} /> ADICIONAR AO CARRINHO
-            </button>
+            
+            <div className="grid grid-cols-2 gap-4">
+                <button onClick={addToCart} className="bg-zinc-800 hover:bg-zinc-700 text-white py-5 rounded-2xl font-bold text-sm hover:scale-105 transition shadow-lg flex items-center justify-center gap-3">
+                    <ShoppingCart size={20} /> ADICIONAR
+                </button>
+                <button onClick={buyNow} className="bg-crazy-gradient text-white py-5 rounded-2xl font-bold text-sm hover:scale-105 transition shadow-xl active:scale-95 flex items-center justify-center gap-3">
+                    <Zap size={20} /> COMPRAR AGORA
+                </button>
+            </div>
         </div>
     </div>
   );
@@ -473,18 +514,20 @@ export default function Shop() {
   const renderStepQuestionnaire = () => {
       const calc = calculateFinalOrder();
       const hasPhysicalItems = calc.items.some(i => i.type === 'product');
+      // Verifica se é uma compra só de artes digitais
+      const isArtOnlyOrder = cart.length > 0 && cart.every(i => i.product.type === 'art');
       
       return (
         <div className="animate-fade-in max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 p-8 rounded-3xl shadow-2xl relative space-y-8">
             <h2 className="text-2xl font-bold text-white flex items-center gap-3"><ListChecks className="text-primary" /> Revisar Pedido</h2>
             <div className="bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden divide-y divide-zinc-800">
-                {calc.items.filter(i => i.productId !== 'service-layout' && i.productId !== 'service-mold').map((item, idx) => (
+                {calc.items.filter(i => i.productId !== 'service-layout' && i.productId !== 'service-mold' && i.productId !== 'service-grid-digital').map((item, idx) => (
                     <div key={idx} className="p-4 flex justify-between items-center group">
                         <div>
                             <p className="text-white font-bold text-sm">
                                 {item.productName} <span className="text-primary">x{item.quantity}</span>
                             </p>
-                            {item.type === 'art' && <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">Download Digital</span>}
+                            {(item.type as string) === 'art' && <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">Download Digital</span>}
                         </div>
                         <div className="flex items-center gap-4">
                             <span className="text-emerald-400 font-mono text-sm">R$ {item.total.toFixed(2)}</span>
@@ -494,8 +537,30 @@ export default function Shop() {
                 ))}
             </div>
             
-            {hasPhysicalItems && (
-                <>
+            {/* Lógica Diferenciada para Quitanda (Grade Digital) */}
+            {isArtOnlyOrder ? (
+                <div className="flex items-center justify-between p-6 bg-purple-900/10 rounded-2xl border border-purple-500/20 transition">
+                    <div className="flex items-center gap-4">
+                        <div className={`p-3 rounded-xl ${wantsDigitalGrid ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-500'}`}><Layers size={24} /></div>
+                        <div>
+                            <h4 className="font-bold text-white">Gostaria que montasse a grade digital?</h4>
+                            <p className="text-xs text-zinc-500">Serviço de montagem com custo adicional por item.</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => { 
+                            setWantsDigitalGrid(!wantsDigitalGrid); 
+                            // Se ativar e não tiver lista, abre uma linha
+                            if (!wantsDigitalGrid && sizeList.length === 0) addListRow(); 
+                        }} 
+                        className={`w-14 h-8 rounded-full transition relative flex items-center px-1 ${wantsDigitalGrid ? 'bg-purple-600' : 'bg-zinc-800'}`}
+                    >
+                        <div className={`w-6 h-6 bg-white rounded-full transition ${wantsDigitalGrid ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                    </button>
+                </div>
+            ) : (
+                // Lógica Padrão para Itens Físicos
+                hasPhysicalItems && (
                     <div className="flex items-center justify-between p-6 bg-zinc-950 rounded-2xl border border-zinc-800 transition">
                         <div className="flex items-center gap-4">
                             <div className={`p-3 rounded-xl ${hasSizeList ? 'bg-primary text-white' : 'bg-zinc-800 text-zinc-500'}`}><Film size={24} /></div>
@@ -503,37 +568,43 @@ export default function Shop() {
                         </div>
                         <button onClick={() => { setHasSizeList(!hasSizeList); if (!hasSizeList && sizeList.length === 0) addListRow(); }} className={`w-14 h-8 rounded-full transition relative flex items-center px-1 ${hasSizeList ? 'bg-primary' : 'bg-zinc-800'}`}><div className={`w-6 h-6 bg-white rounded-full transition ${hasSizeList ? 'translate-x-6' : 'translate-x-0'}`}></div></button>
                     </div>
-                    
-                    {hasSizeList && (
-                        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 space-y-3">
-                            <div className="flex justify-between items-center mb-4 border-b border-zinc-800 pb-2"><span className="text-xs font-bold text-zinc-500 uppercase">Detalhes da Lista ({calculateTotalItemsInList()})</span><button onClick={toggleGlobalSimpleMode} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase transition ${isGlobalSimple ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400'}`}><span>Lista sem nomes</span>{isGlobalSimple ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}</button></div>
-                            {sizeList.map((item, idx) => (
-                                <div key={item.id} className="grid grid-cols-1 sm:grid-cols-12 gap-2 p-3 bg-zinc-900 rounded-xl border border-zinc-800 items-end">
-                                    <div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tipo</label><select value={item.category} onChange={(e) => updateListRow(item.id, 'category', e.target.value as any)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none"><option value="unisex">Unisex</option><option value="feminina">Feminina</option><option value="infantil">Infantil</option></select></div>
-                                    <div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tam</label><select value={item.size} onChange={(e) => updateListRow(item.id, 'size', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none">{sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                                    {item.isSimple ? (<div className="sm:col-span-4"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Qtd</label><input type="number" min="1" value={item.quantity || 1} onChange={(e) => updateListRow(item.id, 'quantity', parseInt(e.target.value) || 1)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div>) : (<><div className="sm:col-span-1"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nº</label><input type="text" value={item.number} onChange={(e) => updateListRow(item.id, 'number', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div><div className="sm:col-span-3"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nome</label><input type="text" value={item.name} onChange={(e) => updateListRow(item.id, 'name', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white uppercase" /></div></>)}
-                                    <div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Short</label><select value={item.shortSize} onChange={(e) => updateListRow(item.id, 'shortSize', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none"><option value="">-</option>{sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                                    <div className="sm:col-span-1"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">S.Nº</label><input type="text" value={item.shortNumber} onChange={(e) => updateListRow(item.id, 'shortNumber', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div>
-                                    <div className="sm:col-span-1 flex items-end pb-0.5"><button onClick={() => removeListRow(item.id)} className="w-full p-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition flex items-center justify-center"><Trash2 size={14} /></button></div>
-                                </div>
-                            ))}
-                            <button onClick={addListRow} className="w-full mt-4 py-3 border-2 border-dashed border-zinc-800 rounded-xl text-zinc-500 hover:text-primary transition flex items-center justify-center gap-2 font-bold uppercase text-[10px]"><PlusIcon size={14} /> Adicionar Integrante</button>
+                )
+            )}
+            
+            {/* Lista de Nomes (Compartilhada entre físico e digital se ativado) */}
+            {(hasSizeList || wantsDigitalGrid) && (
+                <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 space-y-3 animate-fade-in">
+                    <div className="flex justify-between items-center mb-4 border-b border-zinc-800 pb-2"><span className="text-xs font-bold text-zinc-500 uppercase">Detalhes da Lista ({calculateTotalItemsInList()})</span><button onClick={toggleGlobalSimpleMode} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase transition ${isGlobalSimple ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400'}`}><span>Lista sem nomes</span>{isGlobalSimple ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}</button></div>
+                    {sizeList.map((item, idx) => (
+                        <div key={item.id} className="grid grid-cols-1 sm:grid-cols-12 gap-2 p-3 bg-zinc-900 rounded-xl border border-zinc-800 items-end">
+                            <div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tipo</label><select value={item.category} onChange={(e) => updateListRow(item.id, 'category', e.target.value as any)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none"><option value="unisex">Unisex</option><option value="feminina">Feminina</option><option value="infantil">Infantil</option></select></div>
+                            <div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tam</label><select value={item.size} onChange={(e) => updateListRow(item.id, 'size', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none">{sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                            {item.isSimple ? (<div className="sm:col-span-4"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Qtd</label><input type="number" min="1" value={item.quantity || 1} onChange={(e) => updateListRow(item.id, 'quantity', parseInt(e.target.value) || 1)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div>) : (<><div className="sm:col-span-1"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nº</label><input type="text" value={item.number} onChange={(e) => updateListRow(item.id, 'number', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div><div className="sm:col-span-3"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nome</label><input type="text" value={item.name} onChange={(e) => updateListRow(item.id, 'name', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white uppercase" /></div></>)}
+                            <div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Short</label><select value={item.shortSize} onChange={(e) => updateListRow(item.id, 'shortSize', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none"><option value="">-</option>{sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                            <div className="sm:col-span-1"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">S.Nº</label><input type="text" value={item.shortNumber} onChange={(e) => updateListRow(item.id, 'shortNumber', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div>
+                            <div className="sm:col-span-1 flex items-end pb-0.5"><button onClick={() => removeListRow(item.id)} className="w-full p-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition flex items-center justify-center"><Trash2 size={14} /></button></div>
                         </div>
-                    )}
-                </>
+                    ))}
+                    <button onClick={addListRow} className="w-full mt-4 py-3 border-2 border-dashed border-zinc-800 rounded-xl text-zinc-500 hover:text-primary transition flex items-center justify-center gap-2 font-bold uppercase text-[10px]"><PlusIcon size={14} /> Adicionar Integrante</button>
+                </div>
             )}
 
-            <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800"><p className="text-xs font-bold text-zinc-500 uppercase mb-3">Tem Layout?</p><div className="flex gap-2"><button onClick={() => setLayoutOption('sim')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${layoutOption === 'sim' ? 'bg-emerald-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Sim</button><button onClick={() => setLayoutOption('precisa')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${layoutOption === 'precisa' ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Precisa Montar</button></div></div>
-                    {hasPhysicalItems && (
-                        <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800"><p className="text-xs font-bold text-zinc-500 uppercase mb-3">Tem Molde?</p><div className="flex gap-2"><button onClick={() => setMoldOption('sim')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${moldOption === 'sim' ? 'bg-emerald-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Sim</button><button onClick={() => setMoldOption('precisa')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${moldOption === 'precisa' ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Precisa Montar</button></div></div>
-                    )}
+            {/* Perguntas de Layout/Molde (Apenas se NÃO for arte digital) */}
+            {!isArtOnlyOrder && (
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800"><p className="text-xs font-bold text-zinc-500 uppercase mb-3">Tem Layout?</p><div className="flex gap-2"><button onClick={() => setLayoutOption('sim')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${layoutOption === 'sim' ? 'bg-emerald-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Sim</button><button onClick={() => setLayoutOption('precisa')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${layoutOption === 'precisa' ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Precisa Montar</button></div></div>
+                        {hasPhysicalItems && (
+                            <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800"><p className="text-xs font-bold text-zinc-500 uppercase mb-3">Tem Molde?</p><div className="flex gap-2"><button onClick={() => setMoldOption('sim')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${moldOption === 'sim' ? 'bg-emerald-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Sim</button><button onClick={() => setMoldOption('precisa')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${moldOption === 'precisa' ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Precisa Montar</button></div></div>
+                        )}
+                    </div>
                 </div>
-                {(layoutOption === 'sim' || moldOption === 'sim') && (
-                    <div className="animate-fade-in"><label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Link dos Arquivos</label><div className="relative"><input type="text" placeholder="Cole o link aqui..." className="w-full bg-black/40 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-white outline-none focus:border-primary transition" value={artLink} onChange={(e) => setArtLink(e.target.value)} /><Upload className="absolute left-3 top-3.5 text-zinc-600" size={16} /></div></div>
-                )}
-            </div>
+            )}
+            
+            {/* Input de Link (Comum se necessário) */}
+            {(layoutOption === 'sim' || moldOption === 'sim' || isArtOnlyOrder) && (
+                <div className="animate-fade-in"><label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Link dos Arquivos</label><div className="relative"><input type="text" placeholder="Cole o link aqui..." className="w-full bg-black/40 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-white outline-none focus:border-primary transition" value={artLink} onChange={(e) => setArtLink(e.target.value)} /><Upload className="absolute left-3 top-3.5 text-zinc-600" size={16} /></div></div>
+            )}
             
             <div className="border-t border-zinc-800 pt-6 mt-6">
                 <button onClick={() => setStep('list')} className="w-full mb-6 py-4 border-2 border-dashed border-zinc-800 rounded-2xl text-zinc-500 hover:text-primary transition flex items-center justify-center gap-3 font-bold uppercase text-xs">
