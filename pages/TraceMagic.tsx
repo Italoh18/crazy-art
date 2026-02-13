@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   ArrowLeft, Upload, Zap, Sliders, Image as ImageIcon, FileCode, 
-  Download, Eye, Maximize, ZoomIn, ZoomOut, Check, Layers, AlertTriangle, PenTool, MousePointer2
+  Download, ZoomIn, ZoomOut, Check, Layers, AlertTriangle, PenTool, MousePointer2
 } from 'lucide-react';
 
 // Declaration for the CDN library
@@ -33,12 +33,15 @@ export default function TraceMagic() {
   const [contrast, setContrast] = useState(0); 
   const [blur, setBlur] = useState(0); 
 
-  // Trace Settings Otimizados (Padrões baseados no feedback)
-  const [colors, setColors] = useState(6); // Padrão ajustado para 6
+  // Trace Settings Otimizados (Lógica Corrigida)
+  const [colors, setColors] = useState(4); // Padrão baixo para logos limpos
   const [threshold, setThreshold] = useState(128); 
-  const [turdSize, setTurdSize] = useState(100); // Padrão ajustado para 100 (limpeza agressiva)
-  const [curveFidelity, setCurveFidelity] = useState(5); 
-  const [smoothness, setSmoothness] = useState(0); 
+  
+  // CLEANING: Agora controla pathomit (tamanho) E mincolorratio (proporção de cor)
+  const [noiseCleaning, setNoiseCleaning] = useState(64); 
+  
+  // SMOOTHING: Controla qtres/ltres (Simplificação de nós)
+  const [smoothing, setSmoothing] = useState(5); // 1 = Detalhado, 10 = Curvas Longas (Bezier Simples)
 
   // UI States
   const [viewMode, setViewMode] = useState<'split' | 'vector' | 'original'>('split');
@@ -88,7 +91,7 @@ export default function TraceMagic() {
     }
   };
 
-  // Aplica filtros de imagem no Canvas
+  // Aplica filtros de imagem no Canvas (Pré-processamento)
   const applyImageFilters = () => {
     const canvas = canvasRef.current;
     const img = imageRef.current;
@@ -102,6 +105,7 @@ export default function TraceMagic() {
 
     // Filtros CSS-like no Context
     let filterStr = `brightness(${100 + brightness}%) contrast(${100 + contrast}%)`;
+    // O blur aqui é visual (raster), ajuda a agrupar cores antes do vetor
     if (blur > 0) filterStr += ` blur(${blur}px)`;
     if (mode === 'bw' || mode === 'grayscale') filterStr += ` grayscale(100%)`;
     
@@ -122,31 +126,38 @@ export default function TraceMagic() {
             const imgData = applyImageFilters();
             if (!imgData) throw new Error("Falha ao processar imagem");
 
-            // AJUSTE CRÍTICO DE CURVAS:
-            // Desacoplamos ltres (retas) de qtres (curvas).
-            // qtres agora é muito mais baixo (sensível), forçando o algoritmo a usar curvas
-            // mesmo quando a fidelidade geral é baixa.
-            const calculatedLtres = Math.max(0.1, (11 - curveFidelity) * 0.2); 
-            const calculatedQtres = Math.max(0.01, (11 - curveFidelity) * 0.1); // 0.1 multiplier privilegia curvas
+            // LÓGICA DE CURVAS (BEZIER SIMPLIFICADO)
+            // Para ter poucas curvas (estilo 360 = 4 pontos), precisamos de ALTA tolerância.
+            // smoothing 1 (Mínimo) -> ltres 0.1, qtres 0.1 (Muitos nós, serrilhado fiel)
+            // smoothing 10 (Máximo) -> ltres 5.0, qtres 5.0 (Poucos nós, curvas muito suaves)
+            const calculatedLtres = Math.max(0.1, smoothing * 0.5); 
+            const calculatedQtres = Math.max(0.1, smoothing * 0.5);
+
+            // LÓGICA DE LIMPEZA (REMOVE CAMADAS SUJAS)
+            // turdSize: Remove ilhas pequenas (manchas)
+            // minColorRatio: Remove cores inteiras que ocupam pouco espaço na imagem (ex: sujeira de compressão)
+            // noiseCleaning vai de 0 a 100.
+            // minColorRatio vai de 0 a 0.1 (10% da imagem)
+            const calculatedMinColorRatio = (noiseCleaning / 100) * 0.05; // Max 5% da imagem
 
             const options: any = {
-                // Algoritmo de Traçado
+                // Configuração Geométrica (Forma)
                 ltres: calculatedLtres, 
                 qtres: calculatedQtres, 
-                pathomit: turdSize, 
+                pathomit: noiseCleaning, // Pixels mínimos para criar uma forma
                 
                 // Melhorias visuais
-                rightangleenhance: false, // Evita cantos quadrados artificiais
-                layering: 0, // Sequencial (melhor para sobreposição)
+                rightangleenhance: false, // Desligado para não "quadrar" curvas naturais
+                layering: 0, // Sequencial
                 
                 // Cores e Otimização
                 colorsampling: 2, // Deterministic
                 numberofcolors: colors,
-                mincolorratio: 0.0, // Desligado para não perder detalhes se o turdsize já limpa
-                colorquantcycles: 15, // Aumentado para melhor separação de cores próximas
+                mincolorratio: calculatedMinColorRatio, // CRUCIAL: Remove camadas de cores "fantasmas"
+                colorquantcycles: 10, // Ciclos de agrupamento de cor
                 
-                // Suavização Pós-Vetor
-                blurradius: smoothness, 
+                // Pós-processamento do SVG
+                blurradius: 0, // Desligado, pois queremos vetores limpos definidos pelos nós, não blur SVG
                 blurdelta: 20,
                 
                 strokewidth: 0,
@@ -165,6 +176,7 @@ export default function TraceMagic() {
             
             const endTime = performance.now();
             
+            // Stats
             const pathCount = (svgStr.match(/<path/g) || []).length;
             const nodeCount = (svgStr.match(/[MmLlCcz]/g) || []).length;
             const size = new Blob([svgStr]).size / 1024;
@@ -303,23 +315,23 @@ export default function TraceMagic() {
                                 <div className="space-y-1">
                                     <div className="flex justify-between text-[10px] text-zinc-400"><span>Cores (Camadas)</span><span>{colors}</span></div>
                                     <input type="range" min="2" max="64" value={colors} onChange={(e) => setColors(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-blue-500" />
-                                    <p className="text-[9px] text-zinc-600 mt-1">Menos cores = Vetor mais limpo.</p>
+                                    <p className="text-[9px] text-zinc-600 mt-1">Quanto menor, mais limpo.</p>
                                 </div>
                             )}
 
                             <div className="space-y-1">
-                                <div className="flex justify-between text-[10px] text-zinc-400"><span>Limpeza de Ruído</span><span>{turdSize}px</span></div>
-                                <input type="range" min="0" max="200" value={turdSize} onChange={(e) => setTurdSize(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-purple-500" />
-                                <p className="text-[9px] text-zinc-600 mt-1">Remove manchas pequenas.</p>
+                                <div className="flex justify-between text-[10px] text-zinc-400"><span>Suavização (Simplificar)</span><span>{smoothing}</span></div>
+                                <input type="range" min="1" max="10" step="0.5" value={smoothing} onChange={(e) => setSmoothing(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-emerald-500" />
+                                <p className="text-[9px] text-zinc-600 mt-1">
+                                    1 = Fiel ao pixel (Muitos pontos)<br/>
+                                    10 = Curvas Longas (Poucos pontos)
+                                </p>
                             </div>
 
                             <div className="space-y-1">
-                                <div className="flex justify-between text-[10px] text-zinc-400"><span>Fidelidade da Curva</span><span>{curveFidelity}</span></div>
-                                <input type="range" min="1" max="10" step="0.5" value={curveFidelity} onChange={(e) => setCurveFidelity(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-emerald-500" />
-                                <p className="text-[9px] text-zinc-600 mt-1">
-                                    1 = Simplificado <br/>
-                                    10 = Curvas Precisas
-                                </p>
+                                <div className="flex justify-between text-[10px] text-zinc-400"><span>Limpeza (Ruído)</span><span>{noiseCleaning}</span></div>
+                                <input type="range" min="0" max="200" value={noiseCleaning} onChange={(e) => setNoiseCleaning(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-purple-500" />
+                                <p className="text-[9px] text-zinc-600 mt-1">Remove manchas e cores raras.</p>
                             </div>
                         </div>
                     </div>
@@ -439,7 +451,7 @@ export default function TraceMagic() {
                                 {stats.nodes > 5000 ? 'Alta Complexidade' : 'Vetor Otimizado'}
                             </span>
                         </div>
-                        {stats.nodes > 5000 && <p className="text-[10px] text-zinc-500 mt-2">Tente aumentar a "Limpeza de Ruído" ou diminuir as Cores para simplificar.</p>}
+                        {stats.nodes > 5000 && <p className="text-[10px] text-zinc-500 mt-2">Aumente a "Suavização" ou "Limpeza" para reduzir os nós.</p>}
                     </div>
                 </div>
             )}
