@@ -105,28 +105,35 @@ export default function TraceMagic() {
             // 2. Configurar ImageTracer
             // Mapeamento de presets baseados no modo
             const options: any = {
-                // Settings comuns
-                ltres: lineThreshold, 
-                qtres: lineThreshold, 
-                pathomit: turdSize, // Speckle removal
-                blurradius: blurRadius,
+                // Settings de Qualidade
+                ltres: lineThreshold, // Linear threshold
+                qtres: lineThreshold, // Quadratic spline threshold (Aumentar isso suaviza curvas)
+                pathomit: turdSize, // Ignorar manchas pequenas
+                
+                // Melhorias para Curvas e Cores
+                rightangleenhance: false, // Desliga realce de angulo reto para evitar "quadrado"
+                colorsampling: 2, // Deterministic sampling
+                numberofcolors: colors,
+                mincolorratio: 0.02, // Ignora cores que aparecem muito pouco (reduz ruído)
+                colorquantcycles: 5, // Aumenta ciclos de quantização para agrupar melhor cores próximas
+                
+                // Suavização
+                blurradius: blurRadius, 
                 blurdelta: 20,
+                
+                // Renderização
+                strokewidth: 0, // Sem linhas de contorno extras
+                viewbox: true,
+                desc: false,
             };
 
-            if (mode === 'color') {
-                options.numberofcolors = colors;
-                options.colorsampling = 2; // Deterministic
-            } else if (mode === 'grayscale') {
-                options.numberofcolors = colors;
+            if (mode === 'grayscale') {
                 options.colorsampling = 0; // Disabled (use palette)
-                // Grayscale palette generation custom logic could go here, 
-                // but imagetracer handles grayscale input automatically if numberofcolors is set.
-            } else {
-                // B&W
+                // Grayscale palette generation handled automatically if numberofcolors is set.
+            } else if (mode === 'bw') {
+                // B&W (Thresholding manual logic provided by canvas grayscale + contrast)
                 options.colorsampling = 0;
                 options.numberofcolors = 2;
-                // Thresholding manual logic isn't direct in imagetracer public API easily without custom palette,
-                // but providing a high contrast B&W image via canvas works best.
             }
 
             // 3. Executar Trace
@@ -169,9 +176,6 @@ export default function TraceMagic() {
           a.click();
           URL.revokeObjectURL(url);
       } else {
-          // PDF Simples (apenas SVG embedado seria ideal, mas jsPDF precisa de rasterização ou plugin svg)
-          // Para manter client-side simples, baixamos SVG e usuário converte se precisar,
-          // ou abrimos janela de impressão.
           const printWindow = window.open('', '', 'width=800,height=600');
           if (printWindow) {
               printWindow.document.write(processedSvg);
@@ -191,6 +195,16 @@ export default function TraceMagic() {
       const x = clientX - rect.left;
       const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
       setSplitPos(percent);
+  };
+
+  // Handle Scroll Zoom
+  const handleWheel = (e: React.WheelEvent) => {
+      // Impede o scroll padrão da página
+      // Note: Em eventos sintéticos React, stopPropagation as vezes é necessário.
+      // preventDefault não funciona em eventos passivos, então usamos CSS overflow-hidden no parent.
+      
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setZoom(prev => Math.max(0.1, Math.min(10, prev + delta)));
   };
 
   return (
@@ -300,7 +314,8 @@ export default function TraceMagic() {
 
                             <div className="space-y-1">
                                 <div className="flex justify-between text-[10px] text-zinc-400"><span>Suavizar Curvas</span><span>{lineThreshold}</span></div>
-                                <input type="range" min="0.1" max="5" step="0.1" value={lineThreshold} onChange={(e) => setLineThreshold(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-purple-500" />
+                                <input type="range" min="0.1" max="10" step="0.1" value={lineThreshold} onChange={(e) => setLineThreshold(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-purple-500" />
+                                <p className="text-[9px] text-zinc-600 mt-1">Valores maiores criam curvas mais suaves.</p>
                             </div>
                         </div>
                     </div>
@@ -320,12 +335,16 @@ export default function TraceMagic() {
                     <div className="flex gap-2 items-center">
                         <button onClick={() => setZoom(z => Math.max(0.1, z - 0.2))} className="text-zinc-500 hover:text-white"><ZoomOut size={16} /></button>
                         <span className="text-xs font-mono text-zinc-400 w-10 text-center">{Math.round(zoom * 100)}%</span>
-                        <button onClick={() => setZoom(z => Math.min(5, z + 0.2))} className="text-zinc-500 hover:text-white"><ZoomIn size={16} /></button>
+                        <button onClick={() => setZoom(z => Math.min(10, z + 0.2))} className="text-zinc-500 hover:text-white"><ZoomIn size={16} /></button>
                     </div>
                 </div>
 
-                {/* Canvas Area */}
-                <div className="flex-1 relative overflow-hidden flex items-center justify-center p-8 bg-[#1a1a1a]" style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+                {/* Canvas Area with Wheel Zoom */}
+                <div 
+                    className="flex-1 relative overflow-hidden flex items-center justify-center p-8 bg-[#1a1a1a]" 
+                    style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '20px 20px' }}
+                    onWheel={handleWheel}
+                >
                     {!originalImage ? (
                         <div className="text-center">
                             <label className="cursor-pointer group">
@@ -339,7 +358,7 @@ export default function TraceMagic() {
                     ) : (
                         <div 
                             ref={containerRef}
-                            className="relative shadow-2xl transition-transform duration-100 ease-out"
+                            className="relative shadow-2xl transition-transform duration-100 ease-out origin-center"
                             style={{ 
                                 transform: `scale(${zoom})`,
                                 maxWidth: '100%',

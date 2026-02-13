@@ -119,7 +119,7 @@ export default function Programs() {
          <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-900/10 rounded-full blur-[100px] animate-float"></div>
       </div>
 
-      <div className="max-w-6xl mx-auto relative z-10">
+      <div className="max-w-7xl mx-auto relative z-10">
         <div className="flex items-center gap-4 mb-12 animate-fade-in-up">
             <Link to="/" className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-zinc-400 hover:text-white transition-all hover:scale-105 active:scale-95 backdrop-blur-md">
                 <ArrowLeft size={24} />
@@ -133,29 +133,30 @@ export default function Programs() {
             </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 auto-rows-[200px] gap-4">
+        {/* Ajuste de Grid: 3 Colunas em MD (antes era 4), Row Height maior (260px) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 auto-rows-[260px] gap-6">
             {tools.map((tool, idx) => {
                 const CardContent = () => (
-                    <div className="relative h-full w-full p-6 flex flex-col justify-between z-10">
+                    <div className="relative h-full w-full p-8 flex flex-col justify-between z-10">
                         <div className="flex justify-between items-start">
-                            <div className={`p-3 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 shadow-lg group-hover:scale-110 transition-transform duration-500 ${tool.iconColor}`}>
-                                <tool.icon size={32} strokeWidth={1.5} />
+                            <div className={`p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 shadow-lg group-hover:scale-110 transition-transform duration-500 ${tool.iconColor}`}>
+                                <tool.icon size={40} strokeWidth={1.5} />
                             </div>
                             {tool.comingSoon ? (
-                                <span className="text-[10px] font-bold uppercase tracking-widest bg-black/40 text-zinc-500 px-2 py-1 rounded border border-white/5 backdrop-blur-md">Em Breve</span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest bg-black/40 text-zinc-500 px-3 py-1.5 rounded border border-white/5 backdrop-blur-md">Em Breve</span>
                             ) : tool.external ? (
-                                <ExternalLink size={20} className="text-white/30 group-hover:text-white transition" />
+                                <ExternalLink size={24} className="text-white/30 group-hover:text-white transition" />
                             ) : (
-                                <div className={`w-2 h-2 rounded-full ${tool.flareColor} animate-pulse shadow-[0_0_10px_currentColor]`}></div>
+                                <div className={`w-3 h-3 rounded-full ${tool.flareColor} animate-pulse shadow-[0_0_15px_currentColor]`}></div>
                             )}
                         </div>
 
-                        <div className="space-y-1 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-                            <h3 className="text-2xl font-black text-white leading-none uppercase tracking-wide">
+                        <div className="space-y-2 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                            <h3 className="text-3xl font-black text-white leading-none uppercase tracking-wide">
                                 {tool.name}
-                                {tool.sub && <span className={`block text-lg font-medium opacity-80 ${tool.iconColor}`}>{tool.sub}</span>}
+                                {tool.sub && <span className={`block text-xl font-medium opacity-80 ${tool.iconColor}`}>{tool.sub}</span>}
                             </h3>
-                            <p className="text-xs text-zinc-400 line-clamp-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
+                            <p className="text-sm text-zinc-400 line-clamp-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
                                 {tool.description}
                             </p>
                         </div>
@@ -163,7 +164,7 @@ export default function Programs() {
                 );
 
                 const WrapperClass = `
-                    relative group overflow-hidden rounded-3xl border border-white/10 
+                    relative group overflow-hidden rounded-[2rem] border border-white/10 
                     bg-gradient-to-br ${tool.gradient} backdrop-blur-2xl
                     transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:border-white/20
                     ${tool.gridClass} ${tool.comingSoon ? 'opacity-60 grayscale cursor-not-allowed' : 'cursor-pointer'}
@@ -177,7 +178,7 @@ export default function Programs() {
                             className="absolute inset-0 transition-opacity duration-700 opacity-60 group-hover:opacity-100"
                             style={{ background: tool.bgImage }}
                         ></div>
-                        <div className={`absolute -right-20 -bottom-20 w-64 h-64 ${tool.flareColor} blur-[80px] opacity-0 group-hover:opacity-30 transition-opacity duration-500 rounded-full pointer-events-none`}></div>
+                        <div className={`absolute -right-20 -bottom-20 w-80 h-80 ${tool.flareColor} blur-[100px] opacity-0 group-hover:opacity-30 transition-opacity duration-500 rounded-full pointer-events-none`}></div>
                     </>
                 );
 
@@ -207,10 +208,10 @@ export default function Programs() {
                 );
             })}
             
-            <div className="md:col-span-1 md:row-span-1 relative rounded-3xl border border-dashed border-white/10 flex items-center justify-center p-6 group hover:border-white/20 transition-colors cursor-default">
+            <div className="md:col-span-1 md:row-span-1 relative rounded-[2rem] border border-dashed border-white/10 flex items-center justify-center p-6 group hover:border-white/20 transition-colors cursor-default">
                 <div className="text-center opacity-30 group-hover:opacity-50 transition-opacity">
-                    <Zap size={32} className="mx-auto mb-2" />
-                    <p className="text-xs uppercase font-bold tracking-widest">Mais em breve</p>
+                    <Zap size={40} className="mx-auto mb-3" />
+                    <p className="text-sm uppercase font-bold tracking-widest">Mais em breve</p>
                 </div>
             </div>
         </div>
