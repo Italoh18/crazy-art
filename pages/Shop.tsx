@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -25,6 +24,20 @@ interface CartItem {
 
 const DEFAULT_ART_CATEGORIES = [
     'Todos', 'Carnaval', 'Futebol', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais', 'Logos'
+];
+
+// Cores padronizadas para o filtro (Setorização)
+const ART_COLOR_FILTERS = [
+    { name: 'Preto', hex: '#000000' },
+    { name: 'Branco', hex: '#FFFFFF' },
+    { name: 'Cinza', hex: '#808080' },
+    { name: 'Vermelho', hex: '#EF4444' },
+    { name: 'Laranja', hex: '#F97316' },
+    { name: 'Amarelo', hex: '#EAB308' },
+    { name: 'Verde', hex: '#22C55E' },
+    { name: 'Azul', hex: '#3B82F6' },
+    { name: 'Roxo', hex: '#A855F7' },
+    { name: 'Rosa', hex: '#EC4899' },
 ];
 
 export default function Shop() {
@@ -88,15 +101,6 @@ export default function Shop() {
       return Array.from(existingCats);
   }, [products]);
 
-  // Derivar cores disponíveis nos produtos de arte
-  const artColors = useMemo(() => {
-      const colors = new Set<string>();
-      products.filter(p => p.type === 'art' && p.primaryColor).forEach(p => {
-          if (p.primaryColor) colors.add(p.primaryColor);
-      });
-      return Array.from(colors);
-  }, [products]);
-
   const filteredItems = products.filter(item => {
      const itemType = item.type || 'product';
      
@@ -106,6 +110,7 @@ export default function Shop() {
      // Filtros específicos da Quitanda
      if (activeTab === 'art') {
          if (activeArtCategory !== 'Todos' && item.subcategory !== activeArtCategory) matches = false;
+         // Filtro de cor exata
          if (selectedColor && item.primaryColor !== selectedColor) matches = false;
      }
 
@@ -370,24 +375,34 @@ export default function Shop() {
                         <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
                     </div>
                     
-                    {/* Color Filter */}
+                    {/* Color Filter (Pílulas Padronizadas) */}
                     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 flex items-center gap-2 overflow-x-auto custom-scrollbar">
                         <div className="text-[10px] text-zinc-500 font-bold uppercase px-2">Cores</div>
+                        
+                        {/* Botão para resetar filtro de cor */}
                         <button 
                             onClick={() => setSelectedColor(null)}
-                            className={`w-6 h-6 rounded-full border border-zinc-700 flex items-center justify-center shrink-0 ${!selectedColor ? 'ring-2 ring-white' : ''}`}
-                            title="Todas"
+                            className={`flex items-center justify-center w-8 h-8 rounded-full border border-zinc-700 bg-zinc-800 text-zinc-400 hover:text-white transition shrink-0 ${!selectedColor ? 'ring-2 ring-white bg-zinc-700 text-white' : ''}`}
+                            title="Todas as Cores"
                         >
-                            <span className="block w-full h-[1px] bg-red-500 rotate-45"></span>
+                            <span className="block w-4 h-[1px] bg-current rotate-45 absolute"></span>
+                            <span className="block w-4 h-[1px] bg-current -rotate-45 absolute"></span>
                         </button>
-                        {artColors.map(color => (
+
+                        {ART_COLOR_FILTERS.map(color => (
                             <button
-                                key={color}
-                                onClick={() => setSelectedColor(selectedColor === color ? null : color)}
-                                className={`w-6 h-6 rounded-full border border-white/10 transition-transform hover:scale-110 shrink-0 ${selectedColor === color ? 'ring-2 ring-white scale-110' : ''}`}
-                                style={{ backgroundColor: color }}
-                                title={color}
-                            />
+                                key={color.name}
+                                onClick={() => setSelectedColor(selectedColor === color.hex ? null : color.hex)}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border border-zinc-700 transition shrink-0 hover:bg-zinc-800 group ${selectedColor === color.hex ? 'bg-zinc-800 ring-1 ring-white' : 'bg-transparent'}`}
+                            >
+                                <div 
+                                    className="w-3 h-3 rounded-full shadow-sm ring-1 ring-black/20" 
+                                    style={{ backgroundColor: color.hex }} 
+                                />
+                                <span className={`text-xs font-bold ${selectedColor === color.hex ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
+                                    {color.name}
+                                </span>
+                            </button>
                         ))}
                     </div>
                 </div>
@@ -520,7 +535,7 @@ export default function Shop() {
       const calc = calculateFinalOrder();
       const hasPhysicalItems = calc.items.some(i => i.type === 'product');
       // Verifica se é uma compra só de artes digitais
-      const isArtOnlyOrder = cart.length > 0 && cart.every(i => i.product.type === 'art');
+      const isArtOnlyOrder = cart.length > 0 && cart.every(i => (i.product.type as string) === 'art');
       
       return (
         <div className="animate-fade-in max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 p-8 rounded-3xl shadow-2xl relative space-y-8">
