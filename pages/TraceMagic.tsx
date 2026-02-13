@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   ArrowLeft, Upload, Zap, Sliders, Image as ImageIcon, FileCode, 
-  Download, ZoomIn, ZoomOut, Check, Layers, AlertTriangle, PenTool, MousePointer2
+  Download, ZoomIn, ZoomOut, Check, Layers, AlertTriangle, PenTool, MousePointer2, Move
 } from 'lucide-react';
 
 // Declaration for the CDN library
@@ -34,19 +34,21 @@ export default function TraceMagic() {
   const [blur, setBlur] = useState(0); 
 
   // Trace Settings Otimizados (Lógica Corrigida)
-  const [colors, setColors] = useState(4); // Padrão baixo para logos limpos
+  const [colors, setColors] = useState(4); 
   const [threshold, setThreshold] = useState(128); 
-  
-  // CLEANING: Agora controla pathomit (tamanho) E mincolorratio (proporção de cor)
   const [noiseCleaning, setNoiseCleaning] = useState(64); 
-  
-  // SMOOTHING: Controla qtres/ltres (Simplificação de nós)
-  const [smoothing, setSmoothing] = useState(5); // 1 = Detalhado, 10 = Curvas Longas (Bezier Simples)
+  const [smoothing, setSmoothing] = useState(5);
+  const [precision, setPrecision] = useState(2); // Novo: Escala interna (1x a 4x)
 
   // UI States
   const [viewMode, setViewMode] = useState<'split' | 'vector' | 'original'>('split');
   const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
   const [splitPos, setSplitPos] = useState(50);
+  
+  // Interaction State
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
@@ -54,7 +56,7 @@ export default function TraceMagic() {
   const imageRef = useRef<HTMLImageElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // --- Zoom com Scroll (Nativo para evitar scroll da pagina) ---
+  // --- Zoom com Scroll (Nativo) ---
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
         if (e.ctrlKey || e.metaKey) return; 
@@ -75,6 +77,50 @@ export default function TraceMagic() {
     };
   }, [originalImage]);
 
+  // --- Mouse Pan Handlers ---
+  const handleMouseDown = (e: React.MouseEvent) => {
+      // Se estiver no modo Split, o clique controla a barra, a menos que seja botão do meio ou algo especifico.
+      // Vamos permitir Pan apenas se NÃO for Split, ou se for Split mas fora da área da barra (complicado de detectar aqui).
+      // Simplificação: Pan funciona sempre, exceto se clicar EXATAMENTE na barra (que seria outro handler), 
+      // mas aqui estamos no container pai.
+      // Para UX melhor: Se for Split, prioriza Split. Se for Vector/Original, Pan é livre.
+      
+      if (viewMode === 'split') return;
+
+      e.preventDefault();
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+      if (isDragging) {
+          setPan({
+              x: e.clientX - dragStart.x,
+              y: e.clientY - dragStart.y
+          });
+      }
+      
+      // Split Drag Logic
+      if (viewMode === 'split' && !isDragging) {
+          const container = containerRef.current;
+          if (!container) return;
+          const rect = container.getBoundingClientRect();
+          // Simples hover detection para UI, o drag real do split pode ser feito aqui se clicado
+          // mas vamos manter o split drag separado se possível ou integrado.
+          // O handleSplitDrag anterior era chamado no onMouseMove do container.
+          
+          if (e.buttons === 1) { // Se botão esquerdo pressionado
+             const x = e.clientX - rect.left;
+             const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+             setSplitPos(percent);
+          }
+      }
+  };
+
+  const handleMouseUp = () => {
+      setIsDragging(false);
+  };
+
   // --- Funções de Processamento ---
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,13 +132,14 @@ export default function TraceMagic() {
         setProcessedSvg(null);
         setStats(null);
         setZoom(1);
+        setPan({ x: 0, y: 0 });
       };
       reader.readAsDataURL(file);
     }
   };
 
-  // Aplica filtros de imagem no Canvas (Pré-processamento)
-  const applyImageFilters = () => {
+  // Aplica filtros e ESCALA (Upscale)
+  const applyImageFilters = (scaleFactor: number) => {
     const canvas = canvasRef.current;
     const img = imageRef.current;
     if (!canvas || !img) return null;
@@ -100,16 +147,19 @@ export default function TraceMagic() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
+    // Define tamanho ampliado
+    canvas.width = img.naturalWidth * scaleFactor;
+    canvas.height = img.naturalHeight * scaleFactor;
 
-    // Filtros CSS-like no Context
+    // Filtros
     let filterStr = `brightness(${100 + brightness}%) contrast(${100 + contrast}%)`;
-    // O blur aqui é visual (raster), ajuda a agrupar cores antes do vetor
-    if (blur > 0) filterStr += ` blur(${blur}px)`;
+    if (blur > 0) filterStr += ` blur(${blur * scaleFactor}px)`; // Blur escala também
     if (mode === 'bw' || mode === 'grayscale') filterStr += ` grayscale(100%)`;
     
     ctx.filter = filterStr;
+    
+    // Desenha ampliado
+    ctx.scale(scaleFactor, scaleFactor);
     ctx.drawImage(img, 0, 0);
     
     return ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -123,42 +173,47 @@ export default function TraceMagic() {
         try {
             const startTime = performance.now();
             
-            const imgData = applyImageFilters();
+            // UPSCALE: O segredo para letras pequenas
+            // Precision 1 = Normal, 4 = Ultra (para textos pequenos)
+            const imgData = applyImageFilters(precision);
             if (!imgData) throw new Error("Falha ao processar imagem");
 
-            // LÓGICA DE CURVAS (BEZIER SIMPLIFICADO)
-            // Para ter poucas curvas (estilo 360 = 4 pontos), precisamos de ALTA tolerância.
-            // smoothing 1 (Mínimo) -> ltres 0.1, qtres 0.1 (Muitos nós, serrilhado fiel)
-            // smoothing 10 (Máximo) -> ltres 5.0, qtres 5.0 (Poucos nós, curvas muito suaves)
-            const calculatedLtres = Math.max(0.1, smoothing * 0.5); 
-            const calculatedQtres = Math.max(0.1, smoothing * 0.5);
-
-            // LÓGICA DE LIMPEZA (REMOVE CAMADAS SUJAS)
-            // turdSize: Remove ilhas pequenas (manchas)
-            // minColorRatio: Remove cores inteiras que ocupam pouco espaço na imagem (ex: sujeira de compressão)
-            // noiseCleaning vai de 0 a 100.
-            // minColorRatio vai de 0 a 0.1 (10% da imagem)
-            const calculatedMinColorRatio = (noiseCleaning / 100) * 0.05; // Max 5% da imagem
-
+            // Curvas vs Retas
+            // Smoothing alto (10) -> Curvas longas (Bezier simplificado)
+            // Smoothing baixo (1) -> Fiel aos pixels (Serrilhado)
+            
+            // Para "suavidade sem retas", queremos curvas (quadráticas) que ignorem pequenas variações.
+            // Isso geralmente significa um qtres moderado/alto, mas com um ltres ajustado.
+            // Se qtres for muito baixo, ele cria muitas curvas pequenas (ondulações).
+            // Se qtres for alto, ele cria curvas longas.
+            
+            // Ajuste Fino baseado no Feedback:
+            const baseLtres = 1;
+            const baseQtres = 1;
+            
+            // Smoothing aumenta a tolerância, forçando simplificação (curvas mais longas)
+            const mod = smoothing * 0.5; // 0.5 a 5.0
+            
             const options: any = {
-                // Configuração Geométrica (Forma)
-                ltres: calculatedLtres, 
-                qtres: calculatedQtres, 
-                pathomit: noiseCleaning, // Pixels mínimos para criar uma forma
+                ltres: baseLtres + mod, 
+                qtres: baseQtres + mod, 
+                pathomit: noiseCleaning * precision, // Ajusta limpeza conforme escala
                 
-                // Melhorias visuais
-                rightangleenhance: false, // Desligado para não "quadrar" curvas naturais
-                layering: 0, // Sequencial
+                rightangleenhance: false, 
+                layering: 0,
                 
-                // Cores e Otimização
-                colorsampling: 2, // Deterministic
+                colorsampling: 2, 
                 numberofcolors: colors,
-                mincolorratio: calculatedMinColorRatio, // CRUCIAL: Remove camadas de cores "fantasmas"
-                colorquantcycles: 10, // Ciclos de agrupamento de cor
+                mincolorratio: (noiseCleaning / 100) * 0.05, 
+                colorquantcycles: 10, 
                 
-                // Pós-processamento do SVG
-                blurradius: 0, // Desligado, pois queremos vetores limpos definidos pelos nós, não blur SVG
-                blurdelta: 20,
+                // Importante: scale define a escala de saída do SVG. 
+                // Como aumentamos a imagem (precision), precisamos dizer ao SVG para reduzir as coordenadas
+                // para que fiquem no tamanho original? 
+                // O ImageTracer não tem 'scale down' output nativo facil, ele gera viewbox baseado no input.
+                // Mas SVG é vetorial, então o tamanho "pixel" não importa tanto se o aspect ratio estiver certo.
+                // O viewBox vai ser enorme (ex: 4000x4000), mas o CSS vai forçar ele a caber no container.
+                scale: 1, 
                 
                 strokewidth: 0,
                 viewbox: true,
@@ -176,7 +231,6 @@ export default function TraceMagic() {
             
             const endTime = performance.now();
             
-            // Stats
             const pathCount = (svgStr.match(/<path/g) || []).length;
             const nodeCount = (svgStr.match(/[MmLlCcz]/g) || []).length;
             const size = new Blob([svgStr]).size / 1024;
@@ -218,17 +272,6 @@ export default function TraceMagic() {
               printWindow.print();
           }
       }
-  };
-
-  const handleSplitDrag = (e: React.MouseEvent | React.TouchEvent) => {
-      const container = containerRef.current;
-      if (!container) return;
-      
-      const rect = container.getBoundingClientRect();
-      const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
-      const x = clientX - rect.left;
-      const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
-      setSplitPos(percent);
   };
 
   return (
@@ -315,23 +358,38 @@ export default function TraceMagic() {
                                 <div className="space-y-1">
                                     <div className="flex justify-between text-[10px] text-zinc-400"><span>Cores (Camadas)</span><span>{colors}</span></div>
                                     <input type="range" min="2" max="64" value={colors} onChange={(e) => setColors(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-blue-500" />
-                                    <p className="text-[9px] text-zinc-600 mt-1">Quanto menor, mais limpo.</p>
                                 </div>
                             )}
 
                             <div className="space-y-1">
-                                <div className="flex justify-between text-[10px] text-zinc-400"><span>Suavização (Simplificar)</span><span>{smoothing}</span></div>
+                                <div className="flex justify-between text-[10px] text-zinc-400">
+                                    <span>Precisão (Detalhes)</span>
+                                    <span className={precision > 2 ? 'text-primary font-bold' : ''}>{precision}x</span>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="1" 
+                                    max="4" 
+                                    step="1" 
+                                    value={precision} 
+                                    onChange={(e) => setPrecision(Number(e.target.value))} 
+                                    className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-orange-500" 
+                                />
+                                <p className="text-[9px] text-zinc-600 mt-1">Aumente para letras pequenas e detalhes finos.</p>
+                            </div>
+
+                            <div className="space-y-1">
+                                <div className="flex justify-between text-[10px] text-zinc-400"><span>Suavização (Curvas)</span><span>{smoothing}</span></div>
                                 <input type="range" min="1" max="10" step="0.5" value={smoothing} onChange={(e) => setSmoothing(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-emerald-500" />
                                 <p className="text-[9px] text-zinc-600 mt-1">
-                                    1 = Fiel ao pixel (Muitos pontos)<br/>
-                                    10 = Curvas Longas (Poucos pontos)
+                                    1 = Fiel ao pixel <br/>
+                                    10 = Curvas Longas/Suaves
                                 </p>
                             </div>
 
                             <div className="space-y-1">
                                 <div className="flex justify-between text-[10px] text-zinc-400"><span>Limpeza (Ruído)</span><span>{noiseCleaning}</span></div>
                                 <input type="range" min="0" max="200" value={noiseCleaning} onChange={(e) => setNoiseCleaning(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-purple-500" />
-                                <p className="text-[9px] text-zinc-600 mt-1">Remove manchas e cores raras.</p>
                             </div>
                         </div>
                     </div>
@@ -348,10 +406,18 @@ export default function TraceMagic() {
                         <button onClick={() => setViewMode('split')} className={`p-1.5 rounded transition ${viewMode === 'split' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-white'}`} title="Split Screen"><div className="w-4 h-4 border-r border-current flex"><div className="w-1/2"></div></div></button>
                         <button onClick={() => setViewMode('vector')} className={`p-1.5 rounded transition ${viewMode === 'vector' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-white'}`} title="Vetor"><FileCode size={16} /></button>
                     </div>
-                    <div className="flex gap-2 items-center">
-                        <button onClick={() => setZoom(z => Math.max(0.1, z - 0.2))} className="text-zinc-500 hover:text-white"><ZoomOut size={16} /></button>
-                        <span className="text-xs font-mono text-zinc-400 w-10 text-center">{Math.round(zoom * 100)}%</span>
-                        <button onClick={() => setZoom(z => Math.min(10, z + 0.2))} className="text-zinc-500 hover:text-white"><ZoomIn size={16} /></button>
+                    <div className="flex gap-4 items-center">
+                        {viewMode !== 'split' && (
+                            <div className="flex items-center gap-2 text-zinc-500 text-xs">
+                                <Move size={14} /> 
+                                <span className="hidden md:inline">Arraste para Mover</span>
+                            </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setZoom(z => Math.max(0.1, z - 0.2))} className="text-zinc-500 hover:text-white"><ZoomOut size={16} /></button>
+                            <span className="text-xs font-mono text-zinc-400 w-10 text-center">{Math.round(zoom * 100)}%</span>
+                            <button onClick={() => setZoom(z => Math.min(10, z + 0.2))} className="text-zinc-500 hover:text-white"><ZoomIn size={16} /></button>
+                        </div>
                     </div>
                 </div>
 
@@ -359,7 +425,11 @@ export default function TraceMagic() {
                 <div 
                     ref={wrapperRef}
                     className="flex-1 relative overflow-hidden flex items-center justify-center p-8 bg-[#1a1a1a]" 
-                    style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '20px 20px' }}
+                    style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '20px 20px', cursor: viewMode === 'split' ? 'col-resize' : isDragging ? 'grabbing' : 'grab' }}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
                 >
                     {!originalImage ? (
                         <div className="text-center">
@@ -376,13 +446,11 @@ export default function TraceMagic() {
                             ref={containerRef}
                             className="relative shadow-2xl transition-transform duration-100 ease-out origin-center"
                             style={{ 
-                                transform: `scale(${zoom})`,
+                                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                                 maxWidth: '100%',
                                 maxHeight: '100%',
-                                cursor: viewMode === 'split' ? 'col-resize' : 'default'
+                                pointerEvents: 'none' // Deixa eventos passarem para o wrapper (para o pan funcionar no vazio ao redor)
                             }}
-                            onMouseMove={viewMode === 'split' ? handleSplitDrag : undefined}
-                            onTouchMove={viewMode === 'split' ? handleSplitDrag : undefined}
                         >
                             {/* Base: Original Image */}
                             <img 
@@ -391,7 +459,8 @@ export default function TraceMagic() {
                                 style={{ 
                                     filter: `brightness(${100+brightness}%) contrast(${100+contrast}%) blur(${blur}px) ${mode !== 'color' ? 'grayscale(100%)' : ''}`,
                                     display: viewMode === 'vector' ? 'none' : 'block',
-                                    maxWidth: 'none'
+                                    maxWidth: 'none',
+                                    pointerEvents: 'auto'
                                 }}
                                 draggable={false}
                             />
@@ -402,6 +471,7 @@ export default function TraceMagic() {
                                     className="absolute inset-0 bg-white" // SVG container bg
                                     style={{
                                         clipPath: viewMode === 'split' ? `inset(0 0 0 ${splitPos}%)` : 'none',
+                                        pointerEvents: 'auto'
                                     }}
                                     dangerouslySetInnerHTML={{ __html: processedSvg }}
                                 />
