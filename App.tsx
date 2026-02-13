@@ -18,11 +18,11 @@ import TrustedCompanies from './pages/TrustedCompanies';
 import LayoutBuilder from './pages/LayoutBuilder';
 import BackgroundRemover from './pages/BackgroundRemover';
 import PixelArt from './pages/PixelArt'; 
-import CdrConverter from './pages/CdrConverter';
+import PdfToWord from './pages/PdfToWord';
 import EmailTemplates from './pages/EmailTemplates';
 import PendingOrders from './pages/PendingOrders';
 import Coupons from './pages/Coupons';
-import Identity from './pages/Identity'; // Nova Página
+import Identity from './pages/Identity';
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
 
@@ -72,7 +72,7 @@ const AppRoutes = () => {
             <Route path="/layout-builder" element={<LayoutBuilder />} />
             <Route path="/remove-bg" element={<BackgroundRemover />} />
             <Route path="/pixel-art" element={<PixelArt />} />
-            <Route path="/cdr-converter" element={<CdrConverter />} />
+            <Route path="/pdf-to-word" element={<PdfToWord />} />
             <Route path="/my-area" element={<ClientRoute />} />
             <Route path="/pending-confirmations" element={<ProtectedRoute requiredRole="admin"><PendingOrders /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><Orders /></ProtectedRoute>} />
@@ -101,7 +101,6 @@ const AppContent = ({ showIntro, setShowIntro }: { showIntro: boolean, setShowIn
       link.href = faviconUrl;
       document.head.appendChild(link);
       
-      // Atualiza também o ícone da Apple
       const linkApple = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement || document.createElement('link');
       linkApple.rel = 'apple-touch-icon';
       linkApple.href = faviconUrl;
@@ -111,10 +110,7 @@ const AppContent = ({ showIntro, setShowIntro }: { showIntro: boolean, setShowIn
   
   return (
     <>
-      {/* Intro Overlay - Desliza para cima revelando o app */}
       {showIntro && <IntroAnimation onComplete={() => setShowIntro(false)} />}
-
-      {/* App Principal */}
       {isLoading ? (
          <LoadingScreen />
       ) : (
@@ -140,7 +136,6 @@ const ClientRoute = () => {
 };
 
 export default function App() {
-  // Verifica sessionStorage para garantir que a intro só rode uma vez por sessão
   const [showIntro, setShowIntro] = useState(() => {
     return !sessionStorage.getItem('intro_played');
   });

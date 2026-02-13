@@ -1,7 +1,8 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { X, ChevronRight, Save, Square, Triangle, Circle, Undo, Eraser, PenTool, Spline, PaintBucket, Minus, Plus, Eye, EyeOff, Upload, Move, Maximize, Image as ImageIcon, Sliders } from 'lucide-react';
+import { X, ChevronRight, Save, Square, Triangle, Circle, Undo, Eraser, PenTool, Spline, PaintBucket, Minus, Plus, Eye, EyeOff, Upload, Move, Maximize, Image as ImageIcon, Sliders, Ruler } from 'lucide-react';
 import { Stroke, Point } from '../types';
+import opentype from 'opentype.js';
 
 interface DrawingModalProps {
   char: string;
@@ -14,6 +15,9 @@ interface DrawingModalProps {
 }
 
 type ToolType = 'pen' | 'bezier' | 'square' | 'triangle' | 'circle' | 'bucket' | 'move' | 'scale';
+
+const CANVAS_SIZE = 500;
+const BASELINE_Y = CANVAS_SIZE * 0.8; // 400px (80% da altura)
 
 export const DrawingModal: React.FC<DrawingModalProps> = ({ 
   char, initialStrokes, isOpen, onClose, onSave, onNext, isLast 
@@ -99,14 +103,38 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
     }
   }, [strokes, startPoint, currentPoint, activeTool, isDrawing, bezierPhase, bezierControlPoint, strokeWidth, showGuide, char, traceImage, traceOpacity]);
 
-  // --- Import Logic (SVG & Image) ---
+  // --- Import Logic (SVG, Image & TTF) ---
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Se for imagem (PNG, JPG, WEBP) -> Carrega como Trace
-    if (file.type.includes('image') && !file.type.includes('svg')) {
+    const fileType = file.name.split('.').pop()?.toLowerCase();
+
+    // 1. Fontes (TTF/OTF)
+    if (fileType === 'ttf' || fileType === 'otf') {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const arrayBuffer = event.target?.result as ArrayBuffer;
+                const font = opentype.parse(arrayBuffer);
+                const glyph = font.charToGlyph(char);
+                
+                // Converter Glyph Path para Strokes
+                const path = glyph.getPath(0, 0, 350); // Tamanho base 350px
+                const newStrokes = convertOpenTypePathToStrokes(path, 500, 500); // 500 é o tamanho do canvas
+                
+                setStrokes(prev => [...prev, ...newStrokes]);
+                setActiveTool('pen');
+            } catch (err) {
+                console.error(err);
+                alert("Erro ao ler arquivo de fonte. Verifique se é um TTF/OTF válido.");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+    // 2. Imagens (Trace)
+    else if (file.type.includes('image') && !file.type.includes('svg')) {
         const reader = new FileReader();
         reader.onload = (event) => {
             const img = new Image();
@@ -115,7 +143,7 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
         };
         reader.readAsDataURL(file);
     } 
-    // Se for SVG -> Tenta extrair vetores
+    // 3. Vetores (SVG)
     else if (file.type.includes('svg')) {
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -133,11 +161,77 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
         reader.readAsText(file);
     }
     else {
-        alert("Formato não suportado. Use SVG, PNG ou JPG.");
+        alert("Formato não suportado. Use TTF, OTF, SVG, PNG ou JPG.");
     }
     
     // Reset input
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: number, canvasH: number): Stroke[] => {
+      const strokes: Stroke[] = [];
+      let currentPoints: Point[] = [];
+      
+      // O path do opentype tem coordenadas onde Y cresce para cima (cartesiano padrão de fontes).
+      // O canvas tem Y crescendo para baixo.
+      // Precisamos inverter Y e ajustar a Baseline.
+      
+      // Centraliza horizontalmente
+      const bbox = path.getBoundingBox();
+      const glyphW = bbox.x2 - bbox.x1;
+      const offsetX = (canvasW - glyphW) / 2 - bbox.x1; 
+      
+      // Baseline fixa no canvas (400px de cima para baixo)
+      const canvasBaseline = BASELINE_Y; 
+
+      path.commands.forEach((cmd: any) => {
+          if (cmd.type === 'M') {
+              if (currentPoints.length > 0) {
+                  strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: strokeWidth });
+                  currentPoints = [];
+              }
+              currentPoints.push({ x: cmd.x + offsetX, y: canvasBaseline - cmd.y });
+          } else if (cmd.type === 'L') {
+              currentPoints.push({ x: cmd.x + offsetX, y: canvasBaseline - cmd.y });
+          } else if (cmd.type === 'Q') {
+              // Aproximação linear para simplificar edição (ou mantém bezier se o editor suportar nativo complexo)
+              // Aqui vamos converter a curva quadrática em pontos lineares para ser editável com as ferramentas atuais
+              const last = currentPoints[currentPoints.length - 1];
+              if (last) {
+                  for (let t = 0.1; t <= 1; t += 0.1) {
+                      const x = (1-t)**2 * last.x + 2*(1-t)*t*(cmd.x1 + offsetX) + t**2*(cmd.x + offsetX);
+                      // Nota: cmd.y também precisa ser invertido em relação à baseline
+                      const y1 = canvasBaseline - cmd.y1;
+                      const y = canvasBaseline - cmd.y;
+                      const ly = (1-t)**2 * last.y + 2*(1-t)*t*y1 + t**2*y;
+                      currentPoints.push({ x, y: ly });
+                  }
+              } else {
+                  currentPoints.push({ x: cmd.x + offsetX, y: canvasBaseline - cmd.y });
+              }
+          } else if (cmd.type === 'C') {
+              const last = currentPoints[currentPoints.length - 1];
+              if (last) {
+                  for (let t = 0.1; t <= 1; t += 0.1) {
+                      // Cubic Bezier flatten
+                      const x = (1-t)**3 * last.x + 3*(1-t)**2*t*(cmd.x1 + offsetX) + 3*(1-t)*t**2*(cmd.x2 + offsetX) + t**3*(cmd.x + offsetX);
+                      const y1 = canvasBaseline - cmd.y1;
+                      const y2 = canvasBaseline - cmd.y2;
+                      const y = canvasBaseline - cmd.y;
+                      const ly = (1-t)**3 * last.y + 3*(1-t)**2*t*y1 + 3*(1-t)*t**2*y2 + t**3*y;
+                      currentPoints.push({ x, y: ly });
+                  }
+              }
+          } else if (cmd.type === 'Z') {
+              // Close path
+          }
+      });
+
+      if (currentPoints.length > 0) {
+          strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: strokeWidth });
+      }
+
+      return strokes;
   };
 
   const parseAndLoadSvg = (svgText: string): boolean => {
@@ -168,8 +262,7 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
       }
 
       if (newStrokes.length > 0) {
-        // Normaliza para garantir que apareça na tela (500x500)
-        const centeredStrokes = normalizeStrokesToCanvas(newStrokes, 500, 500);
+        const centeredStrokes = normalizeStrokesToCanvas(newStrokes, CANVAS_SIZE, CANVAS_SIZE);
         setStrokes(prev => [...prev, ...centeredStrokes]);
         setActiveTool('pen'); 
         return true;
@@ -181,9 +274,7 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
     }
   };
 
-  // Parser simplificado de SVG Path data para pontos
   const parseSvgPathData = (d: string): Point[] => {
-    // Remove vírgulas e normaliza espaços
     const cleanD = d.replace(/,/g, ' ');
     const commands = cleanD.match(/([a-zA-Z])|([-+]?[0-9]*\.?[0-9]+)/g);
     if (!commands) return [];
@@ -195,66 +286,48 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
     let i = 0;
     while (i < commands.length) {
       const cmd = commands[i];
-      
-      // Se for número, assume que é continuação do comando anterior
-      if (!isNaN(parseFloat(cmd))) {
-         i++;
-         continue;
-      }
+      if (!isNaN(parseFloat(cmd))) { i++; continue; }
 
       const getNum = () => parseFloat(commands[++i]);
 
       switch (cmd.toUpperCase()) {
-        case 'M': // Move
-        case 'L': // Line
-          currentX = getNum();
-          currentY = getNum();
+        case 'M': case 'L':
+          currentX = getNum(); currentY = getNum();
           if (!isNaN(currentX) && !isNaN(currentY)) points.push({ x: currentX, y: currentY });
           break;
-        case 'H': // Horizontal
+        case 'H':
           currentX = getNum();
           if (!isNaN(currentX)) points.push({ x: currentX, y: currentY });
           break;
-        case 'V': // Vertical
+        case 'V':
           currentY = getNum();
           if (!isNaN(currentY)) points.push({ x: currentX, y: currentY });
           break;
-        case 'Z': // Close
-          // Opcional: fechar visualmente
-          break;
-        case 'C': // Cubic Bezier (Flatten)
+        case 'Z': break;
+        case 'C':
           const cp1x = getNum(); const cp1y = getNum();
           const cp2x = getNum(); const cp2y = getNum();
           const x = getNum();    const y = getNum();
-          
           if (!isNaN(x) && !isNaN(y)) {
-              // Flatten curve simples
               for (let t = 0.2; t <= 1; t += 0.2) {
                 const xt = (1-t)**3 * currentX + 3*(1-t)**2*t*cp1x + 3*(1-t)*t**2*cp2x + t**3*x;
                 const yt = (1-t)**3 * currentY + 3*(1-t)**2*t*cp1y + 3*(1-t)*t**2*cp2y + t**3*y;
                 points.push({x: xt, y: yt});
               }
-              currentX = x;
-              currentY = y;
+              currentX = x; currentY = y;
           }
           break;
-        case 'Q': // Quadratic Bezier
+        case 'Q':
            const qcp1x = getNum(); const qcp1y = getNum();
            const qx = getNum();    const qy = getNum();
-           
            if (!isNaN(qx) && !isNaN(qy)) {
                for (let t = 0.2; t <= 1; t += 0.2) {
                  const xt = (1-t)**2 * currentX + 2*(1-t)*t*qcp1x + t**2*qx;
                  const yt = (1-t)**2 * currentY + 2*(1-t)*t*qcp1y + t**2*qy;
                  points.push({x: xt, y: yt});
                }
-               currentX = qx;
-               currentY = qy;
+               currentX = qx; currentY = qy;
            }
-           break;
-        default:
-           // Comandos relativos (minúsculas) ou 'S', 'T', 'A' não implementados neste parser simples
-           // Em caso real, usaríamos svg-path-parser
            break;
       }
       i++;
@@ -264,8 +337,6 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
 
   const normalizeStrokesToCanvas = (strokes: Stroke[], width: number, height: number): Stroke[] => {
      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-     
-     // Find Bounds
      let hasPoints = false;
      strokes.forEach(s => s.points.forEach(p => {
        if (p.x < minX) minX = p.x;
@@ -279,18 +350,14 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
 
      const shapeW = maxX - minX;
      const shapeH = maxY - minY;
-     
-     // Prevent division by zero
      if (shapeW === 0 || shapeH === 0) return strokes;
 
-     // Scale to fit with padding (e.g., 80% of canvas)
      const padding = 50;
      const targetW = width - (padding * 2);
      const targetH = height - (padding * 2);
      
      const scale = Math.min(targetW / shapeW, targetH / shapeH);
      
-     // Center offsets
      const offsetX = (width - shapeW * scale) / 2;
      const offsetY = (height - shapeH * scale) / 2;
 
@@ -306,57 +373,37 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
   // --- Funções de Desenho ---
 
   const drawGuideChar = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
-    const baselineY = h * 0.8;
-    
     ctx.save();
-    // Configura a fonte guia. Times New Roman ou Sans-serif genérico para referência
     ctx.font = `bold ${h * 0.65}px sans-serif`; 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.12)'; // Cinza bem transparente
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.12)'; 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    
-    // Desenha o caractere no centro horizontal, alinhado à baseline
-    ctx.fillText(char, w / 2, baselineY);
+    ctx.fillText(char, w / 2, BASELINE_Y);
     ctx.restore();
   };
 
   const drawStroke = (ctx: CanvasRenderingContext2D, stroke: Stroke) => {
     if (stroke.points.length === 0) return;
-
-    // Usa a espessura salva no stroke ou o padrão 15 se não existir (compatibilidade com antigos)
     ctx.lineWidth = stroke.width || 15;
-
     ctx.beginPath();
     ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
 
     if (stroke.type === 'bezier' && stroke.points.length === 3) {
-      ctx.quadraticCurveTo(
-        stroke.points[1].x, stroke.points[1].y,
-        stroke.points[2].x, stroke.points[2].y
-      );
+      ctx.quadraticCurveTo(stroke.points[1].x, stroke.points[1].y, stroke.points[2].x, stroke.points[2].y);
     } else {
       for (let i = 1; i < stroke.points.length; i++) {
         ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
       }
     }
     
-    if (stroke.isClosed) {
-      ctx.closePath();
-    }
-
-    if (stroke.filled) {
-      ctx.fill();
-    } else {
-      ctx.stroke();
-    }
+    if (stroke.isClosed) ctx.closePath();
+    if (stroke.filled) ctx.fill(); else ctx.stroke();
   };
 
   const drawPreviewShape = (ctx: CanvasRenderingContext2D) => {
     if (!startPoint || !currentPoint) return;
-
-    // Usa a espessura ATUAL do slider para o preview
     ctx.lineWidth = strokeWidth;
-    ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)'; // Blue preview
+    ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)';
     ctx.beginPath();
 
     if (activeTool === 'square') {
@@ -388,11 +435,7 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
         ctx.lineTo(currentPoint.x, currentPoint.y);
       } else if (bezierPhase === 2 && bezierControlPoint) {
         ctx.moveTo(startPoint.x, startPoint.y);
-        ctx.quadraticCurveTo(
-          bezierControlPoint.x, bezierControlPoint.y,
-          currentPoint.x, currentPoint.y
-        );
-        // Handle visualizer
+        ctx.quadraticCurveTo(bezierControlPoint.x, bezierControlPoint.y, currentPoint.x, currentPoint.y);
         ctx.save();
         ctx.strokeStyle = 'rgba(255, 165, 0, 0.5)';
         ctx.lineWidth = 2;
@@ -402,74 +445,90 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
         ctx.lineTo(currentPoint.x, currentPoint.y);
         ctx.stroke();
         ctx.restore();
-        
-        ctx.stroke(); // Draw the curve itself
+        ctx.stroke();
         return;
       }
     }
-    else if (activeTool === 'pen') {
-        // Freehand preview is handled by the stroke accumulation, 
-        // but if we wanted a "cursor" preview it would go here.
-    }
-
     ctx.stroke();
   };
 
   const drawGuidelines = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
     // Cores
-    const gridColor = '#1e293b'; // Slate 800
-    const lineColor = '#475569'; // Slate 600 (Main lines)
-    const subLineColor = '#334155'; // Slate 700 (Sub lines)
+    const gridColor = '#1e293b'; 
+    const subLineColor = '#334155';
+    const rulerColor = '#64748b';
 
-    // Configuração das linhas
-    const baselineY = h * 0.8;      // 80% (ex: 400px)
-    const capHeightY = h * 0.2;     // 20% (ex: 100px) - Topo das Maiúsculas
-    const xHeightY = h * 0.5;       // 50% (ex: 250px) - Topo das Minúsculas (Aprox)
-    const centerX = w * 0.5;
+    // Medidas em Pixels
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
 
-    // 1. Grade de Fundo (50px)
+    // 1. Grade de Fundo (50px) e Régua Y
     ctx.lineWidth = 1;
     ctx.strokeStyle = gridColor;
     ctx.beginPath();
+    
+    // Linhas Verticais e Régua X
     for (let x = 0; x <= w; x += 50) {
         ctx.moveTo(x, 0);
         ctx.lineTo(x, h);
+        
+        // Números no topo
+        if (x > 0 && x < w) {
+            ctx.save();
+            ctx.fillStyle = rulerColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(x.toString(), x, 5);
+            ctx.restore();
+        }
     }
+
+    // Linhas Horizontais e Régua Y
     for (let y = 0; y <= h; y += 50) {
         ctx.moveTo(0, y);
         ctx.lineTo(w, y);
+
+        // Números na esquerda
+        if (y > 0 && y < h) {
+            ctx.save();
+            ctx.fillStyle = rulerColor;
+            ctx.fillText(y.toString(), 25, y);
+            ctx.restore();
+        }
     }
     ctx.stroke();
 
-    // 2. Linhas Principais (Com Sombra para contraste)
-    ctx.shadowColor = "rgba(0,0,0,0.8)";
-    ctx.shadowBlur = 4;
-    ctx.shadowOffsetX = 1;
-    ctx.shadowOffsetY = 1;
+    // 2. Linhas Principais (BASELINE)
+    ctx.shadowColor = "rgba(0,0,0,0.5)";
+    ctx.shadowBlur = 2;
 
-    // Baseline (Sólida)
-    ctx.strokeStyle = '#94a3b8'; // Slate 400 (Mais claro)
+    // Baseline (Sólida e Vermelha para destaque)
+    ctx.strokeStyle = '#ef4444'; // Red 500
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(0, baselineY);
-    ctx.lineTo(w, baselineY);
+    ctx.moveTo(0, BASELINE_Y);
+    ctx.lineTo(w, BASELINE_Y);
     ctx.stroke();
+    
+    // Label Baseline
+    ctx.fillStyle = '#ef4444';
+    ctx.textAlign = 'right';
+    ctx.fillText("BASELINE", w - 5, BASELINE_Y - 8);
 
     // 3. Linhas Auxiliares (Tracejadas)
+    const capHeightY = h * 0.2; 
+    const xHeightY = h * 0.5;
+    const centerX = w * 0.5;
+
     ctx.lineWidth = 1;
-    ctx.strokeStyle = subLineColor;
+    ctx.strokeStyle = '#3b82f6'; // Blue for helpers
     ctx.setLineDash([5, 5]);
 
     // Cap Height
     ctx.beginPath();
     ctx.moveTo(0, capHeightY);
     ctx.lineTo(w, capHeightY);
-    ctx.stroke();
-
-    // X-Height
-    ctx.beginPath();
-    ctx.moveTo(0, xHeightY);
-    ctx.lineTo(w, xHeightY);
     ctx.stroke();
 
     // Center Vertical
@@ -481,18 +540,11 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
     // Reset
     ctx.setLineDash([]);
     ctx.shadowColor = "transparent";
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
 
-    // Labels (Texto de ajuda na grade)
-    ctx.fillStyle = '#64748b'; // Slate 500
-    ctx.font = '10px sans-serif';
+    // Labels
+    ctx.fillStyle = '#3b82f6';
     ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillText("Cap Height", 5, capHeightY - 5);
-    ctx.fillText("x-Height", 5, xHeightY - 5);
-    ctx.fillText("Baseline", 5, baselineY - 5);
+    ctx.fillText("Cap Height", 30, capHeightY - 5);
   };
 
   const getPos = (e: React.MouseEvent | React.TouchEvent): Point | null => {
@@ -563,14 +615,12 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
     if (activeTool === 'scale') {
       setIsDrawing(true);
       setStartPoint(pos);
-      // Salva snapshot para evitar distorção cumulativa
       snapshotStrokesRef.current = JSON.parse(JSON.stringify(strokes));
       return;
     }
 
     if (activeTool === 'pen') {
       setIsDrawing(true);
-      // Salva a espessura atual no novo traço
       setStrokes(prev => [...prev, { points: [pos], type: 'freehand', width: strokeWidth }]);
     } 
     else if (activeTool === 'bezier') {
@@ -620,18 +670,15 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
     }
 
     if (activeTool === 'scale' && isDrawing && startPoint) {
-       // Calcular fator de escala baseado no movimento vertical
-       // Mover para cima (Y menor) aumenta, mover para baixo (Y maior) diminui
        const sensitivity = 0.005;
        const dy = startPoint.y - pos.y; 
        const scale = Math.max(0.1, 1 + (dy * sensitivity));
        
-       const cx = 250; // Centro X do canvas
-       const cy = 250; // Centro Y do canvas
+       const cx = CANVAS_SIZE / 2;
+       const cy = CANVAS_SIZE / 2;
 
        const newStrokes = snapshotStrokesRef.current.map(s => ({
          ...s,
-         // Escalar também a espessura para manter proporção visual
          width: (s.width || 15) * scale,
          points: s.points.map(p => ({
              x: cx + (p.x - cx) * scale,
@@ -762,58 +809,40 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
 
   const handleClear = () => {
     setStrokes([]);
-    setTraceImage(null); // Limpa imagem de fundo também
+    setTraceImage(null); 
     setBezierPhase(0);
     setStartPoint(null);
     setCurrentPoint(null);
   };
 
-  const generatePreview = (): string => {
-    if (!canvasRef.current) return '';
+  const handleSaveInternal = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'white';
+    ctx.fillStyle = 'white';
+    strokes.forEach(stroke => drawStroke(ctx, stroke));
+    
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = 100;
     tempCanvas.height = 100;
-    const ctx = tempCanvas.getContext('2d');
-    if (ctx) {
-      // NÃO desenhar a imagem de fundo no preview final
-      // Apenas os traços vetoriais importam para a fonte
-      ctx.drawImage(canvasRef.current, 0, 0, 100, 100);
+    const tempCtx = tempCanvas.getContext('2d');
+    if (tempCtx) {
+        tempCtx.drawImage(canvas, 0, 0, 100, 100);
     }
-    return tempCanvas.toDataURL('image/png');
-  };
-
-  const handleSaveInternal = () => {
-    // Esconder grade e guia temporariamente para gerar preview limpo
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Render Clean
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // Draw only strokes (branco no preto fica melhor para preview invertido na grid)
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'white';
-    ctx.fillStyle = 'white';
-    strokes.forEach(stroke => drawStroke(ctx, stroke));
-    
-    const preview = canvas.toDataURL('image/png');
+    const preview = tempCanvas.toDataURL('image/png');
     onSave(strokes, preview);
     
-    // Restore Visuals (triggered by state change or re-render effectively)
-    // Mas para garantir fluidez imediata:
     if (showGuide) drawGuideChar(ctx, canvas.width, canvas.height);
     drawGuidelines(ctx, canvas.width, canvas.height);
-    if (traceImage) {
-        // Redraw trace (background) needs to happen before strokes usually, 
-        // but here we just need to restore visual state for the user.
-        // A próxima renderização do React cuidará da ordem correta.
-    }
   };
 
   const handleNextInternal = () => {
-    // Mesma lógica de save clean
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -826,7 +855,14 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
     ctx.fillStyle = 'white';
     strokes.forEach(stroke => drawStroke(ctx, stroke));
 
-    const preview = canvas.toDataURL('image/png');
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = 100;
+    tempCanvas.height = 100;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (tempCtx) {
+        tempCtx.drawImage(canvas, 0, 0, 100, 100);
+    }
+    const preview = tempCanvas.toDataURL('image/png');
     onNext(strokes, preview);
   };
 
@@ -847,7 +883,7 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
                     activeTool === 'move' ? 'Arraste para mover o desenho' :
                     activeTool === 'scale' ? 'Arraste (Cima/Baixo) para redimensionar' :
                     activeTool === 'bezier' ? '1. Arraste a linha | 2. Arraste a curva' : 
-                    activeTool === 'pen' ? 'Desenho livre' : 'Arraste para definir o tamanho'}
+                    activeTool === 'pen' ? 'Desenho livre' : 'Use a régua para alinhar na Baseline'}
                </p>
              </div>
           </div>
@@ -859,8 +895,8 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
         <div className="flex-1 bg-slate-950 relative overflow-hidden flex items-center justify-center touch-none">
           <canvas
             ref={canvasRef}
-            width={500}
-            height={500}
+            width={CANVAS_SIZE}
+            height={CANVAS_SIZE}
             className={`bg-slate-950 touch-none border border-slate-800 shadow-inner w-full h-auto max-w-[500px] max-h-[500px]
                 ${activeTool === 'bucket' ? 'cursor-alias' : 
                   activeTool === 'move' ? 'cursor-move' : 
@@ -951,22 +987,21 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
                    {showGuide ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                  </button>
                  
-                 {/* Botão de Importar SVG/Imagem */}
+                 {/* Botão de Importar SVG/Imagem/TTF */}
                  <div className="relative group">
                    <button 
                       onClick={() => fileInputRef.current?.click()}
                       className="p-2 rounded transition-colors text-purple-400 hover:text-white hover:bg-slate-700" 
-                      title="Importar (SVG, PNG, JPG) para Trace"
+                      title="Importar (TTF, SVG, PNG, JPG)"
                    >
                      {traceImage ? <ImageIcon className="w-5 h-5 text-green-400" /> : <Upload className="w-5 h-5" />}
                    </button>
-                   {/* Descrição de Medidas */}
                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-black/90 text-[10px] text-white rounded hidden group-hover:block z-50">
-                      Recomendado: 500x500px (SVG/PNG/PDF convert)
+                      Importar Fonte (TTF) ou Imagem
                    </span>
                    <input 
                       type="file" 
-                      accept=".svg,.png,.jpg,.jpeg,.webp" 
+                      accept=".svg,.png,.jpg,.jpeg,.webp,.ttf,.otf" 
                       ref={fileInputRef} 
                       className="hidden" 
                       onChange={handleFileUpload}

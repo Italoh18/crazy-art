@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Layers, Scissors, Grid, Type, Sparkles, Zap, Box, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Layers, Scissors, Grid, Type, Sparkles, Zap, Box, FileText } from 'lucide-react';
 
 export default function Programs() {
   const tools = [
@@ -14,28 +14,26 @@ export default function Programs() {
       path: '/font-finder',
       external: false,
       comingSoon: false,
-      // Configuração Visual do Tile
-      gridClass: 'md:col-span-2 md:row-span-2', // Tile Grande (Quadrado Gigante)
+      gridClass: 'md:col-span-2 md:row-span-2',
       gradient: 'from-fuchsia-900/40 via-purple-900/20 to-black',
       flareColor: 'bg-fuchsia-500',
       iconColor: 'text-fuchsia-300',
       bgImage: 'radial-gradient(circle at 10% 20%, rgba(192, 38, 211, 0.15) 0%, transparent 50%)'
     },
     {
-      id: 'cdr-converter',
-      name: 'CDR',
-      sub: 'Converter',
-      description: 'Converta CorelDRAW p/ versões antigas ou PDF.',
-      icon: RefreshCw,
-      path: '/cdr-converter',
+      id: 'pdf-to-word',
+      name: 'PDF',
+      sub: 'to Word',
+      description: 'Extraia texto de PDFs para DOCX.',
+      icon: FileText,
+      path: '/pdf-to-word',
       external: false,
       comingSoon: false,
-      // Configuração Visual do Tile
-      gridClass: 'md:col-span-1 md:row-span-2', // Tile Vertical Alto
-      gradient: 'from-green-900/40 via-emerald-900/20 to-black',
-      flareColor: 'bg-green-500',
-      iconColor: 'text-green-300',
-      bgImage: 'radial-gradient(circle at 50% 50%, rgba(34, 197, 94, 0.15) 0%, transparent 60%)'
+      gridClass: 'md:col-span-1 md:row-span-2',
+      gradient: 'from-blue-900/40 via-indigo-900/20 to-black',
+      flareColor: 'bg-blue-500',
+      iconColor: 'text-blue-300',
+      bgImage: 'radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 60%)'
     },
     {
       id: 'pixel-art',
@@ -46,8 +44,7 @@ export default function Programs() {
       path: '/pixel-art',
       external: false,
       comingSoon: false,
-      // Configuração Visual do Tile
-      gridClass: 'md:col-span-1 md:row-span-1', // Tile Pequeno
+      gridClass: 'md:col-span-1 md:row-span-1',
       gradient: 'from-emerald-900/40 via-teal-900/20 to-black',
       flareColor: 'bg-teal-500',
       iconColor: 'text-teal-300',
@@ -62,8 +59,7 @@ export default function Programs() {
       path: '/remove-bg',
       external: false,
       comingSoon: false,
-      // Configuração Visual do Tile
-      gridClass: 'md:col-span-1 md:row-span-1', // Tile Pequeno
+      gridClass: 'md:col-span-1 md:row-span-1',
       gradient: 'from-cyan-900/40 via-blue-900/20 to-black',
       flareColor: 'bg-cyan-500',
       iconColor: 'text-cyan-300',
@@ -74,12 +70,11 @@ export default function Programs() {
       name: 'Mockup 3D',
       sub: 'Builder',
       description: 'Visualize camisas e shorts.',
-      icon: Box, // Trocado para Box para representar 3D
+      icon: Box,
       path: '/layout-builder',
       external: false,
-      comingSoon: true, // Ainda em breve
-      // Configuração Visual do Tile
-      gridClass: 'md:col-span-1 md:row-span-1', // Tile Pequeno
+      comingSoon: true,
+      gridClass: 'md:col-span-1 md:row-span-1',
       gradient: 'from-orange-900/40 via-amber-900/20 to-black',
       flareColor: 'bg-orange-500',
       iconColor: 'text-orange-300',
@@ -89,14 +84,12 @@ export default function Programs() {
 
   return (
     <div className="min-h-screen bg-black text-white p-6 pb-24 overflow-x-hidden">
-      {/* Background Decorativo */}
       <div className="fixed inset-0 pointer-events-none">
          <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-purple-900/20 rounded-full blur-[120px] animate-pulse-slow"></div>
          <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-900/10 rounded-full blur-[100px] animate-float"></div>
       </div>
 
       <div className="max-w-6xl mx-auto relative z-10">
-        {/* Header */}
         <div className="flex items-center gap-4 mb-12 animate-fade-in-up">
             <Link to="/" className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-zinc-400 hover:text-white transition-all hover:scale-105 active:scale-95 backdrop-blur-md">
                 <ArrowLeft size={24} />
@@ -110,7 +103,6 @@ export default function Programs() {
             </div>
         </div>
 
-        {/* Grid Mosaico Irregular */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 auto-rows-[200px] gap-4">
             {tools.map((tool, idx) => {
                 const CardContent = () => (
@@ -148,7 +140,6 @@ export default function Programs() {
                     animate-scale-in
                 `;
 
-                // Efeitos de Fundo (Flare)
                 const BackgroundEffects = () => (
                     <>
                         <div className="absolute inset-0 bg-grid-pattern opacity-10 mix-blend-overlay pointer-events-none"></div>
@@ -156,7 +147,6 @@ export default function Programs() {
                             className="absolute inset-0 transition-opacity duration-700 opacity-60 group-hover:opacity-100"
                             style={{ background: tool.bgImage }}
                         ></div>
-                        {/* Flare brilhante no hover */}
                         <div className={`absolute -right-20 -bottom-20 w-64 h-64 ${tool.flareColor} blur-[80px] opacity-0 group-hover:opacity-30 transition-opacity duration-500 rounded-full pointer-events-none`}></div>
                     </>
                 );
@@ -187,7 +177,6 @@ export default function Programs() {
                 );
             })}
             
-            {/* Bloco Decorativo ou Link Extra para preencher espaço se necessário */}
             <div className="md:col-span-1 md:row-span-1 relative rounded-3xl border border-dashed border-white/10 flex items-center justify-center p-6 group hover:border-white/20 transition-colors cursor-default">
                 <div className="text-center opacity-30 group-hover:opacity-50 transition-opacity">
                     <Zap size={32} className="mx-auto mb-2" />
