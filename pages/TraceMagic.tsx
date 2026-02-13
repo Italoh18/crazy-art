@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   ArrowLeft, Upload, Zap, Sliders, Image as ImageIcon, FileCode, 
-  Download, Eye, Maximize, ZoomIn, ZoomOut, Check, Layers, AlertTriangle, PenTool
+  Download, Eye, Maximize, ZoomIn, ZoomOut, Check, Layers, AlertTriangle, PenTool, MousePointer2
 } from 'lucide-react';
 
 // Declaration for the CDN library
@@ -29,16 +29,16 @@ export default function TraceMagic() {
   const [mode, setMode] = useState<TraceMode>('color');
   
   // Imagem Prep
-  const [brightness, setBrightness] = useState(0); // -100 a 100
-  const [contrast, setContrast] = useState(0); // -100 a 100
-  const [blur, setBlur] = useState(0); // 0 a 10 (Redução de ruído pré-trace)
+  const [brightness, setBrightness] = useState(0); 
+  const [contrast, setContrast] = useState(0); 
+  const [blur, setBlur] = useState(0); 
 
-  // Trace Settings
-  const [colors, setColors] = useState(16); // 2 a 64 (Multicolor)
-  const [threshold, setThreshold] = useState(128); // 0 a 255 (B&W)
-  const [turdSize, setTurdSize] = useState(2); // Speckle removal (limpeza)
-  const [blurRadius, setBlurRadius] = useState(0); // Suavização do vetor
-  const [lineThreshold, setLineThreshold] = useState(1); // Otimização de curva
+  // Trace Settings Otimizados
+  const [colors, setColors] = useState(8); // Reduzido padrão para 8 para evitar sujeira
+  const [threshold, setThreshold] = useState(128); 
+  const [turdSize, setTurdSize] = useState(10); // Aumentado padrão para limpar "sujeira"
+  const [curveFidelity, setCurveFidelity] = useState(5); // 1 (Reta/Simples) a 10 (Curva Perfeita)
+  const [smoothness, setSmoothness] = useState(0); // Blur radius no vetor
 
   // UI States
   const [viewMode, setViewMode] = useState<'split' | 'vector' | 'original'>('split');
@@ -49,6 +49,28 @@ export default function TraceMagic() {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // --- Zoom com Scroll (Nativo para evitar scroll da pagina) ---
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+        if (e.ctrlKey || e.metaKey) return; // Permite zoom do navegador se segurar Ctrl
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        setZoom(prev => Math.max(0.1, Math.min(10, prev + delta)));
+    };
+
+    const wrapper = wrapperRef.current;
+    if (wrapper) {
+        wrapper.addEventListener('wheel', handleWheel, { passive: false });
+    }
+
+    return () => {
+        if (wrapper) {
+            wrapper.removeEventListener('wheel', handleWheel);
+        }
+    };
+  }, [originalImage]); // Re-attach se imagem mudar
 
   // --- Funções de Processamento ---
 
@@ -93,57 +115,56 @@ export default function TraceMagic() {
     if (!originalImage || !imageRef.current) return;
     setIsProcessing(true);
 
-    // Pequeno delay para permitir UI update
     setTimeout(() => {
         try {
             const startTime = performance.now();
             
-            // 1. Preprocessar Imagem
             const imgData = applyImageFilters();
             if (!imgData) throw new Error("Falha ao processar imagem");
 
-            // 2. Configurar ImageTracer
-            // Mapeamento de presets baseados no modo
+            // Cálculo Inverso para Curvas:
+            // High Fidelity (10) -> Low QTres (0.1) -> Mais pontos, mais curvas.
+            // Low Fidelity (1) -> High QTres (5) -> Menos pontos, mais retas.
+            const calculatedQtres = Math.max(0.01, (11 - curveFidelity) * 0.2); 
+            const calculatedLtres = Math.max(0.1, (11 - curveFidelity) * 0.2);
+
             const options: any = {
-                // Settings de Qualidade
-                ltres: lineThreshold, // Linear threshold
-                qtres: lineThreshold, // Quadratic spline threshold (Aumentar isso suaviza curvas)
-                pathomit: turdSize, // Ignorar manchas pequenas
+                // Algoritmo de Traçado
+                ltres: calculatedLtres, 
+                qtres: calculatedQtres, // Ponto chave para arredondar curvas!
+                pathomit: turdSize, // Limpeza de sujeira
                 
-                // Melhorias para Curvas e Cores
-                rightangleenhance: false, // Desliga realce de angulo reto para evitar "quadrado"
-                colorsampling: 2, // Deterministic sampling
+                // Melhorias visuais
+                rightangleenhance: false, // IMPORTANTE: Desligar isso evita cantos quadrados artificiais
+                
+                // Cores e Otimização
+                colorsampling: 2, // Deterministic
                 numberofcolors: colors,
-                mincolorratio: 0.02, // Ignora cores que aparecem muito pouco (reduz ruído)
-                colorquantcycles: 5, // Aumenta ciclos de quantização para agrupar melhor cores próximas
+                mincolorratio: 0.02, // 2% da imagem. Ignora cores que aparecem muito pouco (reduz camadas sujas)
+                colorquantcycles: 10, // Mais ciclos = melhor separação de cores
                 
-                // Suavização
-                blurradius: blurRadius, 
+                // Suavização Pós-Vetor
+                blurradius: smoothness, 
                 blurdelta: 20,
                 
-                // Renderização
-                strokewidth: 0, // Sem linhas de contorno extras
+                strokewidth: 0,
                 viewbox: true,
                 desc: false,
             };
 
             if (mode === 'grayscale') {
-                options.colorsampling = 0; // Disabled (use palette)
-                // Grayscale palette generation handled automatically if numberofcolors is set.
+                options.colorsampling = 0; 
             } else if (mode === 'bw') {
-                // B&W (Thresholding manual logic provided by canvas grayscale + contrast)
                 options.colorsampling = 0;
                 options.numberofcolors = 2;
             }
 
-            // 3. Executar Trace
             const svgStr = ImageTracer.imagedataToSVG(imgData, options);
             
             const endTime = performance.now();
             
-            // 4. Calcular Estatísticas (Estimativa)
             const pathCount = (svgStr.match(/<path/g) || []).length;
-            const nodeCount = (svgStr.match(/[MmLlCcz]/g) || []).length; // Rough node count
+            const nodeCount = (svgStr.match(/[MmLlCcz]/g) || []).length;
             const size = new Blob([svgStr]).size / 1024;
 
             setStats({
@@ -185,7 +206,6 @@ export default function TraceMagic() {
       }
   };
 
-  // Handle Drag slider for Split Screen
   const handleSplitDrag = (e: React.MouseEvent | React.TouchEvent) => {
       const container = containerRef.current;
       if (!container) return;
@@ -197,19 +217,8 @@ export default function TraceMagic() {
       setSplitPos(percent);
   };
 
-  // Handle Scroll Zoom
-  const handleWheel = (e: React.WheelEvent) => {
-      // Impede o scroll padrão da página
-      // Note: Em eventos sintéticos React, stopPropagation as vezes é necessário.
-      // preventDefault não funciona em eventos passivos, então usamos CSS overflow-hidden no parent.
-      
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      setZoom(prev => Math.max(0.1, Math.min(10, prev + delta)));
-  };
-
   return (
     <div className="min-h-screen bg-[#09090b] text-white flex flex-col h-screen overflow-hidden">
-        {/* Hidden Elements for Processing */}
         <canvas ref={canvasRef} className="hidden" />
         <img ref={imageRef} src={originalImage || ''} className="hidden" alt="source" />
 
@@ -261,7 +270,6 @@ export default function TraceMagic() {
                     </div>
                 ) : (
                     <div className="p-5 space-y-8">
-                        {/* Mode Selection */}
                         <div>
                             <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 block">Modo de Vetorização</label>
                             <div className="grid grid-cols-3 gap-1 bg-zinc-900 p-1 rounded-lg border border-zinc-800">
@@ -283,10 +291,6 @@ export default function TraceMagic() {
                                 <div className="flex justify-between text-[10px] text-zinc-400"><span>Contraste</span><span>{contrast}</span></div>
                                 <input type="range" min="-100" max="100" value={contrast} onChange={(e) => setContrast(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary" />
                             </div>
-                            <div className="space-y-1">
-                                <div className="flex justify-between text-[10px] text-zinc-400"><span>Blur (Ruído)</span><span>{blur}px</span></div>
-                                <input type="range" min="0" max="10" step="0.5" value={blur} onChange={(e) => setBlur(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary" />
-                            </div>
                         </div>
 
                         {/* Trace Settings */}
@@ -295,27 +299,25 @@ export default function TraceMagic() {
                             
                             {(mode === 'color' || mode === 'grayscale') && (
                                 <div className="space-y-1">
-                                    <div className="flex justify-between text-[10px] text-zinc-400"><span>Cores / Camadas</span><span>{colors}</span></div>
+                                    <div className="flex justify-between text-[10px] text-zinc-400"><span>Cores (Camadas)</span><span>{colors}</span></div>
                                     <input type="range" min="2" max="64" value={colors} onChange={(e) => setColors(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-blue-500" />
-                                </div>
-                            )}
-
-                            {mode === 'bw' && (
-                                <div className="space-y-1">
-                                    <div className="flex justify-between text-[10px] text-zinc-400"><span>Limiar (Threshold)</span><span>{threshold}</span></div>
-                                    <input type="range" min="0" max="255" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-blue-500" />
+                                    <p className="text-[9px] text-zinc-600 mt-1">Menos cores = Vetor mais limpo.</p>
                                 </div>
                             )}
 
                             <div className="space-y-1">
-                                <div className="flex justify-between text-[10px] text-zinc-400"><span>Detalhes (Limpar Ruído)</span><span>{turdSize}px</span></div>
+                                <div className="flex justify-between text-[10px] text-zinc-400"><span>Limpeza de Ruído</span><span>{turdSize}px</span></div>
                                 <input type="range" min="0" max="100" value={turdSize} onChange={(e) => setTurdSize(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-purple-500" />
+                                <p className="text-[9px] text-zinc-600 mt-1">Remove manchas pequenas.</p>
                             </div>
 
                             <div className="space-y-1">
-                                <div className="flex justify-between text-[10px] text-zinc-400"><span>Suavizar Curvas</span><span>{lineThreshold}</span></div>
-                                <input type="range" min="0.1" max="10" step="0.1" value={lineThreshold} onChange={(e) => setLineThreshold(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-purple-500" />
-                                <p className="text-[9px] text-zinc-600 mt-1">Valores maiores criam curvas mais suaves.</p>
+                                <div className="flex justify-between text-[10px] text-zinc-400"><span>Fidelidade da Curva</span><span>{curveFidelity}</span></div>
+                                <input type="range" min="1" max="10" step="0.5" value={curveFidelity} onChange={(e) => setCurveFidelity(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-emerald-500" />
+                                <p className="text-[9px] text-zinc-600 mt-1">
+                                    1 = Retas (Simplificado) <br/>
+                                    10 = Curvas (Segue os pixels)
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -339,11 +341,11 @@ export default function TraceMagic() {
                     </div>
                 </div>
 
-                {/* Canvas Area with Wheel Zoom */}
+                {/* Canvas Area with Wheel Zoom (Attached via ref for passive:false) */}
                 <div 
+                    ref={wrapperRef}
                     className="flex-1 relative overflow-hidden flex items-center justify-center p-8 bg-[#1a1a1a]" 
                     style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '20px 20px' }}
-                    onWheel={handleWheel}
                 >
                     {!originalImage ? (
                         <div className="text-center">
@@ -398,7 +400,7 @@ export default function TraceMagic() {
                                     style={{ left: `${splitPos}%` }}
                                 >
                                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-lg text-black">
-                                        <Maximize size={12} className="rotate-45" />
+                                        <MousePointer2 size={12} className="rotate-90" />
                                     </div>
                                 </div>
                             )}
@@ -407,7 +409,7 @@ export default function TraceMagic() {
                 </div>
             </div>
 
-            {/* Right Sidebar: Stats (Collapsible or Fixed Small) */}
+            {/* Right Sidebar: Stats */}
             {stats && (
                 <div className="w-60 bg-[#121215] border-l border-zinc-800 flex flex-col shrink-0 p-5 space-y-6 z-10">
                     <div>
