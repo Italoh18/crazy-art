@@ -33,12 +33,12 @@ export default function TraceMagic() {
   const [contrast, setContrast] = useState(0); 
   const [blur, setBlur] = useState(0); 
 
-  // Trace Settings Otimizados
-  const [colors, setColors] = useState(8); // Reduzido padrão para 8 para evitar sujeira
+  // Trace Settings Otimizados (Padrões baseados no feedback)
+  const [colors, setColors] = useState(6); // Padrão ajustado para 6
   const [threshold, setThreshold] = useState(128); 
-  const [turdSize, setTurdSize] = useState(10); // Aumentado padrão para limpar "sujeira"
-  const [curveFidelity, setCurveFidelity] = useState(5); // 1 (Reta/Simples) a 10 (Curva Perfeita)
-  const [smoothness, setSmoothness] = useState(0); // Blur radius no vetor
+  const [turdSize, setTurdSize] = useState(100); // Padrão ajustado para 100 (limpeza agressiva)
+  const [curveFidelity, setCurveFidelity] = useState(5); 
+  const [smoothness, setSmoothness] = useState(0); 
 
   // UI States
   const [viewMode, setViewMode] = useState<'split' | 'vector' | 'original'>('split');
@@ -54,7 +54,7 @@ export default function TraceMagic() {
   // --- Zoom com Scroll (Nativo para evitar scroll da pagina) ---
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-        if (e.ctrlKey || e.metaKey) return; // Permite zoom do navegador se segurar Ctrl
+        if (e.ctrlKey || e.metaKey) return; 
         e.preventDefault();
         const delta = e.deltaY > 0 ? -0.1 : 0.1;
         setZoom(prev => Math.max(0.1, Math.min(10, prev + delta)));
@@ -70,7 +70,7 @@ export default function TraceMagic() {
             wrapper.removeEventListener('wheel', handleWheel);
         }
     };
-  }, [originalImage]); // Re-attach se imagem mudar
+  }, [originalImage]);
 
   // --- Funções de Processamento ---
 
@@ -122,26 +122,28 @@ export default function TraceMagic() {
             const imgData = applyImageFilters();
             if (!imgData) throw new Error("Falha ao processar imagem");
 
-            // Cálculo Inverso para Curvas:
-            // High Fidelity (10) -> Low QTres (0.1) -> Mais pontos, mais curvas.
-            // Low Fidelity (1) -> High QTres (5) -> Menos pontos, mais retas.
-            const calculatedQtres = Math.max(0.01, (11 - curveFidelity) * 0.2); 
-            const calculatedLtres = Math.max(0.1, (11 - curveFidelity) * 0.2);
+            // AJUSTE CRÍTICO DE CURVAS:
+            // Desacoplamos ltres (retas) de qtres (curvas).
+            // qtres agora é muito mais baixo (sensível), forçando o algoritmo a usar curvas
+            // mesmo quando a fidelidade geral é baixa.
+            const calculatedLtres = Math.max(0.1, (11 - curveFidelity) * 0.2); 
+            const calculatedQtres = Math.max(0.01, (11 - curveFidelity) * 0.1); // 0.1 multiplier privilegia curvas
 
             const options: any = {
                 // Algoritmo de Traçado
                 ltres: calculatedLtres, 
-                qtres: calculatedQtres, // Ponto chave para arredondar curvas!
-                pathomit: turdSize, // Limpeza de sujeira
+                qtres: calculatedQtres, 
+                pathomit: turdSize, 
                 
                 // Melhorias visuais
-                rightangleenhance: false, // IMPORTANTE: Desligar isso evita cantos quadrados artificiais
+                rightangleenhance: false, // Evita cantos quadrados artificiais
+                layering: 0, // Sequencial (melhor para sobreposição)
                 
                 // Cores e Otimização
                 colorsampling: 2, // Deterministic
                 numberofcolors: colors,
-                mincolorratio: 0.02, // 2% da imagem. Ignora cores que aparecem muito pouco (reduz camadas sujas)
-                colorquantcycles: 10, // Mais ciclos = melhor separação de cores
+                mincolorratio: 0.0, // Desligado para não perder detalhes se o turdsize já limpa
+                colorquantcycles: 15, // Aumentado para melhor separação de cores próximas
                 
                 // Suavização Pós-Vetor
                 blurradius: smoothness, 
@@ -307,7 +309,7 @@ export default function TraceMagic() {
 
                             <div className="space-y-1">
                                 <div className="flex justify-between text-[10px] text-zinc-400"><span>Limpeza de Ruído</span><span>{turdSize}px</span></div>
-                                <input type="range" min="0" max="100" value={turdSize} onChange={(e) => setTurdSize(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-purple-500" />
+                                <input type="range" min="0" max="200" value={turdSize} onChange={(e) => setTurdSize(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-purple-500" />
                                 <p className="text-[9px] text-zinc-600 mt-1">Remove manchas pequenas.</p>
                             </div>
 
@@ -315,8 +317,8 @@ export default function TraceMagic() {
                                 <div className="flex justify-between text-[10px] text-zinc-400"><span>Fidelidade da Curva</span><span>{curveFidelity}</span></div>
                                 <input type="range" min="1" max="10" step="0.5" value={curveFidelity} onChange={(e) => setCurveFidelity(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-emerald-500" />
                                 <p className="text-[9px] text-zinc-600 mt-1">
-                                    1 = Retas (Simplificado) <br/>
-                                    10 = Curvas (Segue os pixels)
+                                    1 = Simplificado <br/>
+                                    10 = Curvas Precisas
                                 </p>
                             </div>
                         </div>
