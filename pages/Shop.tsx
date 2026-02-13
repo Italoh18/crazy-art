@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -27,7 +28,7 @@ const DEFAULT_ART_CATEGORIES = [
 ];
 
 // Cores padronizadas para o filtro (Setorização)
-const ART_COLOR_FILTERS = [
+export const ART_COLOR_FILTERS = [
     { name: 'Preto', hex: '#000000' },
     { name: 'Branco', hex: '#FFFFFF' },
     { name: 'Cinza', hex: '#808080' },
@@ -375,7 +376,7 @@ export default function Shop() {
                         <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
                     </div>
                     
-                    {/* Color Filter (Pílulas Padronizadas) */}
+                    {/* Color Filter (Pílulas Padronizadas - Apenas Círculos) */}
                     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 flex items-center gap-2 overflow-x-auto custom-scrollbar">
                         <div className="text-[10px] text-zinc-500 font-bold uppercase px-2">Cores</div>
                         
@@ -393,16 +394,10 @@ export default function Shop() {
                             <button
                                 key={color.name}
                                 onClick={() => setSelectedColor(selectedColor === color.hex ? null : color.hex)}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border border-zinc-700 transition shrink-0 hover:bg-zinc-800 group ${selectedColor === color.hex ? 'bg-zinc-800 ring-1 ring-white' : 'bg-transparent'}`}
-                            >
-                                <div 
-                                    className="w-3 h-3 rounded-full shadow-sm ring-1 ring-black/20" 
-                                    style={{ backgroundColor: color.hex }} 
-                                />
-                                <span className={`text-xs font-bold ${selectedColor === color.hex ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'}`}>
-                                    {color.name}
-                                </span>
-                            </button>
+                                className={`w-8 h-8 rounded-full border-2 transition shrink-0 hover:scale-110 ${selectedColor === color.hex ? 'border-white scale-110 shadow-lg' : 'border-transparent hover:border-zinc-500'}`}
+                                style={{ backgroundColor: color.hex }}
+                                title={color.name}
+                            />
                         ))}
                     </div>
                 </div>
@@ -535,7 +530,7 @@ export default function Shop() {
       const calc = calculateFinalOrder();
       const hasPhysicalItems = calc.items.some(i => i.type === 'product');
       // Verifica se é uma compra só de artes digitais
-      const isArtOnlyOrder = cart.length > 0 && cart.every(i => (i.product.type as string) === 'art');
+      const isArtOnlyOrder = cart.length > 0 && cart.every(i => (i.product.type as any) === 'art');
       
       return (
         <div className="animate-fade-in max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 p-8 rounded-3xl shadow-2xl relative space-y-8">
@@ -547,7 +542,7 @@ export default function Shop() {
                             <p className="text-white font-bold text-sm">
                                 {item.productName} <span className="text-primary">x{item.quantity}</span>
                             </p>
-                            {(item.type as string) === 'art' && <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">Download Digital</span>}
+                            {(item.type as any) === 'art' && <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">Download Digital</span>}
                         </div>
                         <div className="flex items-center gap-4">
                             <span className="text-emerald-400 font-mono text-sm">R$ {item.total.toFixed(2)}</span>

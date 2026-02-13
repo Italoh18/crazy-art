@@ -6,6 +6,20 @@ import { ItemType, Product } from '../types';
 
 const DEFAULT_SUBCATEGORIES = ['Carnaval', 'Futebol', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais', 'Logos'];
 
+// Mesmas cores do Shop para manter consistência
+const ART_COLORS = [
+    { name: 'Preto', hex: '#000000' },
+    { name: 'Branco', hex: '#FFFFFF' },
+    { name: 'Cinza', hex: '#808080' },
+    { name: 'Vermelho', hex: '#EF4444' },
+    { name: 'Laranja', hex: '#F97316' },
+    { name: 'Amarelo', hex: '#EAB308' },
+    { name: 'Verde', hex: '#22C55E' },
+    { name: 'Azul', hex: '#3B82F6' },
+    { name: 'Roxo', hex: '#A855F7' },
+    { name: 'Rosa', hex: '#EC4899' },
+];
+
 export default function Products() {
   const { products, addProduct, updateProduct, deleteProduct } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -381,16 +395,32 @@ export default function Products() {
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1.5 ml-1">Cor Principal</label>
-                            <div className="flex items-center gap-3 bg-black/40 border border-zinc-700 rounded-xl p-2">
-                                <input 
-                                    type="color" 
-                                    className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0"
-                                    value={formData.primaryColor}
-                                    onChange={e => setFormData({ ...formData, primaryColor: e.target.value })}
-                                />
-                                <span className="text-xs font-mono text-zinc-300">{formData.primaryColor}</span>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2 ml-1">Cor Principal</label>
+                            <div className="flex flex-wrap gap-2">
+                                {ART_COLORS.map(c => (
+                                    <button
+                                        key={c.hex}
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, primaryColor: c.hex })}
+                                        className={`w-8 h-8 rounded-full border-2 transition hover:scale-110 ${formData.primaryColor === c.hex ? 'border-white scale-110 shadow-lg' : 'border-transparent hover:border-zinc-500'}`}
+                                        style={{ backgroundColor: c.hex }}
+                                        title={c.name}
+                                    />
+                                ))}
+                                {/* Input Customizado Opcional (se quiser manter flexibilidade total) */}
+                                <div className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-zinc-700 hover:border-zinc-500 transition group" title="Outra cor">
+                                    <input 
+                                        type="color" 
+                                        className="absolute -top-2 -left-2 w-12 h-12 cursor-pointer p-0 border-0"
+                                        value={formData.primaryColor}
+                                        onChange={e => setFormData({ ...formData, primaryColor: e.target.value })}
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none group-hover:bg-white/10">
+                                        <Plus size={14} className="text-zinc-400" />
+                                    </div>
+                                </div>
                             </div>
+                            <div className="mt-1 text-xs font-mono text-zinc-500 ml-1">{formData.primaryColor}</div>
                         </div>
 
                         <div>
