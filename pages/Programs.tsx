@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Layers, Scissors, Grid, Type, Sparkles, Zap, Box } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Layers, Scissors, Grid, Type, Sparkles, Zap, Box, RefreshCw } from 'lucide-react';
 
 export default function Programs() {
   const tools = [
@@ -22,6 +22,22 @@ export default function Programs() {
       bgImage: 'radial-gradient(circle at 10% 20%, rgba(192, 38, 211, 0.15) 0%, transparent 50%)'
     },
     {
+      id: 'cdr-converter',
+      name: 'CDR',
+      sub: 'Converter',
+      description: 'Converta CorelDRAW p/ versões antigas ou PDF.',
+      icon: RefreshCw,
+      path: '/cdr-converter',
+      external: false,
+      comingSoon: false,
+      // Configuração Visual do Tile
+      gridClass: 'md:col-span-1 md:row-span-2', // Tile Vertical Alto
+      gradient: 'from-green-900/40 via-emerald-900/20 to-black',
+      flareColor: 'bg-green-500',
+      iconColor: 'text-green-300',
+      bgImage: 'radial-gradient(circle at 50% 50%, rgba(34, 197, 94, 0.15) 0%, transparent 60%)'
+    },
+    {
       id: 'pixel-art',
       name: 'Pixel Art',
       sub: 'Studio',
@@ -31,11 +47,11 @@ export default function Programs() {
       external: false,
       comingSoon: false,
       // Configuração Visual do Tile
-      gridClass: 'md:col-span-1 md:row-span-2', // Tile Vertical Alto
-      gradient: 'from-emerald-900/40 via-green-900/20 to-black',
-      flareColor: 'bg-emerald-500',
-      iconColor: 'text-emerald-300',
-      bgImage: 'radial-gradient(circle at 90% 90%, rgba(16, 185, 129, 0.15) 0%, transparent 60%)'
+      gridClass: 'md:col-span-1 md:row-span-1', // Tile Pequeno
+      gradient: 'from-emerald-900/40 via-teal-900/20 to-black',
+      flareColor: 'bg-teal-500',
+      iconColor: 'text-teal-300',
+      bgImage: 'radial-gradient(circle at 90% 90%, rgba(20, 184, 166, 0.15) 0%, transparent 60%)'
     },
     {
       id: 'remove-bg',

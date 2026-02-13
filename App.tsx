@@ -18,6 +18,7 @@ import TrustedCompanies from './pages/TrustedCompanies';
 import LayoutBuilder from './pages/LayoutBuilder';
 import BackgroundRemover from './pages/BackgroundRemover';
 import PixelArt from './pages/PixelArt'; 
+import CdrConverter from './pages/CdrConverter';
 import EmailTemplates from './pages/EmailTemplates';
 import PendingOrders from './pages/PendingOrders';
 import Coupons from './pages/Coupons';
@@ -71,6 +72,7 @@ const AppRoutes = () => {
             <Route path="/layout-builder" element={<LayoutBuilder />} />
             <Route path="/remove-bg" element={<BackgroundRemover />} />
             <Route path="/pixel-art" element={<PixelArt />} />
+            <Route path="/cdr-converter" element={<CdrConverter />} />
             <Route path="/my-area" element={<ClientRoute />} />
             <Route path="/pending-confirmations" element={<ProtectedRoute requiredRole="admin"><PendingOrders /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><Orders /></ProtectedRoute>} />
