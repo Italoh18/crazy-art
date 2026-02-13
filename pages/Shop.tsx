@@ -7,7 +7,7 @@ import {
   Plus as PlusIcon, CreditCard, Loader2, MessageCircle, 
   Lock, UserPlus, ChevronRight, ListChecks, Upload, 
   Info, AlertTriangle, Wallet, Check, Film, FileText, Layers, Hash, ToggleLeft, ToggleRight,
-  Coins, Ticket, Palette, CloudDownload
+  Coins, Ticket, Palette, CloudDownload, Filter, ArrowUpRight
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,6 +23,10 @@ interface CartItem {
     tempId: string;
 }
 
+const DEFAULT_ART_CATEGORIES = [
+    'Todos', 'Carnaval', 'Futebol', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais', 'Logos'
+];
+
 export default function Shop() {
   const { products, addOrder, orders, validateCoupon } = useData();
   const { role, currentCustomer } = useAuth();
@@ -32,6 +36,10 @@ export default function Shop() {
   const [step, setStep] = useState<ShopStep>('list');
   const [activeTab, setActiveTab] = useState<ItemType>('product');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // States exclusivos da Quitanda
+  const [activeArtCategory, setActiveArtCategory] = useState('Todos');
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
   
   const [cart, setCart] = useState<CartItem[]>([]);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
@@ -56,18 +64,50 @@ export default function Shop() {
   const [couponError, setCouponError] = useState('');
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
 
-  // Inicializa a aba com base na URL (ex: ?tab=art)
+  // Inicializa a aba com base na URL
   useEffect(() => {
       const params = new URLSearchParams(location.search);
       const tab = params.get('tab');
-      if (tab === 'art') setActiveTab('art');
-      else if (tab === 'service') setActiveTab('service');
-      else setActiveTab('product');
+      if (tab === 'art') {
+          setActiveTab('art');
+      } else if (tab === 'service') {
+          setActiveTab('service');
+      } else {
+          setActiveTab('product');
+      }
   }, [location.search]);
+
+  // Derivar categorias dinâmicas com base nos produtos existentes + padrões
+  const artCategories = useMemo(() => {
+      const existingCats = new Set(DEFAULT_ART_CATEGORIES);
+      products.filter(p => p.type === 'art' && p.subcategory).forEach(p => {
+          if (p.subcategory) existingCats.add(p.subcategory);
+      });
+      return Array.from(existingCats);
+  }, [products]);
+
+  // Derivar cores disponíveis nos produtos de arte
+  const artColors = useMemo(() => {
+      const colors = new Set<string>();
+      products.filter(p => p.type === 'art' && p.primaryColor).forEach(p => {
+          if (p.primaryColor) colors.add(p.primaryColor);
+      });
+      return Array.from(colors);
+  }, [products]);
 
   const filteredItems = products.filter(item => {
      const itemType = item.type || 'product';
-     return itemType === activeTab && item.name.toLowerCase().includes(searchTerm.toLowerCase());
+     
+     // Filtro básico de tipo e busca
+     let matches = itemType === activeTab && item.name.toLowerCase().includes(searchTerm.toLowerCase());
+     
+     // Filtros específicos da Quitanda
+     if (activeTab === 'art') {
+         if (activeArtCategory !== 'Todos' && item.subcategory !== activeArtCategory) matches = false;
+         if (selectedColor && item.primaryColor !== selectedColor) matches = false;
+     }
+
+     return matches;
   });
 
   const sizes = {
@@ -169,22 +209,17 @@ export default function Shop() {
       return { items: itemsPayload, total: totalValue };
   };
 
-  // Cálculo do total com desconto aplicado
   const calculateDiscountedTotal = () => {
       if (!lastCreatedOrder) return 0;
       const originalTotal = lastCreatedOrder.total;
-      
       if (!appliedCoupon) return originalTotal;
-
       let discountAmount = 0;
       const { items } = calculateFinalOrder(); 
-
       items.forEach(item => {
           if (appliedCoupon.type === 'all' || item.type === appliedCoupon.type) {
               discountAmount += item.total * (appliedCoupon.percentage / 100);
           }
       });
-
       return Math.max(0, originalTotal - discountAmount);
   };
 
@@ -192,16 +227,11 @@ export default function Shop() {
       setCouponError('');
       setAppliedCoupon(null);
       if (!couponCode) return;
-
       setIsValidatingCoupon(true);
       const coupon = await validateCoupon(couponCode);
       setIsValidatingCoupon(false);
-
-      if (coupon) {
-          setAppliedCoupon(coupon);
-      } else {
-          setCouponError('Cupom inválido ou expirado.');
-      }
+      if (coupon) setAppliedCoupon(coupon);
+      else setCouponError('Cupom inválido ou expirado.');
   };
 
   const handleCreateOrder = async () => {
@@ -231,12 +261,8 @@ export default function Shop() {
     try {
         const discountedTotal = calculateDiscountedTotal();
         const finalAmount = discountedTotal;
-        
         let title = `Pedido #${lastCreatedOrder.order_number} - Crazy Art`;
-        if (appliedCoupon) {
-            title += ` (Cupom: ${appliedCoupon.code})`;
-        }
-
+        if (appliedCoupon) title += ` (Cupom: ${appliedCoupon.code})`;
         const res = await api.createPayment({
             orderId: lastCreatedOrder.id,
             title: title,
@@ -251,36 +277,100 @@ export default function Shop() {
   const canAddToAccount = useMemo(() => {
     if (!currentCustomer || !lastCreatedOrder) return false;
     const { items } = calculateFinalOrder();
-    // Permite adicionar à conta se todos forem serviços OU se o cliente tiver crédito suficiente
     const allServices = items.every(i => i.type === 'service');
-    // Para produtos/artes, precisa ter limite. Serviços podem ser debitados mesmo sem limite (se política permitir),
-    // mas aqui vamos manter a regra do limite.
     const openOrdersTotal = orders.filter(o => o.client_id === currentCustomer.id && o.status === 'open').reduce((a, o) => a + Number(o.total || 0), 0);
     return allServices && (currentCustomer.creditLimit || 0) >= (openOrdersTotal + calculateDiscountedTotal());
   }, [currentCustomer, lastCreatedOrder, orders, appliedCoupon]);
 
+  // --- Renderização da Lista ---
   const renderStepList = () => (
     <div className="animate-fade-in relative pb-24">
-        <div className="flex flex-col items-center mb-10 space-y-6">
-            <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-full max-w-md border border-zinc-800 shadow-xl overflow-x-auto">
-                <button onClick={() => setActiveTab('product')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'product' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>PRODUTOS</button>
-                <button onClick={() => setActiveTab('service')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'service' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>SERVIÇOS</button>
-                <button onClick={() => setActiveTab('art')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap flex items-center justify-center gap-1 ${activeTab === 'art' ? 'bg-purple-500 text-white shadow-sm' : 'text-zinc-500 hover:text-purple-400'}`}><Palette size={12} /> QUITANDA</button>
-            </div>
-            
-            <div className="w-full max-w-md relative">
-                <input type="text" placeholder={activeTab === 'art' ? "Buscar artes digitais..." : "Buscar na loja..."} className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-primary outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
-            </div>
-        </div>
+        {/* Header/Nav Diferenciado para Quitanda */}
+        {activeTab === 'art' ? (
+            <div className="flex flex-col items-center mb-10 space-y-6">
+                <div className="flex justify-between w-full items-center mb-4">
+                    <h2 className="text-3xl font-heading font-bold text-white flex items-center gap-2">
+                        <Palette className="text-purple-500" size={32} />
+                        Quitanda de Artes
+                    </h2>
+                    <button 
+                        onClick={() => setActiveTab('product')}
+                        className="text-[10px] text-zinc-400 hover:text-white uppercase tracking-widest flex items-center gap-1 transition group"
+                    >
+                        Ir para Loja Geral <ArrowUpRight size={12} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                    </button>
+                </div>
 
-        {activeTab === 'art' && filteredItems.length > 0 && (
-            <div className="max-w-5xl mx-auto mb-6 p-4 bg-purple-900/20 border border-purple-500/30 rounded-xl flex items-center gap-3">
-                <CloudDownload className="text-purple-400" />
-                <p className="text-xs text-purple-200">As artes digitais da <strong>Quitanda</strong> são arquivos prontos para baixar. O link de download será liberado imediatamente após a confirmação do pagamento.</p>
+                {/* Subcategorias Menu (Pill List Scrollable) */}
+                <div className="w-full overflow-x-auto pb-2">
+                    <div className="flex gap-2 min-w-max px-1">
+                        {artCategories.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => setActiveArtCategory(cat)}
+                                className={`px-4 py-2 rounded-full text-xs font-bold transition whitespace-nowrap border ${
+                                    activeArtCategory === cat 
+                                    ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/50' 
+                                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600'
+                                }`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Filtros de Cor e Busca */}
+                <div className="w-full grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-4">
+                    <div className="relative">
+                        <input type="text" placeholder="Buscar artes digitais..." className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-purple-500 outline-none transition" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
+                    </div>
+                    
+                    {/* Color Filter */}
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 flex items-center gap-2 overflow-x-auto">
+                        <div className="text-[10px] text-zinc-500 font-bold uppercase px-2">Cores</div>
+                        <button 
+                            onClick={() => setSelectedColor(null)}
+                            className={`w-6 h-6 rounded-full border border-zinc-700 flex items-center justify-center ${!selectedColor ? 'ring-2 ring-white' : ''}`}
+                            title="Todas"
+                        >
+                            <span className="block w-full h-[1px] bg-red-500 rotate-45"></span>
+                        </button>
+                        {artColors.map(color => (
+                            <button
+                                key={color}
+                                onClick={() => setSelectedColor(selectedColor === color ? null : color)}
+                                className={`w-6 h-6 rounded-full border border-white/10 transition-transform hover:scale-110 ${selectedColor === color ? 'ring-2 ring-white scale-110' : ''}`}
+                                style={{ backgroundColor: color }}
+                                title={color}
+                            />
+                        ))}
+                    </div>
+                </div>
+                
+                <div className="w-full p-4 bg-purple-900/20 border border-purple-500/30 rounded-xl flex items-center gap-3">
+                    <CloudDownload className="text-purple-400 shrink-0" />
+                    <p className="text-xs text-purple-200">As artes digitais da <strong>Quitanda</strong> são arquivos prontos para baixar. O link de download será liberado imediatamente após a confirmação do pagamento.</p>
+                </div>
+            </div>
+        ) : (
+            // Header Padrão (Loja Geral)
+            <div className="flex flex-col items-center mb-10 space-y-6">
+                <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-full max-w-md border border-zinc-800 shadow-xl overflow-x-auto">
+                    <button onClick={() => setActiveTab('product')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'product' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>PRODUTOS</button>
+                    <button onClick={() => setActiveTab('service')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'service' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>SERVIÇOS</button>
+                    <button onClick={() => setActiveTab('art')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap flex items-center justify-center gap-1 ${activeTab === 'art' ? 'bg-purple-500 text-white shadow-sm' : 'text-zinc-500 hover:text-purple-400'}`}><Palette size={12} /> QUITANDA</button>
+                </div>
+                
+                <div className="w-full max-w-md relative">
+                    <input type="text" placeholder="Buscar na loja..." className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-primary outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
+                </div>
             </div>
         )}
 
+        {/* Grid de Produtos */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredItems.map((item) => (
                 <div key={item.id} onClick={() => openProduct(item)} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-primary/50 transition cursor-pointer group h-full flex flex-col">
@@ -297,9 +387,15 @@ export default function Shop() {
                     <div className="p-5 flex-1 flex flex-col">
                         <h3 className="font-bold text-white text-lg leading-tight">{item.name}</h3>
                         <p className="text-zinc-500 text-xs mt-2 line-clamp-2 flex-1">{item.description || 'Clique para ver detalhes'}</p>
+                        
                         {item.type === 'art' && (
-                            <div className="mt-3 flex items-center gap-1 text-[10px] text-purple-400 font-bold uppercase tracking-wider">
-                                <CloudDownload size={12} /> Download Digital
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                <div className="flex items-center gap-1 text-[10px] text-purple-400 font-bold uppercase tracking-wider">
+                                    <CloudDownload size={12} /> Digital
+                                </div>
+                                {item.subcategory && (
+                                    <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">{item.subcategory}</span>
+                                )}
                             </div>
                         )}
                     </div>
@@ -310,6 +406,7 @@ export default function Shop() {
         {filteredItems.length === 0 && (
             <div className="text-center py-20 opacity-50">
                 <p>Nenhum item encontrado.</p>
+                {activeTab === 'art' && <p className="text-xs mt-2">Tente outra categoria ou cor.</p>}
             </div>
         )}
 
@@ -324,6 +421,9 @@ export default function Shop() {
     </div>
   );
 
+  // ... (Resto do código: renderStepDetail, renderStepQuestionnaire, etc. mantidos iguais) ...
+  // Apenas replicando para manter integridade do arquivo XML
+  
   const renderStepDetail = () => (
     <div className="animate-fade-in max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
         <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 aspect-square flex items-center justify-center relative">
@@ -341,6 +441,9 @@ export default function Shop() {
                 </span>
                 <h2 className="text-4xl font-bold text-white mt-4">{viewingProduct?.name}</h2>
                 <p className="text-3xl font-black text-emerald-400 mt-2">R$ {viewingProduct?.price.toFixed(2)}</p>
+                {viewingProduct?.type === 'art' && viewingProduct?.subcategory && (
+                    <p className="text-zinc-500 text-sm mt-1">Categoria: {viewingProduct.subcategory}</p>
+                )}
             </div>
             
             <div className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800">
@@ -391,7 +494,6 @@ export default function Shop() {
                 ))}
             </div>
             
-            {/* Lista de Produção apenas se houver itens físicos (produtos) */}
             {hasPhysicalItems && (
                 <>
                     <div className="flex items-center justify-between p-6 bg-zinc-950 rounded-2xl border border-zinc-800 transition">

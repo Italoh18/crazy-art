@@ -53,7 +53,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         price: Number(row.price),
         costPrice: Number(row.cost_price || row.cost || 0),
         imageUrl: row.image_url || row.imageUrl || null,
-        downloadLink: row.download_link || null, // Mapeamento do novo campo
+        downloadLink: row.download_link || null, 
+        subcategory: row.subcategory || null, // Mapeamento novo
+        primaryColor: row.primary_color || null, // Mapeamento novo
         description: row.description || null,
         active: row.active === 1,
         created_at: row.created_at
@@ -82,6 +84,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const val_cost_base = toNum(body.costPrice || body.cost_price || body.cost);
       const val_image = toText(body.imageUrl || body.image_url);
       const val_download = toText(body.downloadLink || body.download_link);
+      const val_sub = toText(body.subcategory);
+      const val_color = toText(body.primaryColor);
       const val_desc = toText(body.description);
       const val_active = 1;
 
@@ -89,8 +93,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         return new Response(JSON.stringify({ error: 'O nome é obrigatório' }), { status: 400 });
       }
 
-      // Query atualizada com download_link
-      const query = `INSERT INTO catalog (type, name, price, cost, cost_price, image_url, download_link, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      // Query atualizada com novos campos
+      const query = `INSERT INTO catalog (type, name, price, cost, cost_price, image_url, download_link, subcategory, primary_color, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
       const bindValues = [
         val_type,
@@ -100,6 +104,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         val_cost_base,
         val_image,
         val_download,
+        val_sub,
+        val_color,
         val_desc,
         val_active
       ];
@@ -125,10 +131,12 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const val_cost_base = toNum(body.costPrice || body.cost_price || body.cost);
       const val_image = toText(body.imageUrl || body.image_url);
       const val_download = toText(body.downloadLink || body.download_link);
+      const val_sub = toText(body.subcategory);
+      const val_color = toText(body.primaryColor);
       const val_desc = toText(body.description);
       
-      let query = 'UPDATE catalog SET name=?, price=?, cost=?, cost_price=?, image_url=?, download_link=?, description=?';
-      const args = [val_name, val_price, val_cost_base, val_cost_base, val_image, val_download, val_desc];
+      let query = 'UPDATE catalog SET name=?, price=?, cost=?, cost_price=?, image_url=?, download_link=?, subcategory=?, primary_color=?, description=?';
+      const args = [val_name, val_price, val_cost_base, val_cost_base, val_image, val_download, val_sub, val_color, val_desc];
 
       if (body.active !== undefined) {
         query += ', active=?';

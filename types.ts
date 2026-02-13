@@ -26,6 +26,8 @@ export interface Product {
   type: ItemType;
   imageUrl?: string;
   downloadLink?: string; // Novo: Link para download (apenas para 'art')
+  subcategory?: string; // Novo: Subcategoria (Carnaval, Futebol, etc)
+  primaryColor?: string; // Novo: Cor principal (#FF0000)
 }
 
 export interface OrderItem {

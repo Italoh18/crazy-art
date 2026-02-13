@@ -1,8 +1,10 @@
 
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, Search, CheckCircle, AlertOctagon, AlertTriangle, Loader2, Edit, X, Palette, CloudDownload } from 'lucide-react';
+import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, Search, CheckCircle, AlertOctagon, AlertTriangle, Loader2, Edit, X, Palette, CloudDownload, Hash } from 'lucide-react';
 import { ItemType, Product } from '../types';
+
+const DEFAULT_SUBCATEGORIES = ['Carnaval', 'Futebol', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais', 'Logos'];
 
 export default function Products() {
   const { products, addProduct, updateProduct, deleteProduct } = useData();
@@ -25,7 +27,9 @@ export default function Products() {
     costPrice: '',
     description: '', 
     imageUrl: '',
-    downloadLink: '' 
+    downloadLink: '',
+    subcategory: '',
+    primaryColor: '#000000'
   });
 
   // Filter list based on active tab and search term
@@ -39,7 +43,7 @@ export default function Products() {
   const openNewModal = () => {
       setIsEditMode(false);
       setEditId(null);
-      setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '', downloadLink: '' });
+      setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '', downloadLink: '', subcategory: '', primaryColor: '#000000' });
       setIsModalOpen(true);
   };
 
@@ -52,7 +56,9 @@ export default function Products() {
           costPrice: item.costPrice ? item.costPrice.toString() : '',
           description: item.description || '',
           imageUrl: item.imageUrl || '',
-          downloadLink: item.downloadLink || ''
+          downloadLink: item.downloadLink || '',
+          subcategory: item.subcategory || '',
+          primaryColor: item.primaryColor || '#000000'
       });
       setIsModalOpen(true);
   };
@@ -68,7 +74,9 @@ export default function Products() {
         description: formData.description,
         type: activeTab,
         imageUrl: formData.imageUrl,
-        downloadLink: activeTab === 'art' ? formData.downloadLink : null
+        downloadLink: activeTab === 'art' ? formData.downloadLink : null,
+        subcategory: activeTab === 'art' ? formData.subcategory : null,
+        primaryColor: activeTab === 'art' ? formData.primaryColor : null
     };
 
     try {
@@ -80,7 +88,7 @@ export default function Products() {
           setNotification({ message: 'Item adicionado com sucesso!', type: 'success' });
       }
       
-      setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '', downloadLink: '' });
+      setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '', downloadLink: '', subcategory: '', primaryColor: '#000000' });
       setIsModalOpen(false);
       setTimeout(() => setNotification(null), 3000);
     } catch (err: any) {
@@ -193,7 +201,13 @@ export default function Products() {
                 <th className="px-6 py-5 w-24">Imagem</th>
                 <th className="px-6 py-5">Nome</th>
                 <th className="px-6 py-5">Descrição</th>
-                {activeTab === 'art' && <th className="px-6 py-5">Download</th>}
+                {activeTab === 'art' && (
+                    <>
+                        <th className="px-6 py-5">Categoria</th>
+                        <th className="px-6 py-5">Cor</th>
+                        <th className="px-6 py-5">Download</th>
+                    </>
+                )}
                 <th className="px-6 py-5">Custo</th>
                 <th className="px-6 py-5">Venda</th>
                 <th className="px-6 py-5 text-right">Ações</th>
@@ -202,7 +216,7 @@ export default function Products() {
             <tbody className="divide-y divide-zinc-800/50">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={activeTab === 'art' ? 7 : 6} className="px-6 py-16 text-center text-zinc-600">
+                  <td colSpan={activeTab === 'art' ? 9 : 6} className="px-6 py-16 text-center text-zinc-600">
                     <div className="flex flex-col items-center justify-center gap-4">
                       <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center">
                           {activeTab === 'product' ? <Package size={40} className="opacity-20" /> : activeTab === 'service' ? <Wrench size={40} className="opacity-20" /> : <Palette size={40} className="opacity-20" />}
@@ -234,13 +248,21 @@ export default function Products() {
                     <td className="px-6 py-4 font-bold text-white group-hover:text-primary transition-colors">{item.name}</td>
                     <td className="px-6 py-4 max-w-xs truncate opacity-70">{item.description || '-'}</td>
                     {activeTab === 'art' && (
-                        <td className="px-6 py-4">
-                            {item.downloadLink ? (
-                                <a href={item.downloadLink} target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:text-emerald-400 flex items-center gap-1 text-xs font-bold" title={item.downloadLink}>
-                                    <CloudDownload size={14} /> Link
-                                </a>
-                            ) : <span className="text-zinc-600 text-xs">Sem link</span>}
-                        </td>
+                        <>
+                            <td className="px-6 py-4 text-xs">{item.subcategory || '-'}</td>
+                            <td className="px-6 py-4">
+                                {item.primaryColor ? (
+                                    <div className="w-4 h-4 rounded-full border border-white/20" style={{ backgroundColor: item.primaryColor }} title={item.primaryColor}></div>
+                                ) : '-'}
+                            </td>
+                            <td className="px-6 py-4">
+                                {item.downloadLink ? (
+                                    <a href={item.downloadLink} target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:text-emerald-400 flex items-center gap-1 text-xs font-bold" title={item.downloadLink}>
+                                        <CloudDownload size={14} /> Link
+                                    </a>
+                                ) : <span className="text-zinc-600 text-xs">Sem link</span>}
+                            </td>
+                        </>
                     )}
                     <td className="px-6 py-4 text-zinc-500 font-mono text-xs">
                         {item.costPrice ? `R$ ${Number(item.costPrice).toFixed(2)}` : '-'}
@@ -338,19 +360,52 @@ export default function Products() {
                   </div>
 
                   {activeTab === 'art' && (
-                      <div className="animate-fade-in">
-                        <label className="block text-xs font-bold text-emerald-500 uppercase mb-1.5 ml-1">Link para Download (Arquivo)</label>
-                        <div className="relative">
-                            <input
-                            type="text"
-                            placeholder="Link do Drive/Dropbox..."
-                            className="w-full bg-black/40 border border-emerald-500/50 rounded-xl pl-10 pr-4 py-3 text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition"
-                            value={formData.downloadLink}
-                            onChange={e => setFormData({ ...formData, downloadLink: e.target.value })}
-                            />
-                            <CloudDownload className="absolute left-3 top-3.5 text-emerald-500" size={16} />
+                      <div className="animate-fade-in space-y-4 p-4 bg-purple-900/10 rounded-xl border border-purple-500/20">
+                        <h4 className="text-xs font-bold text-purple-400 uppercase tracking-widest">Detalhes da Arte</h4>
+                        
+                        <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1.5 ml-1">Subcategoria (Pasta)</label>
+                            <div className="relative">
+                                <input
+                                list="categories"
+                                type="text"
+                                placeholder="Selecione ou digite..."
+                                className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-3 pr-4 py-3 text-white focus:border-purple-500 outline-none transition text-sm"
+                                value={formData.subcategory}
+                                onChange={e => setFormData({ ...formData, subcategory: e.target.value })}
+                                />
+                                <datalist id="categories">
+                                    {DEFAULT_SUBCATEGORIES.map(cat => <option key={cat} value={cat} />)}
+                                </datalist>
+                            </div>
                         </div>
-                        <p className="text-[10px] text-zinc-500 mt-1 ml-1">Este link aparecerá para o cliente após o pagamento.</p>
+
+                        <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1.5 ml-1">Cor Principal</label>
+                            <div className="flex items-center gap-3 bg-black/40 border border-zinc-700 rounded-xl p-2">
+                                <input 
+                                    type="color" 
+                                    className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0"
+                                    value={formData.primaryColor}
+                                    onChange={e => setFormData({ ...formData, primaryColor: e.target.value })}
+                                />
+                                <span className="text-xs font-mono text-zinc-300">{formData.primaryColor}</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1.5 ml-1">Link para Download</label>
+                            <div className="relative">
+                                <input
+                                type="text"
+                                placeholder="Link do Drive/Dropbox..."
+                                className="w-full bg-black/40 border border-emerald-500/50 rounded-xl pl-10 pr-4 py-3 text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition"
+                                value={formData.downloadLink}
+                                onChange={e => setFormData({ ...formData, downloadLink: e.target.value })}
+                                />
+                                <CloudDownload className="absolute left-3 top-3.5 text-emerald-500" size={16} />
+                            </div>
+                        </div>
                       </div>
                   )}
 
