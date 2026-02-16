@@ -1,17 +1,18 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { SeasonalEffects } from './SeasonalEffects';
 import { StickManCleaner } from './StickManCleaner';
 import { CosmicPulseSystem } from './CosmicPulseSystem';
 import { FluidTrail } from './FluidTrail';
 import { NotificationCenter } from './NotificationCenter';
+import { VirtualAssistant } from './VirtualAssistant'; // Importando Assistente
 
 export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
-  const [isClientMenuOpen, setIsClientMenuOpen] = React.useState(false); // Novo state para menu cliente
+  const [isClientMenuOpen, setIsClientMenuOpen] = React.useState(false); 
   const location = useLocation();
   const navigate = useNavigate();
   const { role, logout, currentCustomer } = useAuth();
@@ -26,19 +27,12 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   // Fundo Impactante "Flare" SEM PARALLAX
   const BackgroundEffects = () => (
     <div className="fixed inset-0 z-[-1] overflow-hidden pointer-events-none bg-background">
-      {/* Grid Pattern Sutil */}
       <div className="absolute inset-0 bg-grid-pattern opacity-40"></div>
-      
-      {/* CENTRAL FLARE: O gradiente cônico gigante que gira */}
       <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] animate-spin-slow opacity-20">
         <div className="w-full h-full bg-flare-gradient blur-[100px] mix-blend-screen"></div>
       </div>
-      
-      {/* Spotlights adicionais para profundidade */}
       <div className="absolute top-[10%] right-[10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px] mix-blend-screen animate-pulse-slow"></div>
       <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-secondary/10 rounded-full blur-[140px] mix-blend-screen animate-float"></div>
-      
-      {/* Vignette para focar no centro */}
       <div className="absolute inset-0 bg-radial-gradient from-transparent via-background/60 to-background opacity-90"></div>
     </div>
   );
@@ -46,20 +40,17 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const Footer = () => (
     <footer className="glass-panel border-t-0 border-t-zinc-800/30 py-8 px-6 mt-auto w-full z-10 relative z-20 seasonal-target backdrop-blur-xl">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
-        {/* Esquerda */}
         <div className="flex flex-col text-center md:text-left">
           <h2 className="text-xl font-bold text-white mb-1 uppercase bg-clip-text text-transparent bg-crazy-gradient tracking-widest drop-shadow-sm" style={timesFont}>CRAZY ART</h2>
           <p className="text-zinc-500 text-xs tracking-wide">transformando ideias em realidade</p>
         </div>
-        
-        {/* Meio */}
         <div className="flex flex-col items-center">
           <div className="flex space-x-6">
             {[
               { icon: MessageCircle, href: "https://wa.me/5516994142665" },
               { icon: Instagram, href: "https://instagram.com" },
               { icon: Facebook, href: "https://facebook.com" },
-              { icon: Mail, href: "mailto:crazyartoficial@outlook.com" } // Email Atualizado
+              { icon: Mail, href: "mailto:crazyartoficial@outlook.com" } 
             ].map((item, idx) => (
               <a 
                 key={idx}
@@ -73,8 +64,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             ))}
           </div>
         </div>
-
-        {/* Direita */}
         <div className="flex flex-col items-center md:items-end opacity-60">
           <p className="text-zinc-500 text-[10px] font-bold tracking-[0.2em] uppercase" style={timesFont}>CRAZY ART ® 2026</p>
         </div>
@@ -86,14 +75,14 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     return (
       <div className="flex flex-col min-h-screen relative selection:bg-primary/30 selection:text-white overflow-x-hidden">
         <BackgroundEffects />
-        <FluidTrail /> {/* Feature: Rastro Fluido */}
+        <FluidTrail />
         <SeasonalEffects />
         <StickManCleaner />
         <CosmicPulseSystem />
-        {/* Page Transition Wrapper */}
         <main key={location.pathname} className="flex-1 animate-page-enter">
             {children}
         </main>
+        <VirtualAssistant /> {/* Adicionado Assistente */}
         <Footer />
       </div>
     );
@@ -110,7 +99,8 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     { name: 'Financeiro', path: '/dre', icon: FileText },
     { name: 'Empresas que Confiam', path: '/trusted-companies', icon: Building },
     { name: 'Templates E-mail', path: '/email-templates', icon: Mail }, 
-    { name: 'Identidade', path: '/identity', icon: Fingerprint }, // Nova Aba
+    { name: 'Identidade', path: '/identity', icon: Fingerprint },
+    { name: 'Feedbacks', path: '/feedbacks', icon: MessageSquare }, // Nova Aba
   ];
 
   const isActive = (path: string) => {
@@ -138,7 +128,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                      </div>
                 </div>
                 
-                {/* Desktop Menu */}
                 <div className="hidden md:flex items-center space-x-6">
                     <NotificationCenter />
                     <Link to="/my-area" className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition">
@@ -151,7 +140,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                     </button>
                 </div>
 
-                {/* Mobile Menu Toggle */}
                 <div className="flex items-center gap-4 md:hidden">
                     <NotificationCenter />
                     <button onClick={() => setIsClientMenuOpen(true)} className="text-zinc-300">
@@ -160,7 +148,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                 </div>
             </header>
 
-            {/* Mobile Menu Overlay */}
             {isClientMenuOpen && (
                 <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col justify-center items-center gap-8 animate-fade-in md:hidden">
                     <button onClick={() => setIsClientMenuOpen(false)} className="absolute top-6 right-6 text-zinc-500 hover:text-white p-2">
@@ -186,6 +173,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             <main key={location.pathname} className="flex-1 p-6 max-w-7xl mx-auto w-full animate-page-enter">
                 {children}
             </main>
+            <VirtualAssistant /> {/* Adicionado Assistente */}
             <Footer />
         </div>
     );
@@ -195,7 +183,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   return (
     <div className="flex h-screen overflow-hidden text-text relative selection:bg-primary/30 selection:text-white">
       <BackgroundEffects />
-      <FluidTrail /> {/* Feature: Rastro Fluido */}
+      <FluidTrail />
       <SeasonalEffects />
       <StickManCleaner />
       <CosmicPulseSystem />
@@ -242,7 +230,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                 <item.icon size={20} className={`relative z-10 transition-transform duration-300 ${active ? 'text-primary scale-110 drop-shadow-md' : 'group-hover:text-zinc-200'}`} />
                 <span className={`relative z-10 font-medium tracking-wide ${active ? 'font-semibold' : ''}`}>{item.name}</span>
                 
-                {/* Efeito de brilho ao passar o mouse */}
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               </Link>
             );

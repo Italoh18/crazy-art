@@ -25,7 +25,9 @@ import Coupons from './pages/Coupons';
 import Identity from './pages/Identity';
 import ArtDrive from './pages/ArtDrive';
 import PrintCheck from './pages/PrintCheck';
-import TraceMagic from './pages/TraceMagic'; // Nova Importação
+import TraceMagic from './pages/TraceMagic';
+import CdrConverter from './pages/CdrConverter';
+import Feedbacks from './pages/Feedbacks'; // Nova Importação
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
 
@@ -76,10 +78,9 @@ const AppRoutes = () => {
             <Route path="/remove-bg" element={<BackgroundRemover />} />
             <Route path="/pixel-art" element={<PixelArt />} />
             <Route path="/pdf-to-word" element={<PdfToWord />} />
-            {/* Rota ArtDrive removida conforme solicitação anterior, mas mantida importação caso reverta. Comentada para consistência. */}
-            {/* <Route path="/art-drive" element={<ArtDrive />} /> */}
             <Route path="/print-check" element={<PrintCheck />} />
-            <Route path="/trace-magic" element={<TraceMagic />} /> {/* Nova Rota */}
+            <Route path="/trace-magic" element={<TraceMagic />} />
+            <Route path="/cdr-converter" element={<CdrConverter />} />
             <Route path="/my-area" element={<ClientRoute />} />
             <Route path="/pending-confirmations" element={<ProtectedRoute requiredRole="admin"><PendingOrders /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><Orders /></ProtectedRoute>} />
@@ -92,6 +93,7 @@ const AppRoutes = () => {
             <Route path="/trusted-companies" element={<ProtectedRoute requiredRole="admin"><TrustedCompanies /></ProtectedRoute>} />
             <Route path="/email-templates" element={<ProtectedRoute requiredRole="admin"><EmailTemplates /></ProtectedRoute>} />
             <Route path="/identity" element={<ProtectedRoute requiredRole="admin"><Identity /></ProtectedRoute>} />
+            <Route path="/feedbacks" element={<ProtectedRoute requiredRole="admin"><Feedbacks /></ProtectedRoute>} /> {/* Nova Rota */}
         </Routes>
     );
 }
@@ -99,7 +101,6 @@ const AppRoutes = () => {
 const AppContent = ({ showIntro, setShowIntro }: { showIntro: boolean, setShowIntro: (v: boolean) => void }) => {
   const { isLoading, faviconUrl } = useData();
   
-  // Atualização dinâmica do Favicon
   useEffect(() => {
     if (faviconUrl) {
       const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement || document.createElement('link');

@@ -135,3 +135,21 @@ CREATE TABLE IF NOT EXISTS email_templates (
     logo_url TEXT,
     updated_at TEXT
 );
+
+-- 8. Tabela de Feedbacks (Assistente Virtual)
+CREATE TABLE IF NOT EXISTS feedbacks (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL, -- 'erro', 'sugestao', 'reclamacao', 'agradecimento'
+    content TEXT NOT NULL,
+    user_name TEXT,
+    created_at TEXT NOT NULL,
+    is_read INTEGER DEFAULT 0
+);
+
+-- 9. Tabela de Avaliações (Rating CSAT)
+CREATE TABLE IF NOT EXISTS ratings (
+    id TEXT PRIMARY KEY,
+    user_name TEXT,
+    rating INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+);
