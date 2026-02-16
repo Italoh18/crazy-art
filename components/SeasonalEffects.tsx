@@ -291,60 +291,7 @@ export const SeasonalEffects = () => {
         style={{ opacity: 0.8 }}
       />
 
-      {/* Controls UI */}
-      <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-end gap-2 font-sans no-effect">
-        
-        {showControls && (
-          <div className="bg-zinc-900/90 border border-zinc-700 p-2 rounded-xl shadow-2xl backdrop-blur-md flex flex-col gap-1 mb-2 animate-fade-in-up">
-            <span className="text-[10px] uppercase font-bold text-zinc-500 px-2 py-1">Estação</span>
-            
-            <button 
-              onClick={() => setSeason('summer')} 
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition no-effect ${season === 'summer' ? 'bg-amber-500/20 text-amber-500' : 'text-zinc-400 hover:bg-white/5'}`}
-            >
-              <Sun size={14} /> Verão (Suor)
-            </button>
-            
-            <button 
-              onClick={() => setSeason('winter')} 
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition no-effect ${season === 'winter' ? 'bg-blue-500/20 text-blue-400' : 'text-zinc-400 hover:bg-white/5'}`}
-            >
-              <CloudSnow size={14} /> Inverno (Neve)
-            </button>
-            
-            <button 
-              onClick={() => setSeason('spring')} 
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition no-effect ${season === 'spring' ? 'bg-pink-500/20 text-pink-400' : 'text-zinc-400 hover:bg-white/5'}`}
-            >
-              <CloudRain size={14} /> Primavera (Pétalas)
-            </button>
-
-            <button 
-              onClick={() => setSeason('autumn')} 
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition no-effect ${season === 'autumn' ? 'bg-orange-500/20 text-orange-400' : 'text-zinc-400 hover:bg-white/5'}`}
-            >
-              <Leaf size={14} /> Outono (Folhas)
-            </button>
-
-            <div className="h-px bg-zinc-800 my-1"></div>
-
-            <button 
-              onClick={() => setSeason('off')} 
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition no-effect ${season === 'off' ? 'bg-red-500/20 text-red-400' : 'text-zinc-400 hover:bg-white/5'}`}
-            >
-              <Square size={14} fill="currentColor" /> Parar Efeitos
-            </button>
-          </div>
-        )}
-
-        <button 
-          onClick={() => setShowControls(!showControls)}
-          className="bg-zinc-800 border border-zinc-700 text-zinc-300 p-3 rounded-full hover:bg-zinc-700 hover:text-white transition shadow-lg hover:scale-110 active:scale-95 no-effect"
-          title="Controle de Efeitos Sazonais"
-        >
-          {showControls ? <X size={20} /> : <Settings2 size={20} />}
-        </button>
-      </div>
+      {/* Botões de controle removidos conforme solicitado */}
     </>
   );
 };

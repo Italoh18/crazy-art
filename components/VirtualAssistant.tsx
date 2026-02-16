@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, User, ChevronRight, MessageSquare, AlertTriangle, Lightbulb, ThumbsUp, Heart, ShoppingBag, CreditCard, Headset, Star, Check } from 'lucide-react';
+import { MessageCircle, X, Send, ChevronRight, MessageSquare, AlertTriangle, Lightbulb, ThumbsUp, Heart, ShoppingBag, CreditCard, Headset, Star, Check } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -187,20 +187,24 @@ export const VirtualAssistant = () => {
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button - Posicionado RIGOROSAMENTE no canto INFERIOR DIREITO */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-110 active:scale-95 group ${isOpen ? 'bg-zinc-800 rotate-90' : 'bg-crazy-gradient animate-pulse-slow'}`}
+        className={`fixed bottom-6 right-6 left-auto z-[9999] w-14 h-14 flex items-center justify-center rounded-full shadow-2xl transition-all duration-300 hover:scale-110 active:scale-95 group ${isOpen ? 'bg-zinc-800 rotate-90' : 'bg-crazy-gradient animate-pulse-slow'}`}
+        style={{ position: 'fixed', bottom: '24px', right: '24px' }} // Inline style force
       >
-        {isOpen ? <X className="text-white" size={28} /> : <MessageCircle className="text-white" size={28} />}
+        {isOpen ? <X className="text-white" size={24} /> : <MessageCircle className="text-white" size={28} />}
         {!isOpen && (
-            <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full border-2 border-black animate-bounce"></span>
+            <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-black animate-bounce"></span>
         )}
       </button>
 
-      {/* Chat Window */}
+      {/* Chat Window - Posicionada acima do botão */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 w-[90vw] md:w-96 h-[500px] bg-[#121215] border border-zinc-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-50 animate-scale-in origin-bottom-right">
+        <div 
+            className="fixed bottom-24 right-6 w-[90vw] md:w-96 h-[500px] bg-[#121215] border border-zinc-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-[9999] animate-scale-in origin-bottom-right"
+            style={{ position: 'fixed', bottom: '96px', right: '24px' }}
+        >
             {/* Header */}
             <div className="bg-zinc-900 p-4 border-b border-zinc-800 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-crazy-gradient flex items-center justify-center shadow-lg">

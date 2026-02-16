@@ -82,7 +82,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
         <main key={location.pathname} className="flex-1 animate-page-enter">
             {children}
         </main>
-        <VirtualAssistant /> {/* Adicionado Assistente */}
+        <VirtualAssistant />
         <Footer />
       </div>
     );
@@ -173,7 +173,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             <main key={location.pathname} className="flex-1 p-6 max-w-7xl mx-auto w-full animate-page-enter">
                 {children}
             </main>
-            <VirtualAssistant /> {/* Adicionado Assistente */}
+            <VirtualAssistant />
             <Footer />
         </div>
     );
@@ -187,6 +187,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
       <SeasonalEffects />
       <StickManCleaner />
       <CosmicPulseSystem />
+      <VirtualAssistant /> {/* ADICIONADO AQUI NO LAYOUT ADMIN */}
       
       {isSidebarOpen && (
         <div 
