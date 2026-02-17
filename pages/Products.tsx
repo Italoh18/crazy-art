@@ -4,7 +4,7 @@ import { useData } from '../contexts/DataContext';
 import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, Search, CheckCircle, AlertOctagon, AlertTriangle, Loader2, Edit, X, Palette, CloudDownload, Hash, TrendingDown, Layers } from 'lucide-react';
 import { ItemType, Product, PriceVariation } from '../types';
 
-const DEFAULT_SUBCATEGORIES = ['Carnaval', 'Futebol', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais', 'Logos', 'Bordados'];
+const DEFAULT_SUBCATEGORIES = ['Carnaval', 'Colegio', 'Futebol', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais', 'Logos', 'Bordados'];
 
 // Mesmas cores do Shop para manter consistência
 const ART_COLORS = [
