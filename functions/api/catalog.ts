@@ -54,9 +54,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         costPrice: Number(row.cost_price || row.cost || 0),
         imageUrl: row.image_url || row.imageUrl || null,
         downloadLink: row.download_link || null, 
-        subcategory: row.subcategory || null, // Mapeamento novo
-        primaryColor: row.primary_color || null, // Mapeamento novo
+        subcategory: row.subcategory || null,
+        primaryColor: row.primary_color || null,
         description: row.description || null,
+        priceVariations: row.price_variations ? JSON.parse(row.price_variations) : [],
         active: row.active === 1,
         created_at: row.created_at
       }));
@@ -87,6 +88,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const val_sub = toText(body.subcategory);
       const val_color = toText(body.primaryColor);
       const val_desc = toText(body.description);
+      const val_variations = body.priceVariations ? JSON.stringify(body.priceVariations) : null;
       const val_active = 1;
 
       if (!val_name) {
@@ -94,7 +96,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       }
 
       // Query atualizada com novos campos
-      const query = `INSERT INTO catalog (type, name, price, cost, cost_price, image_url, download_link, subcategory, primary_color, description, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const query = `INSERT INTO catalog (type, name, price, cost, cost_price, image_url, download_link, subcategory, primary_color, description, price_variations, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
       const bindValues = [
         val_type,
@@ -107,6 +109,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         val_sub,
         val_color,
         val_desc,
+        val_variations,
         val_active
       ];
 
@@ -134,9 +137,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const val_sub = toText(body.subcategory);
       const val_color = toText(body.primaryColor);
       const val_desc = toText(body.description);
+      const val_variations = body.priceVariations ? JSON.stringify(body.priceVariations) : null;
       
-      let query = 'UPDATE catalog SET name=?, price=?, cost=?, cost_price=?, image_url=?, download_link=?, subcategory=?, primary_color=?, description=?';
-      const args = [val_name, val_price, val_cost_base, val_cost_base, val_image, val_download, val_sub, val_color, val_desc];
+      let query = 'UPDATE catalog SET name=?, price=?, cost=?, cost_price=?, image_url=?, download_link=?, subcategory=?, primary_color=?, description=?, price_variations=?';
+      const args = [val_name, val_price, val_cost_base, val_cost_base, val_image, val_download, val_sub, val_color, val_desc, val_variations];
 
       if (body.active !== undefined) {
         query += ', active=?';

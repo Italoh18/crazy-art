@@ -17,6 +17,11 @@ export interface Customer {
 
 export type ItemType = 'product' | 'service' | 'art';
 
+export interface PriceVariation {
+  minQuantity: number;
+  price: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -28,6 +33,7 @@ export interface Product {
   downloadLink?: string; // Novo: Link para download (apenas para 'art')
   subcategory?: string; // Novo: Subcategoria (Carnaval, Futebol, etc)
   primaryColor?: string; // Novo: Cor principal (#FF0000)
+  priceVariations?: PriceVariation[]; // Novo: Preços por quantidade
 }
 
 export interface OrderItem {

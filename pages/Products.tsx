@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, Search, CheckCircle, AlertOctagon, AlertTriangle, Loader2, Edit, X, Palette, CloudDownload, Hash } from 'lucide-react';
-import { ItemType, Product } from '../types';
+import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, Search, CheckCircle, AlertOctagon, AlertTriangle, Loader2, Edit, X, Palette, CloudDownload, Hash, TrendingDown, Layers } from 'lucide-react';
+import { ItemType, Product, PriceVariation } from '../types';
 
 const DEFAULT_SUBCATEGORIES = ['Carnaval', 'Futebol', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais', 'Logos', 'Bordados'];
 
@@ -46,6 +46,9 @@ export default function Products() {
     primaryColor: '#000000'
   });
 
+  // State para variações de preço (Apenas Produtos)
+  const [variations, setVariations] = useState<PriceVariation[]>([]);
+
   // Filter list based on active tab and search term
   const filteredItems = products.filter(p => {
     const itemType = p.type || 'product';
@@ -58,6 +61,7 @@ export default function Products() {
       setIsEditMode(false);
       setEditId(null);
       setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '', downloadLink: '', subcategory: '', primaryColor: '#000000' });
+      setVariations([]);
       setIsModalOpen(true);
   };
 
@@ -74,7 +78,25 @@ export default function Products() {
           subcategory: item.subcategory || '',
           primaryColor: item.primaryColor || '#000000'
       });
+      setVariations(item.priceVariations || []);
       setIsModalOpen(true);
+  };
+
+  const handleAddVariation = () => {
+      setVariations([...variations, { minQuantity: 10, price: 0 }]);
+  };
+
+  const handleRemoveVariation = (index: number) => {
+      setVariations(variations.filter((_, i) => i !== index));
+  };
+
+  const updateVariation = (index: number, field: keyof PriceVariation, value: string) => {
+      const newVars = [...variations];
+      const val = parseFloat(value.replace(',', '.'));
+      if (!isNaN(val)) {
+          newVars[index][field] = val;
+          setVariations(newVars);
+      }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -90,7 +112,8 @@ export default function Products() {
         imageUrl: formData.imageUrl,
         downloadLink: activeTab === 'art' ? formData.downloadLink : null,
         subcategory: activeTab === 'art' ? formData.subcategory : null,
-        primaryColor: activeTab === 'art' ? formData.primaryColor : null
+        primaryColor: activeTab === 'art' ? formData.primaryColor : null,
+        priceVariations: activeTab === 'product' ? variations : []
     };
 
     try {
@@ -102,7 +125,6 @@ export default function Products() {
           setNotification({ message: 'Item adicionado com sucesso!', type: 'success' });
       }
       
-      setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '', downloadLink: '', subcategory: '', primaryColor: '#000000' });
       setIsModalOpen(false);
       setTimeout(() => setNotification(null), 3000);
     } catch (err: any) {
@@ -222,6 +244,7 @@ export default function Products() {
                         <th className="px-6 py-5">Download</th>
                     </>
                 )}
+                {activeTab === 'product' && <th className="px-6 py-5">Atacado?</th>}
                 <th className="px-6 py-5">Custo</th>
                 <th className="px-6 py-5">Venda</th>
                 <th className="px-6 py-5 text-right">Ações</th>
@@ -230,7 +253,7 @@ export default function Products() {
             <tbody className="divide-y divide-zinc-800/50">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={activeTab === 'art' ? 9 : 6} className="px-6 py-16 text-center text-zinc-600">
+                  <td colSpan={activeTab === 'art' ? 9 : activeTab === 'product' ? 7 : 6} className="px-6 py-16 text-center text-zinc-600">
                     <div className="flex flex-col items-center justify-center gap-4">
                       <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center">
                           {activeTab === 'product' ? <Package size={40} className="opacity-20" /> : activeTab === 'service' ? <Wrench size={40} className="opacity-20" /> : <Palette size={40} className="opacity-20" />}
@@ -277,6 +300,15 @@ export default function Products() {
                                 ) : <span className="text-zinc-600 text-xs">Sem link</span>}
                             </td>
                         </>
+                    )}
+                    {activeTab === 'product' && (
+                        <td className="px-6 py-4">
+                            {item.priceVariations && item.priceVariations.length > 0 ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500/10 text-blue-400 text-[10px] font-bold uppercase rounded border border-blue-500/20">
+                                    Sim ({item.priceVariations.length})
+                                </span>
+                            ) : <span className="text-zinc-600 text-[10px]">-</span>}
+                        </td>
                     )}
                     <td className="px-6 py-4 text-zinc-500 font-mono text-xs">
                         {item.costPrice ? `R$ ${Number(item.costPrice).toFixed(2)}` : '-'}
@@ -337,7 +369,7 @@ export default function Products() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Preço Venda (R$)</label>
+                        <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Preço Base (1 un)</label>
                         <input
                         type="text"
                         required
@@ -358,6 +390,57 @@ export default function Products() {
                         />
                     </div>
                   </div>
+
+                  {/* SEÇÃO DE VARIAÇÃO DE PREÇO (ATACADO) - APENAS PRODUTOS */}
+                  {activeTab === 'product' && (
+                      <div className="bg-zinc-900/50 p-4 rounded-xl border border-dashed border-zinc-700">
+                          <div className="flex justify-between items-center mb-3">
+                              <h4 className="text-xs font-bold text-blue-400 uppercase flex items-center gap-1"><TrendingDown size={14} /> Preços de Atacado</h4>
+                              <button type="button" onClick={handleAddVariation} className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-1 rounded hover:bg-blue-500 hover:text-white transition flex items-center gap-1">
+                                  <Plus size={12} /> Adicionar Faixa
+                              </button>
+                          </div>
+                          
+                          {variations.length === 0 ? (
+                              <p className="text-[10px] text-zinc-500 italic text-center">Nenhuma variação. O preço base será usado sempre.</p>
+                          ) : (
+                              <div className="space-y-2">
+                                  <div className="grid grid-cols-5 gap-2 text-[9px] font-bold text-zinc-600 uppercase text-center">
+                                      <div className="col-span-2">A partir de (Qtd)</div>
+                                      <div className="col-span-2">Novo Preço (R$)</div>
+                                      <div className="col-span-1"></div>
+                                  </div>
+                                  {variations.map((v, index) => (
+                                      <div key={index} className="grid grid-cols-5 gap-2 items-center">
+                                          <div className="col-span-2">
+                                              <input 
+                                                  type="number" 
+                                                  min="2"
+                                                  value={v.minQuantity} 
+                                                  onChange={(e) => updateVariation(index, 'minQuantity', e.target.value)}
+                                                  className="w-full bg-black/40 border border-zinc-700 rounded-lg px-2 py-1.5 text-center text-white text-xs"
+                                              />
+                                          </div>
+                                          <div className="col-span-2">
+                                              <input 
+                                                  type="number" 
+                                                  step="0.01"
+                                                  value={v.price} 
+                                                  onChange={(e) => updateVariation(index, 'price', e.target.value)}
+                                                  className="w-full bg-black/40 border border-zinc-700 rounded-lg px-2 py-1.5 text-center text-emerald-400 font-bold text-xs"
+                                              />
+                                          </div>
+                                          <div className="col-span-1 flex justify-center">
+                                              <button type="button" onClick={() => handleRemoveVariation(index)} className="text-zinc-600 hover:text-red-500 p-1">
+                                                  <Trash2 size={14} />
+                                              </button>
+                                          </div>
+                                      </div>
+                                  ))}
+                              </div>
+                          )}
+                      </div>
+                  )}
                   
                   <div>
                     <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">URL da Imagem</label>
