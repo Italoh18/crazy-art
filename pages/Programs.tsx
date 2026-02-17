@@ -1,10 +1,40 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Layers, Scissors, Grid, Type, Sparkles, Zap, Box, FileText, Printer, Cloud, PenTool } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Layers, Scissors, Grid, Type, Sparkles, Zap, Box, FileText, Printer, Cloud, PenTool, Calculator, Maximize, Eye } from 'lucide-react';
 
 export default function Programs() {
   const tools = [
+    {
+      id: 'smart-enlargement',
+      name: 'Simulador',
+      sub: 'de Ampliação',
+      description: 'Simule impressões em grande formato. Análise de DPI e distância.',
+      icon: Maximize,
+      path: '/smart-enlargement',
+      external: false,
+      comingSoon: false,
+      gridClass: 'md:col-span-1 md:row-span-1',
+      gradient: 'from-blue-900/40 via-cyan-900/20 to-black',
+      flareColor: 'bg-cyan-500',
+      iconColor: 'text-cyan-300',
+      bgImage: 'radial-gradient(circle at 90% 10%, rgba(6, 182, 212, 0.15) 0%, transparent 60%)'
+    },
+    {
+      id: 'pricing-calculator',
+      name: 'Calculadora',
+      sub: 'Home Office',
+      description: 'Defina preços justos. Modos Simplificado e Julius (Custos Reais).',
+      icon: Calculator,
+      path: '/pricing-calculator',
+      external: false,
+      comingSoon: false,
+      gridClass: 'md:col-span-1 md:row-span-1',
+      gradient: 'from-emerald-900/40 via-green-900/20 to-black',
+      flareColor: 'bg-emerald-500',
+      iconColor: 'text-emerald-300',
+      bgImage: 'radial-gradient(circle at 10% 90%, rgba(16, 185, 129, 0.15) 0%, transparent 60%)'
+    },
     {
       id: 'font-finder',
       name: 'Font Finder',

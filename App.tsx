@@ -27,7 +27,9 @@ import ArtDrive from './pages/ArtDrive';
 import PrintCheck from './pages/PrintCheck';
 import TraceMagic from './pages/TraceMagic';
 import CdrConverter from './pages/CdrConverter';
-import Feedbacks from './pages/Feedbacks'; // Nova Importação
+import Feedbacks from './pages/Feedbacks';
+import PricingCalculator from './pages/PricingCalculator';
+import SmartEnlargement from './pages/SmartEnlargement'; // Nova Importação
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
 
@@ -81,6 +83,8 @@ const AppRoutes = () => {
             <Route path="/print-check" element={<PrintCheck />} />
             <Route path="/trace-magic" element={<TraceMagic />} />
             <Route path="/cdr-converter" element={<CdrConverter />} />
+            <Route path="/pricing-calculator" element={<PricingCalculator />} />
+            <Route path="/smart-enlargement" element={<SmartEnlargement />} /> {/* Nova Rota */}
             <Route path="/my-area" element={<ClientRoute />} />
             <Route path="/pending-confirmations" element={<ProtectedRoute requiredRole="admin"><PendingOrders /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><Orders /></ProtectedRoute>} />
@@ -93,7 +97,7 @@ const AppRoutes = () => {
             <Route path="/trusted-companies" element={<ProtectedRoute requiredRole="admin"><TrustedCompanies /></ProtectedRoute>} />
             <Route path="/email-templates" element={<ProtectedRoute requiredRole="admin"><EmailTemplates /></ProtectedRoute>} />
             <Route path="/identity" element={<ProtectedRoute requiredRole="admin"><Identity /></ProtectedRoute>} />
-            <Route path="/feedbacks" element={<ProtectedRoute requiredRole="admin"><Feedbacks /></ProtectedRoute>} /> {/* Nova Rota */}
+            <Route path="/feedbacks" element={<ProtectedRoute requiredRole="admin"><Feedbacks /></ProtectedRoute>} />
         </Routes>
     );
 }
