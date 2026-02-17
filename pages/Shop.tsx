@@ -347,19 +347,27 @@ export default function Shop() {
     return allServices && (currentCustomer.creditLimit || 0) >= (openOrdersTotal + calculateDiscountedTotal());
   }, [currentCustomer, lastCreatedOrder, orders, appliedCoupon]);
 
+  const getHeaderTitle = () => {
+      if (step === 'list') {
+          return activeTab === 'art' ? 'Quitanda de Artes' : 'Loja Crazy Art';
+      }
+      if (step === 'detail') return 'Detalhes do Item';
+      if (step === 'questionnaire') return 'Revisar Pedido';
+      if (step === 'checkout') return 'Pagamento';
+      return 'Loja';
+  };
+
   const renderStepList = () => (
     <div className="animate-fade-in relative pb-24">
         {/* Header/Nav Diferenciado para Quitanda */}
         {activeTab === 'art' ? (
             <div className="flex flex-col items-center mb-10 space-y-6">
-                <div className="flex justify-between w-full items-center mb-4">
-                    <h2 className="text-3xl font-heading font-bold text-white flex items-center gap-2">
-                        <Palette className="text-purple-500" size={32} />
-                        QUITANDA DE ARTES
-                    </h2>
+                
+                {/* Botão de Navegação para Loja Geral */}
+                <div className="flex justify-end w-full items-center mb-2">
                     <button 
                         onClick={() => setActiveTab('product')}
-                        className="text-[10px] text-zinc-400 hover:text-white uppercase tracking-widest flex items-center gap-1 transition group"
+                        className="text-[10px] text-zinc-400 hover:text-white uppercase tracking-widest flex items-center gap-1 transition group bg-zinc-900 px-4 py-2 rounded-full border border-zinc-800"
                     >
                         Ir para Loja Geral <ArrowUpRight size={12} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                     </button>
@@ -561,230 +569,157 @@ export default function Shop() {
     </div>
   );
 
-  const renderStepQuestionnaire = () => {
-      const calc = calculateFinalOrder();
-      const hasPhysicalItems = calc.items.some(i => i.type === 'product');
-      // Verifica se é uma compra só de artes digitais
-      const isArtOnlyOrder = cart.length > 0 && cart.every(i => (i.product.type as any) === 'art');
-      
-      return (
-        <div className="animate-fade-in max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 p-8 rounded-3xl shadow-2xl relative space-y-8">
-            <h2 className="text-2xl font-bold text-white flex items-center gap-3"><ListChecks className="text-primary" /> Revisar Pedido</h2>
-            <div className="bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden divide-y divide-zinc-800">
-                {calc.items.filter(i => i.productId !== 'service-layout' && i.productId !== 'service-mold' && i.productId !== 'service-grid-digital').map((item, idx) => (
-                    <div key={idx} className="p-4 flex justify-between items-center group">
-                        <div>
-                            <p className="text-white font-bold text-sm">
-                                {item.productName} <span className="text-primary">x{item.quantity}</span>
-                            </p>
-                            {(item.type as any) === 'art' && <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">Download Digital</span>}
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <span className="text-emerald-400 font-mono text-sm">R$ {item.total.toFixed(2)}</span>
-                            <button onClick={() => removeFromCart(cart[idx]?.tempId)} className="text-zinc-600 hover:text-red-500 transition"><Trash2 size={16} /></button>
-                        </div>
-                    </div>
-                ))}
-            </div>
-            
-            {/* Lógica Diferenciada para Quitanda (Grade Digital) */}
-            {isArtOnlyOrder ? (
-                <div className="flex items-center justify-between p-6 bg-purple-900/10 rounded-2xl border border-purple-500/20 transition">
-                    <div className="flex items-center gap-4">
-                        <div className={`p-3 rounded-xl ${wantsDigitalGrid ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-500'}`}><Layers size={24} /></div>
-                        <div>
-                            <h4 className="font-bold text-white">Gostaria que montasse a grade digital?</h4>
-                            <p className="text-xs text-zinc-500">Serviço de montagem com custo adicional por item.</p>
-                        </div>
-                    </div>
-                    <button 
-                        onClick={() => { 
-                            setWantsDigitalGrid(!wantsDigitalGrid); 
-                            // Se ativar e não tiver lista, abre uma linha
-                            if (!wantsDigitalGrid && sizeList.length === 0) addListRow(); 
-                        }} 
-                        className={`w-14 h-8 rounded-full transition relative flex items-center px-1 ${wantsDigitalGrid ? 'bg-purple-600' : 'bg-zinc-800'}`}
-                    >
-                        <div className={`w-6 h-6 bg-white rounded-full transition ${wantsDigitalGrid ? 'translate-x-6' : 'translate-x-0'}`}></div>
-                    </button>
+  const renderStepQuestionnaire = () => (
+    <div className="animate-fade-in max-w-4xl mx-auto">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 mb-6">
+        <h2 className="text-xl font-bold text-white mb-4">Revisão do Carrinho</h2>
+        {cart.length === 0 ? (
+           <p className="text-zinc-500">Seu carrinho está vazio.</p>
+        ) : (
+           <div className="space-y-4">
+             {cart.map((item) => (
+                <div key={item.tempId} className="flex justify-between items-center bg-black/20 p-4 rounded-xl border border-zinc-800/50">
+                   <div>
+                      <h4 className="font-bold text-white">{item.product.name}</h4>
+                      <p className="text-zinc-500 text-xs">{item.description || 'Sem observações'}</p>
+                   </div>
+                   <div className="flex items-center gap-4">
+                      <span className="text-sm font-mono text-zinc-300">x{item.quantity}</span>
+                      <span className="text-sm font-mono text-emerald-400 font-bold">R$ {(item.product.price * item.quantity).toFixed(2)}</span>
+                      <button onClick={() => removeFromCart(item.tempId)} className="text-red-500 hover:text-red-400"><Trash2 size={16} /></button>
+                   </div>
                 </div>
-            ) : (
-                // Lógica Padrão para Itens Físicos
-                hasPhysicalItems && (
-                    <div className="flex items-center justify-between p-6 bg-zinc-950 rounded-2xl border border-zinc-800 transition">
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-xl ${hasSizeList ? 'bg-primary text-white' : 'bg-zinc-800 text-zinc-500'}`}><Film size={24} /></div>
-                            <div><h4 className="font-bold text-white">Lista de Produção?</h4><p className="text-xs text-zinc-500">Nomes, números e tamanhos.</p></div>
-                        </div>
-                        <button onClick={() => { setHasSizeList(!hasSizeList); if (!hasSizeList && sizeList.length === 0) addListRow(); }} className={`w-14 h-8 rounded-full transition relative flex items-center px-1 ${hasSizeList ? 'bg-primary' : 'bg-zinc-800'}`}><div className={`w-6 h-6 bg-white rounded-full transition ${hasSizeList ? 'translate-x-6' : 'translate-x-0'}`}></div></button>
-                    </div>
-                )
-            )}
-            
-            {/* Lista de Nomes (Compartilhada entre físico e digital se ativado) */}
-            {(hasSizeList || wantsDigitalGrid) && (
-                <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 space-y-3 animate-fade-in">
-                    <div className="flex justify-between items-center mb-4 border-b border-zinc-800 pb-2"><span className="text-xs font-bold text-zinc-500 uppercase">Detalhes da Lista ({calculateTotalItemsInList()})</span><button onClick={toggleGlobalSimpleMode} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase transition ${isGlobalSimple ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400'}`}><span>Lista sem nomes</span>{isGlobalSimple ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}</button></div>
-                    {sizeList.map((item, idx) => (
-                        <div key={item.id} className="grid grid-cols-1 sm:grid-cols-12 gap-2 p-3 bg-zinc-900 rounded-xl border border-zinc-800 items-end">
-                            <div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tipo</label><select value={item.category} onChange={(e) => updateListRow(item.id, 'category', e.target.value as any)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none"><option value="unisex">Unisex</option><option value="feminina">Feminina</option><option value="infantil">Infantil</option></select></div>
-                            <div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tam</label><select value={item.size} onChange={(e) => updateListRow(item.id, 'size', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none">{sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                            {item.isSimple ? (<div className="sm:col-span-4"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Qtd</label><input type="number" min="1" value={item.quantity || 1} onChange={(e) => updateListRow(item.id, 'quantity', parseInt(e.target.value) || 1)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div>) : (<><div className="sm:col-span-1"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nº</label><input type="text" value={item.number} onChange={(e) => updateListRow(item.id, 'number', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div><div className="sm:col-span-3"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nome</label><input type="text" value={item.name} onChange={(e) => updateListRow(item.id, 'name', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white uppercase" /></div></>)}
-                            <div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Short</label><select value={item.shortSize} onChange={(e) => updateListRow(item.id, 'shortSize', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none"><option value="">-</option>{sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                            <div className="sm:col-span-1"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">S.Nº</label><input type="text" value={item.shortNumber} onChange={(e) => updateListRow(item.id, 'shortNumber', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div>
-                            <div className="sm:col-span-1 flex items-end pb-0.5"><button onClick={() => removeListRow(item.id)} className="w-full p-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition flex items-center justify-center"><Trash2 size={14} /></button></div>
-                        </div>
-                    ))}
-                    <button onClick={addListRow} className="w-full mt-4 py-3 border-2 border-dashed border-zinc-800 rounded-xl text-zinc-500 hover:text-primary transition flex items-center justify-center gap-2 font-bold uppercase text-[10px]"><PlusIcon size={14} /> Adicionar Integrante</button>
-                </div>
-            )}
+             ))}
+           </div>
+        )}
+      </div>
 
-            {/* Perguntas de Layout/Molde (Apenas se NÃO for arte digital) */}
-            {!isArtOnlyOrder && (
-                <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800"><p className="text-xs font-bold text-zinc-500 uppercase mb-3">Tem Layout?</p><div className="flex gap-2"><button onClick={() => setLayoutOption('sim')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${layoutOption === 'sim' ? 'bg-emerald-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Sim</button><button onClick={() => setLayoutOption('precisa')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${layoutOption === 'precisa' ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Precisa Montar</button></div></div>
-                        {hasPhysicalItems && (
-                            <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800"><p className="text-xs font-bold text-zinc-500 uppercase mb-3">Tem Molde?</p><div className="flex gap-2"><button onClick={() => setMoldOption('sim')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${moldOption === 'sim' ? 'bg-emerald-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Sim</button><button onClick={() => setMoldOption('precisa')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${moldOption === 'precisa' ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Precisa Montar</button></div></div>
-                        )}
-                    </div>
+      {!wantsDigitalGrid && cart.some(i => i.product.type === 'product') && (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 mb-6">
+             <h3 className="font-bold text-white mb-4">Serviços Adicionais</h3>
+             <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                   <span className="text-sm text-zinc-300">Precisa de Criação de Layout?</span>
+                   <div className="flex bg-black rounded-lg p-1">
+                      <button onClick={() => setLayoutOption('sim')} className={`px-4 py-1.5 rounded text-xs font-bold transition ${layoutOption === 'sim' ? 'bg-zinc-700 text-white' : 'text-zinc-500'}`}>Já tenho</button>
+                      <button onClick={() => setLayoutOption('precisa')} className={`px-4 py-1.5 rounded text-xs font-bold transition ${layoutOption === 'precisa' ? 'bg-primary text-white' : 'text-zinc-500'}`}>Preciso (+R$30)</button>
+                   </div>
                 </div>
-            )}
-            
-            {/* Input de Link e Descrição de Logos */}
-            {(layoutOption === 'sim' || moldOption === 'sim' || isArtOnlyOrder) && (
-                <div className="animate-fade-in space-y-4 pt-4 border-t border-zinc-800">
-                    <div>
-                        <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">
-                            Gostaria de inserir a própria logo ou logos extras?
-                        </label>
-                        <p className="text-[10px] text-zinc-500 mb-2 ml-1">
-                            Especifique posicionamento e tamanhos e deixe o link dos arquivos abaixo.
-                        </p>
-                        <textarea
-                            className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-primary transition min-h-[80px]"
-                            placeholder="Ex: Logo no peito esquerdo 10cm..."
-                            value={artExtrasDesc}
-                            onChange={(e) => setArtExtrasDesc(e.target.value)}
+             </div>
+          </div>
+      )}
+
+      <div className="flex justify-between items-center bg-zinc-900 border border-zinc-800 p-6 rounded-2xl">
+         <div>
+            <p className="text-zinc-500 text-xs uppercase tracking-widest">Total Estimado</p>
+            <p className="text-3xl font-black text-white">R$ {calculateFinalOrder().total.toFixed(2)}</p>
+         </div>
+         <button 
+            onClick={handleCreateOrder} 
+            disabled={isProcessing || cart.length === 0}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-emerald-900/20 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+         >
+            {isProcessing ? <Loader2 className="animate-spin" /> : <CheckCircle />}
+            Finalizar Pedido
+         </button>
+      </div>
+    </div>
+  );
+
+  const renderStepCheckout = () => (
+    <div className="animate-fade-in max-w-lg mx-auto">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-2xl text-center">
+            <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-500 ring-1 ring-emerald-500/20">
+                <ShoppingBag size={40} />
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">Pedido Criado!</h2>
+            <p className="text-zinc-400 text-sm mb-8">Número: <span className="font-mono text-white font-bold">#{lastCreatedOrder?.formattedOrderNumber}</span></p>
+
+            <div className="mb-8">
+                <div className="flex gap-2 mb-2">
+                    <div className="relative flex-1">
+                        <Ticket className="absolute left-3 top-3 text-zinc-500" size={16} />
+                        <input 
+                            type="text" 
+                            placeholder="Cupom de desconto" 
+                            className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-primary outline-none transition uppercase"
+                            value={couponCode}
+                            onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                         />
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Link dos Arquivos</label>
-                        <div className="relative">
-                            <input type="text" placeholder="Cole o link aqui..." className="w-full bg-black/40 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-white outline-none focus:border-primary transition" value={artLink} onChange={(e) => setArtLink(e.target.value)} />
-                            <Upload className="absolute left-3 top-3.5 text-zinc-600" size={16} />
-                        </div>
+                    <button 
+                        onClick={handleApplyCoupon}
+                        disabled={isValidatingCoupon || !couponCode}
+                        className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50"
+                    >
+                        {isValidatingCoupon ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                    </button>
+                </div>
+                {appliedCoupon && (
+                    <div className="text-xs text-emerald-400 flex items-center justify-center gap-1">
+                        <CheckCircle size={12} /> Cupom {appliedCoupon.code} aplicado ({appliedCoupon.percentage}% OFF)
                     </div>
-                </div>
-            )}
-            
-            <div className="border-t border-zinc-800 pt-6 mt-6">
-                <button onClick={() => setStep('list')} className="w-full mb-6 py-4 border-2 border-dashed border-zinc-800 rounded-2xl text-zinc-500 hover:text-primary transition flex items-center justify-center gap-3 font-bold uppercase text-xs">
-                    <PlusIcon size={18} /> Adicionar mais item
-                </button>
-                <div className="flex justify-between items-end mb-6">
-                    <span className="text-zinc-500 text-sm font-bold uppercase">Total Estimado</span>
-                    <span className="text-3xl font-black text-white">R$ {calc.total.toFixed(2)}</span>
-                </div>
-                <button onClick={handleCreateOrder} disabled={isProcessing} className="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg hover:bg-amber-600 transition shadow-xl disabled:opacity-50 flex items-center justify-center gap-3">
-                    {isProcessing ? <Loader2 className="animate-spin" /> : <ChevronRight />} PROSSEGUIR PARA PAGAMENTO
-                </button>
+                )}
+                {couponError && <div className="text-xs text-red-400 mt-1">{couponError}</div>}
             </div>
-        </div>
-      );
-  };
 
-  const renderStepCheckout = () => {
-    const total = lastCreatedOrder?.total || 0;
-    const discountedTotal = calculateDiscountedTotal();
-    
-    return (
-        <div className="animate-fade-in max-w-xl mx-auto space-y-6">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
-                <div className="p-8 border-b border-zinc-800 bg-zinc-950">
-                    <h2 className="text-2xl font-bold text-white mb-2">Resumo do Pedido</h2>
-                    <p className="text-zinc-500 text-sm">Pedido gerado: <span className="text-white font-mono">#{lastCreatedOrder?.order_number}</span></p>
+            <div className="bg-black/40 rounded-xl p-4 mb-8 border border-zinc-800">
+                <div className="flex justify-between text-sm mb-2 text-zinc-400">
+                    <span>Subtotal</span>
+                    <span>R$ {lastCreatedOrder?.total.toFixed(2)}</span>
                 </div>
+                {appliedCoupon && (
+                    <div className="flex justify-between text-sm mb-2 text-emerald-400">
+                        <span>Desconto</span>
+                        <span>- R$ {(lastCreatedOrder!.total - calculateDiscountedTotal()).toFixed(2)}</span>
+                    </div>
+                )}
+                <div className="flex justify-between text-xl font-bold text-white pt-2 border-t border-zinc-800 mt-2">
+                    <span>Total a Pagar</span>
+                    <span>R$ {calculateDiscountedTotal().toFixed(2)}</span>
+                </div>
+            </div>
+
+            <div className="space-y-3">
+                <button 
+                    onClick={handlePayMercadoPago}
+                    disabled={isProcessing}
+                    className="w-full bg-[#009EE3] hover:bg-[#008ED0] text-white py-4 rounded-xl font-bold text-lg shadow-lg transition hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                >
+                    {isProcessing ? <Loader2 className="animate-spin" /> : <CreditCard />}
+                    Pagar com Mercado Pago
+                </button>
                 
-                <div className="p-8 space-y-6">
-                    <div className="space-y-2">
-                        {lastCreatedOrder?.items?.map((item: any, idx: number) => (
-                            <div key={idx} className="flex justify-between text-sm">
-                                <span className="text-zinc-400">{item.productName || item.name} (x{item.quantity})</span>
-                                <span className="text-white font-mono">R$ {item.total.toFixed(2)}</span>
-                            </div>
-                        ))}
-                    </div>
-                    
-                    <div className="h-px bg-zinc-800"></div>
-                    
-                    {/* Área de Cupom */}
-                    <div className="flex gap-2">
-                        <div className="relative flex-1">
-                            <Ticket className="absolute left-3 top-3.5 text-zinc-500" size={16} />
-                            <input 
-                                type="text"
-                                placeholder="Cupom de Desconto"
-                                className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary outline-none text-sm uppercase font-mono"
-                                value={couponCode}
-                                onChange={(e) => setCouponCode(e.target.value)}
-                                disabled={!!appliedCoupon}
-                            />
-                        </div>
-                        {appliedCoupon ? (
-                            <button onClick={() => { setAppliedCoupon(null); setCouponCode(''); }} className="bg-zinc-800 hover:bg-red-500/20 text-zinc-400 hover:text-red-500 px-4 rounded-xl transition">
-                                <X size={18} />
-                            </button>
-                        ) : (
-                            <button onClick={handleApplyCoupon} disabled={!couponCode || isValidatingCoupon} className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 rounded-xl font-bold text-xs transition disabled:opacity-50">
-                                {isValidatingCoupon ? <Loader2 className="animate-spin" size={16} /> : 'APLICAR'}
-                            </button>
-                        )}
-                    </div>
-                    
-                    {couponError && <p className="text-xs text-red-500">{couponError}</p>}
-                    {appliedCoupon && <p className="text-xs text-emerald-500 flex items-center gap-1"><Check size={12} /> Cupom aplicado! {appliedCoupon.percentage}% OFF em itens elegíveis.</p>}
-
-                    <div className="flex justify-between items-center">
-                        <span className="text-lg font-bold text-white">Valor Total</span>
-                        <div className="text-right">
-                            {appliedCoupon && (
-                                <span className="block text-sm text-zinc-500 line-through">R$ {total.toFixed(2)}</span>
-                            )}
-                            <span className="text-2xl font-black text-white font-mono">R$ {discountedTotal.toFixed(2)}</span>
-                        </div>
-                    </div>
-
-                    <div className="pt-6 space-y-4">
-                        <div className={canAddToAccount ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-4"}>
-                            {canAddToAccount && (
-                                <button onClick={() => setStep('success')} className="w-full bg-zinc-100 text-black py-4 rounded-2xl font-bold hover:bg-white transition flex items-center justify-center gap-3 shadow-xl uppercase tracking-wider text-xs sm:text-sm"><Wallet size={18} /> Adicionar à Conta</button>
-                            )}
-                            <button 
-                                onClick={handlePayMercadoPago} 
-                                disabled={isProcessing} 
-                                className={`w-full bg-blue-600 text-white rounded-2xl font-black transition flex items-center justify-center gap-3 shadow-xl active:scale-95 ${canAddToAccount ? 'py-4 text-xs sm:text-sm' : 'py-5 text-lg'}`}
-                            >
-                                {isProcessing ? <Loader2 className="animate-spin" /> : <CreditCard size={canAddToAccount ? 18 : 24} />} 
-                                PAGAR AGORA
-                            </button>
-                        </div>
-                        <p className="text-[10px] text-zinc-500 text-center uppercase tracking-widest leading-relaxed">{canAddToAccount ? "Você possui limite disponível. Escolha pagar agora ou faturar na sua conta." : "É necessário o pagamento para confirmação do pedido."}</p>
-                    </div>
-                </div>
+                {canAddToAccount && (
+                    <button 
+                        onClick={() => setStep('success')}
+                        className="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-4 rounded-xl font-bold text-sm transition border border-zinc-700 flex items-center justify-center gap-2"
+                    >
+                        <Wallet size={18} />
+                        Faturar na Conta (Crédito Disponível)
+                    </button>
+                )}
             </div>
         </div>
-    );
-  };
+    </div>
+  );
 
   const renderStepSuccess = () => (
-    <div className="animate-fade-in flex flex-col items-center justify-center py-20 text-center max-w-md mx-auto">
-        <div className="w-24 h-24 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mb-8 ring-8 ring-emerald-500/5"><Check size={48} strokeWidth={3} /></div>
-        <h2 className="text-4xl font-bold text-white mb-4 font-heading">Pedido Confirmado!</h2>
-        <p className="text-zinc-400 mb-10 leading-relaxed">Seu pedido <strong>#{lastCreatedOrder?.order_number}</strong> foi recebido e já está em nossa fila de processamento.</p>
-        <div className="grid grid-cols-1 w-full gap-4">
-            <button onClick={() => navigate('/my-area')} className="w-full bg-white text-black py-4 rounded-2xl font-bold hover:bg-zinc-200 transition">Ver Meus Pedidos</button>
-            <button onClick={() => window.open(`https://wa.me/5516994142665?text=Olá, acabei de fazer o pedido #${lastCreatedOrder?.order_number}`, '_blank')} className="w-full bg-[#25D366] text-white py-4 rounded-2xl font-bold hover:opacity-90 transition flex items-center justify-center gap-2"><MessageCircle size={20} /> Enviar no WhatsApp</button>
+    <div className="animate-fade-in flex flex-col items-center justify-center py-16 text-center">
+        <div className="w-24 h-24 bg-emerald-500 rounded-full flex items-center justify-center mb-6 shadow-2xl shadow-emerald-500/30 animate-bounce-in">
+            <Check size={48} className="text-white" strokeWidth={3} />
+        </div>
+        <h2 className="text-4xl font-black text-white mb-4">Pedido Realizado!</h2>
+        <p className="text-zinc-400 max-w-md mb-10 text-lg">
+            Seu pedido foi registrado com sucesso. Você receberá atualizações por e-mail e pode acompanhar o status na sua área.
+        </p>
+        <div className="flex gap-4">
+            <button onClick={() => navigate('/my-area')} className="bg-zinc-800 hover:bg-zinc-700 text-white px-8 py-4 rounded-xl font-bold transition">
+                Ir para Minha Área
+            </button>
+            <button onClick={() => { setCart([]); setStep('list'); window.scrollTo(0,0); }} className="bg-primary hover:bg-amber-600 text-white px-8 py-4 rounded-xl font-bold transition shadow-lg shadow-primary/20">
+                Continuar Comprando
+            </button>
         </div>
     </div>
   );
@@ -792,7 +727,17 @@ export default function Shop() {
   return (
     <div className="min-h-screen bg-zinc-950 text-text p-6 pb-32 relative">
       <div className="max-w-7xl mx-auto mb-12 flex items-center justify-between">
-        <div className="flex items-center space-x-4"><button onClick={() => step === 'detail' ? setStep('list') : step === 'questionnaire' ? setStep('list') : step === 'checkout' ? setStep('questionnaire') : navigate('/')} className="p-3 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white rounded-full transition hover:scale-110 active:scale-95"><ArrowLeft size={24} /></button><div className="flex items-center space-x-3"><div className="bg-primary/10 p-2 rounded-lg"><ShoppingBag className="text-primary" size={24} /></div><h1 className="text-3xl font-bold text-white tracking-tight font-heading">{step === 'list' ? 'Loja Crazy Art' : step === 'detail' ? 'Produto' : step === 'questionnaire' ? 'Detalhar Pedido' : 'Finalizar Pedido'}</h1></div></div>
+        <div className="flex items-center space-x-4">
+            <button onClick={() => step === 'detail' ? setStep('list') : step === 'questionnaire' ? setStep('list') : step === 'checkout' ? setStep('questionnaire') : navigate('/')} className="p-3 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white rounded-full transition hover:scale-110 active:scale-95">
+                <ArrowLeft size={24} />
+            </button>
+            <div className="flex items-center space-x-3">
+                <div className={`p-2 rounded-lg ${activeTab === 'art' ? 'bg-purple-500/10' : 'bg-primary/10'}`}>
+                    {activeTab === 'art' ? <Palette className="text-purple-500" size={24} /> : <ShoppingBag className="text-primary" size={24} />}
+                </div>
+                <h1 className="text-3xl font-bold text-white tracking-tight font-heading">{getHeaderTitle()}</h1>
+            </div>
+        </div>
         {role === 'client' && currentCustomer && <div className="hidden sm:flex bg-zinc-900 px-4 py-2 rounded-full border border-zinc-800 items-center gap-3"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div><span className="text-xs text-zinc-400">Logado como <span className="text-white font-bold">{currentCustomer.name.split(' ')[0]}</span></span></div>}
       </div>
       <div className="max-w-7xl mx-auto">
