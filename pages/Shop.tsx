@@ -7,7 +7,7 @@ import {
   Plus as PlusIcon, CreditCard, Loader2, MessageCircle, 
   Lock, UserPlus, ChevronRight, ListChecks, Upload, 
   Info, AlertTriangle, Wallet, Check, Film, FileText, Layers, Hash, ToggleLeft, ToggleRight,
-  Coins, Ticket, Palette, CloudDownload, Filter, ArrowUpRight, Zap
+  Coins, Ticket, Palette, CloudDownload, Filter, ArrowUpRight, Zap, Image as ImageIcon
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,8 +23,9 @@ interface CartItem {
     tempId: string;
 }
 
+// Categorias visíveis apenas na aba "Estampas"
 const DEFAULT_ART_CATEGORIES = [
-    'Todos', 'Carnaval', 'Futebol', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais', 'Logos'
+    'Todos', 'Carnaval', 'Futebol', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais'
 ];
 
 // Cores padronizadas para o filtro (Setorização)
@@ -52,9 +53,10 @@ export default function Shop() {
   const [searchTerm, setSearchTerm] = useState('');
   
   // States exclusivos da Quitanda
+  const [quitandaTab, setQuitandaTab] = useState<'estampas' | 'logos' | 'bordados'>('estampas');
   const [activeArtCategory, setActiveArtCategory] = useState('Todos');
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [wantsDigitalGrid, setWantsDigitalGrid] = useState(false); // Novo state para Grade Digital
+  const [wantsDigitalGrid, setWantsDigitalGrid] = useState(false);
   
   const [cart, setCart] = useState<CartItem[]>([]);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
@@ -93,10 +95,15 @@ export default function Shop() {
       }
   }, [location.search]);
 
-  // Derivar categorias dinâmicas com base nos produtos existentes + padrões
+  // Derivar categorias dinâmicas com base nos produtos existentes (apenas para Estampas)
   const artCategories = useMemo(() => {
       const existingCats = new Set(DEFAULT_ART_CATEGORIES);
-      products.filter(p => p.type === 'art' && p.subcategory).forEach(p => {
+      products.filter(p => 
+          p.type === 'art' && 
+          p.subcategory && 
+          p.subcategory !== 'Logos' && 
+          p.subcategory !== 'Bordados'
+      ).forEach(p => {
           if (p.subcategory) existingCats.add(p.subcategory);
       });
       return Array.from(existingCats);
@@ -110,9 +117,20 @@ export default function Shop() {
      
      // Filtros específicos da Quitanda
      if (activeTab === 'art') {
-         if (activeArtCategory !== 'Todos' && item.subcategory !== activeArtCategory) matches = false;
-         // Filtro de cor exata
-         if (selectedColor && item.primaryColor !== selectedColor) matches = false;
+         if (quitandaTab === 'bordados') {
+             // Mostra apenas itens marcados como 'Bordados'
+             if (item.subcategory !== 'Bordados') matches = false;
+         } else if (quitandaTab === 'logos') {
+             // Mostra apenas itens marcados como 'Logos'
+             if (item.subcategory !== 'Logos') matches = false;
+         } else {
+             // Aba ESTAMPAS: Exclui Logos e Bordados para não misturar
+             if (item.subcategory === 'Logos' || item.subcategory === 'Bordados') matches = false;
+             
+             // Aplica filtros de categoria e cor apenas aqui
+             if (matches && activeArtCategory !== 'Todos' && item.subcategory !== activeArtCategory) matches = false;
+             if (matches && selectedColor && item.primaryColor !== selectedColor) matches = false;
+         }
      }
 
      return matches;
@@ -196,7 +214,6 @@ export default function Shop() {
           let qty = item.quantity;
           const nameLower = item.product.name.toLowerCase();
           
-          // Lógica existente para produtos físicos
           if (sizeList.length > 0 && !wantsDigitalGrid) {
               if (nameLower.includes('camisa')) qty = totalListItems;
               else if (nameLower.includes('replica') || nameLower.includes('réplica')) { unitPrice = 2.00; qty = totalListItems; }
@@ -220,7 +237,6 @@ export default function Shop() {
           return s ? s.price : d;
       };
 
-      // Se NÃO for grade digital (Quitanda), aplica lógica de layout/molde normal
       if (!wantsDigitalGrid) {
           if (layoutOption === 'precisa') {
               const p = findServicePrice('layout simples', 30); totalValue += p;
@@ -232,12 +248,11 @@ export default function Shop() {
           }
       }
 
-      // Se FOR grade digital (Quitanda)
       if (wantsDigitalGrid && sizeList.length > 0) {
           const replicaService = products.find(p => p.name.toLowerCase().includes('replica') && p.name.toLowerCase().includes('molde')) 
                               || products.find(p => p.name.toLowerCase().includes('replica'));
           
-          const replicaPrice = replicaService ? replicaService.price : 10.00; // Fallback se não achar
+          const replicaPrice = replicaService ? replicaService.price : 10.00;
           const gridCost = replicaPrice * totalListItems;
           
           totalValue += gridCost;
@@ -330,7 +345,6 @@ export default function Shop() {
     return allServices && (currentCustomer.creditLimit || 0) >= (openOrdersTotal + calculateDiscountedTotal());
   }, [currentCustomer, lastCreatedOrder, orders, appliedCoupon]);
 
-  // --- Renderização da Lista ---
   const renderStepList = () => (
     <div className="animate-fade-in relative pb-24">
         {/* Header/Nav Diferenciado para Quitanda */}
@@ -339,7 +353,7 @@ export default function Shop() {
                 <div className="flex justify-between w-full items-center mb-4">
                     <h2 className="text-3xl font-heading font-bold text-white flex items-center gap-2">
                         <Palette className="text-purple-500" size={32} />
-                        Quitanda de Artes
+                        QUITANDA DE ARTES
                     </h2>
                     <button 
                         onClick={() => setActiveTab('product')}
@@ -349,61 +363,96 @@ export default function Shop() {
                     </button>
                 </div>
 
-                {/* Subcategorias Menu (Pill List Scrollable) */}
-                <div className="w-full overflow-x-auto pb-2">
-                    <div className="flex gap-2 min-w-max px-1">
-                        {artCategories.map(cat => (
-                            <button
-                                key={cat}
-                                onClick={() => setActiveArtCategory(cat)}
-                                className={`px-4 py-2 rounded-full text-xs font-bold transition whitespace-nowrap border ${
-                                    activeArtCategory === cat 
-                                    ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/50' 
-                                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600'
-                                }`}
-                            >
-                                {cat}
-                            </button>
-                        ))}
-                    </div>
+                {/* Abas Internas da Quitanda: Estampas / Logos / Bordados */}
+                <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-full max-w-md border border-zinc-800 shadow-xl overflow-x-auto mb-2">
+                    <button 
+                        onClick={() => { setQuitandaTab('estampas'); setSelectedColor(null); setSearchTerm(''); }} 
+                        className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${quitandaTab === 'estampas' ? 'bg-purple-600 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}
+                    >
+                        ESTAMPAS
+                    </button>
+                    <button 
+                        onClick={() => { setQuitandaTab('logos'); setSelectedColor(null); setSearchTerm(''); }} 
+                        className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${quitandaTab === 'logos' ? 'bg-purple-600 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}
+                    >
+                        LOGOS
+                    </button>
+                    <button 
+                        onClick={() => { setQuitandaTab('bordados'); setSelectedColor(null); setSearchTerm(''); }} 
+                        className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${quitandaTab === 'bordados' ? 'bg-purple-600 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}
+                    >
+                        BORDADOS
+                    </button>
                 </div>
 
-                {/* Filtros de Cor e Busca */}
-                <div className="w-full grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-4">
-                    <div className="relative">
-                        <input type="text" placeholder="Buscar artes digitais..." className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-purple-500 outline-none transition" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                {/* Filtros de Categoria e Cor (Apenas para Estampas) */}
+                {quitandaTab === 'estampas' && (
+                    <>
+                        <div className="w-full overflow-x-auto pb-2">
+                            <div className="flex gap-2 min-w-max px-1">
+                                {artCategories.map(cat => (
+                                    <button
+                                        key={cat}
+                                        onClick={() => setActiveArtCategory(cat)}
+                                        className={`px-4 py-2 rounded-full text-xs font-bold transition whitespace-nowrap border ${
+                                            activeArtCategory === cat 
+                                            ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/50' 
+                                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600'
+                                        }`}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="w-full grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-4">
+                            <div className="relative">
+                                <input type="text" placeholder="Buscar estampas..." className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-purple-500 outline-none transition" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                                <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
+                            </div>
+                            
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 flex items-center gap-2 overflow-x-auto custom-scrollbar">
+                                <div className="text-[10px] text-zinc-500 font-bold uppercase px-2">Cores</div>
+                                <button 
+                                    onClick={() => setSelectedColor(null)}
+                                    className={`flex items-center justify-center w-8 h-8 rounded-full border border-zinc-700 bg-zinc-800 text-zinc-400 hover:text-white transition shrink-0 ${!selectedColor ? 'ring-2 ring-white bg-zinc-700 text-white' : ''}`}
+                                    title="Todas as Cores"
+                                >
+                                    <span className="block w-4 h-[1px] bg-current rotate-45 absolute"></span>
+                                    <span className="block w-4 h-[1px] bg-current -rotate-45 absolute"></span>
+                                </button>
+                                {ART_COLOR_FILTERS.map(color => (
+                                    <button
+                                        key={color.name}
+                                        onClick={() => setSelectedColor(selectedColor === color.hex ? null : color.hex)}
+                                        className={`w-8 h-8 rounded-full border-2 transition shrink-0 hover:scale-110 ${selectedColor === color.hex ? 'border-white scale-110 shadow-lg' : 'border-transparent hover:border-zinc-500'}`}
+                                        style={{ backgroundColor: color.hex }}
+                                        title={color.name}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {/* Busca Simples para Logos e Bordados */}
+                {(quitandaTab === 'logos' || quitandaTab === 'bordados') && (
+                    <div className="w-full relative">
+                        <input 
+                            type="text" 
+                            placeholder={`Buscar em ${quitandaTab}...`} 
+                            className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-purple-500 outline-none transition" 
+                            value={searchTerm} 
+                            onChange={(e) => setSearchTerm(e.target.value)} 
+                        />
                         <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
                     </div>
-                    
-                    {/* Color Filter (Pílulas Padronizadas - Apenas Círculos) */}
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 flex items-center gap-2 overflow-x-auto custom-scrollbar">
-                        <div className="text-[10px] text-zinc-500 font-bold uppercase px-2">Cores</div>
-                        
-                        {/* Botão para resetar filtro de cor */}
-                        <button 
-                            onClick={() => setSelectedColor(null)}
-                            className={`flex items-center justify-center w-8 h-8 rounded-full border border-zinc-700 bg-zinc-800 text-zinc-400 hover:text-white transition shrink-0 ${!selectedColor ? 'ring-2 ring-white bg-zinc-700 text-white' : ''}`}
-                            title="Todas as Cores"
-                        >
-                            <span className="block w-4 h-[1px] bg-current rotate-45 absolute"></span>
-                            <span className="block w-4 h-[1px] bg-current -rotate-45 absolute"></span>
-                        </button>
-
-                        {ART_COLOR_FILTERS.map(color => (
-                            <button
-                                key={color.name}
-                                onClick={() => setSelectedColor(selectedColor === color.hex ? null : color.hex)}
-                                className={`w-8 h-8 rounded-full border-2 transition shrink-0 hover:scale-110 ${selectedColor === color.hex ? 'border-white scale-110 shadow-lg' : 'border-transparent hover:border-zinc-500'}`}
-                                style={{ backgroundColor: color.hex }}
-                                title={color.name}
-                            />
-                        ))}
-                    </div>
-                </div>
+                )}
                 
                 <div className="w-full p-4 bg-purple-900/20 border border-purple-500/30 rounded-xl flex items-center gap-3">
                     <CloudDownload className="text-purple-400 shrink-0" />
-                    <p className="text-xs text-purple-200">As artes digitais da <strong>Quitanda</strong> são arquivos prontos para baixar. O link de download será liberado imediatamente após a confirmação do pagamento.</p>
+                    <p className="text-xs text-purple-200">As artes da <strong>Quitanda</strong> são arquivos digitais para download imediato após pagamento.</p>
                 </div>
             </div>
         ) : (
@@ -412,7 +461,7 @@ export default function Shop() {
                 <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-full max-w-md border border-zinc-800 shadow-xl overflow-x-auto">
                     <button onClick={() => setActiveTab('product')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'product' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>PRODUTOS</button>
                     <button onClick={() => setActiveTab('service')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'service' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>SERVIÇOS</button>
-                    <button onClick={() => setActiveTab('art')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap flex items-center justify-center gap-1 ${activeTab === 'art' ? 'bg-purple-500 text-white shadow-sm' : 'text-zinc-500 hover:text-purple-400'}`}><Palette size={12} /> QUITANDA</button>
+                    <button onClick={() => { setActiveTab('art'); setQuitandaTab('estampas'); }} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap flex items-center justify-center gap-1 ${activeTab === 'art' ? 'bg-purple-500 text-white shadow-sm' : 'text-zinc-500 hover:text-purple-400'}`}><Palette size={12} /> QUITANDA</button>
                 </div>
                 
                 <div className="w-full max-w-md relative">
@@ -458,7 +507,7 @@ export default function Shop() {
         {filteredItems.length === 0 && (
             <div className="text-center py-20 opacity-50">
                 <p>Nenhum item encontrado.</p>
-                {activeTab === 'art' && <p className="text-xs mt-2">Tente outra categoria ou cor.</p>}
+                {activeTab === 'art' && <p className="text-xs mt-2">Tente outra aba ou categoria.</p>}
             </div>
         )}
 
