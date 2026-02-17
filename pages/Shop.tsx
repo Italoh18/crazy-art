@@ -117,6 +117,9 @@ export default function Shop() {
      
      // Filtros específicos da Quitanda
      if (activeTab === 'art') {
+         // Filtro de Cor Global para todas as abas da Quitanda
+         if (matches && selectedColor && item.primaryColor !== selectedColor) matches = false;
+
          if (quitandaTab === 'bordados') {
              // Mostra apenas itens marcados como 'Bordados'
              if (item.subcategory !== 'Bordados') matches = false;
@@ -127,9 +130,8 @@ export default function Shop() {
              // Aba ESTAMPAS: Exclui Logos e Bordados para não misturar
              if (item.subcategory === 'Logos' || item.subcategory === 'Bordados') matches = false;
              
-             // Aplica filtros de categoria e cor apenas aqui
+             // Aplica filtros de categoria apenas aqui (Estampas)
              if (matches && activeArtCategory !== 'Todos' && item.subcategory !== activeArtCategory) matches = false;
-             if (matches && selectedColor && item.primaryColor !== selectedColor) matches = false;
          }
      }
 
@@ -385,70 +387,55 @@ export default function Shop() {
                     </button>
                 </div>
 
-                {/* Filtros de Categoria e Cor (Apenas para Estampas) */}
+                {/* Filtros de Categoria (Apenas para Estampas) */}
                 {quitandaTab === 'estampas' && (
-                    <>
-                        <div className="w-full overflow-x-auto pb-2">
-                            <div className="flex gap-2 min-w-max px-1">
-                                {artCategories.map(cat => (
-                                    <button
-                                        key={cat}
-                                        onClick={() => setActiveArtCategory(cat)}
-                                        className={`px-4 py-2 rounded-full text-xs font-bold transition whitespace-nowrap border ${
-                                            activeArtCategory === cat 
-                                            ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/50' 
-                                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600'
-                                        }`}
-                                    >
-                                        {cat}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="w-full grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-4">
-                            <div className="relative">
-                                <input type="text" placeholder="Buscar estampas..." className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-purple-500 outline-none transition" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                                <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
-                            </div>
-                            
-                            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 flex items-center gap-2 overflow-x-auto custom-scrollbar">
-                                <div className="text-[10px] text-zinc-500 font-bold uppercase px-2">Cores</div>
-                                <button 
-                                    onClick={() => setSelectedColor(null)}
-                                    className={`flex items-center justify-center w-8 h-8 rounded-full border border-zinc-700 bg-zinc-800 text-zinc-400 hover:text-white transition shrink-0 ${!selectedColor ? 'ring-2 ring-white bg-zinc-700 text-white' : ''}`}
-                                    title="Todas as Cores"
+                    <div className="w-full overflow-x-auto pb-2">
+                        <div className="flex gap-2 min-w-max px-1">
+                            {artCategories.map(cat => (
+                                <button
+                                    key={cat}
+                                    onClick={() => setActiveArtCategory(cat)}
+                                    className={`px-4 py-2 rounded-full text-xs font-bold transition whitespace-nowrap border ${
+                                        activeArtCategory === cat 
+                                        ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/50' 
+                                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600'
+                                    }`}
                                 >
-                                    <span className="block w-4 h-[1px] bg-current rotate-45 absolute"></span>
-                                    <span className="block w-4 h-[1px] bg-current -rotate-45 absolute"></span>
+                                    {cat}
                                 </button>
-                                {ART_COLOR_FILTERS.map(color => (
-                                    <button
-                                        key={color.name}
-                                        onClick={() => setSelectedColor(selectedColor === color.hex ? null : color.hex)}
-                                        className={`w-8 h-8 rounded-full border-2 transition shrink-0 hover:scale-110 ${selectedColor === color.hex ? 'border-white scale-110 shadow-lg' : 'border-transparent hover:border-zinc-500'}`}
-                                        style={{ backgroundColor: color.hex }}
-                                        title={color.name}
-                                    />
-                                ))}
-                            </div>
+                            ))}
                         </div>
-                    </>
-                )}
-
-                {/* Busca Simples para Logos e Bordados */}
-                {(quitandaTab === 'logos' || quitandaTab === 'bordados') && (
-                    <div className="w-full relative">
-                        <input 
-                            type="text" 
-                            placeholder={`Buscar em ${quitandaTab}...`} 
-                            className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-purple-500 outline-none transition" 
-                            value={searchTerm} 
-                            onChange={(e) => setSearchTerm(e.target.value)} 
-                        />
-                        <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
                     </div>
                 )}
+
+                {/* Busca e Filtro de Cor (Para todas as abas da Quitanda) */}
+                <div className="w-full grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-4">
+                    <div className="relative">
+                        <input type="text" placeholder={`Buscar em ${quitandaTab}...`} className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-purple-500 outline-none transition" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <Search className="absolute left-3 top-3.5 text-zinc-600" size={20} />
+                    </div>
+                    
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 flex items-center gap-2 overflow-x-auto custom-scrollbar">
+                        <div className="text-[10px] text-zinc-500 font-bold uppercase px-2">Cores</div>
+                        <button 
+                            onClick={() => setSelectedColor(null)}
+                            className={`flex items-center justify-center w-8 h-8 rounded-full border border-zinc-700 bg-zinc-800 text-zinc-400 hover:text-white transition shrink-0 ${!selectedColor ? 'ring-2 ring-white bg-zinc-700 text-white' : ''}`}
+                            title="Todas as Cores"
+                        >
+                            <span className="block w-4 h-[1px] bg-current rotate-45 absolute"></span>
+                            <span className="block w-4 h-[1px] bg-current -rotate-45 absolute"></span>
+                        </button>
+                        {ART_COLOR_FILTERS.map(color => (
+                            <button
+                                key={color.name}
+                                onClick={() => setSelectedColor(selectedColor === color.hex ? null : color.hex)}
+                                className={`w-8 h-8 rounded-full border-2 transition shrink-0 hover:scale-110 ${selectedColor === color.hex ? 'border-white scale-110 shadow-lg' : 'border-transparent hover:border-zinc-500'}`}
+                                style={{ backgroundColor: color.hex }}
+                                title={color.name}
+                            />
+                        ))}
+                    </div>
+                </div>
                 
                 <div className="w-full p-4 bg-purple-900/20 border border-purple-500/30 rounded-xl flex items-center gap-3">
                     <CloudDownload className="text-purple-400 shrink-0" />
