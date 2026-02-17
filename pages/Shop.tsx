@@ -7,7 +7,7 @@ import {
   Plus as PlusIcon, CreditCard, Loader2, MessageCircle, 
   Lock, UserPlus, ChevronRight, ListChecks, Upload, 
   Info, AlertTriangle, Wallet, Check, Film, FileText, Layers, Hash, ToggleLeft, ToggleRight,
-  Coins, Ticket, Palette, CloudDownload, Filter, ArrowUpRight, Zap, Image as ImageIcon, Tag
+  Coins, Ticket, Palette, CloudDownload, Filter, ArrowUpRight, Zap, Image as ImageIcon, Sparkles, Tag
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -25,7 +25,7 @@ interface CartItem {
 
 // Categorias visíveis apenas na aba "Estampas"
 const DEFAULT_ART_CATEGORIES = [
-    'Todos', 'Carnaval', 'Futebol', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais'
+    'Todos', 'Carnaval', 'Colegio', 'Futebol', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais'
 ];
 
 // Cores padronizadas para o filtro (Setorização)
@@ -107,6 +107,21 @@ export default function Shop() {
           if (p.subcategory) existingCats.add(p.subcategory);
       });
       return Array.from(existingCats);
+  }, [products]);
+
+  // Derivar as 10 últimas artes adicionadas
+  const latestArts = useMemo(() => {
+      return products
+          .filter(p => p.type === 'art')
+          // Ordena por data de criação (se existir) ou usa a ordem do array (assumindo que o DB retorna os mais recentes ou invertemos aqui)
+          // Como o backend geralmente retorna ORDER BY created_at DESC, pegamos os primeiros.
+          // Se não estiver ordenado, ordenamos aqui:
+          .sort((a, b) => {
+              const dateA = (a as any).created_at ? new Date((a as any).created_at).getTime() : 0;
+              const dateB = (b as any).created_at ? new Date((b as any).created_at).getTime() : 0;
+              return dateB - dateA;
+          })
+          .slice(0, 10);
   }, [products]);
 
   const filteredItems = products.filter(item => {
@@ -385,7 +400,7 @@ export default function Shop() {
     <div className="animate-fade-in relative pb-24">
         {/* Header/Nav Diferenciado para Quitanda */}
         {activeTab === 'art' ? (
-            <div className="flex flex-col items-center mb-10 space-y-6">
+            <div className="flex flex-col items-center mb-10 space-y-4">
                 
                 {/* Botão de Navegação para Loja Geral */}
                 <div className="flex justify-end w-full items-center mb-2">
@@ -396,6 +411,37 @@ export default function Shop() {
                         Ir para Loja Geral <ArrowUpRight size={12} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                     </button>
                 </div>
+
+                {/* CARROSSEL ÚLTIMAS ARTES (Mini Ticker) */}
+                {latestArts.length > 0 && (
+                    <div className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 mb-4">
+                        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-2 px-1">
+                            <Sparkles size={12} className="text-primary" /> Últimas Artes Adicionadas
+                        </h3>
+                        <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar snap-x px-1">
+                            {latestArts.map(art => (
+                                <button
+                                    key={art.id}
+                                    onClick={() => openProduct(art)}
+                                    className="flex-shrink-0 w-20 group relative snap-start focus:outline-none"
+                                >
+                                    <div className="w-20 h-20 rounded-xl overflow-hidden border border-zinc-800 group-hover:border-primary/50 transition relative bg-zinc-950">
+                                        {art.imageUrl ? (
+                                            <img src={art.imageUrl} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={art.name} />
+                                        ) : (
+                                            <Palette className="w-full h-full p-6 text-zinc-700" />
+                                        )}
+                                        {/* Overlay Hover */}
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                                            <PlusIcon size={16} className="text-white" />
+                                        </div>
+                                    </div>
+                                    <p className="text-[9px] text-zinc-400 mt-1 truncate w-full text-center group-hover:text-white transition">{art.name}</p>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Abas Internas da Quitanda: Estampas / Logos / Bordados */}
                 <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-full max-w-md border border-zinc-800 shadow-xl overflow-x-auto mb-2">
