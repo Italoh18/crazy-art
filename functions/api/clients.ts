@@ -29,7 +29,6 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     if (request.method === 'POST') {
       // POST agora pode ser público (Cadastro) ou Admin (Adicionar Cliente)
-      // Se for admin logado, ok. Se não, verifica se é self-registration (implementado no front geralmente chamando essa rota)
       
       const body = await request.json() as any;
       
@@ -72,19 +71,31 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       
       const body = await request.json() as any;
       
-      await env.DB.prepare(
-        'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=?, creditLimit=?, cloud_link=? WHERE id=?'
-      ).bind(
+      let passwordQueryPart = "";
+      const bindValues = [
         String(body.name || '').trim(),
         body.email ? String(body.email).trim() : null,
         body.phone ? String(body.phone).trim() : null,
+        body.cpf ? String(body.cpf).trim() : null,
         body.address?.street ? String(body.address.street).trim() : null,
         body.address?.number ? String(body.address.number).trim() : null,
         body.address?.zipCode ? String(body.address.zipCode).trim() : null,
         parseFloat(body.creditLimit) || 0,
-        body.cloudLink ? String(body.cloudLink).trim() : null,
-        String(id)
-      ).run();
+        body.cloudLink ? String(body.cloudLink).trim() : null
+      ];
+
+      if (body.password && body.password.trim() !== '') {
+          const newHash = await hashPassword(body.password.trim());
+          passwordQueryPart = ", password_hash=?";
+          bindValues.push(newHash);
+      }
+
+      bindValues.push(String(id));
+      
+      await env.DB.prepare(
+        `UPDATE clients SET name=?, email=?, phone=?, cpf=?, street=?, number=?, zipCode=?, creditLimit=?, cloud_link=?${passwordQueryPart} WHERE id=?`
+      ).bind(...bindValues).run();
+
       return Response.json({ success: true });
     }
 
