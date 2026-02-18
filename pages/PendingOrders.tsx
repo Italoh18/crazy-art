@@ -17,31 +17,15 @@ export default function PendingOrders() {
    * REGRAS PARA FILA DE PRODUÇÃO:
    * 1. Pedido não confirmado (is_confirmed !== 1).
    * 2. Pedido não cancelado.
-   * 3. CRITÉRIO DE EXIBIÇÃO:
-   *    - Pedidos gerados pela loja SEMPRE aparecem para o admin ver a demanda.
-   *    - Pedidos com lista de tamanhos/nomes (exigem produção).
-   *    - Pedidos já pagos.
+   * 3. ORIGEM OBRIGATÓRIA: Deve vir da loja (source === 'shop').
    */
   const pendingOrders = useMemo(() => {
     return orders.filter(o => {
-      // Pedido já finalizado? Fora.
-      if (o.is_confirmed === 1) return false;
+      // Pedido já finalizado ou cancelado? Fora.
+      if (o.is_confirmed === 1 || o.status === 'cancelled') return false;
 
-      // Pedido cancelado? Fora.
-      if (o.status === 'cancelled') return false;
-
-      const isFromShop = o.source === 'shop';
-      const isNoCreditClient = (o.client_credit_limit || 0) <= 0;
-      const hasSizeList = !!o.size_list;
-
-      // Se atende aos critérios de "Produção"
-      const isProductionTarget = isFromShop || hasSizeList || !isNoCreditClient;
-
-      // FIX: Pedidos da loja devem aparecer sempre que estiverem abertos ou pagos.
-      // Pedidos manuais (admin) só aparecem se estiverem pagos ou se o cliente tiver crédito (faturado).
-      const isEffectivelyActive = o.status === 'paid' || isFromShop || (o.status === 'open' && !isNoCreditClient);
-
-      return isProductionTarget && isEffectivelyActive;
+      // Filtro solicitado: APENAS pedidos feitos a partir da loja
+      return o.source === 'shop';
     }).sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime());
   }, [orders]);
 
@@ -61,11 +45,11 @@ export default function PendingOrders() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
            <h1 className="text-3xl font-bold text-white tracking-tight font-heading">Fila de Produção</h1>
-           <p className="text-zinc-400 text-sm mt-1">Pedidos da loja ou de clientes com produção pendente.</p>
+           <p className="text-zinc-400 text-sm mt-1">Exibindo exclusivamente pedidos realizados via Loja.</p>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl flex items-center gap-3">
             <span className="text-primary font-black text-2xl">{pendingOrders.length}</span>
-            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest leading-tight">Itens em<br/>Produção</span>
+            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest leading-tight">Pedidos da<br/>Loja</span>
         </div>
       </div>
 
@@ -83,19 +67,19 @@ export default function PendingOrders() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.length === 0 ? (
               <div className="col-span-full py-24 text-center border-2 border-dashed border-zinc-800 rounded-3xl bg-zinc-900/20">
-                  <Package size={64} className="mx-auto text-zinc-800 mb-4 opacity-20" />
-                  <p className="text-zinc-600 font-medium">Nenhum pedido pendente na fila no momento.</p>
+                  <ShoppingBag size={64} className="mx-auto text-zinc-800 mb-4 opacity-20" />
+                  <p className="text-zinc-600 font-medium">Nenhum pedido da loja na fila no momento.</p>
               </div>
           ) : (
               filtered.map(order => (
                   <div key={order.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-primary/30 transition-all group relative overflow-hidden shadow-lg">
                       <div className="flex justify-between items-start mb-4">
                           <div className="p-3 bg-zinc-950 rounded-2xl border border-zinc-800 group-hover:border-primary/50 transition shadow-inner">
-                             {order.source === 'shop' ? <ShoppingBag size={24} className="text-primary" /> : <User size={24} className="text-zinc-400" />}
+                             <ShoppingBag size={24} className="text-primary" />
                           </div>
                           <div className="text-right">
                               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                                  {order.source === 'shop' ? 'Venda Loja' : 'Venda Manual'}
+                                  Venda Loja
                               </span>
                               <p className="text-white font-mono font-bold">#{order.formattedOrderNumber}</p>
                           </div>
@@ -152,7 +136,7 @@ export default function PendingOrders() {
                           </div>
                           <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
                               <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Origem</span>
-                              <p className="text-white font-bold">{viewingOrder.source === 'shop' ? 'Loja Crazy Art' : 'Painel Adm'}</p>
+                              <p className="text-white font-bold">Loja Crazy Art</p>
                           </div>
                           <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
                               <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Data</span>
