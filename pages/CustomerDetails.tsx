@@ -270,15 +270,10 @@ export default function CustomerDetails() {
           name: customer.name,
           email: customer.email,
           phone: customer.phone,
-          cpf: customer.cpf || '',
-          address: { 
-              street: customer.address?.street || '',
-              number: customer.address?.number || '',
-              zipCode: customer.address?.zipCode || ''
-          },
+          cpf: customer.cpf,
+          address: { ...customer.address },
           creditLimit: customer.creditLimit,
-          cloudLink: cloudUrl,
-          password: ''
+          cloudLink: cloudUrl
       });
       setIsEditModalOpen(true);
   };
@@ -413,17 +408,6 @@ export default function CustomerDetails() {
       if (status === 'paid') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-wide">Pago</span>;
       if (isLate) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wide">Atrasado</span>;
       return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Aberto</span>;
-  };
-
-  // Helper para endereço
-  const handleAddressChange = (field: string, value: string) => {
-      setFormData((prev: any) => ({
-          ...prev,
-          address: {
-              ...prev.address,
-              [field]: value
-          }
-      }));
   };
 
   return (
@@ -569,7 +553,6 @@ export default function CustomerDetails() {
 
         {/* Tabs and Table */}
         <div className="bg-[#121215] border border-white/5 rounded-2xl overflow-hidden shadow-xl mt-4">
-            {/* ... TABS DE PEDIDOS ... */}
             <div className="flex flex-col sm:flex-row border-b border-white/5 bg-[#0c0c0e]">
                 <button onClick={() => setActiveTab('open')} className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'open' ? 'text-primary bg-primary/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}>Abertos{_openOrders.length > 0 && <span className="ml-2 text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">{_openOrders.length}</span>}{activeTab === 'open' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_-2px_10px_rgba(245,158,11,0.5)]"></div>}</button>
                 <button onClick={() => setActiveTab('overdue')} className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'overdue' ? 'text-red-500 bg-red-500/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}>Atrasados{_overdueOrders.length > 0 && <span className="ml-2 text-[10px] bg-red-500/20 text-red-500 px-2 py-0.5 rounded-full">{_overdueOrders.length}</span>}{activeTab === 'overdue' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-red-500 shadow-[0_-2px_10px_rgba(239,68,68,0.5)]"></div>}</button>
@@ -730,7 +713,7 @@ export default function CustomerDetails() {
              </div>
         )}
 
-        {/* Order Details View (Modal) */}
+        {/* Order Details View */}
         {viewingOrder && (
             <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/80 backdrop-blur-sm p-4 animate-fade-in overflow-y-auto">
                 <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative flex flex-col max-h-[85vh] animate-scale-in">
@@ -752,7 +735,7 @@ export default function CustomerDetails() {
                             <div><h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Lista de Produção</h3><div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">{(typeof viewingOrder.size_list === 'string' ? JSON.parse(viewingOrder.size_list) : viewingOrder.size_list).map((item: SizeListItem, idx: number) => (<div key={idx} className="bg-zinc-900/30 p-2 rounded border border-white/5 flex justify-between items-center text-xs"><span className="text-zinc-300 font-bold">{item.size} <span className="text-zinc-500 font-normal">({item.category})</span></span>{item.isSimple ? <span className="text-white bg-zinc-700 px-2 py-0.5 rounded font-mono">x{item.quantity}</span> : <span className="text-primary font-bold uppercase">{item.name || '-'} <span className="text-white font-mono">{item.number ? `#${item.number}` : ''}</span></span>}</div>))}</div></div>
                         )}
                         
-                        {/* LISTA DE ITENS */}
+                        {/* LISTA DE ITENS COM DOWNLOAD SE APLICÁVEL */}
                         {viewingOrder.items && viewingOrder.items.length > 0 && (
                             <div>
                                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Layers size={14} /> Itens do Pedido</h3>
@@ -760,8 +743,16 @@ export default function CustomerDetails() {
                                     {viewingOrder.items.map((item: any, idx: number) => (
                                         <div key={idx} className="bg-zinc-900/30 p-2 rounded border border-white/5 flex justify-between items-center text-xs">
                                             <span className="text-zinc-300 truncate flex-1">{item.name} (x{item.quantity})</span>
+                                            {/* Botão de Download para Artes Pagas */}
                                             {item.type === 'art' && viewingOrder.status === 'paid' && item.downloadLink ? (
-                                                <a href={item.downloadLink} target="_blank" rel="noopener noreferrer" className="ml-2 px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded flex items-center gap-1 font-bold text-[10px] transition"><CloudDownload size={12} /> Baixar</a>
+                                                <a 
+                                                    href={item.downloadLink} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="ml-2 px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded flex items-center gap-1 font-bold text-[10px] transition"
+                                                >
+                                                    <CloudDownload size={12} /> Baixar
+                                                </a>
                                             ) : (
                                                 <span className="text-white font-mono ml-2">R$ {Number(item.total).toFixed(2)}</span>
                                             )}
@@ -808,7 +799,6 @@ export default function CustomerDetails() {
 
         {/* New Order Modal */}
         {isNewOrderModalOpen && (
-            // ... (Mesmo código do modal de Novo Pedido, mantido igual)
             <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/60 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
                 <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col animate-scale-in">
                     <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] rounded-t-2xl shrink-0"><h2 className="text-xl font-bold text-white flex items-center gap-2"><div className="bg-primary/20 p-2 rounded-lg text-primary">{editingOrderId ? <Edit size={18} /> : <Plus size={18} />}</div> {editingOrderId ? 'Editar Pedido' : 'Novo Pedido'}</h2><button onClick={() => setIsNewOrderModalOpen(false)} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button></div>
@@ -844,71 +834,7 @@ export default function CustomerDetails() {
 
         {isEditModalOpen && (
              <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/80 backdrop-blur-md p-4 animate-fade-in-up overflow-y-auto">
-                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative overflow-hidden">
-                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] rounded-t-2xl">
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2"><Edit size={20} className="text-primary" /> Editar Cliente</h2>
-                        <button onClick={() => setIsEditModalOpen(false)} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button>
-                    </div>
-                    
-                    <form onSubmit={handleEditSubmit} className="p-6 space-y-5 overflow-y-auto max-h-[70vh] custom-scrollbar">
-                        <div>
-                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Nome Completo</label>
-                            <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Telefone</label>
-                                <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">CPF / CNPJ</label>
-                                <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition font-mono text-sm" value={formData.cpf || ''} onChange={e => setFormData({...formData, cpf: e.target.value})} placeholder="000.000.000-00" />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Email</label>
-                            <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} />
-                        </div>
-
-                        {/* Endereço */}
-                        <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5 space-y-3">
-                            <h4 className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-2"><MapPin size={14} /> Endereço</h4>
-                            <div>
-                                <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:border-primary outline-none transition text-sm mb-2" value={formData.address?.street || ''} onChange={e => handleAddressChange('street', e.target.value)} placeholder="Rua / Avenida" />
-                                <div className="flex gap-2">
-                                    <input className="w-1/3 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:border-primary outline-none transition text-sm" value={formData.address?.number || ''} onChange={e => handleAddressChange('number', e.target.value)} placeholder="Número" />
-                                    <input className="w-2/3 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:border-primary outline-none transition text-sm" value={formData.address?.zipCode || ''} onChange={e => handleAddressChange('zipCode', e.target.value)} placeholder="CEP" />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Limite (R$)</label>
-                                <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition font-mono" value={formData.creditLimit || ''} onChange={e => setFormData({...formData, creditLimit: parseFloat(e.target.value)})} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Nova Senha</label>
-                                <input type="password" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.password || ''} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="******" />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Link Nuvem (Opcional)</label>
-                            <div className="relative">
-                                <input className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.cloudLink || ''} onChange={e => setFormData({...formData, cloudLink: e.target.value})} placeholder="https://..." />
-                                <Cloud className="absolute left-3 top-3.5 text-zinc-600" size={18} />
-                            </div>
-                        </div>
-
-                        <div className="pt-4 flex justify-end gap-3 border-t border-white/5 mt-2">
-                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-5 py-2.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition font-medium">Cancelar</button>
-                            <button type="submit" className="px-8 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-amber-600 transition shadow-lg shadow-primary/20">Salvar Alterações</button>
-                        </div>
-                    </form>
-                </div>
+                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative"><div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] rounded-t-2xl"><h2 className="text-xl font-bold text-white flex items-center gap-2"><Edit size={20} className="text-primary" /> Editar Cliente</h2><button onClick={() => setIsEditModalOpen(false)} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button></div><form onSubmit={handleEditSubmit} className="p-6 space-y-4"><div><label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Nome Completo</label><input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} /></div><div className="grid grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Telefone</label><input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} /></div><div><label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Limite (R$)</label><input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition font-mono" value={formData.creditLimit || ''} onChange={e => setFormData({...formData, creditLimit: parseFloat(e.target.value)})} /></div></div><div><label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Email</label><input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} /></div><div><label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Link Nuvem (Opcional)</label><div className="relative"><input className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.cloudLink || ''} onChange={e => setFormData({...formData, cloudLink: e.target.value})} placeholder="https://..." /><Cloud className="absolute left-3 top-3.5 text-zinc-600" size={18} /></div></div><div className="pt-6 flex justify-end gap-3 border-t border-white/5 mt-2"><button type="button" onClick={() => setIsEditModalOpen(false)} className="px-5 py-2.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition font-medium">Cancelar</button><button type="submit" className="px-8 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-amber-600 transition shadow-lg shadow-primary/20">Salvar Alterações</button></div></form></div>
              </div>
         )}
     </div>

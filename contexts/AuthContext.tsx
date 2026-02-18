@@ -9,7 +9,7 @@ interface AuthContextType {
   role: UserRole;
   currentCustomer: Customer | null;
   loginAdmin: (code: string) => Promise<boolean>;
-  loginClient: (email: string, password: string) => Promise<boolean>;
+  loginClient: (cpf: string) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -18,6 +18,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children?: ReactNode }) => {
   const [role, setRole] = useState<UserRole>((localStorage.getItem('user_role') as UserRole) || 'guest');
   
+  // CORREÇÃO: Inicialização síncrona (Lazy) para garantir que os dados estejam disponíveis na primeira renderização
   const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(() => {
       const saved = localStorage.getItem('current_customer');
       try {
@@ -28,6 +29,7 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
   });
 
   useEffect(() => {
+      // Sync extra caso o localStorage mude externamente (opcional, mas boa prática)
       const savedCustomer = localStorage.getItem('current_customer');
       if (savedCustomer) setCurrentCustomer(JSON.parse(savedCustomer));
   }, []);
@@ -43,9 +45,9 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
     return false;
   };
 
-  const loginClient = async (email: string, password: string) => {
+  const loginClient = async (cpf: string) => {
     try {
-        const data = await api.auth({ email, password });
+        const data = await api.auth({ cpf });
         if (data.token && data.customer) {
             setRole('client');
             setCurrentCustomer(data.customer);

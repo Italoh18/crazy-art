@@ -37,7 +37,7 @@ const handleResponse = async (res: Response) => {
 };
 
 export const api = {
-  async auth(payload: { code?: string; email?: string; password?: string }) {
+  async auth(payload: { code?: string, cpf?: string }) {
     const res = await fetch('/api/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -152,22 +152,6 @@ export const api = {
   },
   async deleteTrustedCompany(id: string) {
     const res = await fetch(`/api/trusted-companies?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
-    return handleResponse(res);
-  },
-
-  // Drive de Artes
-  async getDriveFiles(folder?: string) {
-    const url = folder ? `/api/files?folder=${encodeURIComponent(folder)}` : '/api/files';
-    const separator = url.includes('?') ? '&' : '?';
-    const res = await fetch(`${url}${separator}_t=${Date.now()}`, { headers: getHeaders() });
-    return handleResponse(res);
-  },
-  async addDriveFile(data: any) {
-    const res = await fetch('/api/files', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
-    return handleResponse(res);
-  },
-  async deleteDriveFile(id: string) {
-    const res = await fetch(`/api/files?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   },
 
