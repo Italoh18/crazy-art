@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { X, ChevronRight, Save, Square, Triangle, Circle, Undo, Eraser, PenTool, Spline, PaintBucket, Minus, Plus, Eye, EyeOff, Upload, Move, Maximize, Image as ImageIcon, Sliders, Ruler } from 'lucide-react';
+import { X, ChevronRight, Save, Square, Triangle, Circle, Undo, Eraser, PenTool, Spline, PaintBucket, Minus, Plus, Eye, EyeOff, Upload, Move, Maximize, Image as ImageIcon, Sliders, Ruler, FlipHorizontal, FlipVertical } from 'lucide-react';
 import { Stroke, Point } from '../types';
 import opentype from 'opentype.js';
 
@@ -121,8 +121,9 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
                 const glyph = font.charToGlyph(char);
                 
                 // Converter Glyph Path para Strokes
-                const path = glyph.getPath(0, 0, 350); // Tamanho base 350px
-                const newStrokes = convertOpenTypePathToStrokes(path, 500, 500); // 500 é o tamanho do canvas
+                // getPath(x, y, fontSize) -> opentype.js returns path with Y+ down (Canvas ready) usually
+                const path = glyph.getPath(0, 0, 350); 
+                const newStrokes = convertOpenTypePathToStrokes(path, 500, 500); 
                 
                 setStrokes(prev => [...prev, ...newStrokes]);
                 setActiveTool('pen');
@@ -172,17 +173,13 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
       const strokes: Stroke[] = [];
       let currentPoints: Point[] = [];
       
-      // O path do opentype tem coordenadas onde Y cresce para cima (cartesiano padrão de fontes).
-      // O canvas tem Y crescendo para baixo.
-      // Precisamos inverter Y e ajustar a Baseline.
-      
-      // Centraliza horizontalmente
       const bbox = path.getBoundingBox();
       const glyphW = bbox.x2 - bbox.x1;
-      const offsetX = (canvasW - glyphW) / 2 - bbox.x1; 
+      const glyphH = bbox.y2 - bbox.y1;
       
-      // Baseline fixa no canvas (400px de cima para baixo)
-      const canvasBaseline = BASELINE_Y; 
+      // Centraliza no Canvas
+      const offsetX = (canvasW - glyphW) / 2 - bbox.x1;
+      const offsetY = (canvasH - glyphH) / 2 - bbox.y1;
 
       path.commands.forEach((cmd: any) => {
           if (cmd.type === 'M') {
@@ -190,40 +187,30 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
                   strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: strokeWidth });
                   currentPoints = [];
               }
-              currentPoints.push({ x: cmd.x + offsetX, y: canvasBaseline - cmd.y });
+              // Correção: Removemos inversão Y e aplicamos offset simples
+              currentPoints.push({ x: cmd.x + offsetX, y: cmd.y + offsetY });
           } else if (cmd.type === 'L') {
-              currentPoints.push({ x: cmd.x + offsetX, y: canvasBaseline - cmd.y });
+              currentPoints.push({ x: cmd.x + offsetX, y: cmd.y + offsetY });
           } else if (cmd.type === 'Q') {
-              // Aproximação linear para simplificar edição (ou mantém bezier se o editor suportar nativo complexo)
-              // Aqui vamos converter a curva quadrática em pontos lineares para ser editável com as ferramentas atuais
               const last = currentPoints[currentPoints.length - 1];
               if (last) {
                   for (let t = 0.1; t <= 1; t += 0.1) {
                       const x = (1-t)**2 * last.x + 2*(1-t)*t*(cmd.x1 + offsetX) + t**2*(cmd.x + offsetX);
-                      // Nota: cmd.y também precisa ser invertido em relação à baseline
-                      const y1 = canvasBaseline - cmd.y1;
-                      const y = canvasBaseline - cmd.y;
-                      const ly = (1-t)**2 * last.y + 2*(1-t)*t*y1 + t**2*y;
-                      currentPoints.push({ x, y: ly });
+                      const y = (1-t)**2 * last.y + 2*(1-t)*t*(cmd.y1 + offsetY) + t**2*(cmd.y + offsetY);
+                      currentPoints.push({ x, y });
                   }
               } else {
-                  currentPoints.push({ x: cmd.x + offsetX, y: canvasBaseline - cmd.y });
+                  currentPoints.push({ x: cmd.x + offsetX, y: cmd.y + offsetY });
               }
           } else if (cmd.type === 'C') {
               const last = currentPoints[currentPoints.length - 1];
               if (last) {
                   for (let t = 0.1; t <= 1; t += 0.1) {
-                      // Cubic Bezier flatten
                       const x = (1-t)**3 * last.x + 3*(1-t)**2*t*(cmd.x1 + offsetX) + 3*(1-t)*t**2*(cmd.x2 + offsetX) + t**3*(cmd.x + offsetX);
-                      const y1 = canvasBaseline - cmd.y1;
-                      const y2 = canvasBaseline - cmd.y2;
-                      const y = canvasBaseline - cmd.y;
-                      const ly = (1-t)**3 * last.y + 3*(1-t)**2*t*y1 + 3*(1-t)*t**2*y2 + t**3*y;
-                      currentPoints.push({ x, y: ly });
+                      const y = (1-t)**3 * last.y + 3*(1-t)**2*t*(cmd.y1 + offsetY) + 3*(1-t)*t**2*(cmd.y2 + offsetY) + t**3*(cmd.y + offsetY);
+                      currentPoints.push({ x, y });
                   }
               }
-          } else if (cmd.type === 'Z') {
-              // Close path
           }
       });
 
@@ -242,22 +229,14 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
       
       if (pathElements.length === 0) return false;
 
-      // Combina todos os paths em strokes
       let newStrokes: Stroke[] = [];
       
       for (let i = 0; i < pathElements.length; i++) {
         const d = pathElements[i].getAttribute("d");
         if (d) {
-          const points = parseSvgPathData(d);
-          if (points.length > 2) {
-             newStrokes.push({
-               points,
-               type: 'shape',
-               filled: true,
-               isClosed: true,
-               width: strokeWidth
-             });
-          }
+          // Parse path data into multiple strokes (handles M commands correctly)
+          const extractedStrokes = parseSvgPathToStrokes(d);
+          newStrokes.push(...extractedStrokes);
         }
       }
 
@@ -274,65 +253,151 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
     }
   };
 
-  const parseSvgPathData = (d: string): Point[] => {
-    const cleanD = d.replace(/,/g, ' ');
-    const commands = cleanD.match(/([a-zA-Z])|([-+]?[0-9]*\.?[0-9]+)/g);
+  // Improved SVG Parser that supports relative coordinates and sub-paths
+  const parseSvgPathToStrokes = (d: string): Stroke[] => {
+    const commands = d.match(/([a-zA-Z])|([-+]?[0-9]*\.?[0-9]+(?:e[-+]?[0-9]+)?)/g);
     if (!commands) return [];
 
-    let points: Point[] = [];
-    let currentX = 0;
-    let currentY = 0;
+    const strokes: Stroke[] = [];
+    let currentPoints: Point[] = [];
+    let startX = 0, startY = 0; // For 'Z' (close path)
+    let currentX = 0, currentY = 0;
     
     let i = 0;
+    
+    const pushPoint = (x: number, y: number) => {
+        currentPoints.push({ x, y });
+        currentX = x;
+        currentY = y;
+    };
+
+    const flushStroke = (closed: boolean) => {
+        if (currentPoints.length > 1) {
+            strokes.push({
+                points: [...currentPoints],
+                type: 'shape',
+                filled: true,
+                isClosed: closed,
+                width: strokeWidth
+            });
+        }
+        currentPoints = [];
+    };
+
     while (i < commands.length) {
       const cmd = commands[i];
-      if (!isNaN(parseFloat(cmd))) { i++; continue; }
+      if (!isNaN(parseFloat(cmd))) { i++; continue; } // Skip loose numbers
 
-      const getNum = () => parseFloat(commands[++i]);
+      const nextNum = () => parseFloat(commands[++i]);
 
-      switch (cmd.toUpperCase()) {
-        case 'M': case 'L':
-          currentX = getNum(); currentY = getNum();
-          if (!isNaN(currentX) && !isNaN(currentY)) points.push({ x: currentX, y: currentY });
+      switch (cmd) {
+        case 'M': // Move Absolute
+          flushStroke(false); // If we have pending points, save them as open path
+          currentX = nextNum(); currentY = nextNum();
+          startX = currentX; startY = currentY;
+          pushPoint(currentX, currentY);
           break;
-        case 'H':
-          currentX = getNum();
-          if (!isNaN(currentX)) points.push({ x: currentX, y: currentY });
+        case 'm': // Move Relative
+          flushStroke(false);
+          currentX += nextNum(); currentY += nextNum();
+          startX = currentX; startY = currentY;
+          pushPoint(currentX, currentY);
           break;
-        case 'V':
-          currentY = getNum();
-          if (!isNaN(currentY)) points.push({ x: currentX, y: currentY });
+        
+        case 'L': // Line Absolute
+          pushPoint(nextNum(), nextNum());
           break;
-        case 'Z': break;
-        case 'C':
-          const cp1x = getNum(); const cp1y = getNum();
-          const cp2x = getNum(); const cp2y = getNum();
-          const x = getNum();    const y = getNum();
-          if (!isNaN(x) && !isNaN(y)) {
-              for (let t = 0.2; t <= 1; t += 0.2) {
+        case 'l': // Line Relative
+          pushPoint(currentX + nextNum(), currentY + nextNum());
+          break;
+        
+        case 'H': // Horizontal Absolute
+          pushPoint(nextNum(), currentY);
+          break;
+        case 'h': // Horizontal Relative
+          pushPoint(currentX + nextNum(), currentY);
+          break;
+        
+        case 'V': // Vertical Absolute
+          pushPoint(currentX, nextNum());
+          break;
+        case 'v': // Vertical Relative
+          pushPoint(currentX, currentY + nextNum());
+          break;
+
+        case 'Z': 
+        case 'z': // Close Path
+          pushPoint(startX, startY);
+          flushStroke(true);
+          break;
+
+        case 'C': // Cubic Bezier Absolute
+          {
+            const cp1x = nextNum(), cp1y = nextNum();
+            const cp2x = nextNum(), cp2y = nextNum();
+            const x = nextNum(), y = nextNum();
+            for (let t = 0.2; t <= 1; t += 0.2) {
                 const xt = (1-t)**3 * currentX + 3*(1-t)**2*t*cp1x + 3*(1-t)*t**2*cp2x + t**3*x;
                 const yt = (1-t)**3 * currentY + 3*(1-t)**2*t*cp1y + 3*(1-t)*t**2*cp2y + t**3*y;
-                points.push({x: xt, y: yt});
-              }
-              currentX = x; currentY = y;
+                pushPoint(xt, yt);
+            }
           }
           break;
-        case 'Q':
-           const qcp1x = getNum(); const qcp1y = getNum();
-           const qx = getNum();    const qy = getNum();
-           if (!isNaN(qx) && !isNaN(qy)) {
-               for (let t = 0.2; t <= 1; t += 0.2) {
-                 const xt = (1-t)**2 * currentX + 2*(1-t)*t*qcp1x + t**2*qx;
-                 const yt = (1-t)**2 * currentY + 2*(1-t)*t*qcp1y + t**2*qy;
-                 points.push({x: xt, y: yt});
-               }
-               currentX = qx; currentY = qy;
+        case 'c': // Cubic Bezier Relative
+          {
+            const cp1x = currentX + nextNum(), cp1y = currentY + nextNum();
+            const cp2x = currentX + nextNum(), cp2y = currentY + nextNum();
+            const x = currentX + nextNum(), y = currentY + nextNum();
+            const startX_bez = currentX; // Need to store start because currentX updates in pushPoint
+            const startY_bez = currentY;
+            
+            // Reset current to start for calculation
+            // Actually pushPoint updates currentX/Y, so we can't use currentX in loop directly if it updates
+            // But here we calculate points first
+            const pointsToAdd = [];
+            for (let t = 0.2; t <= 1; t += 0.2) {
+                const xt = (1-t)**3 * startX_bez + 3*(1-t)**2*t*cp1x + 3*(1-t)*t**2*cp2x + t**3*x;
+                const yt = (1-t)**3 * startY_bez + 3*(1-t)**2*t*cp1y + 3*(1-t)*t**2*cp2y + t**3*y;
+                pointsToAdd.push({x: xt, y: yt});
+            }
+            pointsToAdd.forEach(p => pushPoint(p.x, p.y));
+          }
+          break;
+          
+        case 'Q': // Quadratic Absolute
+           {
+             const cp1x = nextNum(), cp1y = nextNum();
+             const x = nextNum(), y = nextNum();
+             for (let t = 0.2; t <= 1; t += 0.2) {
+                 const xt = (1-t)**2 * currentX + 2*(1-t)*t*cp1x + t**2*x;
+                 const yt = (1-t)**2 * currentY + 2*(1-t)*t*cp1y + t**2*y;
+                 pushPoint(xt, yt);
+             }
+           }
+           break;
+        case 'q': // Quadratic Relative
+           {
+             const cp1x = currentX + nextNum(), cp1y = currentY + nextNum();
+             const x = currentX + nextNum(), y = currentY + nextNum();
+             const startX_bez = currentX;
+             const startY_bez = currentY;
+             const pointsToAdd = [];
+             for (let t = 0.2; t <= 1; t += 0.2) {
+                 const xt = (1-t)**2 * startX_bez + 2*(1-t)*t*cp1x + t**2*x;
+                 const yt = (1-t)**2 * startY_bez + 2*(1-t)*t*cp1y + t**2*y;
+                 pointsToAdd.push({x: xt, y: yt});
+             }
+             pointsToAdd.forEach(p => pushPoint(p.x, p.y));
            }
            break;
       }
       i++;
     }
-    return points;
+    
+    // Flush remaining points if not closed
+    flushStroke(false);
+
+    return strokes;
   };
 
   const normalizeStrokesToCanvas = (strokes: Stroke[], width: number, height: number): Stroke[] => {
@@ -368,6 +433,24 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
          y: (p.y - minY) * scale + offsetY
        }))
      }));
+  };
+
+  // --- Handlers de Transformação (Flip) ---
+
+  const handleFlipHorizontal = () => {
+    const cx = CANVAS_SIZE / 2;
+    setStrokes(prev => prev.map(s => ({
+        ...s,
+        points: s.points.map(p => ({ ...p, x: cx + (cx - p.x) }))
+    })));
+  };
+
+  const handleFlipVertical = () => {
+    const cy = CANVAS_SIZE / 2;
+    setStrokes(prev => prev.map(s => ({
+        ...s,
+        points: s.points.map(p => ({ ...p, y: cy + (cy - p.y) }))
+    })));
   };
 
   // --- Funções de Desenho ---
@@ -951,6 +1034,20 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
                     title="Redimensionar Desenho"
                 >
                   <Maximize className="w-5 h-5" />
+                </button>
+                <button 
+                    onClick={handleFlipHorizontal}
+                    className="p-2 rounded transition-colors text-slate-400 hover:text-white hover:bg-slate-700" 
+                    title="Espelhar Horizontalmente"
+                >
+                  <FlipHorizontal className="w-5 h-5" />
+                </button>
+                <button 
+                    onClick={handleFlipVertical}
+                    className="p-2 rounded transition-colors text-slate-400 hover:text-white hover:bg-slate-700" 
+                    title="Espelhar Verticalmente"
+                >
+                  <FlipVertical className="w-5 h-5" />
                 </button>
              </div>
 
