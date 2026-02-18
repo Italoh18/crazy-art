@@ -61,20 +61,17 @@ export default function Customers() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validação Simplificada: Apenas Nome e Telefone são obrigatórios visualmente
-    if (!formData.name || !formData.phone) {
-        alert("Por favor, preencha Nome e Telefone.");
+    // Validação: Nome, Telefone e CPF são obrigatórios agora
+    if (!formData.name || !formData.phone || !formData.cpf) {
+        alert("Por favor, preencha Nome, Telefone e CPF/CNPJ.");
         return;
     }
-
-    // Gera um CPF temporário único se não informado, para satisfazer o backend
-    const finalCpf = formData.cpf || `NC-${Date.now()}`;
 
     addCustomer({
       name: formData.name,
       phone: formData.phone,
       email: formData.email,
-      cpf: finalCpf,
+      cpf: formData.cpf,
       address: {
         street: formData.street,
         number: formData.number,
@@ -207,7 +204,7 @@ export default function Customers() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* Campos Principais - Destaque */}
                   <div className="space-y-4">
-                      <div className="col-span-1 md:col-span-2">
+                      <div className="col-span-1">
                           <label className="block text-xs font-bold text-primary uppercase tracking-wider mb-2 ml-1">Nome (Obrigatório)</label>
                           <input 
                             name="name" 
@@ -219,16 +216,29 @@ export default function Customers() {
                             placeholder="Ex: Maria Silva" 
                           />
                       </div>
-                      <div>
-                          <label className="block text-xs font-bold text-primary uppercase tracking-wider mb-2 ml-1">Telefone (Obrigatório)</label>
-                          <input 
-                            name="phone" 
-                            required 
-                            placeholder="(99) 99999-9999" 
-                            value={formData.phone} 
-                            onChange={handleInputChange} 
-                            className="w-full bg-black/60 border border-white/20 rounded-xl px-4 py-4 text-white text-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700 font-mono" 
-                          />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-primary uppercase tracking-wider mb-2 ml-1">Telefone (Obrigatório)</label>
+                            <input 
+                                name="phone" 
+                                required 
+                                placeholder="(99) 99999-9999" 
+                                value={formData.phone} 
+                                onChange={handleInputChange} 
+                                className="w-full bg-black/60 border border-white/20 rounded-xl px-4 py-4 text-white text-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700 font-mono" 
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-primary uppercase tracking-wider mb-2 ml-1">CPF / CNPJ (Obrigatório)</label>
+                            <input 
+                                name="cpf" 
+                                required 
+                                placeholder="000.000.000-00" 
+                                value={formData.cpf} 
+                                onChange={handleInputChange} 
+                                className="w-full bg-black/60 border border-white/20 rounded-xl px-4 py-4 text-white text-lg focus:border-primary focus:ring-1 focus:ring-primary outline-none transition placeholder-zinc-700 font-mono" 
+                            />
+                        </div>
                       </div>
                   </div>
 
@@ -238,17 +248,13 @@ export default function Customers() {
                     onClick={() => setShowAdvanced(!showAdvanced)}
                     className="w-full flex items-center justify-between text-xs font-bold text-zinc-500 uppercase tracking-widest py-3 border-t border-b border-white/5 hover:text-white transition-colors"
                   >
-                    <span>Informações Adicionais (Opcional)</span>
+                    <span>Outras Informações (Opcional)</span>
                     {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                   </button>
 
                   {/* Campos Secundários */}
                   {showAdvanced && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in bg-zinc-900/30 p-4 rounded-xl">
-                        <div className="col-span-1 md:col-span-2">
-                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5 ml-1">CPF / CNPJ</label>
-                            <input name="cpf" placeholder="000.000.000-00" value={formData.cpf} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition placeholder-zinc-700 font-mono text-sm" />
-                        </div>
                         <div className="col-span-1 md:col-span-2">
                             <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5 ml-1">Email</label>
                             <input name="email" type="email" value={formData.email} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition placeholder-zinc-700 text-sm" placeholder="email@exemplo.com" />
@@ -265,6 +271,10 @@ export default function Customers() {
                                 <input name="number" value={formData.number} onChange={handleInputChange} className="w-1/3 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition placeholder-zinc-700 text-sm" placeholder="Nº" />
                                 <input name="zipCode" value={formData.zipCode} onChange={handleInputChange} className="w-2/3 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition placeholder-zinc-700 text-sm" placeholder="CEP" />
                             </div>
+                        </div>
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5 ml-1">Link Nuvem (Arquivos)</label>
+                            <input name="cloudLink" value={formData.cloudLink} onChange={handleInputChange} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition placeholder-zinc-700 text-sm" placeholder="https://..." />
                         </div>
                       </div>
                   )}
