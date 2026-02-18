@@ -16,11 +16,11 @@ export default function PendingOrders() {
   /**
    * REGRAS PARA FILA DE PRODUÇÃO:
    * 1. Pedido não confirmado (is_confirmed !== 1).
-   * 2. Pedido PAGO (se for produto) OU faturado em conta (se for serviço com crédito).
-   * 3. CRITÉRIO DE EXIBIÇÃO SOLICITADO:
-   *    - Pedidos gerados pelo cliente na LOJA (source === 'shop').
-   *    - OU Pedidos de clientes que NÃO TEM CRÉDITO (client_credit_limit === 0).
-   *    - Adicionalmente: Pedidos com lista (size_list) entram pois exigem produção.
+   * 2. Pedido não cancelado.
+   * 3. CRITÉRIO DE EXIBIÇÃO:
+   *    - Pedidos gerados pela loja SEMPRE aparecem para o admin ver a demanda.
+   *    - Pedidos com lista de tamanhos/nomes (exigem produção).
+   *    - Pedidos já pagos.
    */
   const pendingOrders = useMemo(() => {
     return orders.filter(o => {
@@ -31,14 +31,15 @@ export default function PendingOrders() {
       if (o.status === 'cancelled') return false;
 
       const isFromShop = o.source === 'shop';
-      const isNoCreditClient = (o.client_credit_limit || 0) === 0;
+      const isNoCreditClient = (o.client_credit_limit || 0) <= 0;
       const hasSizeList = !!o.size_list;
 
-      // Se atende aos critérios de "Produção Automática"
-      const isProductionTarget = isFromShop || isNoCreditClient || hasSizeList;
+      // Se atende aos critérios de "Produção"
+      const isProductionTarget = isFromShop || hasSizeList || !isNoCreditClient;
 
-      // Só aparece se estiver pago ou se for um serviço que foi "faturado" (status open)
-      const isEffectivelyActive = o.status === 'paid' || (o.status === 'open' && !isNoCreditClient);
+      // FIX: Pedidos da loja devem aparecer sempre que estiverem abertos ou pagos.
+      // Pedidos manuais (admin) só aparecem se estiverem pagos ou se o cliente tiver crédito (faturado).
+      const isEffectivelyActive = o.status === 'paid' || isFromShop || (o.status === 'open' && !isNoCreditClient);
 
       return isProductionTarget && isEffectivelyActive;
     }).sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime());
@@ -60,7 +61,7 @@ export default function PendingOrders() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
            <h1 className="text-3xl font-bold text-white tracking-tight font-heading">Fila de Produção</h1>
-           <p className="text-zinc-400 text-sm mt-1">Pedidos da loja ou de clientes sem crédito aguardando execução.</p>
+           <p className="text-zinc-400 text-sm mt-1">Pedidos da loja ou de clientes com produção pendente.</p>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl flex items-center gap-3">
             <span className="text-primary font-black text-2xl">{pendingOrders.length}</span>
@@ -83,7 +84,7 @@ export default function PendingOrders() {
           {filtered.length === 0 ? (
               <div className="col-span-full py-24 text-center border-2 border-dashed border-zinc-800 rounded-3xl bg-zinc-900/20">
                   <Package size={64} className="mx-auto text-zinc-800 mb-4 opacity-20" />
-                  <p className="text-zinc-600 font-medium">Fila vazia. Pedidos administrativos seguem o fluxo normal de faturamento.</p>
+                  <p className="text-zinc-600 font-medium">Nenhum pedido pendente na fila no momento.</p>
               </div>
           ) : (
               filtered.map(order => (
@@ -113,7 +114,7 @@ export default function PendingOrders() {
                                  </span>
                              )}
                              <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border ${order.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
-                                 {order.status === 'paid' ? 'PAGO' : 'EM CONTA'}
+                                 {order.status === 'paid' ? 'PAGO' : 'AGUARD. PGTO'}
                              </span>
                           </div>
 
