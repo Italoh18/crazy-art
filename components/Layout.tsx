@@ -8,7 +8,8 @@ import { StickManCleaner } from './StickManCleaner';
 import { CosmicPulseSystem } from './CosmicPulseSystem';
 import { FluidTrail } from './FluidTrail';
 import { NotificationCenter } from './NotificationCenter';
-import { VirtualAssistant } from './VirtualAssistant'; // Importando Assistente
+import { VirtualAssistant } from './VirtualAssistant'; 
+import { CookieConsent } from './CookieConsent'; // Importado
 
 export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
@@ -79,6 +80,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
         <SeasonalEffects />
         <StickManCleaner />
         <CosmicPulseSystem />
+        <CookieConsent /> {/* Aviso LGPD */}
         <main key={location.pathname} className="flex-1 animate-page-enter">
             {children}
         </main>
@@ -100,7 +102,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     { name: 'Empresas que Confiam', path: '/trusted-companies', icon: Building },
     { name: 'Templates E-mail', path: '/email-templates', icon: Mail }, 
     { name: 'Identidade', path: '/identity', icon: Fingerprint },
-    { name: 'Feedbacks', path: '/feedbacks', icon: MessageSquare }, // Nova Aba
+    { name: 'Feedbacks', path: '/feedbacks', icon: MessageSquare },
   ];
 
   const isActive = (path: string) => {
@@ -116,6 +118,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             <SeasonalEffects />
             <StickManCleaner />
             <CosmicPulseSystem />
+            <CookieConsent /> {/* Aviso LGPD */}
             
             <header className="glass-panel h-16 flex items-center justify-between px-6 sticky top-4 mx-4 rounded-2xl z-30 transition-all duration-300 border border-white/10 shadow-2xl mt-4 backdrop-blur-2xl">
                 <div className="flex items-center space-x-4">
@@ -187,7 +190,8 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
       <SeasonalEffects />
       <StickManCleaner />
       <CosmicPulseSystem />
-      <VirtualAssistant /> {/* ADICIONADO AQUI NO LAYOUT ADMIN */}
+      <VirtualAssistant />
+      <CookieConsent /> {/* Aviso LGPD */}
       
       {isSidebarOpen && (
         <div 

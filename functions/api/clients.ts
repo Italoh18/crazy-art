@@ -1,11 +1,9 @@
 
-import { Env, getAuth } from './_auth';
+import { Env, getAuth, hashPassword } from './_auth';
 
 export const onRequest: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
     const user = await getAuth(request, env);
-    if (!user) return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
-
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
 
@@ -16,6 +14,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         return Response.json(client);
       }
       
+      // Protege listagem geral
+      if (!user || user.role !== 'admin') return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
+
       // Mapeia cloud_link snake_case para cloudLink camelCase na lista
       const { results } = await env.DB.prepare(`
         SELECT 
@@ -27,19 +28,27 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     }
 
     if (request.method === 'POST') {
-      if (user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
+      // POST agora pode ser público (Cadastro) ou Admin (Adicionar Cliente)
+      // Se for admin logado, ok. Se não, verifica se é self-registration (implementado no front geralmente chamando essa rota)
+      
       const body = await request.json() as any;
       
       const cpf = String(body.cpf || '').trim();
-      const existing = await env.DB.prepare('SELECT id FROM clients WHERE cpf = ?').bind(cpf).first();
-      if (existing) return new Response(JSON.stringify({ error: 'CPF já cadastrado.' }), { status: 400 });
+      
+      // Validação de duplicidade
+      const existing = await env.DB.prepare('SELECT id FROM clients WHERE cpf = ? OR (email IS NOT NULL AND email = ?)').bind(cpf, body.email).first();
+      if (existing) return new Response(JSON.stringify({ error: 'CPF ou E-mail já cadastrado.' }), { status: 400 });
 
       const newId = crypto.randomUUID();
       const now = new Date().toISOString();
       
-      // Adicionado cloud_link no INSERT
+      let passwordHash = null;
+      if (body.password) {
+          passwordHash = await hashPassword(body.password);
+      }
+      
       await env.DB.prepare(
-        'INSERT INTO clients (id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO clients (id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
         newId,
         String(body.name || '').trim(),
@@ -51,16 +60,18 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         body.address?.zipCode ? String(body.address.zipCode).trim() : null,
         parseFloat(body.creditLimit) || 0,
         now,
-        body.cloudLink ? String(body.cloudLink).trim() : null
+        body.cloudLink ? String(body.cloudLink).trim() : null,
+        passwordHash
       ).run();
 
       return Response.json({ success: true, id: newId });
     }
 
     if (request.method === 'PUT' && id) {
+      if (!user) return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
+      
       const body = await request.json() as any;
       
-      // Adicionado cloud_link no UPDATE
       await env.DB.prepare(
         'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=?, creditLimit=?, cloud_link=? WHERE id=?'
       ).bind(
@@ -78,7 +89,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     }
 
     if (request.method === 'DELETE' && id) {
-      if (user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
+      if (!user || user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
       await env.DB.prepare('DELETE FROM clients WHERE id = ?').bind(String(id)).run();
       return Response.json({ success: true });
     }
