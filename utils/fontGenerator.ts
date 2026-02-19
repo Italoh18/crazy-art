@@ -1,5 +1,6 @@
 
 import opentype from 'opentype.js';
+import { union, diff } from 'martinez-polygon-clipping';
 import { GlyphMap, Stroke, Point } from '../types';
 
 // Configurações da fonte
@@ -16,7 +17,6 @@ const FONT_SCALE = UNITS_PER_EM / CANVAS_SIZE;
 // Calcula a área assinada de um polígono. 
 // > 0: Sentido Horário (Clockwise) - assumindo Y para cima
 // < 0: Sentido Anti-Horário (Counter-Clockwise)
-// Nota: Em canvas (Y para baixo), a interpretação visual inverte.
 const getPolygonSignedArea = (points: Point[]): number => {
   let area = 0;
   for (let i = 0; i < points.length; i++) {
@@ -31,12 +31,12 @@ const transformPoint = (p: Point): Point => {
   const baselineY = CANVAS_SIZE * 0.8; // Linha de base no canvas
   return {
     x: p.x * FONT_SCALE,
-    y: (baselineY - p.y) * FONT_SCALE // Inverte Y para formato de fonte
+    y: (baselineY - p.y) * FONT_SCALE // Inverte Y para formato de fonte e ajusta escala
   };
 };
 
 const getBezierPoints = (p0: Point, p1: Point, p2: Point): Point[] => {
-  const segments = 10; // Menos segmentos para exportação mais leve
+  const segments = 10; 
   const points: Point[] = [];
   for(let i=0; i<=segments; i++) {
     const t = i / segments;
@@ -64,18 +64,18 @@ const getStrokePathPoints = (stroke: Stroke): Point[] => {
 
   if (rawPoints.length < 2) return [];
 
-  // 2. Se for "filled" (forma), usamos os pontos diretos.
-  // Se for "freehand" (linha), precisamos criar a espessura (outline).
+  // 2. Se for "filled" (forma fechada desenhada com ferramenta de forma), usamos os pontos diretos.
+  // Se for "freehand" (linha ou brush), precisamos criar a espessura (outline) para virar um polígono.
   let outlinePoints: Point[] = [];
 
-  if (stroke.filled) {
+  if (stroke.filled && stroke.type === 'shape') {
     outlinePoints = rawPoints.map(transformPoint);
   } else {
     // Expandir linha para polígono (simples)
     const width = (stroke.width || 15) * FONT_SCALE; 
     const halfWidth = width / 2;
     
-    // Transformar para coord fonte primeiro para calcular normais corretamente no espaço final
+    // Transformar para coord fonte primeiro
     const path = rawPoints.map(transformPoint);
     
     const leftSide: Point[] = [];
@@ -127,8 +127,6 @@ export const generatePreviewFromStrokes = (strokes: Stroke[], width: number, hei
 
     ctx.clearRect(0, 0, width, height);
     
-    // Fundo transparente
-    
     strokes.forEach(stroke => {
         if (stroke.points.length === 0) return;
         
@@ -158,29 +156,26 @@ export const generatePreviewFromStrokes = (strokes: Stroke[], width: number, hei
 
 /**
  * Converte um Path do OpenType.js em Strokes compatíveis com o editor.
- * Realiza normalização para caber no canvas de 500x500.
  */
 export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: number, canvasH: number): Stroke[] => {
     const strokes: Stroke[] = [];
     let currentPoints: Point[] = [];
 
-    // 1. Extrair pontos dos comandos
     path.commands.forEach(cmd => {
         switch (cmd.type) {
-            case 'M': // Move To (Início de novo sub-path)
+            case 'M': 
                 if (currentPoints.length > 0) {
                     strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: 1 });
                     currentPoints = [];
                 }
                 currentPoints.push({ x: cmd.x, y: cmd.y });
                 break;
-            case 'L': // Line To
+            case 'L': 
                 currentPoints.push({ x: cmd.x, y: cmd.y });
                 break;
-            case 'Q': // Quadratic Bezier
+            case 'Q': 
                 if (currentPoints.length > 0) {
                     const p0 = currentPoints[currentPoints.length - 1];
-                    // Discretizar curva
                     for (let t = 0.1; t <= 1; t += 0.1) {
                         const invT = 1 - t;
                         const x = (invT * invT * p0.x) + (2 * invT * t * cmd.x1) + (t * t * cmd.x);
@@ -189,7 +184,7 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
                     }
                 }
                 break;
-            case 'C': // Cubic Bezier
+            case 'C': 
                 if (currentPoints.length > 0) {
                     const p0 = currentPoints[currentPoints.length - 1];
                     for (let t = 0.1; t <= 1; t += 0.1) {
@@ -200,7 +195,7 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
                     }
                 }
                 break;
-            case 'Z': // Close Path
+            case 'Z': 
                 if (currentPoints.length > 0) {
                     strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: 1 });
                     currentPoints = [];
@@ -215,7 +210,6 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
 
     if (strokes.length === 0) return [];
 
-    // 2. Calcular Bounding Box Global
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     strokes.forEach(s => s.points.forEach(p => {
         if (p.x < minX) minX = p.x;
@@ -224,41 +218,27 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
         if (p.y > maxY) maxY = p.y;
     }));
 
-    // 3. Normalizar e Escalar para o Canvas
-    // O glyph do OpenType já vem com coordenadas que renderizam corretamente em canvas (Y down).
-    // Não precisamos inverter Y aqui, apenas escalar e centralizar.
     const glyphW = maxX - minX;
     const glyphH = maxY - minY;
     
-    // Margem de segurança (padding)
     const padding = 60;
     const availableW = canvasW - (padding * 2);
     const availableH = canvasH - (padding * 2);
 
     const scale = Math.min(availableW / glyphW, availableH / glyphH);
     
-    // Centralizar
     const offsetX = (canvasW - (glyphW * scale)) / 2;
     const offsetY = (canvasH - (glyphH * scale)) / 2; 
 
-    // Detectar buracos baseado na área
     const processedStrokes = strokes.map(s => {
         const newPoints = s.points.map(p => ({
             x: (p.x - minX) * scale + offsetX,
-            y: (p.y - minY) * scale + offsetY // Mantém orientação original (apenas translada/escala)
+            y: (p.y - minY) * scale + offsetY 
         }));
-
-        // Calcula área no novo sistema de coordenadas
         const screenArea = getPolygonSignedArea(newPoints);
-        
-        return { 
-            ...s, 
-            points: newPoints, 
-            rawArea: screenArea 
-        };
+        return { ...s, points: newPoints, rawArea: screenArea };
     });
 
-    // Encontrar a área do maior stroke (provavelmente o corpo principal)
     let maxAbsArea = 0;
     let mainSign = 0;
     processedStrokes.forEach(s => {
@@ -269,22 +249,19 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
         }
     });
 
-    // Marcar como buraco se o sinal for oposto ao principal
-    // Isso funciona porque contornos internos (buracos) geralmente têm direção oposta aos externos
     return processedStrokes.map(s => ({
         points: s.points,
         type: 'shape',
         filled: true,
         isClosed: true,
         width: 1,
-        // É buraco se tiver sinal oposto E for menor que o corpo principal
         isHole: Math.sign(s.rawArea) !== mainSign && Math.abs(s.rawArea) < maxAbsArea 
     }));
 };
 
 /**
  * GERA O ARQUIVO TTF
- * @param spacing - Espaçamento adicional (tracking) em unidades de fonte (default ~50)
+ * Realiza a união de traços e alinhamento à esquerda.
  */
 export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: number = 50): Promise<ArrayBuffer> => {
   const notdefPath = new opentype.Path();
@@ -303,56 +280,118 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: n
 
   const fontGlyphs = [notdefGlyph];
 
+  // Helper para converter formato do fontGenerator para formato do martinez-polygon-clipping
+  // Martinez espera MultiPolygon: [[[x,y], [x,y]...], [[hole]...]]
+  const toGeoJSON = (points: Point[]): any => {
+      const coords = points.map(p => [p.x, p.y]);
+      // Fechar o loop se necessário
+      if (coords.length > 0 && (coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1])) {
+          coords.push(coords[0]);
+      }
+      return [[coords]]; // Retorna como um Polígono com 1 anel externo
+  };
+
   Object.values(glyphs).forEach(data => {
     if (data.strokes.length === 0) return;
 
-    const finalPath = new opentype.Path();
-    let minX = Infinity;
-    let maxX = -Infinity;
+    // --- 1. UNIFICAÇÃO (BOOLEAN OPERATIONS) ---
+    // Acumula a forma final. Começa vazia.
+    let mergedGeometry: any = [];
 
-    // Processar cada stroke
+    // Separa traços sólidos de buracos
+    // Para simplificar, processamos sequencialmente: Adiciona Sólido, Subtrai Buraco
+    // Mas para funcionar bem, idealmente unimos todos os sólidos primeiro, depois subtraímos todos os buracos.
+    // Ou processamos na ordem de camadas (como num canvas). Vamos processar em ordem.
+    
     data.strokes.forEach(stroke => {
-        let points = getStrokePathPoints(stroke);
+        const points = getStrokePathPoints(stroke);
         if (points.length < 3) return;
-
-        // Calcular Bounding Box para Advance Width
-        points.forEach(p => {
-            if (p.x < minX) minX = p.x;
-            if (p.x > maxX) maxX = p.x;
-        });
-
-        // Winding Rule Logic (Correção de Buracos)
-        // Fontes TrueType usam "Non-Zero Winding Rule".
-        const area = getPolygonSignedArea(points);
         
-        // Se for BURACO (isHole), queremos direção oposta ao SÓLIDO.
-        if (stroke.isHole) {
-            // Buraco: Forçar direção 1
-            if (area > 0) points.reverse(); // Garante "Negativo"
+        const poly = toGeoJSON(points);
+        
+        if (mergedGeometry.length === 0) {
+            if (!stroke.isHole) mergedGeometry = poly;
         } else {
-            // Sólido: Forçar direção 2
-            if (area < 0) points.reverse(); // Garante "Positivo"
+            if (stroke.isHole) {
+                // Se for buraco, subtrai da geometria atual
+                mergedGeometry = diff(mergedGeometry, poly);
+            } else {
+                // Se for sólido, une com a geometria atual
+                mergedGeometry = union(mergedGeometry, poly);
+            }
         }
-
-        // Adicionar ao path
-        finalPath.moveTo(points[0].x, points[0].y);
-        for (let i = 1; i < points.length; i++) {
-            finalPath.lineTo(points[i].x, points[i].y);
-        }
-        finalPath.close();
     });
 
-    // Calcular largura dinâmica
-    let advanceWidth = 600;
-    if (minX !== Infinity && maxX !== -Infinity) {
-        // Largura do desenho + Spacing configurado pelo usuário
-        advanceWidth = (maxX - minX) + (spacing * 5); 
+    // --- 2. ALINHAMENTO À ESQUERDA (CORREÇÃO DE ORIGEM) ---
+    // Encontrar o minX global da geometria fundida
+    let globalMinX = Infinity;
+    let globalMaxX = -Infinity;
+
+    if (mergedGeometry && mergedGeometry.length > 0) {
+        // mergedGeometry é um MultiPolygon: [Polygon, Polygon...]
+        // Polygon é [Ring, Ring...]
+        // Ring é [[x,y], [x,y]...]
+        mergedGeometry.forEach((polygon: any) => {
+            polygon.forEach((ring: any) => {
+                ring.forEach((coord: number[]) => {
+                    const x = coord[0];
+                    if (x < globalMinX) globalMinX = x;
+                    if (x > globalMaxX) globalMaxX = x;
+                });
+            });
+        });
     }
+
+    // Se não tiver geometria válida, pula
+    if (globalMinX === Infinity) return;
+
+    // Margem esquerda segura (Left Side Bearing)
+    const leftBearing = 20; 
+    const shiftX = -globalMinX + leftBearing;
+
+    const finalPath = new opentype.Path();
+
+    // --- 3. CONSTRUÇÃO DO PATH FINAL ---
+    if (mergedGeometry && mergedGeometry.length > 0) {
+        mergedGeometry.forEach((polygon: any) => {
+            polygon.forEach((ring: any) => {
+                // O primeiro anel é o contorno externo, subsequentes são buracos do polígono
+                // A lib martinez já devolve na ordem correta.
+                // Opentype path lida com buracos baseado na direção (Winding Rule).
+                // Precisamos garantir a direção correta?
+                // Martinez geralmente garante orientação correta para GeoJSON (CCW externo, CW interno).
+                // Fontes TTF preferem CW externo. Vamos verificar a área e inverter se necessário.
+                
+                if (ring.length < 2) return;
+
+                // Converter [x,y] arrays para Points
+                const pts = ring.map((c: number[]) => ({ x: c[0] + shiftX, y: c[1] })); // Aplica o SHIFT aqui
+                
+                // Calcular área para saber direção
+                const area = getPolygonSignedArea(pts);
+                // Fontes TTF: Exterior deve ser Clockwise (Area > 0 no nosso sistema Y-up invertido? Depende da ref)
+                // OpenType.js handles non-zero winding usually.
+                // Mas para garantir: Vamos apenas desenhar. Se ficar vazado errado, invertemos.
+                // Empiricamente: O sistema de coordenadas fonte (Y-up) pede CW para exterior.
+                
+                // Adiciona ao path
+                finalPath.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) {
+                    finalPath.lineTo(pts[i].x, pts[i].y);
+                }
+                finalPath.close();
+            });
+        });
+    }
+
+    // Calcular largura de avanço baseada na nova geometria deslocada
+    const width = (globalMaxX - globalMinX);
+    const advanceWidth = Math.ceil(width + leftBearing + (spacing * 5));
 
     const glyph = new opentype.Glyph({
       name: data.char,
       unicode: data.char.charCodeAt(0),
-      advanceWidth: Math.max(200, advanceWidth), // Mínimo de segurança
+      advanceWidth: Math.max(200, advanceWidth),
       path: finalPath
     });
 
