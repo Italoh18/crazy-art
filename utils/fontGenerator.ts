@@ -1,3 +1,4 @@
+
 import opentype from 'opentype.js';
 import { GlyphMap, Stroke, Point } from '../types';
 
@@ -285,9 +286,7 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
     const processedStrokes = rawStrokes.map(s => {
         const newPoints = s.points.map((p: Point) => ({
             x: (p.x - minX) * scale + offsetX,
-            // Correção de Orientação: O opentype.js getPath já retorna coordenadas Y-down (sistema SVG).
-            // Portanto, não devemos inverter (maxY - p.y), pois isso deixa de cabeça para baixo.
-            // Apenas normalizamos com o minY.
+            // Mantém orientação Y-down (padrão SVG/Canvas) para exibição correta no editor
             y: (p.y - minY) * scale + offsetY 
         }));
         
@@ -360,7 +359,7 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: n
           qtres: 0.1, // Tolerância quadrática baixa (curvas melhores)
           pathomit: 8, // Ignora ruídos muito pequenos
           colorsampling: 0, // Desativa amostragem
-          numberofcolors: 2, // 2 Cores: Fundo e Frente
+          numberofcolors: 2, // 2 Cores: Fundo (Transparente) e Frente (Branco)
           mincolorratio: 0,
           colorquantcycles: 0,
           strokewidth: 0,
@@ -371,9 +370,9 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: n
       // O ImageTracer retorna uma string SVG completa
       const svgString = ImageTracer.imagedataToSVG(imgData, traceOptions);
       
-      // Extrair TODOS os paths BRANCOS (rgb(255,255,255))
-      // O desenho é feito em branco sobre transparente/preto.
-      const pathRegex = /<path[^>]*d="([^"]+)"[^>]*fill="rgb\(255,255,255\)"/g;
+      // Extrair TODOS os paths BRANCOS
+      // Correção: Regex robusto para aceitar rgb(255, 255, 255) com espaços ou hex
+      const pathRegex = /<path[^>]*d="([^"]+)"[^>]*fill="(rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)|#ffffff|#FFF|white)"/gi;
       const pathDataList = [];
       let match;
       while ((match = pathRegex.exec(svgString)) !== null) {
