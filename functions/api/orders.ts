@@ -26,7 +26,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         return Response.json({
           ...order,
           items: items || [],
-          formattedOrderNumber: String(order.order_number || 0).padStart(5, '0')
+          formattedOrderNumber: String(order.order_number || 0).padStart(5, '0'),
+          // Garante que o status de produção tenha um valor default se for null
+          production_status: order.production_status || 'placed'
         });
       }
 
@@ -49,7 +51,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       
       const orders = (results || []).map((o: any) => ({
         ...o,
-        formattedOrderNumber: String(o.order_number || 0).padStart(5, '0')
+        formattedOrderNumber: String(o.order_number || 0).padStart(5, '0'),
+        production_status: o.production_status || 'placed'
       }));
       
       return Response.json(orders);
@@ -73,11 +76,13 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const status = String(body.status || 'open');
       const source = String(body.source || 'admin');
       const size_list = body.size_list ? String(body.size_list) : null;
+      // Default production status for new orders
+      const production_status = 'placed';
 
       if (!client_id) return new Response(JSON.stringify({ error: 'client_id é obrigatório' }), { status: 400 });
 
       await env.DB.prepare(
-        'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, total_cost, status, created_at, size_list, is_confirmed, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)'
+        'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, total_cost, status, created_at, size_list, is_confirmed, source, production_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)'
       ).bind(
         newId,
         nextOrderNumber,
@@ -90,7 +95,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         status,
         now,
         size_list,
-        source
+        source,
+        production_status
       ).run();
 
       const items = Array.isArray(body.items) ? body.items : [];
@@ -104,14 +110,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           const p = Number(item.unitPrice || item.unit_price || item.price || 0);
           const c = Number(item.cost_price || item.costPrice || item.cost || 0);
           const subtotal = Number(item.total || (p * q));
-          const dl = item.downloadLink || (item.product ? item.product.downloadLink : null); // Tenta pegar do payload ou objeto produto
+          const dl = item.downloadLink || (item.product ? item.product.downloadLink : null); 
           
           calculatedTotal += subtotal;
           calculatedCost += (c * q);
-
-          // Se o download link não veio no payload mas temos o ID do produto, poderíamos buscar no DB,
-          // mas para performance assumimos que o frontend enviou ou que será null.
-          // Se for uma "arte", é crucial que o frontend envie o downloadLink no objeto item.
 
           await env.DB.prepare(
             'INSERT INTO order_items (id, order_id, catalog_id, name, type, unit_price, cost_price, quantity, total, download_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
@@ -146,6 +148,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     if (request.method === 'PUT' && id) {
       const body = await request.json() as any;
 
+      // Atualização específica de campos individuais (Status de Produção)
+      if (body.hasOwnProperty('production_status')) {
+          await env.DB.prepare('UPDATE orders SET production_status = ? WHERE id = ?')
+            .bind(String(body.production_status), String(id))
+            .run();
+          return Response.json({ success: true });
+      }
+
       if (body.hasOwnProperty('is_confirmed')) {
           await env.DB.prepare('UPDATE orders SET is_confirmed = ? WHERE id = ?')
             .bind(Number(body.is_confirmed), String(id))
@@ -160,6 +170,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         return Response.json({ success: true });
       }
 
+      // Atualização completa
       const description = String(body.description || '').trim();
       const order_date = String(body.order_date || '');
       const due_date = String(body.due_date || '');

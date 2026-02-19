@@ -49,6 +49,7 @@ export interface OrderItem {
 }
 
 export type OrderStatus = 'open' | 'paid' | 'cancelled';
+export type ProductionStatus = 'placed' | 'production' | 'shipping' | 'delivered';
 
 export interface SizeListItem {
   id: string;
@@ -79,7 +80,8 @@ export interface Order {
   client_credit_limit?: number; // Novo: para filtro de produção
   source?: 'shop' | 'admin'; // Novo: origem do pedido
   size_list?: SizeListItem[] | string; // Suporta JSON string vindo do DB
-  is_confirmed?: number; // 0 ou 1
+  is_confirmed?: number; // 0 ou 1 (Legado, mas mantido)
+  production_status?: ProductionStatus; // Novo: Status detalhado da produção
   has_files?: number;
   items?: OrderItem[]; // Para visualização detalhada
 }

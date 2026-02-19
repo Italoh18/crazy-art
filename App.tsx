@@ -29,7 +29,10 @@ import TraceMagic from './pages/TraceMagic';
 import CdrConverter from './pages/CdrConverter';
 import Feedbacks from './pages/Feedbacks';
 import PricingCalculator from './pages/PricingCalculator';
-import SmartEnlargement from './pages/SmartEnlargement'; // Nova Importação
+import SmartEnlargement from './pages/SmartEnlargement';
+import ClientProfile from './pages/ClientProfile';
+import ClientOrders from './pages/ClientOrders';
+import ClientExtract from './pages/ClientExtract';
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
 
@@ -69,6 +72,19 @@ const LoadingScreen = () => {
   );
 };
 
+const ProtectedRoute = ({ children, requiredRole }: { children?: React.ReactNode, requiredRole: 'admin' | 'client' }) => {
+  const { role } = useAuth();
+  if (role === 'guest') return <Navigate to="/" replace />;
+  if (requiredRole === 'admin' && role !== 'admin') return <Navigate to="/" replace />;
+  return <>{children}</>;
+};
+
+const ClientRoute = ({ children }: { children: React.ReactNode }) => {
+    const { role, currentCustomer } = useAuth();
+    if (role !== 'client' || !currentCustomer) return <Navigate to="/" replace />;
+    return <>{children}</>; 
+};
+
 const AppRoutes = () => {
     return (
         <Routes>
@@ -84,8 +100,14 @@ const AppRoutes = () => {
             <Route path="/trace-magic" element={<TraceMagic />} />
             <Route path="/cdr-converter" element={<CdrConverter />} />
             <Route path="/pricing-calculator" element={<PricingCalculator />} />
-            <Route path="/smart-enlargement" element={<SmartEnlargement />} /> {/* Nova Rota */}
-            <Route path="/my-area" element={<ClientRoute />} />
+            <Route path="/smart-enlargement" element={<SmartEnlargement />} />
+            
+            {/* Novas Rotas do Cliente */}
+            <Route path="/my-area" element={<ClientRoute><ClientProfile /></ClientRoute>} /> {/* Redireciona ou Home Logado */}
+            <Route path="/my-profile" element={<ClientRoute><ClientProfile /></ClientRoute>} />
+            <Route path="/my-orders" element={<ClientRoute><ClientOrders /></ClientRoute>} />
+            <Route path="/my-extract" element={<ClientRoute><ClientExtract /></ClientRoute>} />
+
             <Route path="/pending-confirmations" element={<ProtectedRoute requiredRole="admin"><PendingOrders /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><Orders /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute requiredRole="admin"><Customers /></ProtectedRoute>} />
@@ -132,19 +154,6 @@ const AppContent = ({ showIntro, setShowIntro }: { showIntro: boolean, setShowIn
       )}
     </>
   );
-};
-
-const ProtectedRoute = ({ children, requiredRole }: { children?: React.ReactNode, requiredRole: 'admin' | 'client' }) => {
-  const { role } = useAuth();
-  if (role === 'guest') return <Navigate to="/" replace />;
-  if (requiredRole === 'admin' && role !== 'admin') return <Navigate to="/" replace />;
-  return <>{children}</>;
-};
-
-const ClientRoute = () => {
-    const { role, currentCustomer } = useAuth();
-    if (role !== 'client' || !currentCustomer) return <Navigate to="/" replace />;
-    return <CustomerDetails />; 
 };
 
 export default function App() {

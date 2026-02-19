@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS site_settings (
 );
 
 -- 2. Tabela de Clientes
--- Atualizado: is_subscriber para acesso total a artes
 CREATE TABLE IF NOT EXISTS clients (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -29,6 +28,7 @@ CREATE TABLE IF NOT EXISTS clients (
 );
 
 -- 3. Tabela de Pedidos
+-- Atualizado: production_status
 CREATE TABLE IF NOT EXISTS orders (
     id TEXT PRIMARY KEY,
     order_number INTEGER,
@@ -42,13 +42,13 @@ CREATE TABLE IF NOT EXISTS orders (
     source TEXT DEFAULT 'admin',
     size_list TEXT,
     is_confirmed INTEGER DEFAULT 0,
+    production_status TEXT DEFAULT 'placed', -- 'placed', 'production', 'shipping', 'delivered'
     paid_at TEXT,
     created_at TEXT NOT NULL,
     FOREIGN KEY (client_id) REFERENCES clients(id)
 );
 
 -- 4. Tabela de Itens de Pedido
--- Atualizado: download_link para artes digitais
 CREATE TABLE IF NOT EXISTS order_items (
     id TEXT PRIMARY KEY,
     order_id TEXT NOT NULL,
@@ -64,7 +64,6 @@ CREATE TABLE IF NOT EXISTS order_items (
 );
 
 -- 5. Tabela de Catálogo (Produtos, Serviços e Artes)
--- Atualizado: download_link para artes digitais
 CREATE TABLE IF NOT EXISTS catalog (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     type TEXT DEFAULT 'product', -- 'product', 'service', 'art'
