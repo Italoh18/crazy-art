@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS site_settings (
 );
 
 -- 2. Tabela de Clientes
+-- Atualizado: is_subscriber para acesso total a artes
 CREATE TABLE IF NOT EXISTS clients (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -23,6 +24,7 @@ CREATE TABLE IF NOT EXISTS clients (
     zipCode TEXT,
     creditLimit REAL DEFAULT 0,
     cloud_link TEXT,
+    is_subscriber INTEGER DEFAULT 0, 
     created_at TEXT NOT NULL
 );
 

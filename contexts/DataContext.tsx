@@ -31,6 +31,10 @@ interface DataContextType {
   validateCoupon: (code: string) => Promise<Coupon | null>;
   loadCoupons: () => Promise<void>;
   updateFavicon: (url: string) => Promise<void>;
+  loadDriveFiles: (folder?: string) => Promise<void>;
+  driveFiles: any[];
+  addDriveFile: (data: any) => Promise<void>;
+  deleteDriveFile: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -44,7 +48,8 @@ const normalizeCustomer = (c: any): Customer => {
       number: c.number || '',
       zipCode: c.zipCode || ''
     },
-    creditLimit: typeof c.creditLimit === 'number' ? c.creditLimit : 0
+    creditLimit: typeof c.creditLimit === 'number' ? c.creditLimit : 0,
+    isSubscriber: c.isSubscriber === 1 || c.isSubscriber === true
   };
 };
 
@@ -56,6 +61,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [trustedCompanies, setTrustedCompanies] = useState<TrustedCompany[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
+  const [driveFiles, setDriveFiles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // loadData now accepts a silent flag to prevent UI blocking
@@ -309,6 +315,30 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       }
   };
 
+  // --- DRIVE ---
+  const loadDriveFiles = async (folder?: string) => {
+      try {
+          const res = await api.getDriveFiles(folder);
+          setDriveFiles(res || []);
+      } catch (e) { console.error(e); }
+  };
+
+  const addDriveFile = async (data: any) => {
+      try {
+          await api.addDriveFile(data);
+          loadDriveFiles(); // Refresh
+      } catch (e: any) { alert(e.message); }
+  };
+
+  const deleteDriveFile = async (id: string) => {
+      if (confirm("Excluir este arquivo?")) {
+          try {
+              setDriveFiles(prev => prev.filter(f => f.id !== id));
+              await api.deleteDriveFile(id);
+          } catch (e: any) { alert(e.message); }
+      }
+  };
+
   return (
     <DataContext.Provider value={{ 
       customers, products, orders, carouselImages, trustedCompanies, coupons, faviconUrl, isLoading, 
@@ -318,7 +348,8 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       addCarouselImage, deleteCarouselImage,
       addTrustedCompany, deleteTrustedCompany,
       addCoupon, deleteCoupon, validateCoupon, loadCoupons,
-      updateFavicon
+      updateFavicon,
+      driveFiles, loadDriveFiles, addDriveFile, deleteDriveFile
     }}>
       {children}
     </DataContext.Provider>

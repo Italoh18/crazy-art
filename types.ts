@@ -12,6 +12,7 @@ export interface Customer {
   };
   cloudLink?: string; // Novo campo para a nuvem de arquivos
   creditLimit?: number;
+  isSubscriber?: boolean; // Novo: Indica se o cliente é assinante da Quitanda
   created_at: string;
 }
 

@@ -8,7 +8,7 @@ import {
   CheckCircle, AlertTriangle, Trash2, Edit, Plus, X, 
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
   Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal,
-  Coins, Lock, RotateCcw, CloudDownload
+  Coins, Lock, RotateCcw, CloudDownload, Sparkles
 } from 'lucide-react';
 import { api } from '../src/services/api';
 import { SizeListItem } from '../types';
@@ -89,6 +89,7 @@ export default function CustomerDetails() {
   const customer = rawCustomer ? {
       ...rawCustomer,
       creditLimit: Number(rawCustomer.creditLimit || 0),
+      isSubscriber: !!rawCustomer.isSubscriber,
       address: rawCustomer.address || {
           street: (rawCustomer as any).street || '',
           number: (rawCustomer as any).number || '',
@@ -273,7 +274,8 @@ export default function CustomerDetails() {
           cpf: customer.cpf,
           address: { ...customer.address },
           creditLimit: customer.creditLimit,
-          cloudLink: cloudUrl
+          cloudLink: cloudUrl,
+          isSubscriber: customer.isSubscriber
       });
       setIsEditModalOpen(true);
   };
@@ -419,7 +421,14 @@ export default function CustomerDetails() {
                     <ArrowLeft size={20} />
                 </Link>
                 <div>
-                    <h1 className="text-3xl font-bold text-white tracking-tight font-heading leading-none">{customer.name}</h1>
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-3xl font-bold text-white tracking-tight font-heading leading-none">{customer.name}</h1>
+                        {customer.isSubscriber && (
+                            <span className="bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
+                                <Sparkles size={10} /> Assinante
+                            </span>
+                        )}
+                    </div>
                     <div className="mt-2">
                         <span className="bg-white/5 border border-white/5 px-2 py-1 rounded text-[10px] text-zinc-500 font-mono uppercase tracking-widest">ID: {customer.id.slice(0, 8)}</span>
                     </div>
@@ -834,7 +843,55 @@ export default function CustomerDetails() {
 
         {isEditModalOpen && (
              <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/80 backdrop-blur-md p-4 animate-fade-in-up overflow-y-auto">
-                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative"><div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] rounded-t-2xl"><h2 className="text-xl font-bold text-white flex items-center gap-2"><Edit size={20} className="text-primary" /> Editar Cliente</h2><button onClick={() => setIsEditModalOpen(false)} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button></div><form onSubmit={handleEditSubmit} className="p-6 space-y-4"><div><label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Nome Completo</label><input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} /></div><div className="grid grid-cols-2 gap-4"><div><label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Telefone</label><input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} /></div><div><label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Limite (R$)</label><input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition font-mono" value={formData.creditLimit || ''} onChange={e => setFormData({...formData, creditLimit: parseFloat(e.target.value)})} /></div></div><div><label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Email</label><input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} /></div><div><label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Link Nuvem (Opcional)</label><div className="relative"><input className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.cloudLink || ''} onChange={e => setFormData({...formData, cloudLink: e.target.value})} placeholder="https://..." /><Cloud className="absolute left-3 top-3.5 text-zinc-600" size={18} /></div></div><div className="pt-6 flex justify-end gap-3 border-t border-white/5 mt-2"><button type="button" onClick={() => setIsEditModalOpen(false)} className="px-5 py-2.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition font-medium">Cancelar</button><button type="submit" className="px-8 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-amber-600 transition shadow-lg shadow-primary/20">Salvar Alterações</button></div></form></div>
+                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative">
+                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] rounded-t-2xl"><h2 className="text-xl font-bold text-white flex items-center gap-2"><Edit size={20} className="text-primary" /> Editar Cliente</h2><button onClick={() => setIsEditModalOpen(false)} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button></div>
+                    <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Nome Completo</label>
+                            <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Telefone</label>
+                                <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Limite (R$)</label>
+                                <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition font-mono" value={formData.creditLimit || ''} onChange={e => setFormData({...formData, creditLimit: parseFloat(e.target.value)})} />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Email</label>
+                            <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Link Nuvem (Opcional)</label>
+                            <div className="relative"><input className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.cloudLink || ''} onChange={e => setFormData({...formData, cloudLink: e.target.value})} placeholder="https://..." /><Cloud className="absolute left-3 top-3.5 text-zinc-600" size={18} /></div>
+                        </div>
+                        
+                        {/* Toggle de Assinatura */}
+                        <div className="flex items-center justify-between bg-purple-900/10 border border-purple-500/20 p-4 rounded-xl">
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-full ${formData.isSubscriber ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+                                    <Sparkles size={18} />
+                                </div>
+                                <div>
+                                    <span className="block text-sm font-bold text-white">Assinante Quitanda</span>
+                                    <span className="text-[10px] text-zinc-400 block">Permite baixar artes sem custo adicional.</span>
+                                </div>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" className="sr-only peer" checked={!!formData.isSubscriber} onChange={(e) => setFormData({...formData, isSubscriber: e.target.checked})} />
+                                <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                            </label>
+                        </div>
+
+                        <div className="pt-6 flex justify-end gap-3 border-t border-white/5 mt-2">
+                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-5 py-2.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition font-medium">Cancelar</button>
+                            <button type="submit" className="px-8 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-amber-600 transition shadow-lg shadow-primary/20">Salvar Alterações</button>
+                        </div>
+                    </form>
+                </div>
              </div>
         )}
     </div>

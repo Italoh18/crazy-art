@@ -12,14 +12,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     if (request.method === 'GET') {
       if (id) {
         // Mapeia cloud_link snake_case para cloudLink camelCase no objeto único
-        const client: any = await env.DB.prepare('SELECT *, cloud_link as cloudLink FROM clients WHERE id = ?').bind(String(id)).first();
+        const client: any = await env.DB.prepare('SELECT *, cloud_link as cloudLink, is_subscriber as isSubscriber FROM clients WHERE id = ?').bind(String(id)).first();
         return Response.json(client);
       }
       
       // Mapeia cloud_link snake_case para cloudLink camelCase na lista
       const { results } = await env.DB.prepare(`
         SELECT 
-          id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link as cloudLink 
+          id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link as cloudLink, is_subscriber as isSubscriber
         FROM clients ORDER BY created_at DESC
       `).all();
       
@@ -37,9 +37,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const newId = crypto.randomUUID();
       const now = new Date().toISOString();
       
-      // Adicionado cloud_link no INSERT
+      // Adicionado cloud_link e is_subscriber no INSERT
       await env.DB.prepare(
-        'INSERT INTO clients (id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO clients (id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link, is_subscriber) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
         newId,
         String(body.name || '').trim(),
@@ -51,7 +51,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         body.address?.zipCode ? String(body.address.zipCode).trim() : null,
         parseFloat(body.creditLimit) || 0,
         now,
-        body.cloudLink ? String(body.cloudLink).trim() : null
+        body.cloudLink ? String(body.cloudLink).trim() : null,
+        body.isSubscriber ? 1 : 0
       ).run();
 
       return Response.json({ success: true, id: newId });
@@ -60,9 +61,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     if (request.method === 'PUT' && id) {
       const body = await request.json() as any;
       
-      // Adicionado cloud_link no UPDATE
+      // Adicionado cloud_link e is_subscriber no UPDATE
       await env.DB.prepare(
-        'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=?, creditLimit=?, cloud_link=? WHERE id=?'
+        'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=?, creditLimit=?, cloud_link=?, is_subscriber=? WHERE id=?'
       ).bind(
         String(body.name || '').trim(),
         body.email ? String(body.email).trim() : null,
@@ -72,6 +73,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         body.address?.zipCode ? String(body.address.zipCode).trim() : null,
         parseFloat(body.creditLimit) || 0,
         body.cloudLink ? String(body.cloudLink).trim() : null,
+        body.isSubscriber ? 1 : 0,
         String(id)
       ).run();
       return Response.json({ success: true });

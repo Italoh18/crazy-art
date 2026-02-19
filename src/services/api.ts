@@ -155,6 +155,22 @@ export const api = {
     return handleResponse(res);
   },
 
+  // Drive de Artes
+  async getDriveFiles(folder?: string) {
+    const url = folder ? `/api/files?folder=${encodeURIComponent(folder)}` : '/api/files';
+    const separator = url.includes('?') ? '&' : '?';
+    const res = await fetch(`${url}${separator}_t=${Date.now()}`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
+  async addDriveFile(data: any) {
+    const res = await fetch('/api/files', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+    return handleResponse(res);
+  },
+  async deleteDriveFile(id: string) {
+    const res = await fetch(`/api/files?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
+    return handleResponse(res);
+  },
+
   // Cupons
   async getCoupons() {
     const res = await fetch(`/api/coupons?_t=${Date.now()}`, { headers: getHeaders() });
