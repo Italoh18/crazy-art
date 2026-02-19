@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
-import { PenTool, Download, Type, Hash, CaseSensitive, Trash2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { PenTool, Download, Type, Hash, CaseSensitive, Trash2, Upload, Loader2 } from 'lucide-react';
 import { GlyphMap, Stroke } from '../types';
 import { DrawingModal } from './DrawingModal';
-import { generateTTF } from '../utils/fontGenerator';
+import { generateTTF, convertOpenTypePathToStrokes, generatePreviewFromStrokes } from '../utils/fontGenerator';
+import opentype from 'opentype.js';
 
 const CHAR_SETS = {
   lowercase: 'abcdefghijklmnopqrstuvwxyz'.split(''),
@@ -17,6 +18,9 @@ export const FontCreator: React.FC = () => {
   const [fontName, setFontName] = useState("MinhaFonte");
   const [editingChar, setEditingChar] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  
+  const fullFontInputRef = useRef<HTMLInputElement>(null);
 
   const currentChars = CHAR_SETS[activeTab];
 
@@ -79,6 +83,62 @@ export const FontCreator: React.FC = () => {
     }
   };
 
+  // --- Lógica de Importação em Massa ---
+  const handleFullFontImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        try {
+            const arrayBuffer = event.target?.result as ArrayBuffer;
+            const font = opentype.parse(arrayBuffer);
+            
+            // Define o nome da fonte importada se possível
+            const englishName = font.names.fontFamily?.en;
+            if (englishName) setFontName(englishName);
+
+            // Caracteres a importar
+            const allChars = [
+                ...CHAR_SETS.lowercase,
+                ...CHAR_SETS.uppercase,
+                ...CHAR_SETS.numbers
+            ];
+
+            const newGlyphs: GlyphMap = {};
+
+            // Processa cada caractere
+            // Nota: Isso é computacionalmente pesado, poderíamos usar chunks/timeout se travar a UI
+            for (const char of allChars) {
+                const glyph = font.charToGlyph(char);
+                // Verifica se o glifo tem conteúdo (path commands)
+                // Usando getPath para compatibilidade com nossa lógica de conversão
+                const path = glyph.getPath(0, 0, 350); 
+                if (path && path.commands && path.commands.length > 0) {
+                    const strokes = convertOpenTypePathToStrokes(path, 500, 500);
+                    if (strokes.length > 0) {
+                        const previewUrl = generatePreviewFromStrokes(strokes, 100, 100);
+                        newGlyphs[char] = { char, strokes, previewUrl };
+                    }
+                }
+            }
+
+            setGlyphs(prev => ({ ...prev, ...newGlyphs }));
+            alert(`Importação concluída! ${Object.keys(newGlyphs).length} caracteres carregados.`);
+
+        } catch (err) {
+            console.error("Erro ao importar fonte:", err);
+            alert("Erro ao ler o arquivo da fonte. Verifique se é um TTF/OTF válido.");
+        } finally {
+            setIsImporting(false);
+            if (fullFontInputRef.current) fullFontInputRef.current.value = '';
+        }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   const getProgress = () => {
     const total = CHAR_SETS.lowercase.length + CHAR_SETS.uppercase.length + CHAR_SETS.numbers.length;
     const current = Object.keys(glyphs).length;
@@ -104,7 +164,7 @@ export const FontCreator: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-4 w-full md:w-auto">
+        <div className="flex items-center gap-4 w-full md:w-auto flex-wrap justify-end">
           <div className="flex-1 md:flex-none">
              <div className="flex justify-between text-xs text-slate-400 mb-1">
                <span>Progresso</span>
@@ -118,6 +178,22 @@ export const FontCreator: React.FC = () => {
              </div>
           </div>
           
+          <button 
+            onClick={() => fullFontInputRef.current?.click()}
+            disabled={isImporting}
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-purple-900/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs uppercase tracking-wide"
+          >
+            {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            {isImporting ? 'Lendo...' : 'Importar TTF'}
+          </button>
+          <input 
+             type="file" 
+             accept=".ttf,.otf" 
+             className="hidden" 
+             ref={fullFontInputRef} 
+             onChange={handleFullFontImport} 
+          />
+
           <button 
             onClick={handleExport}
             disabled={isExporting}

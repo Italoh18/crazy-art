@@ -3,6 +3,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { X, ChevronRight, Save, Square, Triangle, Circle, Undo, Eraser, PenTool, Spline, PaintBucket, Minus, Plus, Eye, EyeOff, Upload, Move, Maximize, Image as ImageIcon, Sliders, Ruler, FlipHorizontal, FlipVertical } from 'lucide-react';
 import { Stroke, Point } from '../types';
 import opentype from 'opentype.js';
+import { convertOpenTypePathToStrokes } from '../utils/fontGenerator';
 
 interface DrawingModalProps {
   char: string;
@@ -86,7 +87,12 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
     // 3. Desenhar Grade
     drawGuidelines(ctx, canvas.width, canvas.height);
 
-    // Configuração para os traços do usuário
+    // Para suportar "buracos" (destination-out) sem apagar a grade, precisamos desenhar os strokes
+    // em um canvas temporário ou gerenciar as camadas.
+    // Solução simplificada: Para visualização no editor, desenhamos tudo no mesmo canvas.
+    // Se o usuário usar 'destination-out' (buraco), vai apagar a grade visualmente naquela área, o que é aceitável.
+    
+    // Configuração base
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = 'white';
@@ -94,8 +100,13 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
 
     // 4. Desenhar Traços Salvos
     strokes.forEach(stroke => {
+      // Se for buraco, usa modo borracha
+      ctx.globalCompositeOperation = stroke.isHole ? 'destination-out' : 'source-over';
       drawStroke(ctx, stroke);
     });
+    
+    // Reseta modo
+    ctx.globalCompositeOperation = 'source-over';
 
     // 5. Desenhar Preview da Ferramenta Atual
     if (activeTool !== 'pen' && activeTool !== 'bucket' && activeTool !== 'move' && activeTool !== 'scale' && startPoint && currentPoint) {
@@ -120,8 +131,7 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
                 const font = opentype.parse(arrayBuffer);
                 const glyph = font.charToGlyph(char);
                 
-                // Converter Glyph Path para Strokes
-                // getPath(x, y, fontSize) -> opentype.js returns path with Y+ down (Canvas ready) usually
+                // Converter Glyph Path para Strokes (Agora usando a função utilitária com detecção de buracos)
                 const path = glyph.getPath(0, 0, 350); 
                 const newStrokes = convertOpenTypePathToStrokes(path, 500, 500); 
                 
@@ -167,58 +177,6 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
     
     // Reset input
     if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: number, canvasH: number): Stroke[] => {
-      const strokes: Stroke[] = [];
-      let currentPoints: Point[] = [];
-      
-      const bbox = path.getBoundingBox();
-      const glyphW = bbox.x2 - bbox.x1;
-      const glyphH = bbox.y2 - bbox.y1;
-      
-      // Centraliza no Canvas
-      const offsetX = (canvasW - glyphW) / 2 - bbox.x1;
-      const offsetY = (canvasH - glyphH) / 2 - bbox.y1;
-
-      path.commands.forEach((cmd: any) => {
-          if (cmd.type === 'M') {
-              if (currentPoints.length > 0) {
-                  strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: strokeWidth });
-                  currentPoints = [];
-              }
-              // Correção: Removemos inversão Y e aplicamos offset simples
-              currentPoints.push({ x: cmd.x + offsetX, y: cmd.y + offsetY });
-          } else if (cmd.type === 'L') {
-              currentPoints.push({ x: cmd.x + offsetX, y: cmd.y + offsetY });
-          } else if (cmd.type === 'Q') {
-              const last = currentPoints[currentPoints.length - 1];
-              if (last) {
-                  for (let t = 0.1; t <= 1; t += 0.1) {
-                      const x = (1-t)**2 * last.x + 2*(1-t)*t*(cmd.x1 + offsetX) + t**2*(cmd.x + offsetX);
-                      const y = (1-t)**2 * last.y + 2*(1-t)*t*(cmd.y1 + offsetY) + t**2*(cmd.y + offsetY);
-                      currentPoints.push({ x, y });
-                  }
-              } else {
-                  currentPoints.push({ x: cmd.x + offsetX, y: cmd.y + offsetY });
-              }
-          } else if (cmd.type === 'C') {
-              const last = currentPoints[currentPoints.length - 1];
-              if (last) {
-                  for (let t = 0.1; t <= 1; t += 0.1) {
-                      const x = (1-t)**3 * last.x + 3*(1-t)**2*t*(cmd.x1 + offsetX) + 3*(1-t)*t**2*(cmd.x2 + offsetX) + t**3*(cmd.x + offsetX);
-                      const y = (1-t)**3 * last.y + 3*(1-t)**2*t*(cmd.y1 + offsetY) + 3*(1-t)*t**2*(cmd.y2 + offsetY) + t**3*(cmd.y + offsetY);
-                      currentPoints.push({ x, y });
-                  }
-              }
-          }
-      });
-
-      if (currentPoints.length > 0) {
-          strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: strokeWidth });
-      }
-
-      return strokes;
   };
 
   const parseAndLoadSvg = (svgText: string): boolean => {
@@ -681,7 +639,18 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
       const newStrokes = [...strokes];
       for (let i = newStrokes.length - 1; i >= 0; i--) {
         if (isPointInStroke(pos, newStrokes[i])) {
-          newStrokes[i] = { ...newStrokes[i], filled: !newStrokes[i].filled, isClosed: true };
+          // Toggle entre Preenchido -> Buraco -> Outline -> Preenchido
+          const current = newStrokes[i];
+          if (current.filled && !current.isHole) {
+              // Vira buraco
+              newStrokes[i] = { ...current, isHole: true };
+          } else if (current.isHole) {
+              // Vira outline (sem preenchimento)
+              newStrokes[i] = { ...current, isHole: false, filled: false };
+          } else {
+              // Vira preenchido normal
+              newStrokes[i] = { ...current, filled: true, isClosed: true };
+          }
           setStrokes(newStrokes);
           return;
         }
@@ -905,11 +874,17 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'white';
-    ctx.fillStyle = 'white';
-    strokes.forEach(stroke => drawStroke(ctx, stroke));
+    // Para preview, desenha os buracos como transparência
+    strokes.forEach(stroke => {
+        ctx.globalCompositeOperation = stroke.isHole ? 'destination-out' : 'source-over';
+        // Configurações visuais do stroke
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = 'white';
+        ctx.fillStyle = 'white';
+        drawStroke(ctx, stroke);
+    });
+    ctx.globalCompositeOperation = 'source-over';
     
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = 100;
@@ -926,27 +901,9 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
   };
 
   const handleNextInternal = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'white';
-    ctx.fillStyle = 'white';
-    strokes.forEach(stroke => drawStroke(ctx, stroke));
-
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = 100;
-    tempCanvas.height = 100;
-    const tempCtx = tempCanvas.getContext('2d');
-    if (tempCtx) {
-        tempCtx.drawImage(canvas, 0, 0, 100, 100);
-    }
-    const preview = tempCanvas.toDataURL('image/png');
-    onNext(strokes, preview);
+    // Mesma lógica de salvar
+    handleSaveInternal();
+    onNext(strokes, ""); // O preview já foi salvo em handleSaveInternal se necessário, mas aqui só passamos o trigger
   };
 
   if (!isOpen) return null;
@@ -962,7 +919,7 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
              <div>
                <h3 className="text-white font-bold">Desenhando caractere</h3>
                <p className="text-xs text-slate-400">
-                   {activeTool === 'bucket' ? 'Toque na forma para preencher' :
+                   {activeTool === 'bucket' ? 'Toque na forma: Preenchido > Buraco > Linha' :
                     activeTool === 'move' ? 'Arraste para mover o desenho' :
                     activeTool === 'scale' ? 'Arraste (Cima/Baixo) para redimensionar' :
                     activeTool === 'bezier' ? '1. Arraste a linha | 2. Arraste a curva' : 
@@ -1017,7 +974,7 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
                 <button 
                     onClick={() => setActiveTool('bucket')} 
                     className={`p-2 rounded transition-colors ${activeTool === 'bucket' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`} 
-                    title="Balde de Tinta"
+                    title="Modificador (Preencher/Buraco/Linha)"
                 >
                   <PaintBucket className="w-5 h-5" />
                 </button>

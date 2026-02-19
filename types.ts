@@ -193,6 +193,7 @@ export interface Stroke {
   isClosed?: boolean; // Indica se o path deve ser fechado (para formas)
   filled?: boolean; // Indica se a forma deve ser preenchida (Paint Bucket)
   width?: number; // Espessura do traço
+  isHole?: boolean; // Novo: Indica se o traço é um buraco (ex: miolo do 'O')
 }
 
 export interface GlyphData {
