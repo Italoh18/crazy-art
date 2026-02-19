@@ -21,8 +21,8 @@ export const FontCreator: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   
-  // Novo Estado: Espaçamento (Tracking)
-  const [spacing, setSpacing] = useState(40); // Valor padrão
+  // Novo Estado: Espaçamento (Tracking) - Padrão alterado para 3
+  const [spacing, setSpacing] = useState(3); 
   
   const fullFontInputRef = useRef<HTMLInputElement>(null);
 

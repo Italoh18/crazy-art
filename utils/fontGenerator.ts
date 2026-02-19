@@ -15,7 +15,17 @@ const DESCENDER = -200;
 const RENDER_SIZE = 1000; 
 const CANVAS_SIZE = 500; // Tamanho visual do editor
 
-// --- Funções Auxiliares de SVG ---
+// --- Funções Auxiliares de SVG e Geometria ---
+
+// Calcula a área assinada de um polígono para determinar orientação (Horário/Anti-horário)
+const getPolygonSignedArea = (points: Point[]): number => {
+  let area = 0;
+  for (let i = 0; i < points.length; i++) {
+    const j = (i + 1) % points.length;
+    area += (points[j].x - points[i].x) * (points[j].y + points[i].y);
+  }
+  return area / 2;
+};
 
 /**
  * Analisa uma string de Path SVG (d) e a converte em comandos para o OpenType.js
@@ -161,6 +171,7 @@ export const generatePreviewFromStrokes = (strokes: Stroke[], width: number, hei
     ctx.scale(scaleX, scaleY);
 
     strokes.forEach(stroke => {
+        // Se for buraco, usa destination-out para "furar" o que já foi desenhado
         ctx.globalCompositeOperation = stroke.isHole ? 'destination-out' : 'source-over';
         ctx.fillStyle = 'white';
         ctx.strokeStyle = 'white';
@@ -190,24 +201,24 @@ export const generatePreviewFromStrokes = (strokes: Stroke[], width: number, hei
  * Converte um Path do OpenType.js de volta para Strokes (para importação)
  */
 export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: number, canvasH: number): Stroke[] => {
-    const strokes: Stroke[] = [];
+    const rawStrokes: any[] = [];
     let currentPoints: Point[] = [];
 
-    // Lógica simplificada de importação:
-    // Converte os comandos em strokes do tipo "shape" (preenchidos)
+    // Lógica de importação: Converte os comandos em strokes do tipo "shape"
     path.commands.forEach(cmd => {
         switch (cmd.type) {
-            case 'M': 
+            case 'M': // Move To (Inicia novo sub-path)
                 if (currentPoints.length > 0) {
-                    strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: 1 });
+                    // Salva o path anterior
+                    rawStrokes.push({ points: [...currentPoints] });
                     currentPoints = [];
                 }
                 currentPoints.push({ x: cmd.x, y: cmd.y });
                 break;
-            case 'L': 
+            case 'L': // Line To
                 currentPoints.push({ x: cmd.x, y: cmd.y });
                 break;
-            case 'Q': 
+            case 'Q': // Quadratic Bezier
                 if (currentPoints.length > 0) {
                     const p0 = currentPoints[currentPoints.length - 1];
                     for (let t = 0.1; t <= 1; t += 0.1) {
@@ -218,22 +229,41 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
                     }
                 }
                 break;
-            case 'C': 
-            case 'Z': 
+            case 'C': // Cubic Bezier (IMPORTANTE: Estava faltando lógica completa)
                 if (currentPoints.length > 0) {
-                    strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: 1 });
+                    const p0 = currentPoints[currentPoints.length - 1];
+                    for (let t = 0.1; t <= 1; t += 0.1) {
+                        const invT = 1 - t;
+                        const x = Math.pow(invT, 3) * p0.x + 3 * Math.pow(invT, 2) * t * cmd.x1 + 3 * invT * Math.pow(t, 2) * cmd.x2 + Math.pow(t, 3) * cmd.x;
+                        const y = Math.pow(invT, 3) * p0.y + 3 * Math.pow(invT, 2) * t * cmd.y1 + 3 * invT * Math.pow(t, 2) * cmd.y2 + Math.pow(t, 3) * cmd.y;
+                        currentPoints.push({ x, y });
+                    }
+                }
+                break;
+            case 'Z': // Close Path
+                if (currentPoints.length > 0) {
+                    // Garante que o último ponto conecta ao primeiro
+                    const first = currentPoints[0];
+                    const last = currentPoints[currentPoints.length-1];
+                    if (first.x !== last.x || first.y !== last.y) {
+                        currentPoints.push(first);
+                    }
+                    rawStrokes.push({ points: [...currentPoints] });
                     currentPoints = [];
                 }
                 break;
         }
     });
-    if (currentPoints.length > 0) strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: 1 });
 
-    if (strokes.length === 0) return [];
+    if (currentPoints.length > 0) {
+        rawStrokes.push({ points: [...currentPoints] });
+    }
 
-    // Normalização para caber no Canvas (500x500)
+    if (rawStrokes.length === 0) return [];
+
+    // --- NORMALIZAÇÃO E ESCALA ---
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    strokes.forEach(s => s.points.forEach(p => {
+    rawStrokes.forEach(s => s.points.forEach((p: Point) => {
         if (p.x < minX) minX = p.x;
         if (p.x > maxX) maxX = p.x;
         if (p.y < minY) minY = p.y;
@@ -242,19 +272,54 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
 
     const glyphW = maxX - minX;
     const glyphH = maxY - minY;
-    if (glyphW === 0 || glyphH === 0) return strokes;
+    
+    if (glyphW === 0 || glyphH === 0) return [];
 
     const padding = 60;
-    const scale = Math.min((canvasW - padding*2) / glyphW, (canvasH - padding*2) / glyphH);
+    const availableW = canvasW - (padding * 2);
+    const availableH = canvasH - (padding * 2);
+
+    const scale = Math.min(availableW / glyphW, availableH / glyphH);
     const offsetX = (canvasW - (glyphW * scale)) / 2;
     const offsetY = (canvasH - (glyphH * scale)) / 2;
 
-    return strokes.map(s => ({
-        ...s,
-        points: s.points.map(p => ({
+    // Processa os pontos e calcula a área para detecção de buracos
+    const processedStrokes = rawStrokes.map(s => {
+        const newPoints = s.points.map((p: Point) => ({
             x: (p.x - minX) * scale + offsetX,
-            y: (p.y - minY) * scale + offsetY // Inverte Y? Não, aqui importamos para coordenadas de tela
-        }))
+            // Inverte Y: Fonte (Y-up) -> Canvas (Y-down). 
+            // maxY é o topo visual na fonte, que deve virar o topo visual no canvas (menor Y).
+            y: (maxY - p.y) * scale + offsetY 
+        }));
+        
+        const area = getPolygonSignedArea(newPoints);
+        return { 
+            points: newPoints, 
+            type: 'shape' as const, 
+            filled: true, 
+            isClosed: true, 
+            width: 1, 
+            area 
+        };
+    });
+
+    // Detecção de Buracos (Winding Rule simplificado)
+    // 1. Encontra a maior área absoluta (o corpo principal da letra)
+    let maxAbsArea = 0;
+    let solidSign = 0;
+    
+    processedStrokes.forEach(s => {
+        if (Math.abs(s.area) > maxAbsArea) {
+            maxAbsArea = Math.abs(s.area);
+            solidSign = Math.sign(s.area);
+        }
+    });
+
+    // 2. Marca como buraco se o sinal da área for oposto ao do corpo principal
+    return processedStrokes.map(s => ({
+        ...s,
+        // É buraco se tiver direção oposta E for menor que o corpo principal
+        isHole: Math.sign(s.area) !== solidSign && Math.abs(s.area) < maxAbsArea
     }));
 };
 
@@ -316,11 +381,6 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: n
       if (!d) continue;
 
       // 3. Calcular Bounding Box para Alinhamento à Esquerda (Left Side Bearing)
-      // Precisamos parsear o path temporariamente para descobrir o minX visual
-      // O ImageTracer trabalha em coordenadas do canvas (0 a 1000).
-      
-      // Maneira rápida de achar minX no 'd' string (aproximada, mas eficiente)
-      // Ou melhor, vamos processar o path no OpenType e medir lá.
       
       const tempPath = new opentype.Path();
       parseSvgPathToOpenType(d, tempPath, 0); // Sem offset
