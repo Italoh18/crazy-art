@@ -11,7 +11,6 @@ const ASCENDER = 800;
 const DESCENDER = -200;
 
 // Configuração de Alta Resolução para o Canvas de Processamento
-// Renderizamos em 1000x1000 para mapear 1:1 com as unidades da fonte e garantir qualidade
 const RENDER_SIZE = 1000; 
 const CANVAS_SIZE = 500; // Tamanho visual do editor
 
@@ -123,8 +122,8 @@ const renderStrokesToCanvas = (strokes: Stroke[]): HTMLCanvasElement => {
         // destination-out = Borracha (Buraco)
         // source-over = Pincel (Sólido)
         ctx.globalCompositeOperation = stroke.isHole ? 'destination-out' : 'source-over';
-        ctx.fillStyle = 'black';
-        ctx.strokeStyle = 'black';
+        ctx.fillStyle = 'white'; // Tinta BRANCA
+        ctx.strokeStyle = 'white'; // Tinta BRANCA
         ctx.lineWidth = stroke.width || 15;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
@@ -229,7 +228,7 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
                     }
                 }
                 break;
-            case 'C': // Cubic Bezier (IMPORTANTE: Estava faltando lógica completa)
+            case 'C': // Cubic Bezier
                 if (currentPoints.length > 0) {
                     const p0 = currentPoints[currentPoints.length - 1];
                     for (let t = 0.1; t <= 1; t += 0.1) {
@@ -287,8 +286,9 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
     const processedStrokes = rawStrokes.map(s => {
         const newPoints = s.points.map((p: Point) => ({
             x: (p.x - minX) * scale + offsetX,
-            // Inverte Y: Fonte (Y-up) -> Canvas (Y-down). 
-            // maxY é o topo visual na fonte, que deve virar o topo visual no canvas (menor Y).
+            // CORREÇÃO: Restaura o FLIP no eixo Y para importação correta
+            // Fontes têm Y crescendo para cima, Canvas para baixo.
+            // (maxY - p.y) inverte e alinha corretamente.
             y: (maxY - p.y) * scale + offsetY 
         }));
         
@@ -349,20 +349,19 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: n
       const data = glyphs[key];
       if (data.strokes.length === 0) continue;
 
-      // 1. Rasterizar: Transforma os traços em uma imagem pixels preto e branco
+      // 1. Rasterizar: Transforma os traços em uma imagem
       const canvas = renderStrokesToCanvas(data.strokes);
       const imgData = canvas.getContext('2d')?.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE);
       
       if (!imgData) continue;
 
-      // 2. Vetorizar: Usa ImageTracer para criar um único contorno a partir dos pixels
-      // Configuração para alta precisão e curvas suaves
+      // 2. Vetorizar: Usa ImageTracer para criar um único contorno
       const traceOptions = {
           ltres: 0.1, // Tolerância linear baixa (mais detalhes)
           qtres: 0.1, // Tolerância quadrática baixa (curvas melhores)
           pathomit: 8, // Ignora ruídos muito pequenos
-          colorsampling: 0, // Desativa amostragem (já é preto e branco)
-          numberofcolors: 2,
+          colorsampling: 0, // Desativa amostragem
+          numberofcolors: 2, // 2 Cores: Fundo e Frente
           mincolorratio: 0,
           colorquantcycles: 0,
           strokewidth: 0,
@@ -373,17 +372,21 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: n
       // O ImageTracer retorna uma string SVG completa
       const svgString = ImageTracer.imagedataToSVG(imgData, traceOptions);
       
-      // Extrair o atributo 'd' do caminho SVG gerado
-      // O ImageTracer gera paths com fill="rgb(0,0,0)". Procuramos esse path.
-      const pathMatch = svgString.match(/<path[^>]*d="([^"]+)"[^>]*fill="rgb\(0,0,0\)"/);
-      const d = pathMatch ? pathMatch[1] : null;
+      // Extrair TODOS os paths BRANCOS (rgb(255,255,255))
+      // O desenho é feito em branco sobre transparente/preto.
+      const pathRegex = /<path[^>]*d="([^"]+)"[^>]*fill="rgb\(255,255,255\)"/g;
+      const pathDataList = [];
+      let match;
+      while ((match = pathRegex.exec(svgString)) !== null) {
+          pathDataList.push(match[1]);
+      }
 
-      if (!d) continue;
+      if (pathDataList.length === 0) continue;
 
-      // 3. Calcular Bounding Box para Alinhamento à Esquerda (Left Side Bearing)
-      
+      // 3. Calcular Bounding Box GLOBAL (para Alinhamento)
       const tempPath = new opentype.Path();
-      parseSvgPathToOpenType(d, tempPath, 0); // Sem offset
+      pathDataList.forEach(d => parseSvgPathToOpenType(d, tempPath, 0));
+      
       const bbox = tempPath.getBoundingBox();
       const minX = bbox.x1;
       const maxX = bbox.x2;
@@ -392,9 +395,9 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: n
       const leftBearing = 20;
       const shiftX = minX - leftBearing; // O quanto devemos deslocar para a esquerda
 
-      // 4. Criar Path Final Ajustado
+      // 4. Criar Path Final Ajustado (Combinando todos os paths encontrados)
       const finalPath = new opentype.Path();
-      parseSvgPathToOpenType(d, finalPath, shiftX);
+      pathDataList.forEach(d => parseSvgPathToOpenType(d, finalPath, shiftX));
 
       // Calcular largura de avanço
       const width = maxX - minX;
