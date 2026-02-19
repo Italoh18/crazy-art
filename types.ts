@@ -181,20 +181,31 @@ export interface HistoryListProps {
   onUploadFonts: (files: FileList) => void; // Nova prop para upload
 }
 
-// --- Font Creator Types ---
+// --- Font Creator / Vector Engine Types ---
+
+export type NodeType = 'cusp' | 'smooth' | 'symmetric';
 
 export interface Point {
   x: number;
   y: number;
+  // Control handles relative to x,y
+  handleIn?: { x: number; y: number };
+  handleOut?: { x: number; y: number };
+  type?: NodeType;
 }
 
 export interface Stroke {
-  points: Point[];
-  type: 'freehand' | 'shape' | 'bezier';
-  isClosed?: boolean; // Indica se o path deve ser fechado (para formas)
-  filled?: boolean; // Indica se a forma deve ser preenchida (Paint Bucket)
-  width?: number; // Espessura do traço
-  isHole?: boolean; // Novo: Indica se o traço é um buraco (ex: miolo do 'O')
+  id?: string;
+  points: Point[]; // Nodes
+  type: 'path' | 'freehand' | 'shape' | 'bezier'; // 'path' is the new standard
+  isClosed?: boolean; 
+  filled?: boolean; // If true, rendering fills the shape
+  width?: number; // Stroke width
+  isHole?: boolean; // Boolean op (subtraction)
+  
+  // Vector Properties
+  fillColor?: string;
+  strokeColor?: string;
 }
 
 export interface GlyphData {

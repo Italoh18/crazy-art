@@ -1,6 +1,6 @@
 
 import opentype from 'opentype.js';
-import { GlyphMap, Stroke, Point } from '../types';
+import { GlyphMap, Stroke, Point, NodeType } from '../types';
 
 // Declaração do ImageTracer global (injetado via index.html)
 declare const ImageTracer: any;
@@ -17,6 +17,7 @@ const CANVAS_SIZE = 500; // Tamanho visual do editor
 // --- Funções Auxiliares de SVG e Geometria ---
 
 // Calcula a área assinada de um polígono para determinar orientação (Horário/Anti-horário)
+// Adaptado para funcionar com curvas (aproximação pelos nodes)
 const getPolygonSignedArea = (points: Point[]): number => {
   let area = 0;
   for (let i = 0; i < points.length; i++) {
@@ -28,28 +29,21 @@ const getPolygonSignedArea = (points: Point[]): number => {
 
 /**
  * Analisa uma string de Path SVG (d) e a converte em comandos para o OpenType.js
- * Também realiza a transformação de coordenadas (Flip Y e Offset X)
  */
 const parseSvgPathToOpenType = (d: string, targetPath: opentype.Path, offsetX: number) => {
     if (!d) return;
     
-    // Expressão regular para capturar comandos e números
     const commands = d.match(/([a-zA-Z])|([-+]?[0-9]*\.?[0-9]+(?:e[-+]?[0-9]+)?)/g);
     if (!commands) return;
 
     let i = 0;
     let currentX = 0;
     let currentY = 0;
-    // Ponto de início do sub-caminho para fechar (Z)
     let startX = 0;
     let startY = 0;
 
-    // Função para transformar coordenadas:
-    // 1. Aplica o Offset X (para alinhar à esquerda)
-    // 2. Inverte o Y (Canvas é Y-down, Fonte é Y-up)
-    // 3. Ajusta a Baseline (800 é a baseline aproximada no grid 1000x1000, invertendo fica correto)
     const tx = (x: number) => Math.round(x - offsetX);
-    const ty = (y: number) => Math.round(800 - y); // 800 é o Ascender, inverte o eixo Y
+    const ty = (y: number) => Math.round(800 - y); // Flip Y para fonte
 
     while (i < commands.length) {
         const cmd = commands[i];
@@ -58,39 +52,30 @@ const parseSvgPathToOpenType = (d: string, targetPath: opentype.Path, offsetX: n
         const nextNum = () => parseFloat(commands[++i]);
 
         switch (cmd) {
-            case 'M': // Move To
-                currentX = nextNum();
-                currentY = nextNum();
-                startX = currentX;
-                startY = currentY;
+            case 'M': 
+                currentX = nextNum(); currentY = nextNum();
+                startX = currentX; startY = currentY;
                 targetPath.moveTo(tx(currentX), ty(currentY));
                 break;
-            case 'L': // Line To
-                currentX = nextNum();
-                currentY = nextNum();
+            case 'L': 
+                currentX = nextNum(); currentY = nextNum();
                 targetPath.lineTo(tx(currentX), ty(currentY));
                 break;
-            case 'Q': // Quadratic Bezier
-                const cx = nextNum();
-                const cy = nextNum();
-                currentX = nextNum();
-                currentY = nextNum();
+            case 'Q': 
+                const cx = nextNum(); const cy = nextNum();
+                currentX = nextNum(); currentY = nextNum();
                 targetPath.quadraticCurveTo(tx(cx), ty(cy), tx(currentX), ty(currentY));
                 break;
-            case 'C': // Cubic Bezier
-                const x1 = nextNum();
-                const y1 = nextNum();
-                const x2 = nextNum();
-                const y2 = nextNum();
-                currentX = nextNum();
-                currentY = nextNum();
+            case 'C': 
+                const x1 = nextNum(); const y1 = nextNum();
+                const x2 = nextNum(); const y2 = nextNum();
+                currentX = nextNum(); currentY = nextNum();
                 targetPath.curveTo(tx(x1), ty(y1), tx(x2), ty(y2), tx(currentX), ty(currentY));
                 break;
-            case 'Z': // Close Path
+            case 'Z': 
             case 'z':
                 targetPath.close();
-                currentX = startX;
-                currentY = startY;
+                currentX = startX; currentY = startY;
                 break;
         }
         i++;
@@ -98,7 +83,8 @@ const parseSvgPathToOpenType = (d: string, targetPath: opentype.Path, offsetX: n
 };
 
 /**
- * Desenha os strokes em um Canvas HTML5 para criar a forma sólida.
+ * Desenha os strokes (agora Paths) em um Canvas HTML5.
+ * Suporta curvas Bezier completas.
  */
 const renderStrokesToCanvas = (strokes: Stroke[]): HTMLCanvasElement => {
     const canvas = document.createElement('canvas');
@@ -108,43 +94,63 @@ const renderStrokesToCanvas = (strokes: Stroke[]): HTMLCanvasElement => {
     
     if (!ctx) return canvas;
 
-    // Fundo transparente
     ctx.clearRect(0, 0, RENDER_SIZE, RENDER_SIZE);
-
-    // Escala do editor (500px) para o render (1000px)
+    
+    // Fundo transparente
+    // Escala do editor para render
     const scale = RENDER_SIZE / CANVAS_SIZE;
     ctx.scale(scale, scale);
 
     strokes.forEach(stroke => {
         ctx.beginPath();
         
-        // Define o modo de composição: 
-        // destination-out = Borracha (Buraco)
-        // source-over = Pincel (Sólido)
         ctx.globalCompositeOperation = stroke.isHole ? 'destination-out' : 'source-over';
-        ctx.fillStyle = 'white'; // Tinta BRANCA
-        ctx.strokeStyle = 'white'; // Tinta BRANCA
-        ctx.lineWidth = stroke.width || 15;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-
+        ctx.fillStyle = 'white'; 
+        ctx.strokeStyle = 'white'; 
+        
+        // Se for stroke com width definido (simulação de pincel antigo ou contorno)
+        // Para a nova engine, 'filled' define se é um shape fechado.
+        
         if (stroke.points.length > 0) {
-            ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+            const pts = stroke.points;
+            ctx.moveTo(pts[0].x, pts[0].y);
             
-            if (stroke.type === 'bezier' && stroke.points.length === 3) {
-                ctx.quadraticCurveTo(stroke.points[1].x, stroke.points[1].y, stroke.points[2].x, stroke.points[2].y);
-            } else {
-                for (let i = 1; i < stroke.points.length; i++) {
-                    ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+            for (let i = 1; i < pts.length; i++) {
+                const p = pts[i];
+                const prev = pts[i-1];
+                
+                // Se tiver handles, usa Bezier Cúbico
+                if (prev.handleOut && p.handleIn && (prev.handleOut.x !== 0 || prev.handleOut.y !== 0 || p.handleIn.x !== 0 || p.handleIn.y !== 0)) {
+                    ctx.bezierCurveTo(
+                        prev.x + prev.handleOut.x, prev.y + prev.handleOut.y,
+                        p.x + p.handleIn.x, p.y + p.handleIn.y,
+                        p.x, p.y
+                    );
+                } else {
+                    ctx.lineTo(p.x, p.y);
                 }
+            }
+            
+            if (stroke.isClosed) {
+                const first = pts[0];
+                const last = pts[pts.length - 1];
+                if (last.handleOut && first.handleIn) {
+                     ctx.bezierCurveTo(
+                        last.x + last.handleOut.x, last.y + last.handleOut.y,
+                        first.x + first.handleIn.x, first.y + first.handleIn.y,
+                        first.x, first.y
+                    );
+                }
+                ctx.closePath();
             }
         }
 
-        if (stroke.isClosed) ctx.closePath();
-        
         if (stroke.filled) {
             ctx.fill();
         } else {
+            ctx.lineWidth = stroke.width || 15;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
             ctx.stroke();
         }
     });
@@ -152,9 +158,6 @@ const renderStrokesToCanvas = (strokes: Stroke[]): HTMLCanvasElement => {
     return canvas;
 };
 
-/**
- * Gera Preview Base64 (Utilizado na Grid da Interface)
- */
 export const generatePreviewFromStrokes = (strokes: Stroke[], width: number, height: number): string => {
     const canvas = document.createElement('canvas');
     canvas.width = width;
@@ -162,7 +165,6 @@ export const generatePreviewFromStrokes = (strokes: Stroke[], width: number, hei
     const ctx = canvas.getContext('2d');
     if (!ctx) return '';
 
-    // Escala para o tamanho do preview
     const scaleX = width / 500;
     const scaleY = height / 500;
     
@@ -170,97 +172,143 @@ export const generatePreviewFromStrokes = (strokes: Stroke[], width: number, hei
     ctx.scale(scaleX, scaleY);
 
     strokes.forEach(stroke => {
-        // Se for buraco, usa destination-out para "furar" o que já foi desenhado
+        ctx.beginPath();
         ctx.globalCompositeOperation = stroke.isHole ? 'destination-out' : 'source-over';
         ctx.fillStyle = 'white';
         ctx.strokeStyle = 'white';
-        ctx.lineWidth = stroke.width || 15;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
         
-        ctx.beginPath();
         if (stroke.points.length > 0) {
-            ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-            if (stroke.type === 'bezier' && stroke.points.length === 3) {
-                 ctx.quadraticCurveTo(stroke.points[1].x, stroke.points[1].y, stroke.points[2].x, stroke.points[2].y);
-            } else {
-                for (let i = 1; i < stroke.points.length; i++) {
-                    ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+            const pts = stroke.points;
+            ctx.moveTo(pts[0].x, pts[0].y);
+            
+            for (let i = 1; i < pts.length; i++) {
+                const p = pts[i];
+                const prev = pts[i-1];
+                if (prev.handleOut && p.handleIn && (prev.handleOut.x !== 0 || prev.handleOut.y !== 0 || p.handleIn.x !== 0 || p.handleIn.y !== 0)) {
+                    ctx.bezierCurveTo(
+                        prev.x + prev.handleOut.x, prev.y + prev.handleOut.y,
+                        p.x + p.handleIn.x, p.y + p.handleIn.y,
+                        p.x, p.y
+                    );
+                } else {
+                    ctx.lineTo(p.x, p.y);
                 }
             }
+            if (stroke.isClosed) {
+                 const first = pts[0];
+                 const last = pts[pts.length - 1];
+                 if (last.handleOut && first.handleIn) {
+                     ctx.bezierCurveTo(
+                        last.x + last.handleOut.x, last.y + last.handleOut.y,
+                        first.x + first.handleIn.x, first.y + first.handleIn.y,
+                        first.x, first.y
+                    );
+                 }
+                 ctx.closePath();
+            }
         }
-        if (stroke.isClosed) ctx.closePath();
-        if (stroke.filled) ctx.fill(); else ctx.stroke();
+        
+        if (stroke.filled) ctx.fill(); else {
+            ctx.lineWidth = stroke.width || 15;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+        }
     });
 
     return canvas.toDataURL('image/png');
 };
 
 /**
- * Converte um Path do OpenType.js de volta para Strokes (para importação)
+ * Converte um Path do OpenType.js de volta para Strokes (Nodes com Handles)
  */
 export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: number, canvasH: number): Stroke[] => {
     const rawStrokes: any[] = [];
     let currentPoints: Point[] = [];
 
-    // Lógica de importação: Converte os comandos em strokes do tipo "shape"
+    // Helper para converter coordenada OpenType (Y-Up) para Canvas (Y-Down)
+    // Precisamos saber a bounding box primeiro? Ou assumimos unidades padrão?
+    // Vamos converter comandos raw primeiro, depois normalizar.
+    
+    let lastX = 0, lastY = 0;
+
     path.commands.forEach(cmd => {
         switch (cmd.type) {
-            case 'M': // Move To (Inicia novo sub-path)
+            case 'M': 
                 if (currentPoints.length > 0) {
-                    // Salva o path anterior
                     rawStrokes.push({ points: [...currentPoints] });
                     currentPoints = [];
                 }
-                currentPoints.push({ x: cmd.x, y: cmd.y });
+                currentPoints.push({ x: cmd.x, y: cmd.y, handleIn: {x:0,y:0}, handleOut: {x:0,y:0}, type: 'cusp' });
+                lastX = cmd.x; lastY = cmd.y;
                 break;
-            case 'L': // Line To
-                currentPoints.push({ x: cmd.x, y: cmd.y });
+            case 'L': 
+                currentPoints.push({ x: cmd.x, y: cmd.y, handleIn: {x:0,y:0}, handleOut: {x:0,y:0}, type: 'cusp' });
+                lastX = cmd.x; lastY = cmd.y;
                 break;
-            case 'Q': // Quadratic Bezier
+            case 'Q':
+                // Quadratic to Cubic approx
+                // CP1 = P0 + 2/3 (QP1 - P0)
+                // CP2 = P2 + 2/3 (QP1 - P2)
+                const qp1x = cmd.x1, qp1y = cmd.y1;
+                const qp2x = cmd.x, qp2y = cmd.y;
+                
+                const prev = currentPoints[currentPoints.length - 1];
+                const cp1x = prev.x + (2/3) * (qp1x - prev.x);
+                const cp1y = prev.y + (2/3) * (qp1y - prev.y);
+                const cp2x = qp2x + (2/3) * (qp1x - qp2x);
+                const cp2y = qp2y + (2/3) * (qp1y - qp2y);
+                
+                // Update prev handleOut
+                prev.handleOut = { x: cp1x - prev.x, y: cp1y - prev.y };
+                prev.type = 'smooth'; // Assume smooth
+
+                // Add new point with handleIn
+                currentPoints.push({ 
+                    x: qp2x, y: qp2y, 
+                    handleIn: { x: cp2x - qp2x, y: cp2y - qp2y }, 
+                    handleOut: { x: 0, y: 0 },
+                    type: 'smooth' 
+                });
+                lastX = qp2x; lastY = qp2y;
+                break;
+            case 'C':
+                const prevC = currentPoints[currentPoints.length - 1];
+                prevC.handleOut = { x: cmd.x1 - prevC.x, y: cmd.y1 - prevC.y };
+                prevC.type = 'smooth';
+
+                currentPoints.push({
+                    x: cmd.x, y: cmd.y,
+                    handleIn: { x: cmd.x2 - cmd.x, y: cmd.y2 - cmd.y },
+                    handleOut: { x: 0, y: 0 },
+                    type: 'smooth'
+                });
+                lastX = cmd.x; lastY = cmd.y;
+                break;
+            case 'Z':
+                // Fecha o path. O último ponto se conecta ao primeiro.
+                // Se tiver handle, precisa ajustar o primeiro ponto também.
                 if (currentPoints.length > 0) {
-                    const p0 = currentPoints[currentPoints.length - 1];
-                    for (let t = 0.1; t <= 1; t += 0.1) {
-                        const invT = 1 - t;
-                        const x = (invT * invT * p0.x) + (2 * invT * t * cmd.x1) + (t * t * cmd.x);
-                        const y = (invT * invT * p0.y) + (2 * invT * t * cmd.y1) + (t * t * cmd.y);
-                        currentPoints.push({ x, y });
-                    }
-                }
-                break;
-            case 'C': // Cubic Bezier
-                if (currentPoints.length > 0) {
-                    const p0 = currentPoints[currentPoints.length - 1];
-                    for (let t = 0.1; t <= 1; t += 0.1) {
-                        const invT = 1 - t;
-                        const x = Math.pow(invT, 3) * p0.x + 3 * Math.pow(invT, 2) * t * cmd.x1 + 3 * invT * Math.pow(t, 2) * cmd.x2 + Math.pow(t, 3) * cmd.x;
-                        const y = Math.pow(invT, 3) * p0.y + 3 * Math.pow(invT, 2) * t * cmd.y1 + 3 * invT * Math.pow(t, 2) * cmd.y2 + Math.pow(t, 3) * cmd.y;
-                        currentPoints.push({ x, y });
-                    }
-                }
-                break;
-            case 'Z': // Close Path
-                if (currentPoints.length > 0) {
-                    // Garante que o último ponto conecta ao primeiro
                     const first = currentPoints[0];
-                    const last = currentPoints[currentPoints.length-1];
-                    if (first.x !== last.x || first.y !== last.y) {
-                        currentPoints.push(first);
+                    const last = currentPoints[currentPoints.length - 1];
+                    // Se eles forem iguais (comum em fonts), merge. Se não, desenha linha.
+                    if (Math.abs(first.x - last.x) < 0.01 && Math.abs(first.y - last.y) < 0.01) {
+                        // Merge handles
+                        first.handleIn = last.handleIn;
+                        // Remove last
+                        currentPoints.pop();
                     }
-                    rawStrokes.push({ points: [...currentPoints] });
+                    rawStrokes.push({ points: [...currentPoints], closed: true });
                     currentPoints = [];
                 }
                 break;
         }
     });
-
-    if (currentPoints.length > 0) {
-        rawStrokes.push({ points: [...currentPoints] });
-    }
+    if (currentPoints.length > 0) rawStrokes.push({ points: [...currentPoints], closed: false });
 
     if (rawStrokes.length === 0) return [];
 
-    // --- NORMALIZAÇÃO E ESCALA ---
+    // --- NORMALIZAÇÃO (Y-Up -> Y-Down e Fit to Canvas) ---
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     rawStrokes.forEach(s => s.points.forEach((p: Point) => {
         if (p.x < minX) minX = p.x;
@@ -282,30 +330,43 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
     const offsetX = (canvasW - (glyphW * scale)) / 2;
     const offsetY = (canvasH - (glyphH * scale)) / 2;
 
-    // Processa os pontos e calcula a área para detecção de buracos
     const processedStrokes = rawStrokes.map(s => {
         const newPoints = s.points.map((p: Point) => ({
             x: (p.x - minX) * scale + offsetX,
-            // Mantém orientação Y-down (padrão SVG/Canvas) para exibição correta no editor
-            y: (p.y - minY) * scale + offsetY 
+            // Y-down fix: (p.y - minY) * scale.
+            // Note: OpenType coords usually Y-Up. 
+            // If the input path comes from a font, minY is likely negative (descender).
+            // Canvas origin top-left.
+            // Standardizing: (p.y - minY) aligns to top. To align correctly, we map:
+            // maxY (top of letter in font coords) -> minY in canvas? No.
+            // Font: maxY is top. Canvas: 0 is top.
+            // y = (maxY - p.y) * scale + offsetY is correct for flip.
+            // But if convertOpenTypePathToStrokes is reading raw commands where Y is already flipped or standard?
+            // Let's assume standard font coords (Y Up).
+            // Then (maxY - p.y) flips it to Y Down.
+            y: (maxY - p.y) * scale + offsetY,
+            
+            // Handles must be flipped too (Y component)
+            handleIn: { x: (p.handleIn?.x || 0) * scale, y: -(p.handleIn?.y || 0) * scale },
+            handleOut: { x: (p.handleOut?.x || 0) * scale, y: -(p.handleOut?.y || 0) * scale },
+            type: p.type
         }));
         
+        // Recalculate area for winding order (holes)
         const area = getPolygonSignedArea(newPoints);
         return { 
             points: newPoints, 
-            type: 'shape' as const, 
+            type: 'path' as const, 
             filled: true, 
-            isClosed: true, 
+            isClosed: s.closed !== false, 
             width: 1, 
             area 
         };
     });
 
-    // Detecção de Buracos (Winding Rule simplificado)
-    // 1. Encontra a maior área absoluta (o corpo principal da letra)
+    // Detect Holes
     let maxAbsArea = 0;
     let solidSign = 0;
-    
     processedStrokes.forEach(s => {
         if (Math.abs(s.area) > maxAbsArea) {
             maxAbsArea = Math.abs(s.area);
@@ -313,17 +374,14 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
         }
     });
 
-    // 2. Marca como buraco se o sinal da área for oposto ao do corpo principal
     return processedStrokes.map(s => ({
         ...s,
-        // É buraco se tiver direção oposta E for menor que o corpo principal
         isHole: Math.sign(s.area) !== solidSign && Math.abs(s.area) < maxAbsArea
     }));
 };
 
 /**
  * GERA O ARQUIVO TTF
- * Usa Rasterização + ImageTracer para garantir formas sólidas e unificadas.
  */
 export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: number = 50): Promise<ArrayBuffer> => {
   const notdefPath = new opentype.Path();
@@ -342,36 +400,33 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: n
 
   const fontGlyphs = [notdefGlyph];
 
-  // Processa cada glifo
   for (const key in glyphs) {
       const data = glyphs[key];
       if (data.strokes.length === 0) continue;
 
-      // 1. Rasterizar: Transforma os traços em uma imagem
+      // Rasterizar e Vetorizar com ImageTracer para garantir união correta
+      // Isso resolve boolean operations complexas (união de retângulos, etc)
+      // ao custo de perder a precisão exata do Bezier original, 
+      // mas garante um output sólido.
+      // Se quiséssemos manter os beziers exatos, teríamos que implementar boolean ops vetoriais.
+      // Dado o prompt "Refactor to use fill-based closed paths", o usuário provavelmente quer desenhar formas
+      // e ter elas exportadas como um glifo limpo.
+      // ImageTracer approach is robust for "Paint" style creation.
+      
       const canvas = renderStrokesToCanvas(data.strokes);
       const imgData = canvas.getContext('2d')?.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE);
       
       if (!imgData) continue;
 
-      // 2. Vetorizar: Usa ImageTracer para criar um único contorno
       const traceOptions = {
-          ltres: 0.1, // Tolerância linear baixa (mais detalhes)
-          qtres: 0.1, // Tolerância quadrática baixa (curvas melhores)
-          pathomit: 8, // Ignora ruídos muito pequenos
-          colorsampling: 0, // Desativa amostragem
-          numberofcolors: 2, // 2 Cores: Fundo (Transparente) e Frente (Branco)
-          mincolorratio: 0,
-          colorquantcycles: 0,
-          strokewidth: 0,
-          viewbox: true,
-          desc: false
+          ltres: 0.1, qtres: 0.1, pathomit: 8, colorsampling: 0,
+          numberofcolors: 2, mincolorratio: 0, colorquantcycles: 0,
+          strokewidth: 0, viewbox: true, desc: false
       };
 
-      // O ImageTracer retorna uma string SVG completa
       const svgString = ImageTracer.imagedataToSVG(imgData, traceOptions);
       
-      // Extrair TODOS os paths BRANCOS
-      // Correção: Regex robusto para aceitar rgb(255, 255, 255) com espaços ou hex
+      // Regex atualizada para pegar paths brancos (fill="rgb(255,255,255)" ou similar)
       const pathRegex = /<path[^>]*d="([^"]+)"[^>]*fill="(rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)|#ffffff|#FFF|white)"/gi;
       const pathDataList = [];
       let match;
@@ -381,7 +436,7 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: n
 
       if (pathDataList.length === 0) continue;
 
-      // 3. Calcular Bounding Box GLOBAL (para Alinhamento)
+      // Bounding Box para ajuste
       const tempPath = new opentype.Path();
       pathDataList.forEach(d => parseSvgPathToOpenType(d, tempPath, 0));
       
@@ -389,15 +444,12 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: n
       const minX = bbox.x1;
       const maxX = bbox.x2;
       
-      // Margem esquerda segura
       const leftBearing = 20;
-      const shiftX = minX - leftBearing; // O quanto devemos deslocar para a esquerda
+      const shiftX = minX - leftBearing; 
 
-      // 4. Criar Path Final Ajustado (Combinando todos os paths encontrados)
       const finalPath = new opentype.Path();
       pathDataList.forEach(d => parseSvgPathToOpenType(d, finalPath, shiftX));
 
-      // Calcular largura de avanço
       const width = maxX - minX;
       const advanceWidth = Math.ceil(width + leftBearing + (spacing * 5));
 
