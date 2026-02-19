@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { PenTool, Download, Type, Hash, CaseSensitive, Trash2, Upload, Loader2 } from 'lucide-react';
+import { PenTool, Download, Type, Hash, CaseSensitive, Trash2, Upload, Loader2, Languages } from 'lucide-react';
 import { GlyphMap, Stroke } from '../types';
 import { DrawingModal } from './DrawingModal';
 import { generateTTF, convertOpenTypePathToStrokes, generatePreviewFromStrokes } from '../utils/fontGenerator';
@@ -9,11 +9,12 @@ import opentype from 'opentype.js';
 const CHAR_SETS = {
   lowercase: 'abcdefghijklmnopqrstuvwxyz'.split(''),
   uppercase: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),
-  numbers: '0123456789?!@#$&%'.split('')
+  numbers: '0123456789?!@#$&%+-/*='.split(''),
+  accents: 'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑáàâãäéèêëíìîïóòôõöúùûüçñ'.split('')
 };
 
 export const FontCreator: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'lowercase' | 'uppercase' | 'numbers'>('lowercase');
+  const [activeTab, setActiveTab] = useState<'lowercase' | 'uppercase' | 'numbers' | 'accents'>('lowercase');
   const [glyphs, setGlyphs] = useState<GlyphMap>({});
   const [fontName, setFontName] = useState("MinhaFonte");
   const [editingChar, setEditingChar] = useState<string | null>(null);
@@ -104,7 +105,8 @@ export const FontCreator: React.FC = () => {
             const allChars = [
                 ...CHAR_SETS.lowercase,
                 ...CHAR_SETS.uppercase,
-                ...CHAR_SETS.numbers
+                ...CHAR_SETS.numbers,
+                ...CHAR_SETS.accents
             ];
 
             const newGlyphs: GlyphMap = {};
@@ -140,7 +142,7 @@ export const FontCreator: React.FC = () => {
   };
 
   const getProgress = () => {
-    const total = CHAR_SETS.lowercase.length + CHAR_SETS.uppercase.length + CHAR_SETS.numbers.length;
+    const total = CHAR_SETS.lowercase.length + CHAR_SETS.uppercase.length + CHAR_SETS.numbers.length + CHAR_SETS.accents.length;
     const current = Object.keys(glyphs).length;
     return Math.round((current / total) * 100);
   };
@@ -230,6 +232,14 @@ export const FontCreator: React.FC = () => {
           `}
         >
           <Hash className="w-5 h-5" /> Núm. & Símbolos
+        </button>
+        <button 
+          onClick={() => setActiveTab('accents')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors whitespace-nowrap
+            ${activeTab === 'accents' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}
+          `}
+        >
+          <Languages className="w-5 h-5" /> Acentuação
         </button>
       </div>
 
