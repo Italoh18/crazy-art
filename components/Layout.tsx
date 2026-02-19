@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, List, CreditCard } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { SeasonalEffects } from './SeasonalEffects';
 import { StickManCleaner } from './StickManCleaner';
@@ -9,7 +9,7 @@ import { CosmicPulseSystem } from './CosmicPulseSystem';
 import { FluidTrail } from './FluidTrail';
 import { NotificationCenter } from './NotificationCenter';
 import { VirtualAssistant } from './VirtualAssistant'; 
-import { CookieConsent } from './CookieConsent';
+import { CookieConsent } from './CookieConsent'; // Importado
 
 export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
@@ -122,44 +122,25 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             
             <header className="glass-panel h-16 flex items-center justify-between px-6 sticky top-4 mx-4 rounded-2xl z-30 transition-all duration-300 border border-white/10 shadow-2xl mt-4 backdrop-blur-2xl">
                 <div className="flex items-center space-x-4">
-                     {location.pathname !== '/' && (
-                         <Link to="/" className="text-zinc-400 hover:text-white transition p-2 hover:bg-white/10 rounded-full hover:scale-110">
-                            <ArrowLeft size={20} />
-                         </Link>
-                     )}
+                     <Link to="/" className="text-zinc-400 hover:text-white transition p-2 hover:bg-white/10 rounded-full hover:scale-110">
+                        <ArrowLeft size={20} />
+                     </Link>
                      <div className="flex items-center gap-3">
                         <img src="/logo.png" alt="Crazy Art" className="h-8 w-auto object-contain" />
                         <span className="text-lg font-bold font-heading tracking-wider hidden sm:block text-transparent bg-clip-text bg-crazy-gradient">CRAZY ART</span>
                      </div>
                 </div>
                 
-                {/* Menu Desktop do Cliente */}
                 <div className="hidden md:flex items-center space-x-6">
                     <NotificationCenter />
-                    
-                    {/* Dropdown de Usuário */}
-                    <div className="relative group">
-                        <button className="flex items-center gap-2 text-sm text-white hover:text-primary transition py-2 font-bold">
-                           <span>Olá {currentCustomer?.name.split(' ')[0]}</span>
-                           <ChevronDown size={14} className="group-hover:rotate-180 transition-transform" />
-                        </button>
-                        
-                        <div className="absolute right-0 top-full mt-2 w-48 bg-[#18181b] border border-zinc-800 rounded-xl shadow-2xl overflow-hidden hidden group-hover:block animate-fade-in origin-top-right">
-                            <Link to="/my-profile" className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 text-sm text-zinc-300 hover:text-white transition">
-                                <User size={16} /> Minha Área
-                            </Link>
-                            <Link to="/my-orders" className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 text-sm text-zinc-300 hover:text-white transition">
-                                <List size={16} /> Meus Pedidos
-                            </Link>
-                            <Link to="/my-extract" className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800 text-sm text-zinc-300 hover:text-white transition">
-                                <CreditCard size={16} /> Extrato
-                            </Link>
-                            <div className="h-px bg-zinc-800 my-1"></div>
-                            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-900/20 text-sm text-red-400 hover:text-red-300 transition text-left">
-                                <LogOut size={16} /> Sair
-                            </button>
-                        </div>
-                    </div>
+                    <Link to="/my-area" className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition">
+                       <User size={16} />
+                       <span className="font-semibold">{currentCustomer?.name.split(' ')[0]}</span>
+                    </Link>
+                    <button onClick={handleLogout} className="text-zinc-400 hover:text-red-400 flex items-center space-x-2 transition-colors hover:scale-105">
+                        <LogOut size={18} />
+                        <span className="text-sm font-medium">Sair</span>
+                    </button>
                 </div>
 
                 <div className="flex items-center gap-4 md:hidden">
@@ -171,7 +152,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             </header>
 
             {isClientMenuOpen && (
-                <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col justify-center items-center gap-6 animate-fade-in md:hidden">
+                <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col justify-center items-center gap-8 animate-fade-in md:hidden">
                     <button onClick={() => setIsClientMenuOpen(false)} className="absolute top-6 right-6 text-zinc-500 hover:text-white p-2">
                         <X size={32} />
                     </button>
@@ -180,13 +161,11 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                         <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center border border-zinc-800">
                             <User size={40} className="text-primary" />
                         </div>
-                        <span className="text-xl font-bold text-white">Olá, {currentCustomer?.name.split(' ')[0]}</span>
+                        <span className="text-xl font-bold text-white">{currentCustomer?.name}</span>
                     </div>
 
-                    <Link to="/my-profile" onClick={() => setIsClientMenuOpen(false)} className="text-xl font-bold text-zinc-300 hover:text-white uppercase tracking-widest">Minha Área</Link>
-                    <Link to="/my-orders" onClick={() => setIsClientMenuOpen(false)} className="text-xl font-bold text-zinc-300 hover:text-white uppercase tracking-widest">Meus Pedidos</Link>
-                    <Link to="/my-extract" onClick={() => setIsClientMenuOpen(false)} className="text-xl font-bold text-zinc-300 hover:text-white uppercase tracking-widest">Extrato</Link>
-                    <Link to="/shop" onClick={() => setIsClientMenuOpen(false)} className="text-xl font-bold text-white uppercase tracking-widest bg-primary px-6 py-2 rounded-xl">Loja</Link>
+                    <Link to="/my-area" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-primary uppercase tracking-widest">Minha Área</Link>
+                    <Link to="/shop" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-white uppercase tracking-widest">Loja</Link>
                     
                     <button onClick={handleLogout} className="text-xl font-bold text-red-500 uppercase tracking-widest flex items-center gap-2 mt-8">
                         <LogOut size={20} /> Sair
@@ -212,7 +191,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
       <StickManCleaner />
       <CosmicPulseSystem />
       <VirtualAssistant />
-      <CookieConsent /> 
+      <CookieConsent /> {/* Aviso LGPD */}
       
       {isSidebarOpen && (
         <div 
