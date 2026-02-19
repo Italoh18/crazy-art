@@ -1,4 +1,3 @@
-
 import opentype from 'opentype.js';
 import { GlyphMap, Stroke, Point } from '../types';
 
@@ -286,10 +285,10 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
     const processedStrokes = rawStrokes.map(s => {
         const newPoints = s.points.map((p: Point) => ({
             x: (p.x - minX) * scale + offsetX,
-            // CORREÇÃO: Restaura o FLIP no eixo Y para importação correta
-            // Fontes têm Y crescendo para cima, Canvas para baixo.
-            // (maxY - p.y) inverte e alinha corretamente.
-            y: (maxY - p.y) * scale + offsetY 
+            // Correção de Orientação: O opentype.js getPath já retorna coordenadas Y-down (sistema SVG).
+            // Portanto, não devemos inverter (maxY - p.y), pois isso deixa de cabeça para baixo.
+            // Apenas normalizamos com o minY.
+            y: (p.y - minY) * scale + offsetY 
         }));
         
         const area = getPolygonSignedArea(newPoints);
