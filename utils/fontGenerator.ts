@@ -1,123 +1,151 @@
 
 import opentype from 'opentype.js';
-import { union, diff } from 'martinez-polygon-clipping';
 import { GlyphMap, Stroke, Point } from '../types';
+
+// Declaração do ImageTracer global (injetado via index.html)
+declare const ImageTracer: any;
 
 // Configurações da fonte
 const UNITS_PER_EM = 1000;
 const ASCENDER = 800;
 const DESCENDER = -200;
-const CANVAS_SIZE = 500;
 
-// Escala para converter coordenadas do Canvas (500px) para unidades da Fonte (1000upm)
-const FONT_SCALE = UNITS_PER_EM / CANVAS_SIZE;
+// Configuração de Alta Resolução para o Canvas de Processamento
+// Renderizamos em 1000x1000 para mapear 1:1 com as unidades da fonte e garantir qualidade
+const RENDER_SIZE = 1000; 
+const CANVAS_SIZE = 500; // Tamanho visual do editor
 
-// --- Funções Geométricas Auxiliares ---
+// --- Funções Auxiliares de SVG ---
 
-// Calcula a área assinada de um polígono. 
-// > 0: Sentido Horário (Clockwise) - assumindo Y para cima
-// < 0: Sentido Anti-Horário (Counter-Clockwise)
-const getPolygonSignedArea = (points: Point[]): number => {
-  let area = 0;
-  for (let i = 0; i < points.length; i++) {
-    const j = (i + 1) % points.length;
-    area += (points[j].x - points[i].x) * (points[j].y + points[i].y);
-  }
-  return area / 2;
-};
+/**
+ * Analisa uma string de Path SVG (d) e a converte em comandos para o OpenType.js
+ * Também realiza a transformação de coordenadas (Flip Y e Offset X)
+ */
+const parseSvgPathToOpenType = (d: string, targetPath: opentype.Path, offsetX: number) => {
+    if (!d) return;
+    
+    // Expressão regular para capturar comandos e números
+    const commands = d.match(/([a-zA-Z])|([-+]?[0-9]*\.?[0-9]+(?:e[-+]?[0-9]+)?)/g);
+    if (!commands) return;
 
-// Transforma ponto do Canvas (Y+ down) para Fonte (Y+ up) e escala
-const transformPoint = (p: Point): Point => {
-  const baselineY = CANVAS_SIZE * 0.8; // Linha de base no canvas
-  return {
-    x: p.x * FONT_SCALE,
-    y: (baselineY - p.y) * FONT_SCALE // Inverte Y para formato de fonte e ajusta escala
-  };
-};
+    let i = 0;
+    let currentX = 0;
+    let currentY = 0;
+    // Ponto de início do sub-caminho para fechar (Z)
+    let startX = 0;
+    let startY = 0;
 
-const getBezierPoints = (p0: Point, p1: Point, p2: Point): Point[] => {
-  const segments = 10; 
-  const points: Point[] = [];
-  for(let i=0; i<=segments; i++) {
-    const t = i / segments;
-    const invT = 1 - t;
-    const x = (invT * invT * p0.x) + (2 * invT * t * p1.x) + (t * t * p2.x);
-    const y = (invT * invT * p0.y) + (2 * invT * t * p1.y) + (t * t * p2.y);
-    points.push({x, y});
-  }
-  return points;
+    // Função para transformar coordenadas:
+    // 1. Aplica o Offset X (para alinhar à esquerda)
+    // 2. Inverte o Y (Canvas é Y-down, Fonte é Y-up)
+    // 3. Ajusta a Baseline (800 é a baseline aproximada no grid 1000x1000, invertendo fica correto)
+    const tx = (x: number) => Math.round(x - offsetX);
+    const ty = (y: number) => Math.round(800 - y); // 800 é o Ascender, inverte o eixo Y
+
+    while (i < commands.length) {
+        const cmd = commands[i];
+        if (!isNaN(parseFloat(cmd))) { i++; continue; }
+
+        const nextNum = () => parseFloat(commands[++i]);
+
+        switch (cmd) {
+            case 'M': // Move To
+                currentX = nextNum();
+                currentY = nextNum();
+                startX = currentX;
+                startY = currentY;
+                targetPath.moveTo(tx(currentX), ty(currentY));
+                break;
+            case 'L': // Line To
+                currentX = nextNum();
+                currentY = nextNum();
+                targetPath.lineTo(tx(currentX), ty(currentY));
+                break;
+            case 'Q': // Quadratic Bezier
+                const cx = nextNum();
+                const cy = nextNum();
+                currentX = nextNum();
+                currentY = nextNum();
+                targetPath.quadraticCurveTo(tx(cx), ty(cy), tx(currentX), ty(currentY));
+                break;
+            case 'C': // Cubic Bezier
+                const x1 = nextNum();
+                const y1 = nextNum();
+                const x2 = nextNum();
+                const y2 = nextNum();
+                currentX = nextNum();
+                currentY = nextNum();
+                targetPath.curveTo(tx(x1), ty(y1), tx(x2), ty(y2), tx(currentX), ty(currentY));
+                break;
+            case 'Z': // Close Path
+            case 'z':
+                targetPath.close();
+                currentX = startX;
+                currentY = startY;
+                break;
+        }
+        i++;
+    }
 };
 
 /**
- * Gera o contorno (outline) de um stroke.
- * Retorna os pontos já transformados para o sistema de coordenadas da fonte.
+ * Desenha os strokes em um Canvas HTML5 para criar a forma sólida.
  */
-const getStrokePathPoints = (stroke: Stroke): Point[] => {
-  let rawPoints: Point[] = [];
-
-  // 1. Obter pontos brutos do stroke
-  if (stroke.type === 'bezier' && stroke.points.length === 3) {
-    rawPoints = getBezierPoints(stroke.points[0], stroke.points[1], stroke.points[2]);
-  } else {
-    rawPoints = stroke.points;
-  }
-
-  if (rawPoints.length < 2) return [];
-
-  // 2. Se for "filled" (forma fechada desenhada com ferramenta de forma), usamos os pontos diretos.
-  // Se for "freehand" (linha ou brush), precisamos criar a espessura (outline) para virar um polígono.
-  let outlinePoints: Point[] = [];
-
-  if (stroke.filled && stroke.type === 'shape') {
-    outlinePoints = rawPoints.map(transformPoint);
-  } else {
-    // Expandir linha para polígono (simples)
-    const width = (stroke.width || 15) * FONT_SCALE; 
-    const halfWidth = width / 2;
+const renderStrokesToCanvas = (strokes: Stroke[]): HTMLCanvasElement => {
+    const canvas = document.createElement('canvas');
+    canvas.width = RENDER_SIZE;
+    canvas.height = RENDER_SIZE;
+    const ctx = canvas.getContext('2d');
     
-    // Transformar para coord fonte primeiro
-    const path = rawPoints.map(transformPoint);
-    
-    const leftSide: Point[] = [];
-    const rightSide: Point[] = [];
+    if (!ctx) return canvas;
 
-    for (let i = 0; i < path.length - 1; i++) {
-        const p1 = path[i];
-        const p2 = path[i+1];
+    // Fundo transparente
+    ctx.clearRect(0, 0, RENDER_SIZE, RENDER_SIZE);
+
+    // Escala do editor (500px) para o render (1000px)
+    const scale = RENDER_SIZE / CANVAS_SIZE;
+    ctx.scale(scale, scale);
+
+    strokes.forEach(stroke => {
+        ctx.beginPath();
         
-        const dx = p2.x - p1.x;
-        const dy = p2.y - p1.y;
-        const len = Math.sqrt(dx*dx + dy*dy);
-        if (len === 0) continue;
+        // Define o modo de composição: 
+        // destination-out = Borracha (Buraco)
+        // source-over = Pincel (Sólido)
+        ctx.globalCompositeOperation = stroke.isHole ? 'destination-out' : 'source-over';
+        ctx.fillStyle = 'black';
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = stroke.width || 15;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
 
-        const nx = -dy / len * halfWidth;
-        const ny = dx / len * halfWidth;
-
-        leftSide.push({ x: p1.x + nx, y: p1.y + ny });
-        rightSide.push({ x: p1.x - nx, y: p1.y - ny });
-        
-        if (i === path.length - 2) {
-            leftSide.push({ x: p2.x + nx, y: p2.y + ny });
-            rightSide.push({ x: p2.x - nx, y: p2.y - ny });
+        if (stroke.points.length > 0) {
+            ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+            
+            if (stroke.type === 'bezier' && stroke.points.length === 3) {
+                ctx.quadraticCurveTo(stroke.points[1].x, stroke.points[1].y, stroke.points[2].x, stroke.points[2].y);
+            } else {
+                for (let i = 1; i < stroke.points.length; i++) {
+                    ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+                }
+            }
         }
-    }
-    
-    outlinePoints = [...leftSide, ...rightSide.reverse()];
-  }
 
-  // Fechar polígono
-  if (outlinePoints.length > 0) {
-      const first = outlinePoints[0];
-      const last = outlinePoints[outlinePoints.length - 1];
-      if (first.x !== last.x || first.y !== last.y) {
-          outlinePoints.push(first);
-      }
-  }
+        if (stroke.isClosed) ctx.closePath();
+        
+        if (stroke.filled) {
+            ctx.fill();
+        } else {
+            ctx.stroke();
+        }
+    });
 
-  return outlinePoints;
+    return canvas;
 };
 
-// Gera Preview Base64 (Mantém lógica visual do Canvas)
+/**
+ * Gera Preview Base64 (Utilizado na Grid da Interface)
+ */
 export const generatePreviewFromStrokes = (strokes: Stroke[], width: number, height: number): string => {
     const canvas = document.createElement('canvas');
     canvas.width = width;
@@ -125,29 +153,33 @@ export const generatePreviewFromStrokes = (strokes: Stroke[], width: number, hei
     const ctx = canvas.getContext('2d');
     if (!ctx) return '';
 
-    ctx.clearRect(0, 0, width, height);
+    // Escala para o tamanho do preview
+    const scaleX = width / 500;
+    const scaleY = height / 500;
     
+    ctx.clearRect(0, 0, width, height);
+    ctx.scale(scaleX, scaleY);
+
     strokes.forEach(stroke => {
-        if (stroke.points.length === 0) return;
-        
         ctx.globalCompositeOperation = stroke.isHole ? 'destination-out' : 'source-over';
         ctx.fillStyle = 'white';
         ctx.strokeStyle = 'white';
         ctx.lineWidth = stroke.width || 15;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         
         ctx.beginPath();
-        ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-        
-        if (stroke.type === 'bezier' && stroke.points.length === 3) {
-             ctx.quadraticCurveTo(stroke.points[1].x, stroke.points[1].y, stroke.points[2].x, stroke.points[2].y);
-        } else {
-            for (let i = 1; i < stroke.points.length; i++) {
-                ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+        if (stroke.points.length > 0) {
+            ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+            if (stroke.type === 'bezier' && stroke.points.length === 3) {
+                 ctx.quadraticCurveTo(stroke.points[1].x, stroke.points[1].y, stroke.points[2].x, stroke.points[2].y);
+            } else {
+                for (let i = 1; i < stroke.points.length; i++) {
+                    ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+                }
             }
         }
-        
         if (stroke.isClosed) ctx.closePath();
-        
         if (stroke.filled) ctx.fill(); else ctx.stroke();
     });
 
@@ -155,12 +187,14 @@ export const generatePreviewFromStrokes = (strokes: Stroke[], width: number, hei
 };
 
 /**
- * Converte um Path do OpenType.js em Strokes compatíveis com o editor.
+ * Converte um Path do OpenType.js de volta para Strokes (para importação)
  */
 export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: number, canvasH: number): Stroke[] => {
     const strokes: Stroke[] = [];
     let currentPoints: Point[] = [];
 
+    // Lógica simplificada de importação:
+    // Converte os comandos em strokes do tipo "shape" (preenchidos)
     path.commands.forEach(cmd => {
         switch (cmd.type) {
             case 'M': 
@@ -185,16 +219,6 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
                 }
                 break;
             case 'C': 
-                if (currentPoints.length > 0) {
-                    const p0 = currentPoints[currentPoints.length - 1];
-                    for (let t = 0.1; t <= 1; t += 0.1) {
-                        const invT = 1 - t;
-                        const x = Math.pow(invT, 3) * p0.x + 3 * Math.pow(invT, 2) * t * cmd.x1 + 3 * invT * Math.pow(t, 2) * cmd.x2 + Math.pow(t, 3) * cmd.x;
-                        const y = Math.pow(invT, 3) * p0.y + 3 * Math.pow(invT, 2) * t * cmd.y1 + 3 * invT * Math.pow(t, 2) * cmd.y2 + Math.pow(t, 3) * cmd.y;
-                        currentPoints.push({ x, y });
-                    }
-                }
-                break;
             case 'Z': 
                 if (currentPoints.length > 0) {
                     strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: 1 });
@@ -203,13 +227,11 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
                 break;
         }
     });
-
-    if (currentPoints.length > 0) {
-        strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: 1 });
-    }
+    if (currentPoints.length > 0) strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: 1 });
 
     if (strokes.length === 0) return [];
 
+    // Normalização para caber no Canvas (500x500)
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     strokes.forEach(s => s.points.forEach(p => {
         if (p.x < minX) minX = p.x;
@@ -220,48 +242,25 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
 
     const glyphW = maxX - minX;
     const glyphH = maxY - minY;
-    
+    if (glyphW === 0 || glyphH === 0) return strokes;
+
     const padding = 60;
-    const availableW = canvasW - (padding * 2);
-    const availableH = canvasH - (padding * 2);
-
-    const scale = Math.min(availableW / glyphW, availableH / glyphH);
-    
+    const scale = Math.min((canvasW - padding*2) / glyphW, (canvasH - padding*2) / glyphH);
     const offsetX = (canvasW - (glyphW * scale)) / 2;
-    const offsetY = (canvasH - (glyphH * scale)) / 2; 
+    const offsetY = (canvasH - (glyphH * scale)) / 2;
 
-    const processedStrokes = strokes.map(s => {
-        const newPoints = s.points.map(p => ({
+    return strokes.map(s => ({
+        ...s,
+        points: s.points.map(p => ({
             x: (p.x - minX) * scale + offsetX,
-            y: (p.y - minY) * scale + offsetY 
-        }));
-        const screenArea = getPolygonSignedArea(newPoints);
-        return { ...s, points: newPoints, rawArea: screenArea };
-    });
-
-    let maxAbsArea = 0;
-    let mainSign = 0;
-    processedStrokes.forEach(s => {
-        const abs = Math.abs(s.rawArea);
-        if (abs > maxAbsArea) {
-            maxAbsArea = abs;
-            mainSign = Math.sign(s.rawArea);
-        }
-    });
-
-    return processedStrokes.map(s => ({
-        points: s.points,
-        type: 'shape',
-        filled: true,
-        isClosed: true,
-        width: 1,
-        isHole: Math.sign(s.rawArea) !== mainSign && Math.abs(s.rawArea) < maxAbsArea 
+            y: (p.y - minY) * scale + offsetY // Inverte Y? Não, aqui importamos para coordenadas de tela
+        }))
     }));
 };
 
 /**
  * GERA O ARQUIVO TTF
- * Realiza a união de traços e alinhamento à esquerda.
+ * Usa Rasterização + ImageTracer para garantir formas sólidas e unificadas.
  */
 export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: number = 50): Promise<ArrayBuffer> => {
   const notdefPath = new opentype.Path();
@@ -280,123 +279,76 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: n
 
   const fontGlyphs = [notdefGlyph];
 
-  // Helper para converter formato do fontGenerator para formato do martinez-polygon-clipping
-  // Martinez espera MultiPolygon: [[[x,y], [x,y]...], [[hole]...]]
-  const toGeoJSON = (points: Point[]): any => {
-      const coords = points.map(p => [p.x, p.y]);
-      // Fechar o loop se necessário
-      if (coords.length > 0 && (coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1])) {
-          coords.push(coords[0]);
-      }
-      return [[coords]]; // Retorna como um Polígono com 1 anel externo
-  };
+  // Processa cada glifo
+  for (const key in glyphs) {
+      const data = glyphs[key];
+      if (data.strokes.length === 0) continue;
 
-  Object.values(glyphs).forEach(data => {
-    if (data.strokes.length === 0) return;
+      // 1. Rasterizar: Transforma os traços em uma imagem pixels preto e branco
+      const canvas = renderStrokesToCanvas(data.strokes);
+      const imgData = canvas.getContext('2d')?.getImageData(0, 0, RENDER_SIZE, RENDER_SIZE);
+      
+      if (!imgData) continue;
 
-    // --- 1. UNIFICAÇÃO (BOOLEAN OPERATIONS) ---
-    // Acumula a forma final. Começa vazia.
-    let mergedGeometry: any = [];
+      // 2. Vetorizar: Usa ImageTracer para criar um único contorno a partir dos pixels
+      // Configuração para alta precisão e curvas suaves
+      const traceOptions = {
+          ltres: 0.1, // Tolerância linear baixa (mais detalhes)
+          qtres: 0.1, // Tolerância quadrática baixa (curvas melhores)
+          pathomit: 8, // Ignora ruídos muito pequenos
+          colorsampling: 0, // Desativa amostragem (já é preto e branco)
+          numberofcolors: 2,
+          mincolorratio: 0,
+          colorquantcycles: 0,
+          strokewidth: 0,
+          viewbox: true,
+          desc: false
+      };
 
-    // Separa traços sólidos de buracos
-    // Para simplificar, processamos sequencialmente: Adiciona Sólido, Subtrai Buraco
-    // Mas para funcionar bem, idealmente unimos todos os sólidos primeiro, depois subtraímos todos os buracos.
-    // Ou processamos na ordem de camadas (como num canvas). Vamos processar em ordem.
-    
-    data.strokes.forEach(stroke => {
-        const points = getStrokePathPoints(stroke);
-        if (points.length < 3) return;
-        
-        const poly = toGeoJSON(points);
-        
-        if (mergedGeometry.length === 0) {
-            if (!stroke.isHole) mergedGeometry = poly;
-        } else {
-            if (stroke.isHole) {
-                // Se for buraco, subtrai da geometria atual
-                mergedGeometry = diff(mergedGeometry, poly);
-            } else {
-                // Se for sólido, une com a geometria atual
-                mergedGeometry = union(mergedGeometry, poly);
-            }
-        }
-    });
+      // O ImageTracer retorna uma string SVG completa
+      const svgString = ImageTracer.imagedataToSVG(imgData, traceOptions);
+      
+      // Extrair o atributo 'd' do caminho SVG gerado
+      // O ImageTracer gera paths com fill="rgb(0,0,0)". Procuramos esse path.
+      const pathMatch = svgString.match(/<path[^>]*d="([^"]+)"[^>]*fill="rgb\(0,0,0\)"/);
+      const d = pathMatch ? pathMatch[1] : null;
 
-    // --- 2. ALINHAMENTO À ESQUERDA (CORREÇÃO DE ORIGEM) ---
-    // Encontrar o minX global da geometria fundida
-    let globalMinX = Infinity;
-    let globalMaxX = -Infinity;
+      if (!d) continue;
 
-    if (mergedGeometry && mergedGeometry.length > 0) {
-        // mergedGeometry é um MultiPolygon: [Polygon, Polygon...]
-        // Polygon é [Ring, Ring...]
-        // Ring é [[x,y], [x,y]...]
-        mergedGeometry.forEach((polygon: any) => {
-            polygon.forEach((ring: any) => {
-                ring.forEach((coord: number[]) => {
-                    const x = coord[0];
-                    if (x < globalMinX) globalMinX = x;
-                    if (x > globalMaxX) globalMaxX = x;
-                });
-            });
-        });
-    }
+      // 3. Calcular Bounding Box para Alinhamento à Esquerda (Left Side Bearing)
+      // Precisamos parsear o path temporariamente para descobrir o minX visual
+      // O ImageTracer trabalha em coordenadas do canvas (0 a 1000).
+      
+      // Maneira rápida de achar minX no 'd' string (aproximada, mas eficiente)
+      // Ou melhor, vamos processar o path no OpenType e medir lá.
+      
+      const tempPath = new opentype.Path();
+      parseSvgPathToOpenType(d, tempPath, 0); // Sem offset
+      const bbox = tempPath.getBoundingBox();
+      const minX = bbox.x1;
+      const maxX = bbox.x2;
+      
+      // Margem esquerda segura
+      const leftBearing = 20;
+      const shiftX = minX - leftBearing; // O quanto devemos deslocar para a esquerda
 
-    // Se não tiver geometria válida, pula
-    if (globalMinX === Infinity) return;
+      // 4. Criar Path Final Ajustado
+      const finalPath = new opentype.Path();
+      parseSvgPathToOpenType(d, finalPath, shiftX);
 
-    // Margem esquerda segura (Left Side Bearing)
-    const leftBearing = 20; 
-    const shiftX = -globalMinX + leftBearing;
+      // Calcular largura de avanço
+      const width = maxX - minX;
+      const advanceWidth = Math.ceil(width + leftBearing + (spacing * 5));
 
-    const finalPath = new opentype.Path();
+      const glyph = new opentype.Glyph({
+        name: data.char,
+        unicode: data.char.charCodeAt(0),
+        advanceWidth: Math.max(200, advanceWidth),
+        path: finalPath
+      });
 
-    // --- 3. CONSTRUÇÃO DO PATH FINAL ---
-    if (mergedGeometry && mergedGeometry.length > 0) {
-        mergedGeometry.forEach((polygon: any) => {
-            polygon.forEach((ring: any) => {
-                // O primeiro anel é o contorno externo, subsequentes são buracos do polígono
-                // A lib martinez já devolve na ordem correta.
-                // Opentype path lida com buracos baseado na direção (Winding Rule).
-                // Precisamos garantir a direção correta?
-                // Martinez geralmente garante orientação correta para GeoJSON (CCW externo, CW interno).
-                // Fontes TTF preferem CW externo. Vamos verificar a área e inverter se necessário.
-                
-                if (ring.length < 2) return;
-
-                // Converter [x,y] arrays para Points
-                const pts = ring.map((c: number[]) => ({ x: c[0] + shiftX, y: c[1] })); // Aplica o SHIFT aqui
-                
-                // Calcular área para saber direção
-                const area = getPolygonSignedArea(pts);
-                // Fontes TTF: Exterior deve ser Clockwise (Area > 0 no nosso sistema Y-up invertido? Depende da ref)
-                // OpenType.js handles non-zero winding usually.
-                // Mas para garantir: Vamos apenas desenhar. Se ficar vazado errado, invertemos.
-                // Empiricamente: O sistema de coordenadas fonte (Y-up) pede CW para exterior.
-                
-                // Adiciona ao path
-                finalPath.moveTo(pts[0].x, pts[0].y);
-                for (let i = 1; i < pts.length; i++) {
-                    finalPath.lineTo(pts[i].x, pts[i].y);
-                }
-                finalPath.close();
-            });
-        });
-    }
-
-    // Calcular largura de avanço baseada na nova geometria deslocada
-    const width = (globalMaxX - globalMinX);
-    const advanceWidth = Math.ceil(width + leftBearing + (spacing * 5));
-
-    const glyph = new opentype.Glyph({
-      name: data.char,
-      unicode: data.char.charCodeAt(0),
-      advanceWidth: Math.max(200, advanceWidth),
-      path: finalPath
-    });
-
-    fontGlyphs.push(glyph);
-  });
+      fontGlyphs.push(glyph);
+  }
 
   const font = new opentype.Font({
     familyName: fontName || 'MyCustomFont',
