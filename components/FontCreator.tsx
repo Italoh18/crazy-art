@@ -86,12 +86,70 @@ export const FontCreator: React.FC = () => {
     }
   };
 
-  // --- Lógica de Importação (Simplified for snippet context) ---
-  const handleFullFontImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-     // Mantido igual ao original...
+  // --- Lógica de Importação Completa ---
+  const handleFullFontImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
      const file = e.target.files?.[0];
      if (!file) return;
-     // ... (lógica de importação inalterada para brevidade, se precisar posso repetir)
+
+     setIsImporting(true);
+     try {
+       const arrayBuffer = await file.arrayBuffer();
+       const font = opentype.parse(arrayBuffer);
+       
+       // Define o nome da fonte importada se possível
+       const names = font.names.fontFamily;
+       if (names && names.en) {
+           setFontName(names.en);
+       } else {
+           setFontName(file.name.replace(/\.[^/.]+$/, ""));
+       }
+
+       const newGlyphs: GlyphMap = {};
+       
+       // Combina todos os conjuntos de caracteres
+       const allChars = [
+           ...CHAR_SETS.lowercase,
+           ...CHAR_SETS.uppercase,
+           ...CHAR_SETS.numbers,
+           ...CHAR_SETS.accents
+       ];
+
+       // Processa cada caractere
+       for (const char of allChars) {
+           try {
+               const glyph = font.charToGlyph(char);
+               // Pega o caminho sem comandos específicos de renderização
+               const path = glyph.getPath(0, 0, 72); 
+               
+               if (path && path.commands.length > 0) {
+                   // Converte para nossos Strokes (500x500 é o tamanho do canvas do editor)
+                   const strokes = convertOpenTypePathToStrokes(path, 500, 500);
+                   
+                   if (strokes.length > 0) {
+                       const previewUrl = generatePreviewFromStrokes(strokes, 100, 100);
+                       newGlyphs[char] = {
+                           char,
+                           strokes,
+                           previewUrl
+                       };
+                   }
+               }
+           } catch (err) {
+               // Ignora caracteres que falharem ou não existirem na fonte
+           }
+       }
+
+       setGlyphs(newGlyphs);
+       alert(`Importação concluída! ${Object.keys(newGlyphs).length} caracteres carregados.`);
+
+     } catch (e: any) {
+         console.error("Erro ao importar fonte:", e);
+         alert("Erro ao ler o arquivo de fonte. Certifique-se que é um arquivo .TTF ou .OTF válido.");
+     } finally {
+         setIsImporting(false);
+         // Reset input
+         if (fullFontInputRef.current) fullFontInputRef.current.value = '';
+     }
   };
 
   const getProgress = () => {
@@ -133,7 +191,7 @@ export const FontCreator: React.FC = () => {
                     onChange={(e) => setSpacing(Number(e.target.value))}
                     className="w-full md:w-48 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                   />
-                  <span className="text-sm font-mono text-blue-400 min-w-[3ch]">{spacing}</span>
+                  <span className="text-sm font-mono text-blue-400 min-w-[3ch]">{spacing} un</span>
               </div>
               <p className="text-[10px] text-slate-500 mt-1">Aumente para separar mais as letras.</p>
           </div>

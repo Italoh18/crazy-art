@@ -16,7 +16,6 @@ const FONT_SCALE = UNITS_PER_EM / CANVAS_SIZE;
 // Calcula a área assinada de um polígono. 
 // > 0: Sentido Horário (Clockwise) - assumindo Y para cima (padrão cartesiano/fonte)
 // < 0: Sentido Anti-Horário (Counter-Clockwise)
-// Nota: O canvas tem Y para baixo, mas nós transformamos Y antes de calcular.
 const getPolygonSignedArea = (points: Point[]): number => {
   let area = 0;
   for (let i = 0; i < points.length; i++) {
@@ -154,12 +153,142 @@ export const generatePreviewFromStrokes = (strokes: Stroke[], width: number, hei
     return canvas.toDataURL('image/png');
 };
 
+/**
+ * Converte um Path do OpenType.js em Strokes compatíveis com o editor.
+ * Realiza normalização para caber no canvas de 500x500.
+ */
 export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: number, canvasH: number): Stroke[] => {
-    // Mantém implementação existente de importação...
-    // (Simplificado para este snippet, assumindo que a lógica visual de importação no arquivo original estava ok)
-    // Se necessário, re-inserir a lógica completa de convertOpenTypePathToStrokes aqui.
-    // Como o foco é a exportação (generateTTF), vou focar nela abaixo.
-    return []; 
+    const strokes: Stroke[] = [];
+    let currentPoints: Point[] = [];
+
+    // 1. Extrair pontos dos comandos
+    path.commands.forEach(cmd => {
+        switch (cmd.type) {
+            case 'M': // Move To (Início de novo sub-path)
+                if (currentPoints.length > 0) {
+                    strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: 1 });
+                    currentPoints = [];
+                }
+                currentPoints.push({ x: cmd.x, y: cmd.y });
+                break;
+            case 'L': // Line To
+                currentPoints.push({ x: cmd.x, y: cmd.y });
+                break;
+            case 'Q': // Quadratic Bezier
+                if (currentPoints.length > 0) {
+                    const p0 = currentPoints[currentPoints.length - 1];
+                    // Discretizar curva
+                    for (let t = 0.1; t <= 1; t += 0.1) {
+                        const invT = 1 - t;
+                        const x = (invT * invT * p0.x) + (2 * invT * t * cmd.x1) + (t * t * cmd.x);
+                        const y = (invT * invT * p0.y) + (2 * invT * t * cmd.y1) + (t * t * cmd.y);
+                        currentPoints.push({ x, y });
+                    }
+                }
+                break;
+            case 'C': // Cubic Bezier
+                if (currentPoints.length > 0) {
+                    const p0 = currentPoints[currentPoints.length - 1];
+                    for (let t = 0.1; t <= 1; t += 0.1) {
+                        const invT = 1 - t;
+                        const x = Math.pow(invT, 3) * p0.x + 3 * Math.pow(invT, 2) * t * cmd.x1 + 3 * invT * Math.pow(t, 2) * cmd.x2 + Math.pow(t, 3) * cmd.x;
+                        const y = Math.pow(invT, 3) * p0.y + 3 * Math.pow(invT, 2) * t * cmd.y1 + 3 * invT * Math.pow(t, 2) * cmd.y2 + Math.pow(t, 3) * cmd.y;
+                        currentPoints.push({ x, y });
+                    }
+                }
+                break;
+            case 'Z': // Close Path
+                if (currentPoints.length > 0) {
+                    strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: 1 });
+                    currentPoints = [];
+                }
+                break;
+        }
+    });
+
+    if (currentPoints.length > 0) {
+        strokes.push({ points: currentPoints, type: 'shape', filled: true, isClosed: true, width: 1 });
+    }
+
+    if (strokes.length === 0) return [];
+
+    // 2. Calcular Bounding Box Global
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    strokes.forEach(s => s.points.forEach(p => {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+    }));
+
+    // 3. Normalizar e Escalar para o Canvas (Invertendo Y pois fontes são Y-up e Canvas é Y-down)
+    const glyphW = maxX - minX;
+    const glyphH = maxY - minY;
+    
+    // Margem de segurança (padding)
+    const padding = 60;
+    const availableW = canvasW - (padding * 2);
+    const availableH = canvasH - (padding * 2);
+
+    const scale = Math.min(availableW / glyphW, availableH / glyphH);
+    
+    // Centralizar
+    const offsetX = (canvasW - (glyphW * scale)) / 2;
+    const offsetY = (canvasH - (glyphH * scale)) / 2; 
+
+    // Opcional: Detectar buracos baseado na área
+    // Em fontes, o contorno externo geralmente tem uma direção e o interno outra.
+    // Opcionalmente, podemos tentar detectar pelo tamanho (buracos costumam ser menores e estar dentro)
+    // Mas a lógica de área assinada é a mais correta se a fonte estiver bem construída.
+    
+    // Assumimos que o maior stroke é o corpo e os outros podem ser buracos se tiverem direção oposta?
+    // Simplificação: Vamos apenas transformar as coordenadas. A correção de buracos será visual no canvas
+    // se usarmos a regra even-odd, mas nosso editor usa "destination-out" para buracos.
+    // Vamos tentar inferir buracos pela orientação (Winding Rule).
+    
+    const processedStrokes = strokes.map(s => {
+        const area = getPolygonSignedArea(s.points);
+        // Em fontes TTF, Outer é CW (area > 0 no Y-up?) e Inner é CCW.
+        // Como estamos lidando com coordenadas raw da fonte (Y-up), vamos chutar que Area < 0 é buraco (ou vice versa).
+        // Na dúvida, vamos inverter Y primeiro para o sistema de tela (Y-down).
+        
+        const newPoints = s.points.map(p => ({
+            x: (p.x - minX) * scale + offsetX,
+            y: canvasH - ((p.y - minY) * scale + offsetY) // Inverte Y para desenhar corretamente no canvas
+        }));
+
+        // Recalcula área no sistema de tela
+        const screenArea = getPolygonSignedArea(newPoints);
+        
+        // Empiricamente: strokes com área "negativa" (ou oposta à maioria/maior) costumam ser buracos.
+        // Vamos assumir que a maior forma é sólida. O que tiver sinal oposto é buraco.
+        return { 
+            ...s, 
+            points: newPoints, 
+            rawArea: screenArea 
+        };
+    });
+
+    // Encontrar a área do maior stroke (provavelmente o corpo principal)
+    let maxAbsArea = 0;
+    let mainSign = 0;
+    processedStrokes.forEach(s => {
+        const abs = Math.abs(s.rawArea);
+        if (abs > maxAbsArea) {
+            maxAbsArea = abs;
+            mainSign = Math.sign(s.rawArea);
+        }
+    });
+
+    // Marcar como buraco se o sinal for oposto ao principal
+    return processedStrokes.map(s => ({
+        points: s.points,
+        type: 'shape',
+        filled: true,
+        isClosed: true,
+        width: 1,
+        isHole: Math.sign(s.rawArea) !== mainSign && Math.abs(s.rawArea) < maxAbsArea // Garante que não inverte formas principais soltas
+    }));
 };
 
 /**
@@ -203,21 +332,9 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: n
 
         // Winding Rule Logic (Correção de Buracos)
         // Fontes TrueType usam "Non-Zero Winding Rule".
-        // Sólidos devem ser Clockwise (Area > 0 neste sistema de coord Y-up? Depende da lib, geralmente CCW é externo no PostScript, mas TTF é CW).
-        // opentype.js geralmente prefere:
-        // Solido: Clockwise
-        // Buraco: Counter-Clockwise
-        
         const area = getPolygonSignedArea(points);
-        const isClockwise = area < 0; // Nota: A fórmula de área acima pode inverter dependendo da ordem dos índices.
-        // Vamos forçar a direção baseada no tipo do stroke.
         
         // Se for BURACO (isHole), queremos direção oposta ao SÓLIDO.
-        // Vamos padronizar: Sólido = Reverter para ficar CW, Buraco = Manter CCW (ou vice versa).
-        // Testes empíricos com opentype.js: Outer path deve ser Counter-Clockwise, Holes devem ser Clockwise (para fill-rule non-zero).
-        // *Correção*: TTF spec diz Outer=CW, Inner=CCW.
-        // Opentype.js normaliza. Vamos tentar garantir direções opostas.
-
         if (stroke.isHole) {
             // Buraco: Forçar direção 1
             if (area > 0) points.reverse(); // Garante "Negativo"
@@ -235,14 +352,10 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, spacing: n
     });
 
     // Calcular largura dinâmica
-    // Se não desenhou nada, usa padrão. Se desenhou, usa largura real + espaçamento.
     let advanceWidth = 600;
     if (minX !== Infinity && maxX !== -Infinity) {
-        // Largura do desenho + Spacing configurado pelo usuário + Um pouco de margem esquerda se necessário
-        advanceWidth = (maxX - minX) + (spacing * 5); // Multiplicador para o slider ficar sensível
-        
-        // Ajuste fino: Se o desenho começar muito longe do X=0, podemos querer mover o path para X=0 (Sidebearing esquerdo)
-        // Mas por enquanto, vamos respeitar onde o usuário desenhou no canvas (se ele desenhou no meio, tem margem esquerda).
+        // Largura do desenho + Spacing configurado pelo usuário
+        advanceWidth = (maxX - minX) + (spacing * 5); 
     }
 
     const glyph = new opentype.Glyph({
