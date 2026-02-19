@@ -14,8 +14,9 @@ const FONT_SCALE = UNITS_PER_EM / CANVAS_SIZE;
 // --- Funções Geométricas Auxiliares ---
 
 // Calcula a área assinada de um polígono. 
-// > 0: Sentido Horário (Clockwise) - assumindo Y para cima (padrão cartesiano/fonte)
+// > 0: Sentido Horário (Clockwise) - assumindo Y para cima
 // < 0: Sentido Anti-Horário (Counter-Clockwise)
+// Nota: Em canvas (Y para baixo), a interpretação visual inverte.
 const getPolygonSignedArea = (points: Point[]): number => {
   let area = 0;
   for (let i = 0; i < points.length; i++) {
@@ -30,7 +31,7 @@ const transformPoint = (p: Point): Point => {
   const baselineY = CANVAS_SIZE * 0.8; // Linha de base no canvas
   return {
     x: p.x * FONT_SCALE,
-    y: (baselineY - p.y) * FONT_SCALE // Inverte Y
+    y: (baselineY - p.y) * FONT_SCALE // Inverte Y para formato de fonte
   };
 };
 
@@ -125,6 +126,8 @@ export const generatePreviewFromStrokes = (strokes: Stroke[], width: number, hei
     if (!ctx) return '';
 
     ctx.clearRect(0, 0, width, height);
+    
+    // Fundo transparente
     
     strokes.forEach(stroke => {
         if (stroke.points.length === 0) return;
@@ -221,7 +224,9 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
         if (p.y > maxY) maxY = p.y;
     }));
 
-    // 3. Normalizar e Escalar para o Canvas (Invertendo Y pois fontes são Y-up e Canvas é Y-down)
+    // 3. Normalizar e Escalar para o Canvas
+    // O glyph do OpenType já vem com coordenadas que renderizam corretamente em canvas (Y down).
+    // Não precisamos inverter Y aqui, apenas escalar e centralizar.
     const glyphW = maxX - minX;
     const glyphH = maxY - minY;
     
@@ -236,32 +241,16 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
     const offsetX = (canvasW - (glyphW * scale)) / 2;
     const offsetY = (canvasH - (glyphH * scale)) / 2; 
 
-    // Opcional: Detectar buracos baseado na área
-    // Em fontes, o contorno externo geralmente tem uma direção e o interno outra.
-    // Opcionalmente, podemos tentar detectar pelo tamanho (buracos costumam ser menores e estar dentro)
-    // Mas a lógica de área assinada é a mais correta se a fonte estiver bem construída.
-    
-    // Assumimos que o maior stroke é o corpo e os outros podem ser buracos se tiverem direção oposta?
-    // Simplificação: Vamos apenas transformar as coordenadas. A correção de buracos será visual no canvas
-    // se usarmos a regra even-odd, mas nosso editor usa "destination-out" para buracos.
-    // Vamos tentar inferir buracos pela orientação (Winding Rule).
-    
+    // Detectar buracos baseado na área
     const processedStrokes = strokes.map(s => {
-        const area = getPolygonSignedArea(s.points);
-        // Em fontes TTF, Outer é CW (area > 0 no Y-up?) e Inner é CCW.
-        // Como estamos lidando com coordenadas raw da fonte (Y-up), vamos chutar que Area < 0 é buraco (ou vice versa).
-        // Na dúvida, vamos inverter Y primeiro para o sistema de tela (Y-down).
-        
         const newPoints = s.points.map(p => ({
             x: (p.x - minX) * scale + offsetX,
-            y: canvasH - ((p.y - minY) * scale + offsetY) // Inverte Y para desenhar corretamente no canvas
+            y: (p.y - minY) * scale + offsetY // Mantém orientação original (apenas translada/escala)
         }));
 
-        // Recalcula área no sistema de tela
+        // Calcula área no novo sistema de coordenadas
         const screenArea = getPolygonSignedArea(newPoints);
         
-        // Empiricamente: strokes com área "negativa" (ou oposta à maioria/maior) costumam ser buracos.
-        // Vamos assumir que a maior forma é sólida. O que tiver sinal oposto é buraco.
         return { 
             ...s, 
             points: newPoints, 
@@ -281,13 +270,15 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, canvasW: numbe
     });
 
     // Marcar como buraco se o sinal for oposto ao principal
+    // Isso funciona porque contornos internos (buracos) geralmente têm direção oposta aos externos
     return processedStrokes.map(s => ({
         points: s.points,
         type: 'shape',
         filled: true,
         isClosed: true,
         width: 1,
-        isHole: Math.sign(s.rawArea) !== mainSign && Math.abs(s.rawArea) < maxAbsArea // Garante que não inverte formas principais soltas
+        // É buraco se tiver sinal oposto E for menor que o corpo principal
+        isHole: Math.sign(s.rawArea) !== mainSign && Math.abs(s.rawArea) < maxAbsArea 
     }));
 };
 

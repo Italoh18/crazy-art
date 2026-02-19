@@ -191,7 +191,7 @@ export const FontCreator: React.FC = () => {
                     onChange={(e) => setSpacing(Number(e.target.value))}
                     className="w-full md:w-48 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                   />
-                  <span className="text-sm font-mono text-blue-400 min-w-[3ch]">{spacing} un</span>
+                  <span className="text-sm font-mono text-blue-400 min-w-[3ch]">{spacing} pt</span>
               </div>
               <p className="text-[10px] text-slate-500 mt-1">Aumente para separar mais as letras.</p>
           </div>
