@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid, TrendingUp } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { SeasonalEffects } from './SeasonalEffects';
 import { StickManCleaner } from './StickManCleaner';
@@ -195,6 +195,14 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                                                 <ClipboardList size={18} className="text-emerald-500" />
                                                 Meus Pedidos
                                             </Link>
+                                            <Link 
+                                                to="/statement"
+                                                onClick={() => setIsUserMenuOpen(false)}
+                                                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
+                                            >
+                                                <TrendingUp size={18} className="text-blue-500" />
+                                                Extrato
+                                            </Link>
                                             <button 
                                                 onClick={() => {
                                                     setIsUserMenuOpen(false);
@@ -232,6 +240,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
                     <Link to="/my-area" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-primary uppercase tracking-widest">Minha Área</Link>
                     <Link to="/my-orders" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-emerald-500 uppercase tracking-widest">Meus Pedidos</Link>
+                    <Link to="/statement" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-blue-500 uppercase tracking-widest">Extrato</Link>
                     <Link to="/shop" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-white uppercase tracking-widest">Loja</Link>
                     
                     <button onClick={handleLogout} className="text-xl font-bold text-red-500 uppercase tracking-widest flex items-center gap-2 mt-8">
