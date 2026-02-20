@@ -300,6 +300,16 @@ export default function Home() {
                                         <LayoutGrid size={18} className="text-primary" />
                                         {role === 'admin' ? 'Painel Admin' : 'Minha Área'}
                                     </Link>
+                                    {role !== 'admin' && (
+                                        <Link 
+                                            to="/my-orders"
+                                            onClick={() => setIsUserMenuOpen(false)}
+                                            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
+                                        >
+                                            <ClipboardList size={18} className="text-emerald-500" />
+                                            Meus Pedidos
+                                        </Link>
+                                    )}
                                     <button 
                                         onClick={() => {
                                             setIsUserMenuOpen(false);
