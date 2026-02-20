@@ -5,6 +5,7 @@ import { useData } from '../contexts/DataContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers, MapPin, UserPlus, Menu, LogOut, Wrench, Grid, Palette, ChevronDown } from 'lucide-react';
 import { GalaxyGame } from '../components/GalaxyGame';
+import { NotificationCenter } from '../components/NotificationCenter';
 
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -114,8 +115,6 @@ export default function Home() {
       const success = await loginAdmin(inputValue);
       if (success) {
         setIsModalOpen(false);
-        // Permanece na home após login admin se desejar, ou redireciona
-        // O usuário pediu especificamente para o cliente ficar na home.
       } else {
         setError('Código de acesso inválido.');
       }
@@ -123,7 +122,6 @@ export default function Home() {
       const success = await loginClient(inputValue);
       if (success) {
         setIsModalOpen(false);
-        // Permanece na home conforme solicitado
       } else {
         setError('Documento (CPF/CNPJ) não encontrado.');
       }
@@ -156,7 +154,6 @@ export default function Home() {
         const success = await loginClient(regData.cpf);
         if (success) {
             setIsModalOpen(false);
-            // Permanece na home conforme solicitado
         } else {
             setIsRegisterMode(false);
             setInputValue(regData.cpf);
@@ -254,7 +251,7 @@ export default function Home() {
           </div>
         </div>
         
-        <div className="flex justify-end relative" ref={userMenuRef}>
+        <div className="flex justify-end items-center gap-2 md:gap-4 relative" ref={userMenuRef}>
             {role === 'guest' ? (
                 <button 
                     onClick={() => {
@@ -270,51 +267,56 @@ export default function Home() {
                     </div>
                 </button>
             ) : (
-                <div className="relative">
-                    <button 
-                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                        className="flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-95 group"
-                    >
-                        <div className="w-8 h-8 rounded-full bg-crazy-gradient flex items-center justify-center border border-white/20">
-                            <User size={16} className="text-white" />
-                        </div>
-                        <span className="text-xs font-bold text-white uppercase tracking-wider hidden sm:inline">
-                            Olá, {role === 'admin' ? 'Admin' : currentCustomer?.name.split(' ')[0]}
-                        </span>
-                        <ChevronDown size={16} className={`text-zinc-500 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
-                    </button>
+                <>
+                    <div className="flex items-center">
+                        <NotificationCenter />
+                    </div>
+                    <div className="relative">
+                        <button 
+                            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                            className="flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-95 group"
+                        >
+                            <div className="w-8 h-8 rounded-full bg-crazy-gradient flex items-center justify-center border border-white/20">
+                                <User size={16} className="text-white" />
+                            </div>
+                            <span className="text-xs font-bold text-white uppercase tracking-wider hidden sm:inline">
+                                Olá, {role === 'admin' ? 'Admin' : currentCustomer?.name.split(' ')[0]}
+                            </span>
+                            <ChevronDown size={16} className={`text-zinc-500 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                        </button>
 
-                    {/* Dropdown Menu */}
-                    {isUserMenuOpen && (
-                        <div className="absolute top-full right-0 mt-2 w-56 bg-[#18181b]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[60] animate-scale-in origin-top-right">
-                            <div className="p-4 border-b border-white/5 bg-white/[0.02]">
-                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Sua Conta</p>
-                                <p className="text-xs font-bold text-white truncate mt-1">{currentCustomer?.name || 'Administrador'}</p>
+                        {/* Dropdown Menu */}
+                        {isUserMenuOpen && (
+                            <div className="absolute top-full right-0 mt-2 w-56 bg-[#18181b]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[60] animate-scale-in origin-top-right">
+                                <div className="p-4 border-b border-white/5 bg-white/[0.02]">
+                                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Sua Conta</p>
+                                    <p className="text-xs font-bold text-white truncate mt-1">{currentCustomer?.name || 'Administrador'}</p>
+                                </div>
+                                <div className="p-2">
+                                    <Link 
+                                        to={role === 'admin' ? '/customers' : '/my-area'}
+                                        onClick={() => setIsUserMenuOpen(false)}
+                                        className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
+                                    >
+                                        <LayoutGrid size={18} className="text-primary" />
+                                        {role === 'admin' ? 'Painel Admin' : 'Minha Área'}
+                                    </Link>
+                                    <button 
+                                        onClick={() => {
+                                            setIsUserMenuOpen(false);
+                                            logout();
+                                            window.location.reload();
+                                        }}
+                                        className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-red-400 hover:bg-red-500/5 transition-all text-sm font-medium"
+                                    >
+                                        <LogOut size={18} />
+                                        Sair
+                                    </button>
+                                </div>
                             </div>
-                            <div className="p-2">
-                                <Link 
-                                    to={role === 'admin' ? '/customers' : '/my-area'}
-                                    onClick={() => setIsUserMenuOpen(false)}
-                                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
-                                >
-                                    <LayoutGrid size={18} className="text-primary" />
-                                    {role === 'admin' ? 'Painel Admin' : 'Minha Área'}
-                                </Link>
-                                <button 
-                                    onClick={() => {
-                                        setIsUserMenuOpen(false);
-                                        logout();
-                                        window.location.reload();
-                                    }}
-                                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-red-400 hover:bg-red-500/5 transition-all text-sm font-medium"
-                                >
-                                    <LogOut size={18} />
-                                    Sair
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                        )}
+                    </div>
+                </>
             )}
         </div>
       </header>

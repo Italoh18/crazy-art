@@ -111,6 +111,8 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   };
 
   if (role === 'client') {
+    const isHomePage = location.pathname === '/';
+
     return (
         <div className="min-h-screen flex flex-col relative selection:bg-primary/30 selection:text-white overflow-x-hidden">
             <BackgroundEffects />
@@ -120,36 +122,39 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             <CosmicPulseSystem />
             <CookieConsent /> {/* Aviso LGPD */}
             
-            <header className="glass-panel h-16 flex items-center justify-between px-6 sticky top-4 mx-4 rounded-2xl z-30 transition-all duration-300 border border-white/10 shadow-2xl mt-4 backdrop-blur-2xl">
-                <div className="flex items-center space-x-4">
-                     <Link to="/" className="text-zinc-400 hover:text-white transition p-2 hover:bg-white/10 rounded-full hover:scale-110">
-                        <ArrowLeft size={20} />
-                     </Link>
-                     <div className="flex items-center gap-3">
-                        <img src="/logo.png" alt="Crazy Art" className="h-8 w-auto object-contain" />
-                        <span className="text-lg font-bold font-heading tracking-wider hidden sm:block text-transparent bg-clip-text bg-crazy-gradient">CRAZY ART</span>
-                     </div>
-                </div>
-                
-                <div className="hidden md:flex items-center space-x-6">
-                    <NotificationCenter />
-                    <Link to="/my-area" className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition">
-                       <User size={16} />
-                       <span className="font-semibold">{currentCustomer?.name.split(' ')[0]}</span>
-                    </Link>
-                    <button onClick={handleLogout} className="text-zinc-400 hover:text-red-400 flex items-center space-x-2 transition-colors hover:scale-105">
-                        <LogOut size={18} />
-                        <span className="text-sm font-medium">Sair</span>
-                    </button>
-                </div>
+            {/* Oculta o cabeçalho do layout se estiver na home, pois a home tem o próprio cabeçalho */}
+            {!isHomePage && (
+                <header className="glass-panel h-16 flex items-center justify-between px-6 sticky top-4 mx-4 rounded-2xl z-30 transition-all duration-300 border border-white/10 shadow-2xl mt-4 backdrop-blur-2xl">
+                    <div className="flex items-center space-x-4">
+                        <Link to="/" className="text-zinc-400 hover:text-white transition p-2 hover:bg-white/10 rounded-full hover:scale-110">
+                            <ArrowLeft size={20} />
+                        </Link>
+                        <div className="flex items-center gap-3">
+                            <img src="/logo.png" alt="Crazy Art" className="h-8 w-auto object-contain" />
+                            <span className="text-lg font-bold font-heading tracking-wider hidden sm:block text-transparent bg-clip-text bg-crazy-gradient">CRAZY ART</span>
+                        </div>
+                    </div>
+                    
+                    <div className="hidden md:flex items-center space-x-6">
+                        <NotificationCenter />
+                        <Link to="/my-area" className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition">
+                        <User size={16} />
+                        <span className="font-semibold">{currentCustomer?.name.split(' ')[0]}</span>
+                        </Link>
+                        <button onClick={handleLogout} className="text-zinc-400 hover:text-red-400 flex items-center space-x-2 transition-colors hover:scale-105">
+                            <LogOut size={18} />
+                            <span className="text-sm font-medium">Sair</span>
+                        </button>
+                    </div>
 
-                <div className="flex items-center gap-4 md:hidden">
-                    <NotificationCenter />
-                    <button onClick={() => setIsClientMenuOpen(true)} className="text-zinc-300">
-                        <Menu size={24} />
-                    </button>
-                </div>
-            </header>
+                    <div className="flex items-center gap-4 md:hidden">
+                        <NotificationCenter />
+                        <button onClick={() => setIsClientMenuOpen(true)} className="text-zinc-300">
+                            <Menu size={24} />
+                        </button>
+                    </div>
+                </header>
+            )}
 
             {isClientMenuOpen && (
                 <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col justify-center items-center gap-8 animate-fade-in md:hidden">
@@ -173,7 +178,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                 </div>
             )}
 
-            <main key={location.pathname} className="flex-1 p-6 max-w-7xl mx-auto w-full animate-page-enter">
+            <main key={location.pathname} className={`flex-1 ${!isHomePage ? 'p-6 max-w-7xl mx-auto w-full' : ''} animate-page-enter`}>
                 {children}
             </main>
             <VirtualAssistant />
