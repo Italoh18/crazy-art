@@ -231,6 +231,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                     </div>
 
                     <Link to="/my-area" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-primary uppercase tracking-widest">Minha Área</Link>
+                    <Link to="/my-orders" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-emerald-500 uppercase tracking-widest">Meus Pedidos</Link>
                     <Link to="/shop" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-white uppercase tracking-widest">Loja</Link>
                     
                     <button onClick={handleLogout} className="text-xl font-bold text-red-500 uppercase tracking-widest flex items-center gap-2 mt-8">

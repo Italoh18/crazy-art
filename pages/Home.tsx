@@ -384,15 +384,41 @@ export default function Home() {
                             </div>
                         </button>
                      ) : (
-                        <Link to={role === 'admin' ? '/customers' : '/my-area'} onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
-                            <div className="bg-primary/10 p-2 rounded-lg text-primary group-hover:bg-primary group-hover:text-white transition"><User size={20} /></div>
-                            <div>
-                                <span className="block text-white font-bold text-sm uppercase tracking-wide">
-                                    {role === 'admin' ? 'Painel Administrativo' : 'Minha Área'}
-                                </span>
-                                <span className="text-[10px] text-zinc-500">Gerenciar conta</span>
+                        <>
+                            <div className="px-4 py-2 border-b border-white/5 mb-2">
+                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Olá, {currentCustomer?.name.split(' ')[0]}</p>
                             </div>
-                        </Link>
+                            
+                            {role === 'admin' ? (
+                                <Link to="/customers" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
+                                    <div className="bg-primary/10 p-2 rounded-lg text-primary group-hover:bg-primary group-hover:text-white transition"><LayoutGrid size={20} /></div>
+                                    <span className="text-white font-bold text-sm uppercase tracking-wide">Painel Admin</span>
+                                </Link>
+                            ) : (
+                                <>
+                                    <Link to="/my-area" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
+                                        <div className="bg-primary/10 p-2 rounded-lg text-primary group-hover:bg-primary group-hover:text-white transition"><User size={20} /></div>
+                                        <span className="text-white font-bold text-sm uppercase tracking-wide">Minha Área</span>
+                                    </Link>
+                                    <Link to="/my-orders" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
+                                        <div className="bg-emerald-500/10 p-2 rounded-lg text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition"><ClipboardList size={20} /></div>
+                                        <span className="text-white font-bold text-sm uppercase tracking-wide">Meus Pedidos</span>
+                                    </Link>
+                                </>
+                            )}
+                            
+                            <button 
+                                onClick={() => {
+                                    setIsMobileMenuOpen(false);
+                                    logout();
+                                    window.location.reload();
+                                }}
+                                className="w-full text-left px-4 py-3 rounded-xl hover:bg-red-500/10 transition flex items-center gap-4 group mt-1"
+                            >
+                                <div className="bg-zinc-800 p-2 rounded-lg text-zinc-400 group-hover:text-red-500 transition"><LogOut size={20} /></div>
+                                <span className="text-zinc-400 group-hover:text-red-500 font-bold text-sm uppercase tracking-wide transition">Sair</span>
+                            </button>
+                        </>
                      )}
 
                      <div className="h-px bg-white/5 my-1"></div>
