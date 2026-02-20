@@ -31,7 +31,7 @@ import CdrConverter from './pages/CdrConverter';
 import Feedbacks from './pages/Feedbacks';
 import PricingCalculator from './pages/PricingCalculator';
 import SmartEnlargement from './pages/SmartEnlargement';
-import ClientOrders from './pages/ClientOrders'; // Nova Importação
+import Statement from './pages/Statement'; // Nova Importação
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
 
@@ -89,7 +89,8 @@ const AppRoutes = () => {
             <Route path="/pricing-calculator" element={<PricingCalculator />} />
             <Route path="/smart-enlargement" element={<SmartEnlargement />} />
             <Route path="/my-area" element={<ClientRoute />} />
-            <Route path="/my-orders" element={<ClientOrdersRoute />} /> {/* Nova Rota */}
+            <Route path="/my-orders" element={<ClientOrdersRoute />} />
+            <Route path="/statement" element={<StatementRoute />} /> {/* Nova Rota */}
             <Route path="/pending-confirmations" element={<ProtectedRoute requiredRole="admin"><PendingOrders /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><Orders /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute requiredRole="admin"><Customers /></ProtectedRoute>} />
@@ -155,6 +156,12 @@ const ClientOrdersRoute = () => {
     const { role, currentCustomer } = useAuth();
     if (role !== 'client' || !currentCustomer) return <Navigate to="/" replace />;
     return <ClientOrders />; 
+};
+
+const StatementRoute = () => {
+    const { role, currentCustomer } = useAuth();
+    if (role !== 'client' || !currentCustomer) return <Navigate to="/" replace />;
+    return <Statement />; 
 };
 
 export default function App() {

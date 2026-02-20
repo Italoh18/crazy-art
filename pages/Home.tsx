@@ -308,14 +308,24 @@ export default function Home() {
                                         {role === 'admin' ? 'Painel Admin' : 'Minha Área'}
                                     </Link>
                                     {role !== 'admin' && (
-                                        <Link 
-                                            to="/my-orders"
-                                            onClick={() => setIsUserMenuOpen(false)}
-                                            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
-                                        >
-                                            <ClipboardList size={18} className="text-emerald-500" />
-                                            Meus Pedidos
-                                        </Link>
+                                        <>
+                                            <Link 
+                                                to="/my-orders"
+                                                onClick={() => setIsUserMenuOpen(false)}
+                                                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
+                                            >
+                                                <ClipboardList size={18} className="text-emerald-500" />
+                                                Meus Pedidos
+                                            </Link>
+                                            <Link 
+                                                to="/statement"
+                                                onClick={() => setIsUserMenuOpen(false)}
+                                                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
+                                            >
+                                                <TrendingUp size={18} className="text-blue-500" />
+                                                Extrato
+                                            </Link>
+                                        </>
                                     )}
                                     <button 
                                         onClick={() => {
@@ -420,6 +430,10 @@ export default function Home() {
                                     <Link to="/my-orders" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
                                         <div className="bg-emerald-500/10 p-2 rounded-lg text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition"><ClipboardList size={20} /></div>
                                         <span className="text-white font-bold text-sm uppercase tracking-wide">Meus Pedidos</span>
+                                    </Link>
+                                    <Link to="/statement" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
+                                        <div className="bg-blue-500/10 p-2 rounded-lg text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition"><TrendingUp size={20} /></div>
+                                        <span className="text-white font-bold text-sm uppercase tracking-wide">Extrato</span>
                                     </Link>
                                 </>
                             )}
