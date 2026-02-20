@@ -1,4 +1,3 @@
-
 import opentype from 'opentype.js';
 import { GlyphMap, VectorPath, VectorNode } from '../types';
 
@@ -99,13 +98,6 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, globalSpac
       const finalPath = new opentype.Path();
 
       // Combina todos os caminhos do editor em um único caminho OpenType
-      // O OpenType suporta múltiplos contornos (sub-paths).
-      // A direção do desenho (horário vs anti-horário) define o preenchimento (buracos).
-      // Nosso editor já deve garantir a direção correta ou usar fill-rule.
-      // O OpenType usa non-zero winding rule por padrão. 
-      // Se 'isHole' for true, o editor visualmente mostra buraco.
-      // Para exportar, idealmente invertemos a direção dos pontos para "Holes".
-      
       data.paths.forEach(p => {
           const otPath = convertVectorPathToOpenType(p);
           // Adiciona os comandos ao path final
@@ -113,17 +105,7 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, globalSpac
       });
 
       // Calcular Metrics Automaticamente se não definidos
-      // Bounding Box
       const bbox = finalPath.getBoundingBox();
-      
-      // Advance Width: Largura do desenho + Espaçamento
-      // Se o usuário desenhou no meio do canvas (ex: x=200 a x=600), a largura visual é 400.
-      // Mas o caractere começa em x=0 na métrica da fonte geralmente?
-      // Não necessariamente. O 'x' do comando moveTo define o Left Side Bearing.
-      
-      // Vamos normalizar? Não, vamos respeitar onde o usuário desenhou no canvas de 1000x1000.
-      // Canvas X=0 é a origem horizontal. Canvas Y=800 é a Baseline.
-      
       const width = bbox.x2; // Onde termina o desenho
       const advanceWidth = Math.max(200, width + globalSpacing + 50); // Margem direita segura
 
@@ -151,18 +133,31 @@ export const generateTTF = async (fontName: string, glyphs: GlyphMap, globalSpac
 
 /**
  * Importação: Converte comandos OpenType para VectorNodes do Editor
+ * Adicionado: Lógica de centralização horizontal automática.
  */
 export const convertOpenTypePathToStrokes = (path: opentype.Path, width: number, height: number): VectorPath[] => {
     const paths: VectorPath[] = [];
     let currentNodes: VectorNode[] = [];
     
-    // Função para converter Y da fonte para Y do editor
-    // Fonte: Y=0 é baseline, Y=800 é ascender.
-    // Editor: Y=800 é baseline. (Portanto, Y_editor = 800 - Y_font)
+    // Função para inverter Y (Fonte Y=0 baseline -> Editor Y=800 baseline)
     const ty = (y: number) => 800 - y;
 
-    // Normalizar X se necessário (opcional)
-    
+    // Primeiro passo: Encontrar Bounding Box para centralização
+    let minX = Infinity, maxX = -Infinity;
+    path.commands.forEach(cmd => {
+        if ('x' in cmd) {
+            minX = Math.min(minX, cmd.x);
+            maxX = Math.max(maxX, cmd.x);
+        }
+    });
+
+    // Se não encontrou pontos, retorna vazio
+    if (minX === Infinity) return [];
+
+    // Calcular offset de centralização horizontal (Alvo: 500)
+    const glyphWidth = maxX - minX;
+    const horizontalOffset = 500 - (minX + glyphWidth / 2);
+
     path.commands.forEach(cmd => {
         switch (cmd.type) {
             case 'M': // Move To (Novo Path)
@@ -172,25 +167,25 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, width: number,
                         nodes: [...currentNodes],
                         isClosed: false,
                         fill: 'black',
-                        isHole: false // Será calculado depois via winding rule se necessário
+                        isHole: false
                     });
                     currentNodes = [];
                 }
                 currentNodes.push({
-                    x: cmd.x,
+                    x: cmd.x + horizontalOffset,
                     y: ty(cmd.y),
-                    handleIn: { x: cmd.x, y: ty(cmd.y) },
-                    handleOut: { x: cmd.x, y: ty(cmd.y) },
+                    handleIn: { x: cmd.x + horizontalOffset, y: ty(cmd.y) },
+                    handleOut: { x: cmd.x + horizontalOffset, y: ty(cmd.y) },
                     type: 'cusp'
                 });
                 break;
                 
             case 'L': // Line To
                 currentNodes.push({
-                    x: cmd.x,
+                    x: cmd.x + horizontalOffset,
                     y: ty(cmd.y),
-                    handleIn: { x: cmd.x, y: ty(cmd.y) },
-                    handleOut: { x: cmd.x, y: ty(cmd.y) },
+                    handleIn: { x: cmd.x + horizontalOffset, y: ty(cmd.y) },
+                    handleOut: { x: cmd.x + horizontalOffset, y: ty(cmd.y) },
                     type: 'cusp'
                 });
                 break;
@@ -198,21 +193,24 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, width: number,
             case 'Q': // Quadratic (Converte para Cubic)
                 {
                     const prev = currentNodes[currentNodes.length - 1];
-                    // Conversão Q -> C
-                    const cp1x = prev.x + (2/3) * (cmd.x1 - prev.x);
-                    const cp1y = prev.y + (2/3) * (ty(cmd.y1) - prev.y);
-                    const cp2x = cmd.x + (2/3) * (cmd.x1 - cmd.x);
-                    const cp2y = ty(cmd.y) + (2/3) * (ty(cmd.y1) - ty(cmd.y));
+                    const cx = cmd.x + horizontalOffset;
+                    const cy = ty(cmd.y);
+                    const c1x = cmd.x1 + horizontalOffset;
+                    const c1y = ty(cmd.y1);
 
-                    // Atualiza handleOut do anterior
+                    const cp1x = prev.x + (2/3) * (c1x - prev.x);
+                    const cp1y = prev.y + (2/3) * (c1y - prev.y);
+                    const cp2x = cx + (2/3) * (c1x - cx);
+                    const cp2y = cy + (2/3) * (c1y - cy);
+
                     prev.handleOut = { x: cp1x, y: cp1y };
                     prev.type = 'smooth';
 
                     currentNodes.push({
-                        x: cmd.x,
-                        y: ty(cmd.y),
+                        x: cx,
+                        y: cy,
                         handleIn: { x: cp2x, y: cp2y },
-                        handleOut: { x: cmd.x, y: ty(cmd.y) },
+                        handleOut: { x: cx, y: cy },
                         type: 'smooth'
                     });
                 }
@@ -221,14 +219,14 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, width: number,
             case 'C': // Cubic Bezier
                 {
                     const prev = currentNodes[currentNodes.length - 1];
-                    prev.handleOut = { x: cmd.x1, y: ty(cmd.y1) };
+                    prev.handleOut = { x: cmd.x1 + horizontalOffset, y: ty(cmd.y1) };
                     prev.type = 'smooth';
 
                     currentNodes.push({
-                        x: cmd.x,
+                        x: cmd.x + horizontalOffset,
                         y: ty(cmd.y),
-                        handleIn: { x: cmd.x2, y: ty(cmd.y2) },
-                        handleOut: { x: cmd.x, y: ty(cmd.y) },
+                        handleIn: { x: cmd.x2 + horizontalOffset, y: ty(cmd.y2) },
+                        handleOut: { x: cmd.x + horizontalOffset, y: ty(cmd.y) },
                         type: 'smooth'
                     });
                 }
@@ -238,17 +236,11 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, width: number,
                 if (currentNodes.length > 0) {
                     const first = currentNodes[0];
                     const last = currentNodes[currentNodes.length - 1];
-                    
-                    // Se último ponto != primeiro, fecha visualmente conectando
-                    // Mas na estrutura de Nodes, 'closed' significa que o último se liga ao primeiro.
-                    // Se forem coordenadas diferentes, mantemos o último.
-                    // Se forem iguais, fazemos merge dos handles.
-                    
                     const isSamePos = Math.abs(first.x - last.x) < 0.1 && Math.abs(first.y - last.y) < 0.1;
                     
                     if (isSamePos) {
                         first.handleIn = last.handleIn;
-                        currentNodes.pop(); // Remove o duplicado
+                        currentNodes.pop();
                     }
                     
                     paths.push({
@@ -264,7 +256,6 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, width: number,
         }
     });
     
-    // Adiciona path residual se houver
     if (currentNodes.length > 0) {
         paths.push({
             id: crypto.randomUUID(),
@@ -282,9 +273,10 @@ export const convertOpenTypePathToStrokes = (path: opentype.Path, width: number,
  * Gera preview SVG string para a grid
  */
 export const generatePreviewFromStrokes = (paths: VectorPath[], width: number, height: number): string => {
-    const scale = width / 1000; // Normalizado para viewbox 1000
+    const scale = width / 1000; 
     
     const svgPaths = paths.map(p => {
+        if (p.nodes.length === 0) return '';
         let d = `M ${p.nodes[0].x * scale} ${p.nodes[0].y * scale}`;
         for(let i=1; i<p.nodes.length; i++) {
             const curr = p.nodes[i];

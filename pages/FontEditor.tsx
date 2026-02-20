@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -35,6 +34,13 @@ interface SelectionBox {
     currentY: number;
 }
 
+interface BBox {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+}
+
 export default function FontEditor() {
   const [fontName, setFontName] = useState("MinhaFonte");
   const [spacing, setSpacing] = useState(3);
@@ -59,7 +65,8 @@ export default function FontEditor() {
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
   
   const [isDragging, setIsDragging] = useState(false);
-  const [dragType, setDragType] = useState<'none' | 'node' | 'handleIn' | 'handleOut' | 'path' | 'pan' | 'box' | 'pen_new_node'>('none');
+  const [dragType, setDragType] = useState<'none' | 'node' | 'handleIn' | 'handleOut' | 'path' | 'pan' | 'box' | 'pen_new_node' | 'scale'>('none');
+  const [scaleHandle, setScaleHandle] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null);
   const [startPan, setStartPan] = useState({ x: 0, y: 0 });
   const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null);
   
@@ -71,7 +78,24 @@ export default function FontEditor() {
   const fileInputRef = useRef<HTMLInputElement>(null); 
   const singleCharInputRef = useRef<HTMLInputElement>(null);
 
-  // Identifica o ID do objeto que está no topo da seleção atual
+  // --- BBOX CALCULATION ---
+  const selectionBBox = useMemo((): BBox | null => {
+      if (selectedPathIds.length === 0) return null;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      paths.forEach(p => {
+          if (selectedPathIds.includes(p.id)) {
+              p.nodes.forEach(n => {
+                  minX = Math.min(minX, n.x, n.handleIn.x, n.handleOut.x);
+                  minY = Math.min(minY, n.y, n.handleIn.y, n.handleOut.y);
+                  maxX = Math.max(maxX, n.x, n.handleIn.x, n.handleOut.x);
+                  maxY = Math.max(maxY, n.y, n.handleIn.y, n.handleOut.y);
+              });
+          }
+      });
+      if (minX === Infinity) return null;
+      return { minX, minY, maxX, maxY };
+  }, [paths, selectedPathIds]);
+
   const topSelectedId = useMemo(() => {
       if (selectedPathIds.length <= 1) return null;
       let maxIdx = -1;
@@ -240,7 +264,6 @@ export default function FontEditor() {
       };
   };
 
-  // Aumentamos a amostragem para cortes mais precisos
   const getPointsOnBezier = (p0: any, p1: any, p2: any, p3: any, samples = 30) => {
       const pts = [];
       for (let i = 0; i <= samples; i++) {
@@ -455,6 +478,47 @@ export default function FontEditor() {
               return { ...p, nodes: newNodes };
           }));
           setLastMousePos(pos);
+          return;
+      }
+
+      if (dragType === 'scale' && selectionBBox && scaleHandle) {
+          const bbox = selectionBBox;
+          let pivotX, pivotY;
+          
+          if (scaleHandle === 'br') { pivotX = bbox.minX; pivotY = bbox.minY; }
+          else if (scaleHandle === 'bl') { pivotX = bbox.maxX; pivotY = bbox.minY; }
+          else if (scaleHandle === 'tr') { pivotX = bbox.minX; pivotY = bbox.maxY; }
+          else { pivotX = bbox.maxX; pivotY = bbox.maxY; }
+
+          const initialWidth = Math.abs(bbox.maxX - bbox.minX);
+          const initialHeight = Math.abs(bbox.maxY - bbox.minY);
+          
+          if (initialWidth === 0 || initialHeight === 0) return;
+
+          const currentWidth = Math.abs(pos.x - pivotX);
+          const currentHeight = Math.abs(pos.y - pivotY);
+          
+          const scaleX = currentWidth / initialWidth;
+          const scaleY = currentHeight / initialHeight;
+          
+          // Uniform scaling if Shift is down
+          const finalScaleX = isShiftDown ? Math.max(scaleX, scaleY) : scaleX;
+          const finalScaleY = isShiftDown ? Math.max(scaleX, scaleY) : scaleY;
+
+          setPaths(prev => prev.map(p => {
+              if (!selectedPathIds.includes(p.id)) return p;
+              const newNodes = p.nodes.map(n => {
+                  const transform = (pt: {x:number, y:number}) => ({
+                      x: pivotX + (pt.x - pivotX) * finalScaleX,
+                      y: pivotY + (pt.y - pivotY) * finalScaleY
+                  });
+                  const anchor = transform({x: n.x, y: n.y});
+                  const hi = transform({x: n.handleIn.x, y: n.handleIn.y});
+                  const ho = transform({x: n.handleOut.x, y: n.handleOut.y});
+                  return { ...n, x: anchor.x, y: anchor.y, handleIn: hi, handleOut: ho };
+              });
+              return { ...p, nodes: newNodes };
+          }));
           return;
       }
 
@@ -674,10 +738,7 @@ export default function FontEditor() {
                             <line x1={-5000} y1={BASELINE_Y} x2={5000} y2={BASELINE_Y} stroke="#ef4444" strokeWidth={2} opacity={0.3} />
                             <line x1={-5000} y1={ASCENDER_Y} x2={5000} y2={ASCENDER_Y} stroke="#3b82f6" strokeWidth={2} opacity={0.3} />
                             
-                            {/* CAMADA DE PREENCHIMENTO UNIFICADA: 
-                                Para furos funcionarem visualmente, todos os caminhos devem estar no mesmo elemento 'd' 
-                                com a regra de preenchimento 'evenodd'. 
-                            */}
+                            {/* CAMADA DE PREENCHIMENTO UNIFICADA */}
                             <path 
                                 d={paths.map(p => generateD(p.nodes, p.isClosed)).join(' ')} 
                                 fill="white" 
@@ -719,6 +780,48 @@ export default function FontEditor() {
                                     />
                                 );
                             })}
+
+                            {/* Bounding Box para Redimensionamento */}
+                            {tool === 'select' && selectionBBox && (
+                                <g>
+                                    <rect 
+                                        x={selectionBBox.minX} 
+                                        y={selectionBBox.minY} 
+                                        width={selectionBBox.maxX - selectionBBox.minX} 
+                                        height={selectionBBox.maxY - selectionBBox.minY} 
+                                        fill="none" 
+                                        stroke="#3b82f6" 
+                                        strokeWidth={1 / viewTransform.k} 
+                                        strokeDasharray={`${4/viewTransform.k} ${4/viewTransform.k}`}
+                                        pointerEvents="none"
+                                    />
+                                    {/* Alças (Handles) de Escala */}
+                                    {[
+                                        { id: 'tl', x: selectionBBox.minX, y: selectionBBox.minY },
+                                        { id: 'tr', x: selectionBBox.maxX, y: selectionBBox.minY },
+                                        { id: 'bl', x: selectionBBox.minX, y: selectionBBox.maxY },
+                                        { id: 'br', x: selectionBBox.maxX, y: selectionBBox.maxY }
+                                    ].map(h => (
+                                        <rect 
+                                            key={h.id}
+                                            x={h.x - (6 / viewTransform.k)}
+                                            y={h.y - (6 / viewTransform.k)}
+                                            width={12 / viewTransform.k}
+                                            height={12 / viewTransform.k}
+                                            fill="white"
+                                            stroke="#3b82f6"
+                                            strokeWidth={2 / viewTransform.k}
+                                            className={`cursor-${h.id === 'tl' || h.id === 'br' ? 'nwse' : 'nesw'}-resize`}
+                                            onMouseDown={(e) => {
+                                                e.stopPropagation();
+                                                setDragType('scale');
+                                                setScaleHandle(h.id as any);
+                                                setIsDragging(true);
+                                            }}
+                                        />
+                                    ))}
+                                </g>
+                            )}
                             
                             {/* Rubber Band */}
                             {tool === 'pen' && activePathId && paths.find(p => p.id === activePathId) && !paths.find(p => p.id === activePathId)?.isClosed && (() => {

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers, MapPin, UserPlus, Menu, LogOut, Wrench, Grid, Palette } from 'lucide-react';
+import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers, MapPin, UserPlus, Menu, LogOut, Wrench, Grid, Palette, ChevronDown } from 'lucide-react';
 import { GalaxyGame } from '../components/GalaxyGame';
 
 export default function Home() {
@@ -15,6 +15,7 @@ export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [gameMode, setGameMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   
   // Registration Form State
   const [regData, setRegData] = useState({
@@ -26,6 +27,7 @@ export default function Home() {
   const { carouselImages, addCustomer, trustedCompanies, faviconUrl } = useData();
   const navigate = useNavigate();
   const location = useLocation();
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const tapCountRef = useRef(0);
   const resetTapTimeoutRef = useRef<any>(null);
@@ -80,6 +82,17 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Fechar menu de usuário ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleGalaxyTap = () => {
     if (gameMode) return;
     tapCountRef.current += 1;
@@ -101,8 +114,8 @@ export default function Home() {
       const success = await loginAdmin(inputValue);
       if (success) {
         setIsModalOpen(false);
-        navigate('/customers');
-        window.location.reload();
+        // Permanece na home após login admin se desejar, ou redireciona
+        // O usuário pediu especificamente para o cliente ficar na home.
       } else {
         setError('Código de acesso inválido.');
       }
@@ -110,8 +123,7 @@ export default function Home() {
       const success = await loginClient(inputValue);
       if (success) {
         setIsModalOpen(false);
-        navigate('/my-area');
-        window.location.reload();
+        // Permanece na home conforme solicitado
       } else {
         setError('Documento (CPF/CNPJ) não encontrado.');
       }
@@ -144,8 +156,7 @@ export default function Home() {
         const success = await loginClient(regData.cpf);
         if (success) {
             setIsModalOpen(false);
-            navigate('/my-area');
-            window.location.reload();
+            // Permanece na home conforme solicitado
         } else {
             setIsRegisterMode(false);
             setInputValue(regData.cpf);
@@ -212,7 +223,7 @@ export default function Home() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-red-600/5 rounded-full blur-[80px]"></div>
       </div>
 
-      {/* CABEÇALHO (HEADER) - VISÍVEL PARA TODOS NA HOME */}
+      {/* CABEÇALHO (HEADER) */}
       <header className="fixed top-0 left-0 w-full z-50 h-20 px-6 grid grid-cols-3 items-center bg-black/80 backdrop-blur-md border-b border-white/5 transition-all duration-300">
         <div className="flex justify-start">
             <button 
@@ -243,30 +254,72 @@ export default function Home() {
           </div>
         </div>
         
-        <div className="flex justify-end">
-            <button 
-              onClick={() => {
-                if (role === 'guest') {
-                  setIsModalOpen(true);
-                  setIsRegisterMode(false);
-                } else {
-                  navigate(role === 'admin' ? '/customers' : '/my-area');
-                }
-              }}
-              className="relative group p-[1px] rounded-full transition-all duration-300 active:scale-95 hover:scale-105"
-            >
-                <div className="absolute inset-0 bg-gradient-to-r from-primary via-orange-500 to-secondary rounded-full blur-[6px] opacity-70 group-hover:opacity-100 transition-opacity duration-500"></div>
-                <div className="relative bg-black h-full px-6 py-2 rounded-full flex items-center gap-2 border border-white/10 group-hover:border-white/30 transition-colors shadow-2xl">
-                  <User size={14} className="text-primary group-hover:text-white transition-colors" />
-                  <span className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-widest">
-                    {role === 'guest' ? 'Login' : (role === 'admin' ? 'Painel ADM' : 'Minha Área')}
-                  </span>
+        <div className="flex justify-end relative" ref={userMenuRef}>
+            {role === 'guest' ? (
+                <button 
+                    onClick={() => {
+                        setIsModalOpen(true);
+                        setIsRegisterMode(false);
+                    }}
+                    className="relative group p-[1px] rounded-full transition-all duration-300 active:scale-95 hover:scale-105"
+                >
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary via-orange-500 to-secondary rounded-full blur-[6px] opacity-70 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="relative bg-black h-full px-6 py-2 rounded-full flex items-center gap-2 border border-white/10 group-hover:border-white/30 transition-colors shadow-2xl">
+                        <User size={14} className="text-primary group-hover:text-white transition-colors" />
+                        <span className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-widest">Login</span>
+                    </div>
+                </button>
+            ) : (
+                <div className="relative">
+                    <button 
+                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                        className="flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-95 group"
+                    >
+                        <div className="w-8 h-8 rounded-full bg-crazy-gradient flex items-center justify-center border border-white/20">
+                            <User size={16} className="text-white" />
+                        </div>
+                        <span className="text-xs font-bold text-white uppercase tracking-wider hidden sm:inline">
+                            Olá, {role === 'admin' ? 'Admin' : currentCustomer?.name.split(' ')[0]}
+                        </span>
+                        <ChevronDown size={16} className={`text-zinc-500 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {isUserMenuOpen && (
+                        <div className="absolute top-full right-0 mt-2 w-56 bg-[#18181b]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[60] animate-scale-in origin-top-right">
+                            <div className="p-4 border-b border-white/5 bg-white/[0.02]">
+                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Sua Conta</p>
+                                <p className="text-xs font-bold text-white truncate mt-1">{currentCustomer?.name || 'Administrador'}</p>
+                            </div>
+                            <div className="p-2">
+                                <Link 
+                                    to={role === 'admin' ? '/customers' : '/my-area'}
+                                    onClick={() => setIsUserMenuOpen(false)}
+                                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
+                                >
+                                    <LayoutGrid size={18} className="text-primary" />
+                                    {role === 'admin' ? 'Painel Admin' : 'Minha Área'}
+                                </Link>
+                                <button 
+                                    onClick={() => {
+                                        setIsUserMenuOpen(false);
+                                        logout();
+                                        window.location.reload();
+                                    }}
+                                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-red-400 hover:bg-red-500/5 transition-all text-sm font-medium"
+                                >
+                                    <LogOut size={18} />
+                                    Sair
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
-            </button>
+            )}
         </div>
       </header>
 
-      {/* NAV BAR DESKTOP (MENU HORIZONTAL) - VISÍVEL PARA TODOS NA HOME */}
+      {/* NAV BAR DESKTOP (MENU HORIZONTAL) */}
       <nav className="fixed top-24 left-0 w-full z-40 hidden md:flex justify-center items-start pt-2 pb-2 pointer-events-none">
           <div className="flex gap-8 items-center pointer-events-auto bg-[#09090b]/80 backdrop-blur-xl border border-white/10 rounded-full px-10 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)] animate-slide-down-reveal transition-all duration-500 group relative seasonal-border">
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
