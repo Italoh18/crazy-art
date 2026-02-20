@@ -1,4 +1,6 @@
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
 const getHeaders = () => {
   const token = localStorage.getItem('auth_token');
   return {
@@ -38,7 +40,7 @@ const handleResponse = async (res: Response) => {
 
 export const api = {
   async auth(payload: { code?: string, cpf?: string }) {
-    const res = await fetch('/api/auth', {
+    const res = await fetch(`${API_BASE_URL}/api/auth`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -52,19 +54,19 @@ export const api = {
   },
 
   async getClients() {
-    const res = await fetch(`/api/clients?_t=${Date.now()}`, { headers: getHeaders() });
+    const res = await fetch(`${API_BASE_URL}/api/clients?_t=${Date.now()}`, { headers: getHeaders() });
     return handleResponse(res);
   },
   async createClient(data: any) {
-    const res = await fetch('/api/clients', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+    const res = await fetch(`${API_BASE_URL}/api/clients`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
   async updateClient(id: string, data: any) {
-    const res = await fetch(`/api/clients?id=${encodeURIComponent(id)}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
+    const res = await fetch(`${API_BASE_URL}/api/clients?id=${encodeURIComponent(id)}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
   async deleteClient(id: string) {
-    const res = await fetch(`/api/clients?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
+    const res = await fetch(`${API_BASE_URL}/api/clients?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   },
 
@@ -75,20 +77,20 @@ export const api = {
     if (search) params.append('search', search);
     params.append('_t', Date.now().toString()); // Cache buster
     
-    const url = `/api/catalog?${params.toString()}`;
+    const url = `${API_BASE_URL}/api/catalog?${params.toString()}`;
     const res = await fetch(url, { headers: getHeaders() });
     return handleResponse(res);
   },
   async createProduct(data: any) {
-    const res = await fetch('/api/catalog', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+    const res = await fetch(`${API_BASE_URL}/api/catalog`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
   async updateProduct(id: string, data: any) {
-    const res = await fetch(`/api/catalog?id=${encodeURIComponent(id)}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
+    const res = await fetch(`${API_BASE_URL}/api/catalog?id=${encodeURIComponent(id)}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
   async deleteProduct(id: string) {
-    const res = await fetch(`/api/catalog?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
+    const res = await fetch(`${API_BASE_URL}/api/catalog?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   },
 
@@ -97,30 +99,30 @@ export const api = {
     if (customerId) params.append('clientId', customerId);
     params.append('_t', Date.now().toString());
     
-    const url = `/api/orders?${params.toString()}`;
+    const url = `${API_BASE_URL}/api/orders?${params.toString()}`;
     const res = await fetch(url, { headers: getHeaders() });
     return handleResponse(res);
   },
   async getOrder(id: string) {
-    const res = await fetch(`/api/orders?id=${encodeURIComponent(id)}&_t=${Date.now()}`, { headers: getHeaders() });
+    const res = await fetch(`${API_BASE_URL}/api/orders?id=${encodeURIComponent(id)}&_t=${Date.now()}`, { headers: getHeaders() });
     return handleResponse(res);
   },
   async createOrder(data: any) {
-    const res = await fetch('/api/orders', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+    const res = await fetch(`${API_BASE_URL}/api/orders`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
   async updateOrder(id: string, data: any) {
-    const res = await fetch(`/api/orders?id=${encodeURIComponent(id)}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
+    const res = await fetch(`${API_BASE_URL}/api/orders?id=${encodeURIComponent(id)}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
   async deleteOrder(id: string) {
-    const res = await fetch(`/api/orders?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
+    const res = await fetch(`${API_BASE_URL}/api/orders?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   },
 
   // Pagamentos - Atualizado com payer info
   async createPayment(paymentData: { orderId: string, title: string, amount: number, payerEmail?: string, payerName?: string }) {
-    const res = await fetch('/api/create-payment', { 
+    const res = await fetch(`${API_BASE_URL}/api/create-payment`, { 
         method: 'POST', 
         headers: getHeaders(), 
         body: JSON.stringify(paymentData) 
@@ -129,73 +131,73 @@ export const api = {
   },
 
   async getCarousel() {
-    const res = await fetch(`/api/carousel?_t=${Date.now()}`);
+    const res = await fetch(`${API_BASE_URL}/api/carousel?_t=${Date.now()}`);
     return handleResponse(res);
   },
   async addCarouselImage(url: string) {
-    const res = await fetch('/api/carousel', { method: 'POST', headers: getHeaders(), body: JSON.stringify({ url }) });
+    const res = await fetch(`${API_BASE_URL}/api/carousel`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ url }) });
     return handleResponse(res);
   },
   async deleteCarouselImage(id: string) {
-    const res = await fetch(`/api/carousel?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
+    const res = await fetch(`${API_BASE_URL}/api/carousel?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   },
 
   // Empresas que Confiam
   async getTrustedCompanies() {
-    const res = await fetch(`/api/trusted-companies?_t=${Date.now()}`);
+    const res = await fetch(`${API_BASE_URL}/api/trusted-companies?_t=${Date.now()}`);
     return handleResponse(res);
   },
   async addTrustedCompany(data: { name: string, imageUrl: string }) {
-    const res = await fetch('/api/trusted-companies', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+    const res = await fetch(`${API_BASE_URL}/api/trusted-companies`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
   async deleteTrustedCompany(id: string) {
-    const res = await fetch(`/api/trusted-companies?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
+    const res = await fetch(`${API_BASE_URL}/api/trusted-companies?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   },
 
   // Drive de Artes
   async getDriveFiles(folder?: string) {
-    const url = folder ? `/api/files?folder=${encodeURIComponent(folder)}` : '/api/files';
+    const url = folder ? `${API_BASE_URL}/api/files?folder=${encodeURIComponent(folder)}` : `${API_BASE_URL}/api/files`;
     const separator = url.includes('?') ? '&' : '?';
     const res = await fetch(`${url}${separator}_t=${Date.now()}`, { headers: getHeaders() });
     return handleResponse(res);
   },
   async addDriveFile(data: any) {
-    const res = await fetch('/api/files', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+    const res = await fetch(`${API_BASE_URL}/api/files`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
   async deleteDriveFile(id: string) {
-    const res = await fetch(`/api/files?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
+    const res = await fetch(`${API_BASE_URL}/api/files?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   },
 
   // Cupons
   async getCoupons() {
-    const res = await fetch(`/api/coupons?_t=${Date.now()}`, { headers: getHeaders() });
+    const res = await fetch(`${API_BASE_URL}/api/coupons?_t=${Date.now()}`, { headers: getHeaders() });
     return handleResponse(res);
   },
   async validateCoupon(code: string) {
-    const res = await fetch(`/api/coupons?code=${encodeURIComponent(code)}`, { headers: getHeaders() });
+    const res = await fetch(`${API_BASE_URL}/api/coupons?code=${encodeURIComponent(code)}`, { headers: getHeaders() });
     return handleResponse(res);
   },
   async addCoupon(data: { code: string, percentage: number, type: string }) {
-    const res = await fetch('/api/coupons', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+    const res = await fetch(`${API_BASE_URL}/api/coupons`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
   async deleteCoupon(id: string) {
-    const res = await fetch(`/api/coupons?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
+    const res = await fetch(`${API_BASE_URL}/api/coupons?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   },
 
   // Configurações do Site (Favicon, etc)
   async getSettings() {
-    const res = await fetch(`/api/settings?_t=${Date.now()}`);
+    const res = await fetch(`${API_BASE_URL}/api/settings?_t=${Date.now()}`);
     return handleResponse(res);
   },
   async updateSetting(key: string, value: string) {
-    const res = await fetch('/api/settings', { method: 'POST', headers: getHeaders(), body: JSON.stringify({ key, value }) });
+    const res = await fetch(`${API_BASE_URL}/api/settings`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ key, value }) });
     return handleResponse(res);
   }
 };

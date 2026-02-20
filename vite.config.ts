@@ -23,13 +23,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      proxy: {
-        '/api': {
-          target: 'http://127.0.0.1:8788',
-          changeOrigin: true,
-          secure: false,
-        },
-      },
+      // Proxy removido para compatibilidade com Cloudflare Pages
     }
   };
 });
