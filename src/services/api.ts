@@ -8,15 +8,12 @@ const getHeaders = () => {
 };
 
 const handleResponse = async (res: Response) => {
-  // Se o token for inválido (mudança de chave secreta no deploy), limpa e recarrega
   if (res.status === 401 || res.status === 403) {
     const isLoginEndpoint = res.url.includes('/api/auth');
-    // Não força logout se o erro for na própria tentativa de login (senha errada)
     if (!isLoginEndpoint) {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_role');
         localStorage.removeItem('current_customer');
-        // Redireciona para home para forçar novo login
         window.location.href = '/';
         throw new Error('Sessão expirada. Faça login novamente.');
     }
@@ -68,12 +65,11 @@ export const api = {
     return handleResponse(res);
   },
 
-  // Catálogo (Produtos e Serviços)
-  async getProducts(type?: 'product' | 'service', search?: string) {
+  async getProducts(type?: 'product' | 'service' | 'art', search?: string) {
     const params = new URLSearchParams();
     if (type) params.append('type', type);
     if (search) params.append('search', search);
-    params.append('_t', Date.now().toString()); // Cache buster
+    params.append('_t', Date.now().toString());
     
     const url = `/api/catalog?${params.toString()}`;
     const res = await fetch(url, { headers: getHeaders() });
@@ -118,7 +114,6 @@ export const api = {
     return handleResponse(res);
   },
 
-  // Pagamentos - Atualizado com payer info
   async createPayment(paymentData: { orderId: string, title: string, amount: number, payerEmail?: string, payerName?: string }) {
     const res = await fetch('/api/create-payment', { 
         method: 'POST', 
@@ -141,7 +136,6 @@ export const api = {
     return handleResponse(res);
   },
 
-  // Empresas que Confiam
   async getTrustedCompanies() {
     const res = await fetch(`/api/trusted-companies?_t=${Date.now()}`);
     return handleResponse(res);
@@ -155,7 +149,6 @@ export const api = {
     return handleResponse(res);
   },
 
-  // Drive de Artes
   async getDriveFiles(folder?: string) {
     const url = folder ? `/api/files?folder=${encodeURIComponent(folder)}` : '/api/files';
     const separator = url.includes('?') ? '&' : '?';
@@ -171,7 +164,6 @@ export const api = {
     return handleResponse(res);
   },
 
-  // Cupons
   async getCoupons() {
     const res = await fetch(`/api/coupons?_t=${Date.now()}`, { headers: getHeaders() });
     return handleResponse(res);
@@ -189,7 +181,6 @@ export const api = {
     return handleResponse(res);
   },
 
-  // Configurações do Site (Favicon, etc)
   async getSettings() {
     const res = await fetch(`/api/settings?_t=${Date.now()}`);
     return handleResponse(res);

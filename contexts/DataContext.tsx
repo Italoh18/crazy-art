@@ -64,10 +64,8 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [driveFiles, setDriveFiles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // loadData now accepts a silent flag to prevent UI blocking
   const loadData = async (silent = false) => {
     const token = localStorage.getItem('auth_token');
-    
     if (!silent) setIsLoading(true);
 
     try {
@@ -75,56 +73,45 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
         token ? api.getClients() : Promise.resolve([]),
         token ? api.getProducts() : Promise.resolve([]),
         token ? api.getOrders() : Promise.resolve([]),
-        api.getCarousel(),
-        api.getTrustedCompanies(),
-        api.getSettings() // Carrega Configurações
+        api.getCarousel().catch(() => []),
+        api.getTrustedCompanies().catch(() => []),
+        api.getSettings().catch(() => ({})),
+        (token && localStorage.getItem('user_role') === 'admin') ? api.getCoupons().catch(() => []) : Promise.resolve([])
       ];
-
-      // Carrega cupons apenas se for admin
-      const role = localStorage.getItem('user_role');
-      if (token && role === 'admin') {
-          promises.push(api.getCoupons());
-      } else {
-          promises.push(Promise.resolve([]));
-      }
 
       const results = await Promise.allSettled(promises);
 
+      // Tratamento robusto para Clientes
       if (results[0].status === 'fulfilled') {
         const data = results[0].value;
-        const customersList = Array.isArray(data) ? data : (data?.data || []);
-        setCustomers(customersList.map(normalizeCustomer));
+        const list = Array.isArray(data) ? data : (data?.data || []);
+        setCustomers(list.map(normalizeCustomer));
+      } else {
+        console.error("Falha ao carregar clientes:", results[0].reason);
       }
 
+      // Tratamento robusto para Produtos/Catálogo
       if (results[1].status === 'fulfilled') {
         const data = results[1].value;
         setProducts(Array.isArray(data) ? data : (data?.data || []));
       }
 
+      // Tratamento robusto para Pedidos
       if (results[2].status === 'fulfilled') {
         const data = results[2].value;
         setOrders(Array.isArray(data) ? data : (data?.data || []));
       }
 
-      if (results[3].status === 'fulfilled') {
-        setCarouselImages(results[3].value || []);
-      }
-
-      if (results[4].status === 'fulfilled') {
-        setTrustedCompanies(results[4].value || []);
-      }
-
+      if (results[3].status === 'fulfilled') setCarouselImages(results[3].value || []);
+      if (results[4].status === 'fulfilled') setTrustedCompanies(results[4].value || []);
       if (results[5].status === 'fulfilled') {
         const settings = results[5].value || {};
         if (settings.favicon_url) setFaviconUrl(settings.favicon_url);
       }
-
-      if (results[6] && results[6].status === 'fulfilled') {
-        setCoupons(results[6].value || []);
-      }
+      if (results[6].status === 'fulfilled') setCoupons(results[6].value || []);
 
     } catch (e) {
-      console.error("Erro no carregamento de dados:", e);
+      console.error("Erro crítico no carregamento de dados:", e);
     } finally {
       if (!silent) setIsLoading(false);
     }
@@ -269,7 +256,6 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     }
   };
 
-  // --- CUPONS ---
   const loadCoupons = async () => {
       try {
           const res = await api.getCoupons();
@@ -305,7 +291,6 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       }
   };
 
-  // --- SETTINGS (FAVICON) ---
   const updateFavicon = async (url: string) => {
       try {
           await api.updateSetting('favicon_url', url);
@@ -315,7 +300,6 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       }
   };
 
-  // --- DRIVE ---
   const loadDriveFiles = async (folder?: string) => {
       try {
           const res = await api.getDriveFiles(folder);
@@ -326,7 +310,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const addDriveFile = async (data: any) => {
       try {
           await api.addDriveFile(data);
-          loadDriveFiles(); // Refresh
+          loadDriveFiles();
       } catch (e: any) { alert(e.message); }
   };
 
