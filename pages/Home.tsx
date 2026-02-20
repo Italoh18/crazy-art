@@ -220,7 +220,7 @@ export default function Home() {
       </div>
 
       {/* CABEÇALHO (HEADER) */}
-      <header className="fixed top-0 left-0 w-full z-[60] h-20 px-6 grid grid-cols-3 items-center bg-black/80 backdrop-blur-md border-b border-white/5 transition-all duration-300">
+      <header className="fixed top-0 left-0 w-full z-50 h-20 px-6 grid grid-cols-3 items-center bg-black/80 backdrop-blur-md border-b border-white/5 transition-all duration-300">
         <div className="flex justify-start">
             <button 
               className={`md:hidden transition p-2 rounded-full ${isMobileMenuOpen ? 'text-white bg-white/10' : 'text-zinc-300 hover:text-white'}`}
@@ -286,7 +286,7 @@ export default function Home() {
 
                         {/* Dropdown Menu */}
                         {isUserMenuOpen && (
-                            <div className="absolute top-full right-0 mt-2 w-56 bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[70] animate-scale-in origin-top-right ring-1 ring-white/5">
+                            <div className="absolute top-full right-0 mt-2 w-56 bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[9999] animate-scale-in origin-top-right ring-1 ring-white/5">
                                 <div className="p-4 border-b border-white/5 bg-white/[0.02]">
                                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Sua Conta</p>
                                     <p className="text-xs font-bold text-white truncate mt-1">{currentCustomer?.name || 'Administrador'}</p>
@@ -370,8 +370,8 @@ export default function Home() {
       {/* Mobile Menu Floating Pill */}
       {isMobileMenuOpen && (
           <>
-            <div className="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm md:hidden transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
-            <div className="fixed top-24 left-4 right-4 z-[90] md:hidden animate-scale-in origin-top">
+            <div className="fixed inset-0 z-[9990] bg-black/90 md:hidden transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
+            <div className="fixed top-24 left-4 right-4 z-[9999] md:hidden animate-scale-in origin-top">
                 <div className="bg-[#121215] border border-white/10 rounded-3xl p-5 shadow-2xl flex flex-col gap-2 relative overflow-hidden ring-1 ring-white/5 seasonal-border">
                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1 bg-white/20 rounded-b-full shadow-[0_0_15px_rgba(255,255,255,0.2)]"></div>
                      
