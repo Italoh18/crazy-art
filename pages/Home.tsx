@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers, MapPin, UserPlus, Menu, LogOut, Wrench, Grid, Palette, ChevronDown, ClipboardList } from 'lucide-react';
+import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers, MapPin, UserPlus, Menu, LogOut, Wrench, Grid, Palette, ChevronDown, ClipboardList, TrendingUp } from 'lucide-react';
 import { GalaxyGame } from '../components/GalaxyGame';
 import { NotificationCenter } from '../components/NotificationCenter';
 
