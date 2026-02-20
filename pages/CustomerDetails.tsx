@@ -8,7 +8,7 @@ import {
   CheckCircle, AlertTriangle, Trash2, Edit, Plus, X, 
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
   Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal,
-  Coins, Lock, RotateCcw, CloudDownload, Sparkles
+  Coins, Lock, RotateCcw, CloudDownload, Sparkles, ChevronRight
 } from 'lucide-react';
 import { api } from '../src/services/api';
 import { SizeListItem } from '../types';
