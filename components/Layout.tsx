@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid, ShoppingBag, Palette, Wrench, BookOpen } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { SeasonalEffects } from './SeasonalEffects';
 import { StickManCleaner } from './StickManCleaner';
@@ -173,12 +173,12 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
                                 {/* Dropdown Menu */}
                                 {isUserMenuOpen && (
-                                    <div className="absolute top-full right-0 mt-2 w-56 bg-[#18181b]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[60] animate-scale-in origin-top-right">
+                                    <div className="absolute top-full right-0 mt-2 w-56 bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100] animate-scale-in origin-top-right ring-1 ring-white/5">
                                         <div className="p-4 border-b border-white/5 bg-white/[0.02]">
                                             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Sua Conta</p>
                                             <p className="text-xs font-bold text-white truncate mt-1">{currentCustomer?.name}</p>
                                         </div>
-                                        <div className="p-2">
+                                        <div className="p-2 bg-[#18181b]">
                                             <Link 
                                                 to="/my-area"
                                                 onClick={() => setIsUserMenuOpen(false)}
@@ -218,70 +218,26 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             )}
 
             {isClientMenuOpen && (
-                <>
-                    <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] md:hidden transition-opacity" onClick={() => setIsClientMenuOpen(false)} />
-                    <div className="fixed top-24 left-4 right-4 z-50 md:hidden animate-scale-in origin-top">
-                        <div className="bg-[#121215]/95 backdrop-blur-xl border border-white/10 rounded-3xl p-5 shadow-2xl flex flex-col gap-2 relative overflow-hidden ring-1 ring-white/5 seasonal-border">
-                             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1 bg-white/20 rounded-b-full shadow-[0_0_15px_rgba(255,255,255,0.2)]"></div>
-                             
-                             <div className="flex justify-between items-center mb-1 border-b border-white/5 pb-3">
-                                <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                                    <Menu size={14} /> Menu
-                                </span>
-                                <button onClick={() => setIsClientMenuOpen(false)} className="text-zinc-400 hover:text-white bg-white/5 p-1.5 rounded-full transition active:scale-90"><X size={16} /></button>
-                             </div>
-
-                             <div className="px-4 py-2 border-b border-white/5 mb-2">
-                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Olá, {currentCustomer?.name.split(' ')[0]}</p>
-                             </div>
-                             
-                             <Link to="/my-area" onClick={() => setIsClientMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
-                                <div className="bg-primary/10 p-2 rounded-lg text-primary group-hover:bg-primary group-hover:text-white transition"><User size={20} /></div>
-                                <span className="text-white font-bold text-sm uppercase tracking-wide">Minha Área</span>
-                             </Link>
-                             <Link to="/my-orders" onClick={() => setIsClientMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
-                                <div className="bg-emerald-500/10 p-2 rounded-lg text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition"><ClipboardList size={20} /></div>
-                                <span className="text-white font-bold text-sm uppercase tracking-wide">Meus Pedidos</span>
-                             </Link>
-                             
-                             <button 
-                                onClick={() => {
-                                    setIsClientMenuOpen(false);
-                                    handleLogout();
-                                }}
-                                className="w-full text-left px-4 py-3 rounded-xl hover:bg-red-500/10 transition flex items-center gap-4 group mt-1"
-                             >
-                                <div className="bg-zinc-800 p-2 rounded-lg text-zinc-400 group-hover:text-red-500 transition"><LogOut size={20} /></div>
-                                <span className="text-zinc-400 group-hover:text-red-500 font-bold text-sm uppercase tracking-wide transition">Sair</span>
-                             </button>
-
-                             <div className="h-px bg-white/5 my-1"></div>
-
-                             <Link to="/shop" onClick={() => setIsClientMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
-                                <div className="bg-emerald-500/10 p-2 rounded-lg text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition"><ShoppingBag size={20} /></div>
-                                <span className="text-white font-bold text-sm uppercase tracking-wide">Loja</span>
-                             </Link>
-
-                             <Link to="/shop?tab=art" onClick={() => setIsClientMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
-                                <div className="bg-purple-500/10 p-2 rounded-lg text-purple-500 group-hover:bg-purple-500 group-hover:text-white transition"><Palette size={20} /></div>
-                                <div>
-                                    <span className="block text-white font-bold text-sm uppercase tracking-wide">Quitanda</span>
-                                    <span className="text-[10px] text-purple-400 font-bold">de Artes</span>
-                                </div>
-                             </Link>
-                             
-                             <Link to="/programs" onClick={() => setIsClientMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
-                                <div className="bg-blue-500/10 p-2 rounded-lg text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition"><Wrench size={20} /></div>
-                                <span className="text-white font-bold text-sm uppercase tracking-wide">Ferramentas</span>
-                             </Link>
-
-                             <div className="w-full text-left px-4 py-3 rounded-xl opacity-50 cursor-not-allowed flex items-center gap-4">
-                                <div className="bg-zinc-800 p-2 rounded-lg text-zinc-500"><BookOpen size={20} /></div>
-                                <span className="text-zinc-500 font-bold text-sm uppercase tracking-wide">Blog (Em Breve)</span>
-                             </div>
+                <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex flex-col justify-center items-center gap-8 animate-fade-in md:hidden">
+                    <button onClick={() => setIsClientMenuOpen(false)} className="absolute top-6 right-6 text-zinc-500 hover:text-white p-2">
+                        <X size={32} />
+                    </button>
+                    
+                    <div className="flex flex-col items-center gap-2 mb-4">
+                        <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center border border-zinc-800">
+                            <User size={40} className="text-primary" />
                         </div>
+                        <span className="text-xl font-bold text-white">{currentCustomer?.name}</span>
                     </div>
-                </>
+
+                    <Link to="/my-area" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-primary uppercase tracking-widest">Minha Área</Link>
+                    <Link to="/my-orders" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-emerald-500 uppercase tracking-widest">Meus Pedidos</Link>
+                    <Link to="/shop" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-white uppercase tracking-widest">Loja</Link>
+                    
+                    <button onClick={handleLogout} className="text-xl font-bold text-red-500 uppercase tracking-widest flex items-center gap-2 mt-8">
+                        <LogOut size={20} /> Sair
+                    </button>
+                </div>
             )}
 
             <main key={location.pathname} className={`flex-1 ${!isHomePage ? 'pt-24 p-6 max-w-7xl mx-auto w-full' : ''} animate-page-enter`}>
