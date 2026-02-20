@@ -220,7 +220,7 @@ export default function Home() {
       </div>
 
       {/* CABEÇALHO (HEADER) */}
-      <header className="fixed top-0 left-0 w-full z-50 h-20 px-6 grid grid-cols-3 items-center bg-black/80 backdrop-blur-md border-b border-white/5 transition-all duration-300">
+      <header className="fixed top-0 left-0 w-full z-[60] h-20 px-6 grid grid-cols-3 items-center bg-black/80 backdrop-blur-md border-b border-white/5 transition-all duration-300">
         <div className="flex justify-start">
             <button 
               className={`md:hidden transition p-2 rounded-full ${isMobileMenuOpen ? 'text-white bg-white/10' : 'text-zinc-300 hover:text-white'}`}
@@ -279,14 +279,14 @@ export default function Home() {
                                 <User size={16} className="text-white" />
                             </div>
                             <span className="text-xs font-bold text-white uppercase tracking-wider hidden sm:inline">
-                                Olá, {role === 'admin' ? 'Admin' : currentCustomer?.name.split(' ')[0]}
+                                Olá, {role === 'admin' ? 'Admin' : (currentCustomer?.name ? currentCustomer.name.split(' ')[0] : 'Cliente')}
                             </span>
                             <ChevronDown size={16} className={`text-zinc-500 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
                         </button>
 
                         {/* Dropdown Menu */}
                         {isUserMenuOpen && (
-                            <div className="absolute top-full right-0 mt-2 w-56 bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100] animate-scale-in origin-top-right ring-1 ring-white/5">
+                            <div className="absolute top-full right-0 mt-2 w-56 bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[70] animate-scale-in origin-top-right ring-1 ring-white/5">
                                 <div className="p-4 border-b border-white/5 bg-white/[0.02]">
                                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Sua Conta</p>
                                     <p className="text-xs font-bold text-white truncate mt-1">{currentCustomer?.name || 'Administrador'}</p>
@@ -331,7 +331,7 @@ export default function Home() {
       </header>
 
       {/* NAV BAR DESKTOP (MENU HORIZONTAL) */}
-      <nav className="fixed top-24 left-0 w-full z-40 hidden md:flex justify-center items-start pt-2 pb-2 pointer-events-none">
+      <nav className="fixed top-24 left-0 w-full z-[55] hidden md:flex justify-center items-start pt-2 pb-2 pointer-events-none">
           <div className="flex gap-8 items-center pointer-events-auto bg-[#09090b]/80 backdrop-blur-xl border border-white/10 rounded-full px-10 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)] animate-slide-down-reveal transition-all duration-500 group relative seasonal-border">
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
 
@@ -370,8 +370,8 @@ export default function Home() {
       {/* Mobile Menu Floating Pill */}
       {isMobileMenuOpen && (
           <>
-            <div className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-[2px] md:hidden transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
-            <div className="fixed top-24 left-4 right-4 z-[100] md:hidden animate-scale-in origin-top">
+            <div className="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm md:hidden transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
+            <div className="fixed top-24 left-4 right-4 z-[90] md:hidden animate-scale-in origin-top">
                 <div className="bg-[#121215] border border-white/10 rounded-3xl p-5 shadow-2xl flex flex-col gap-2 relative overflow-hidden ring-1 ring-white/5 seasonal-border">
                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1 bg-white/20 rounded-b-full shadow-[0_0_15px_rgba(255,255,255,0.2)]"></div>
                      
@@ -396,7 +396,7 @@ export default function Home() {
                      ) : (
                         <>
                             <div className="px-4 py-2 border-b border-white/5 mb-2">
-                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Olá, {currentCustomer?.name.split(' ')[0]}</p>
+                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Olá, {currentCustomer?.name ? currentCustomer.name.split(' ')[0] : 'Cliente'}</p>
                             </div>
                             
                             {role === 'admin' ? (
