@@ -124,34 +124,37 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             
             {/* Oculta o cabeçalho do layout se estiver na home, pois a home tem o próprio cabeçalho */}
             {!isHomePage && (
-                <header className="glass-panel h-16 flex items-center justify-between px-6 sticky top-4 mx-4 rounded-2xl z-30 transition-all duration-300 border border-white/10 shadow-2xl mt-4 backdrop-blur-2xl">
-                    <div className="flex items-center space-x-4">
-                        <Link to="/" className="text-zinc-400 hover:text-white transition p-2 hover:bg-white/10 rounded-full hover:scale-110">
+                <header className="fixed top-0 left-0 w-full z-50 h-20 px-6 grid grid-cols-3 items-center bg-black/80 backdrop-blur-md border-b border-white/5 transition-all duration-300">
+                    <div className="flex justify-start items-center gap-2">
+                        <Link to="/" className="text-zinc-400 hover:text-white transition p-2 hover:bg-white/10 rounded-full">
                             <ArrowLeft size={20} />
                         </Link>
-                        <div className="flex items-center gap-3">
-                            <img src="/logo.png" alt="Crazy Art" className="h-8 w-auto object-contain" />
-                            <span className="text-lg font-bold font-heading tracking-wider hidden sm:block text-transparent bg-clip-text bg-crazy-gradient">CRAZY ART</span>
-                        </div>
-                    </div>
-                    
-                    <div className="hidden md:flex items-center space-x-6">
-                        <NotificationCenter />
-                        <Link to="/my-area" className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition">
-                        <User size={16} />
-                        <span className="font-semibold">{currentCustomer?.name.split(' ')[0]}</span>
-                        </Link>
-                        <button onClick={handleLogout} className="text-zinc-400 hover:text-red-400 flex items-center space-x-2 transition-colors hover:scale-105">
-                            <LogOut size={18} />
-                            <span className="text-sm font-medium">Sair</span>
-                        </button>
-                    </div>
-
-                    <div className="flex items-center gap-4 md:hidden">
-                        <NotificationCenter />
-                        <button onClick={() => setIsClientMenuOpen(true)} className="text-zinc-300">
+                        <button onClick={() => setIsClientMenuOpen(true)} className="text-zinc-300 md:hidden p-2 hover:bg-white/10 rounded-full transition">
                             <Menu size={24} />
                         </button>
+                    </div>
+                    
+                    <div className="flex justify-center items-center">
+                        <Link to="/">
+                             <h1 className="text-2xl font-bold tracking-[0.15em] bg-clip-text text-transparent bg-crazy-gradient text-center whitespace-nowrap uppercase drop-shadow-sm" style={timesFont}>CRAZY ART</h1>
+                        </Link>
+                    </div>
+                    
+                    <div className="flex justify-end items-center gap-4">
+                        <div className="hidden md:flex items-center space-x-6">
+                            <NotificationCenter />
+                            <Link to="/my-area" className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition">
+                                <User size={16} />
+                                <span className="font-semibold">{currentCustomer?.name.split(' ')[0]}</span>
+                            </Link>
+                            <button onClick={handleLogout} className="text-zinc-400 hover:text-red-400 flex items-center space-x-2 transition-colors hover:scale-105">
+                                <LogOut size={18} />
+                                <span className="text-sm font-medium">Sair</span>
+                            </button>
+                        </div>
+                        <div className="flex items-center gap-4 md:hidden">
+                            <NotificationCenter />
+                        </div>
                     </div>
                 </header>
             )}
@@ -178,7 +181,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                 </div>
             )}
 
-            <main key={location.pathname} className={`flex-1 ${!isHomePage ? 'p-6 max-w-7xl mx-auto w-full' : ''} animate-page-enter`}>
+            <main key={location.pathname} className={`flex-1 ${!isHomePage ? 'pt-24 p-6 max-w-7xl mx-auto w-full' : ''} animate-page-enter`}>
                 {children}
             </main>
             <VirtualAssistant />
