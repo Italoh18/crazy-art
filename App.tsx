@@ -32,6 +32,7 @@ import Feedbacks from './pages/Feedbacks';
 import PricingCalculator from './pages/PricingCalculator';
 import SmartEnlargement from './pages/SmartEnlargement';
 import Statement from './pages/Statement'; // Nova Importação
+import ClientOrders from './pages/ClientOrders'; // Nova Importação
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
 
