@@ -1,7 +1,7 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { SeasonalEffects } from './SeasonalEffects';
 import { StickManCleaner } from './StickManCleaner';
@@ -13,15 +13,28 @@ import { CookieConsent } from './CookieConsent'; // Importado
 
 export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
-  const [isClientMenuOpen, setIsClientMenuOpen] = React.useState(false); 
+  const [isClientMenuOpen, setIsClientMenuOpen] = React.useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false); // Novo state para dropdown
   const location = useLocation();
   const navigate = useNavigate();
   const { role, logout, currentCustomer } = useAuth();
+  const userMenuRef = useRef<HTMLDivElement>(null);
   
   const handleLogout = () => {
     logout();
     navigate('/');
   };
+
+  // Fechar menu de usuário ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const timesFont = { fontFamily: '"Times New Roman", Times, serif' };
 
@@ -141,16 +154,61 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                     </div>
                     
                     <div className="flex justify-end items-center gap-4">
-                        <div className="hidden md:flex items-center space-x-6">
+                        <div className="hidden md:flex items-center space-x-6" ref={userMenuRef}>
                             <NotificationCenter />
-                            <Link to="/my-area" className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition">
-                                <User size={16} />
-                                <span className="font-semibold">{currentCustomer?.name.split(' ')[0]}</span>
-                            </Link>
-                            <button onClick={handleLogout} className="text-zinc-400 hover:text-red-400 flex items-center space-x-2 transition-colors hover:scale-105">
-                                <LogOut size={18} />
-                                <span className="text-sm font-medium">Sair</span>
-                            </button>
+                            
+                            <div className="relative">
+                                <button 
+                                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                                    className="flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-all active:scale-95 group"
+                                >
+                                    <div className="w-8 h-8 rounded-full bg-crazy-gradient flex items-center justify-center border border-white/20">
+                                        <User size={16} className="text-white" />
+                                    </div>
+                                    <span className="text-xs font-bold text-white uppercase tracking-wider hidden sm:inline">
+                                        Olá, {currentCustomer?.name.split(' ')[0]}
+                                    </span>
+                                    <ChevronDown size={16} className={`text-zinc-500 transition-transform duration-300 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                {/* Dropdown Menu */}
+                                {isUserMenuOpen && (
+                                    <div className="absolute top-full right-0 mt-2 w-56 bg-[#18181b]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[60] animate-scale-in origin-top-right">
+                                        <div className="p-4 border-b border-white/5 bg-white/[0.02]">
+                                            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Sua Conta</p>
+                                            <p className="text-xs font-bold text-white truncate mt-1">{currentCustomer?.name}</p>
+                                        </div>
+                                        <div className="p-2">
+                                            <Link 
+                                                to="/my-area"
+                                                onClick={() => setIsUserMenuOpen(false)}
+                                                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
+                                            >
+                                                <User size={18} className="text-primary" />
+                                                Minha Área
+                                            </Link>
+                                            <Link 
+                                                to="/my-orders"
+                                                onClick={() => setIsUserMenuOpen(false)}
+                                                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
+                                            >
+                                                <ClipboardList size={18} className="text-emerald-500" />
+                                                Meus Pedidos
+                                            </Link>
+                                            <button 
+                                                onClick={() => {
+                                                    setIsUserMenuOpen(false);
+                                                    handleLogout();
+                                                }}
+                                                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-red-400 hover:bg-red-500/5 transition-all text-sm font-medium"
+                                            >
+                                                <LogOut size={18} />
+                                                Sair
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div className="flex items-center gap-4 md:hidden">
                             <NotificationCenter />
