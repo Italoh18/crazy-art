@@ -204,7 +204,6 @@ export default function Home() {
   };
 
   const menuItems = [
-    ...(role !== 'guest' ? [{ name: 'Minha Área', icon: User, path: '/my-area', color: 'text-primary' }] : []),
     { name: 'Loja', icon: ShoppingBag, path: '/shop', color: 'text-emerald-400' },
     { name: 'Quitanda', sub: 'de Artes', icon: Palette, path: '/shop?tab=art', color: 'text-purple-400' }, 
     { name: 'Ferramentas', icon: Wrench, path: '/programs', color: 'text-blue-400' },

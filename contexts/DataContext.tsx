@@ -30,6 +30,7 @@ interface DataContextType {
   deleteCoupon: (id: string) => Promise<void>;
   validateCoupon: (code: string) => Promise<Coupon | null>;
   loadCoupons: () => Promise<void>;
+  loadData: (silent?: boolean) => Promise<void>;
   updateFavicon: (url: string) => Promise<void>;
   loadDriveFiles: (folder?: string) => Promise<void>;
   driveFiles: any[];
@@ -332,7 +333,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       addCarouselImage, deleteCarouselImage,
       addTrustedCompany, deleteTrustedCompany,
       addCoupon, deleteCoupon, validateCoupon, loadCoupons,
-      updateFavicon,
+      updateFavicon, loadData,
       driveFiles, loadDriveFiles, addDriveFile, deleteDriveFile
     }}>
       {children}

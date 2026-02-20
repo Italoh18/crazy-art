@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Customer } from '../types';
 import { api } from '../src/services/api';
+import { useData } from './DataContext';
 
 type UserRole = 'guest' | 'admin' | 'client';
 
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children?: ReactNode }) => {
   const [role, setRole] = useState<UserRole>((localStorage.getItem('user_role') as UserRole) || 'guest');
+  const { loadData } = useData();
   
   // CORREÇÃO: Inicialização síncrona (Lazy) para garantir que os dados estejam disponíveis na primeira renderização
   const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(() => {
@@ -39,6 +41,7 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
         const data = await api.auth({ code });
         if (data.token) {
             setRole('admin');
+            await loadData(); // Recarrega dados com o novo token
             return true;
         }
     } catch (e) { console.error(e); }
@@ -52,6 +55,7 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
             setRole('client');
             setCurrentCustomer(data.customer);
             localStorage.setItem('current_customer', JSON.stringify(data.customer));
+            await loadData(); // Recarrega dados com o novo token
             return true;
         }
     } catch (e) { console.error(e); }
@@ -62,6 +66,7 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
     localStorage.clear();
     setRole('guest');
     setCurrentCustomer(null);
+    loadData(); // Limpa dados sensíveis recarregando como guest (sem token)
   };
 
   return (
