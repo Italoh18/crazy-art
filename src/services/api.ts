@@ -191,27 +191,27 @@ export const api = {
   },
 
   // --- Auth & Verification ---
-  async sendVerificationCode(email: string, type: 'password' | 'email') {
+  async sendVerificationCode(userId: string, email: string, type: 'password' | 'email') {
     const res = await fetch('/api/auth/send-code', {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ email, type })
+        body: JSON.stringify({ userId, email, type })
     });
     return handleResponse(res);
   },
 
-  async verifyCode(email: string, code: string, type: 'password' | 'email') {
+  async verifyCode(userId: string, email: string, code: string, type: 'password' | 'email') {
     const res = await fetch('/api/auth/verify-code', {
         method: 'POST',
         headers: getHeaders(),
-        body: JSON.stringify({ email, code, type })
+        body: JSON.stringify({ userId, email, code, type })
     });
     return handleResponse(res);
   },
 
   async updatePassword(id: string, password: string) {
-      const res = await fetch(`/api/clients/password`, {
-          method: 'PUT',
+      const res = await fetch(`/api/auth/update-password`, {
+          method: 'POST',
           headers: getHeaders(),
           body: JSON.stringify({ id, password })
       });
@@ -219,8 +219,8 @@ export const api = {
   },
 
   async updateEmail(id: string, email: string) {
-      const res = await fetch(`/api/clients/email`, {
-          method: 'PUT',
+      const res = await fetch(`/api/auth/update-email`, {
+          method: 'POST',
           headers: getHeaders(),
           body: JSON.stringify({ id, email })
       });

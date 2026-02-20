@@ -104,7 +104,7 @@ export default function CustomerDetails() {
           const emailToSend = type === 'email' ? newEmail : customer.email;
           if (!emailToSend) throw new Error("Email inválido.");
           
-          await api.sendVerificationCode(emailToSend, type);
+          await api.sendVerificationCode(customer.id, emailToSend, type);
           setVerificationStep('verify');
       } catch (e: any) {
           setSecurityError(e.message || "Erro ao enviar código.");
@@ -118,7 +118,7 @@ export default function CustomerDetails() {
       setSecurityError('');
       try {
           const emailToVerify = type === 'email' ? newEmail : customer.email;
-          await api.verifyCode(emailToVerify, verificationCode, type);
+          await api.verifyCode(customer.id, emailToVerify, verificationCode, type);
           setVerificationStep('update');
       } catch (e: any) {
           setSecurityError(e.message || "Código inválido.");
