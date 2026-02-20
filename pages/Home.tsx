@@ -21,7 +21,8 @@ export default function Home() {
   // Registration Form State
   const [regData, setRegData] = useState({
     name: '', phone: '', email: '', cpf: '',
-    street: '', number: '', zipCode: ''
+    street: '', number: '', zipCode: '',
+    password: '', confirmPassword: ''
   });
   
   const { loginAdmin, loginClient, role, logout, currentCustomer } = useAuth();
@@ -132,8 +133,13 @@ export default function Home() {
     e.preventDefault();
     setError('');
     
-    if (!regData.name || !regData.cpf || !regData.phone) {
-        setError('Por favor, preencha os campos obrigatórios.');
+    if (!regData.name || !regData.cpf || !regData.phone || !regData.password || !regData.confirmPassword) {
+        setError('Por favor, preencha todos os campos obrigatórios.');
+        return;
+    }
+
+    if (regData.password !== regData.confirmPassword) {
+        setError('As senhas não coincidem.');
         return;
     }
 
@@ -148,7 +154,8 @@ export default function Home() {
                 number: regData.number,
                 zipCode: regData.zipCode
             },
-            creditLimit: 0.00 
+            creditLimit: 0.00,
+            password: regData.password // Pass password to addCustomer
         });
         
         const success = await loginClient(regData.cpf);
@@ -629,6 +636,15 @@ export default function Home() {
                         <div className="md:col-span-2">
                             <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Email (Opcional)</label>
                             <input name="email" type="email" value={regData.email} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" placeholder="exemplo@email.com" />
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Senha</label>
+                            <input name="password" type="password" required value={regData.password} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" placeholder="******" />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Confirmar Senha</label>
+                            <input name="confirmPassword" type="password" required value={regData.confirmPassword} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" placeholder="******" />
                         </div>
 
                         <div className="md:col-span-2 border-t border-zinc-800 pt-6 mt-2">

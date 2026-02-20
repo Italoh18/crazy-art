@@ -8,6 +8,28 @@
 - **Backend:** Cloudflare Workers (Functions) ou API externa configurada via `VITE_API_BASE_URL`
 - **Banco de Dados:** D1 (SQLite) no Cloudflare (provavelmente, dado o `wrangler.toml` e `migrations.sql`)
 
+## Banco de Dados (Cloudflare D1)
+**Tabela `clients` Atual:**
+```sql
+CREATE TABLE clients (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  cpf TEXT UNIQUE NOT NULL,
+  street TEXT,
+  number TEXT,
+  zipCode TEXT,
+  creditLimit REAL DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  cloud_link TEXT,
+  password_hash TEXT,        -- Nova coluna
+  verification_code TEXT,    -- Nova coluna
+  is_verified INTEGER DEFAULT 0, -- Nova coluna
+  is_subscriber INTEGER DEFAULT 0
+);
+```
+
 ## Serviços Externos
 - **Emails:** Resend
 - **Pagamentos:** Mercado Pago

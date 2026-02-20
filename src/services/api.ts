@@ -188,5 +188,42 @@ export const api = {
   async updateSetting(key: string, value: string) {
     const res = await fetch('/api/settings', { method: 'POST', headers: getHeaders(), body: JSON.stringify({ key, value }) });
     return handleResponse(res);
+  },
+
+  // --- Auth & Verification ---
+  async sendVerificationCode(email: string, type: 'password' | 'email') {
+    const res = await fetch('/api/auth/send-code', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ email, type })
+    });
+    return handleResponse(res);
+  },
+
+  async verifyCode(email: string, code: string, type: 'password' | 'email') {
+    const res = await fetch('/api/auth/verify-code', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ email, code, type })
+    });
+    return handleResponse(res);
+  },
+
+  async updatePassword(id: string, password: string) {
+      const res = await fetch(`/api/clients/password`, {
+          method: 'PUT',
+          headers: getHeaders(),
+          body: JSON.stringify({ id, password })
+      });
+      return handleResponse(res);
+  },
+
+  async updateEmail(id: string, email: string) {
+      const res = await fetch(`/api/clients/email`, {
+          method: 'PUT',
+          headers: getHeaders(),
+          body: JSON.stringify({ id, email })
+      });
+      return handleResponse(res);
   }
 };

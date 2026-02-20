@@ -60,6 +60,17 @@ export default function CustomerDetails() {
   // State para Visualização de Detalhes do Pedido
   const [viewingOrder, setViewingOrder] = useState<any | null>(null);
 
+  // Verification & Security States
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [verificationStep, setVerificationStep] = useState<'request' | 'verify' | 'update'>('request');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [securityError, setSecurityError] = useState('');
+  const [isLoadingSecurity, setIsLoadingSecurity] = useState(false);
+
   const activeId = role === 'client' ? currentCustomer?.id : paramId;
 
   // Fix: Added filteredProducts useMemo which was missing and causing errors
@@ -67,6 +78,85 @@ export default function CustomerDetails() {
       if (!itemSearch) return [];
       return products.filter(p => p.name.toLowerCase().includes(itemSearch.toLowerCase())).slice(0, 10);
   }, [products, itemSearch]);
+
+  // --- Security Handlers ---
+  const handleOpenPasswordModal = () => {
+      setVerificationStep('request');
+      setVerificationCode('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setSecurityError('');
+      setIsPasswordModalOpen(true);
+  };
+
+  const handleOpenEmailModal = () => {
+      setVerificationStep('request');
+      setVerificationCode('');
+      setNewEmail('');
+      setSecurityError('');
+      setIsEmailModalOpen(true);
+  };
+
+  const handleSendCode = async (type: 'password' | 'email') => {
+      setIsLoadingSecurity(true);
+      setSecurityError('');
+      try {
+          const emailToSend = type === 'email' ? newEmail : customer.email;
+          if (!emailToSend) throw new Error("Email inválido.");
+          
+          await api.sendVerificationCode(emailToSend, type);
+          setVerificationStep('verify');
+      } catch (e: any) {
+          setSecurityError(e.message || "Erro ao enviar código.");
+      } finally {
+          setIsLoadingSecurity(false);
+      }
+  };
+
+  const handleVerifyCode = async (type: 'password' | 'email') => {
+      setIsLoadingSecurity(true);
+      setSecurityError('');
+      try {
+          const emailToVerify = type === 'email' ? newEmail : customer.email;
+          await api.verifyCode(emailToVerify, verificationCode, type);
+          setVerificationStep('update');
+      } catch (e: any) {
+          setSecurityError(e.message || "Código inválido.");
+      } finally {
+          setIsLoadingSecurity(false);
+      }
+  };
+
+  const handleUpdatePassword = async () => {
+      if (newPassword !== confirmNewPassword) {
+          setSecurityError("As senhas não coincidem.");
+          return;
+      }
+      setIsLoadingSecurity(true);
+      try {
+          await api.updatePassword(customer.id, newPassword);
+          setIsPasswordModalOpen(false);
+          alert("Senha atualizada com sucesso!");
+      } catch (e: any) {
+          setSecurityError(e.message || "Erro ao atualizar senha.");
+      } finally {
+          setIsLoadingSecurity(false);
+      }
+  };
+
+  const handleUpdateEmail = async () => {
+      setIsLoadingSecurity(true);
+      try {
+          await api.updateEmail(customer.id, newEmail);
+          setIsEmailModalOpen(false);
+          alert("Email atualizado com sucesso! Faça login novamente se necessário.");
+          window.location.reload();
+      } catch (e: any) {
+          setSecurityError(e.message || "Erro ao atualizar email.");
+      } finally {
+          setIsLoadingSecurity(false);
+      }
+  };
 
   useEffect(() => {
     if (role === 'admin' && !paramId) {
@@ -460,8 +550,18 @@ export default function CustomerDetails() {
                         <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Email</label>
                         <div className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5">
                             <p className="text-zinc-300 truncate">{customer.email || 'Não cadastrado'}</p>
-                            <button className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg transition font-bold">
+                            <button onClick={handleOpenEmailModal} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg transition font-bold">
                                 Trocar Email
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Senha</label>
+                        <div className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5">
+                            <p className="text-zinc-500 font-mono">••••••••</p>
+                            <button onClick={handleOpenPasswordModal} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg transition font-bold">
+                                Trocar Senha
                             </button>
                         </div>
                     </div>
@@ -547,6 +647,113 @@ export default function CustomerDetails() {
                 </div>
             </div>
         </div>
+
+        {/* Modal de Troca de Senha */}
+        {isPasswordModalOpen && (
+            <div className="fixed inset-0 z-[100] flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl relative animate-scale-in">
+                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e]">
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2"><Lock size={18} className="text-primary" /> Trocar Senha</h2>
+                        <button onClick={() => setIsPasswordModalOpen(false)} className="text-zinc-500 hover:text-white"><X size={20} /></button>
+                    </div>
+                    <div className="p-6 space-y-6">
+                        {verificationStep === 'request' && (
+                            <div className="text-center space-y-4">
+                                <p className="text-zinc-400 text-sm">Para sua segurança, enviaremos um código de verificação para seu email cadastrado: <span className="text-white font-bold">{customer.email}</span></p>
+                                <button onClick={() => handleSendCode('password')} disabled={isLoadingSecurity} className="w-full py-3 bg-primary hover:bg-amber-600 text-white rounded-xl font-bold transition flex items-center justify-center gap-2">
+                                    {isLoadingSecurity ? <Loader2 className="animate-spin" size={18} /> : <Mail size={18} />}
+                                    Enviar Código
+                                </button>
+                            </div>
+                        )}
+
+                        {verificationStep === 'verify' && (
+                            <div className="space-y-4">
+                                <p className="text-zinc-400 text-sm text-center">Digite o código de 4 dígitos enviado para seu email.</p>
+                                <input 
+                                    value={verificationCode}
+                                    onChange={(e) => setVerificationCode(e.target.value)}
+                                    placeholder="0000"
+                                    className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white text-center font-mono text-xl tracking-[0.5em] focus:border-primary outline-none transition"
+                                    maxLength={4}
+                                />
+                                <button onClick={() => handleVerifyCode('password')} disabled={isLoadingSecurity} className="w-full py-3 bg-primary hover:bg-amber-600 text-white rounded-xl font-bold transition flex items-center justify-center gap-2">
+                                    {isLoadingSecurity ? <Loader2 className="animate-spin" size={18} /> : <Check size={18} />}
+                                    Verificar Código
+                                </button>
+                            </div>
+                        )}
+
+                        {verificationStep === 'update' && (
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Nova Senha</label>
+                                    <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" placeholder="******" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Confirmar Nova Senha</label>
+                                    <input type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" placeholder="******" />
+                                </div>
+                                <button onClick={handleUpdatePassword} disabled={isLoadingSecurity} className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition flex items-center justify-center gap-2">
+                                    {isLoadingSecurity ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle size={18} />}
+                                    Salvar Nova Senha
+                                </button>
+                            </div>
+                        )}
+
+                        {securityError && <div className="text-red-500 text-center text-xs font-bold bg-red-500/10 py-2 rounded-lg border border-red-500/20">{securityError}</div>}
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Modal de Troca de Email */}
+        {isEmailModalOpen && (
+            <div className="fixed inset-0 z-[100] flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl relative animate-scale-in">
+                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e]">
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2"><Mail size={18} className="text-primary" /> Trocar Email</h2>
+                        <button onClick={() => setIsEmailModalOpen(false)} className="text-zinc-500 hover:text-white"><X size={20} /></button>
+                    </div>
+                    <div className="p-6 space-y-6">
+                        {verificationStep === 'request' && (
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Novo Email</label>
+                                    <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" placeholder="novo@email.com" />
+                                </div>
+                                <button onClick={() => handleSendCode('email')} disabled={isLoadingSecurity || !newEmail} className="w-full py-3 bg-primary hover:bg-amber-600 text-white rounded-xl font-bold transition flex items-center justify-center gap-2">
+                                    {isLoadingSecurity ? <Loader2 className="animate-spin" size={18} /> : <Mail size={18} />}
+                                    Enviar Código de Verificação
+                                </button>
+                                <p className="text-zinc-500 text-xs text-center">Enviaremos um código para o <strong>novo email</strong> informado.</p>
+                            </div>
+                        )}
+
+                        {verificationStep === 'verify' && (
+                            <div className="space-y-4">
+                                <p className="text-zinc-400 text-sm text-center">Digite o código enviado para <span className="text-white font-bold">{newEmail}</span></p>
+                                <input 
+                                    value={verificationCode}
+                                    onChange={(e) => setVerificationCode(e.target.value)}
+                                    placeholder="0000"
+                                    className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white text-center font-mono text-xl tracking-[0.5em] focus:border-primary outline-none transition"
+                                    maxLength={4}
+                                />
+                                <button onClick={() => handleVerifyCode('email')} disabled={isLoadingSecurity} className="w-full py-3 bg-primary hover:bg-amber-600 text-white rounded-xl font-bold transition flex items-center justify-center gap-2">
+                                    {isLoadingSecurity ? <Loader2 className="animate-spin" size={18} /> : <Check size={18} />}
+                                    Verificar e Atualizar
+                                </button>
+                            </div>
+                        )}
+
+                        {/* No step 'update' needed for email, verification confirms update */}
+
+                        {securityError && <div className="text-red-500 text-center text-xs font-bold bg-red-500/10 py-2 rounded-lg border border-red-500/20">{securityError}</div>}
+                    </div>
+                </div>
+            </div>
+        )}
 
         {/* Modal de Edição (Reaproveitado) */}
         {isEditModalOpen && (
