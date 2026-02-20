@@ -36,12 +36,12 @@ export default function Programs() {
       bgImage: 'radial-gradient(circle at 10% 90%, rgba(16, 185, 129, 0.15) 0%, transparent 60%)'
     },
     {
-      id: 'font-finder',
-      name: 'Font Finder',
-      sub: '& Creator',
-      description: 'Identifique e crie tipografias.',
+      id: 'font-editor',
+      name: 'Font',
+      sub: 'Studio',
+      description: 'Crie e edite suas próprias fontes vetoriais.',
       icon: Type,
-      path: '/font-finder',
+      path: '/font-editor', // Atualizado para a nova rota
       external: false,
       comingSoon: false,
       gridClass: 'md:col-span-2 md:row-span-2',

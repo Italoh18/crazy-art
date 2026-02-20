@@ -10,9 +10,9 @@ export interface Customer {
     number: string;
     zipCode: string;
   };
-  cloudLink?: string; // Novo campo para a nuvem de arquivos
+  cloudLink?: string; 
   creditLimit?: number;
-  isSubscriber?: boolean; // Novo: Indica se o cliente é assinante da Quitanda
+  isSubscriber?: boolean; 
   created_at: string;
 }
 
@@ -31,10 +31,10 @@ export interface Product {
   description?: string;
   type: ItemType;
   imageUrl?: string;
-  downloadLink?: string; // Novo: Link para download (apenas para 'art')
-  subcategory?: string; // Novo: Subcategoria (Carnaval, Futebol, etc)
-  primaryColor?: string; // Novo: Cor principal (#FF0000)
-  priceVariations?: PriceVariation[]; // Novo: Preços por quantidade
+  downloadLink?: string; 
+  subcategory?: string; 
+  primaryColor?: string; 
+  priceVariations?: PriceVariation[]; 
 }
 
 export interface OrderItem {
@@ -45,7 +45,7 @@ export interface OrderItem {
   total: number;
   cost_price?: number; 
   type?: ItemType;
-  downloadLink?: string; // Persistido no pedido
+  downloadLink?: string; 
 }
 
 export type OrderStatus = 'open' | 'paid' | 'cancelled';
@@ -58,8 +58,8 @@ export interface SizeListItem {
   name: string;
   shortSize: string;
   shortNumber: string;
-  quantity?: number; // Novo: Multiplicador
-  isSimple?: boolean; // Novo: Se é apenas quantidade (sem nome/número)
+  quantity?: number; 
+  isSimple?: boolean; 
 }
 
 export interface Order {
@@ -76,12 +76,12 @@ export interface Order {
   paid_at?: string;
   formattedOrderNumber?: string;
   client_name?: string;
-  client_credit_limit?: number; // Novo: para filtro de produção
-  source?: 'shop' | 'admin'; // Novo: origem do pedido
-  size_list?: SizeListItem[] | string; // Suporta JSON string vindo do DB
-  is_confirmed?: number; // 0 ou 1
+  client_credit_limit?: number; 
+  source?: 'shop' | 'admin'; 
+  size_list?: SizeListItem[] | string; 
+  is_confirmed?: number; 
   has_files?: number;
-  items?: OrderItem[]; // Para visualização detalhada
+  items?: OrderItem[]; 
 }
 
 export interface Coupon {
@@ -112,7 +112,7 @@ export interface Notification {
   type: 'info' | 'success' | 'warning' | 'error';
   title: string;
   message: string;
-  is_read: number; // 0 ou 1
+  is_read: number; 
   created_at: string;
   reference_id?: string;
 }
@@ -134,26 +134,24 @@ export interface DriveFile {
   created_at: string;
 }
 
-// --- Font Finder Types ---
-
 export interface FontAnalysis {
   fontName: string;
-  category: string; // e.g., Serif, Sans-Serif, Script
-  visualStyle: string; // e.g., "Bold geometric with high x-height"
+  category: string; 
+  visualStyle: string; 
   matchConfidence: 'Alta' | 'Média' | 'Baixa';
   description: string;
-  similarFonts: string[]; // Lista de fontes parecidas
-  detectedText?: string; // Texto extraído da imagem para preview
-  source?: 'Local' | 'Web'; // Origem da identificação
+  similarFonts: string[]; 
+  detectedText?: string; 
+  source?: 'Local' | 'Web'; 
 }
 
 export interface HistoryItem extends FontAnalysis {
   id: string;
   timestamp: number;
-  thumbnailUrl: string; // Base64 or URL of the cropped image (ou placeholder para uploads)
-  isUploaded?: boolean; // Flag para identificar se foi upload manual
-  fileContent?: string; // Base64 do arquivo da fonte (.ttf, .otf)
-  fileName?: string; // Nome original do arquivo
+  thumbnailUrl: string; 
+  isUploaded?: boolean; 
+  fileContent?: string; 
+  fileName?: string; 
 }
 
 export interface ImageUploadProps {
@@ -166,7 +164,6 @@ export interface FontResultProps {
   currentImage: string | null;
   onSave: () => void;
   isSaved: boolean;
-  // Propriedade opcional para permitir download se for um item do histórico com arquivo
   downloadData?: {
     fileName: string;
     fileContent: string;
@@ -178,40 +175,44 @@ export interface HistoryListProps {
   onDelete: (id: string) => void;
   onSelect: (item: HistoryItem) => void;
   onUpdate: (id: string, newName: string) => void;
-  onUploadFonts: (files: FileList) => void; // Nova prop para upload
+  onUploadFonts: (files: FileList) => void; 
 }
 
-// --- Font Creator / Vector Engine Types ---
+// --- NEW VECTOR ENGINE TYPES (Professional Grade) ---
 
 export type NodeType = 'cusp' | 'smooth' | 'symmetric';
 
-export interface Point {
+export interface VectorNode {
   x: number;
   y: number;
-  // Control handles relative to x,y
-  handleIn?: { x: number; y: number };
-  handleOut?: { x: number; y: number };
-  type?: NodeType;
+  // Control handles are absolute coordinates
+  handleIn: { x: number; y: number }; 
+  handleOut: { x: number; y: number };
+  type: NodeType;
+  isSelected?: boolean;
 }
 
-export interface Stroke {
-  id?: string;
-  points: Point[]; // Nodes
-  type: 'path' | 'freehand' | 'shape' | 'bezier'; // 'path' is the new standard
-  isClosed?: boolean; 
-  filled?: boolean; // If true, rendering fills the shape
-  width?: number; // Stroke width
-  isHole?: boolean; // Boolean op (subtraction)
-  
-  // Vector Properties
-  fillColor?: string;
-  strokeColor?: string;
+export interface VectorPath {
+  id: string;
+  nodes: VectorNode[];
+  isClosed: boolean;
+  fill: string;
+  stroke?: string;
+  strokeWidth?: number;
+  // "Boolean" visual operation: if true, this path cuts out from others (fill-rule: evenodd)
+  isHole?: boolean; 
 }
 
 export interface GlyphData {
   char: string;
-  strokes: Stroke[];
-  previewUrl?: string; // Base64 image for fast rendering in grid
+  paths: VectorPath[];
+  advanceWidth: number;
+  leftSideBearing?: number;
+  previewUrl?: string; // Cache for grid display
 }
 
 export type GlyphMap = Record<string, GlyphData>;
+
+// Legacy compatibility aliases (if needed during refactor transition)
+export type Stroke = VectorPath; 
+export type Point = VectorNode; 

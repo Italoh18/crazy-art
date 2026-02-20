@@ -1,593 +1,730 @@
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { X, ChevronRight, Save, Square, Triangle, Circle, Undo, Eraser, PenTool, Spline, PaintBucket, Minus, Plus, Eye, EyeOff, Upload, Move, Maximize, Image as ImageIcon, Sliders, Ruler, FlipHorizontal, FlipVertical, MousePointer2 } from 'lucide-react';
-import { Stroke, Point, NodeType } from '../types';
+import { X, Save, MousePointer2, PenTool, Square, Circle, Minus, RotateCcw, ZoomIn, ZoomOut, RotateCw, Upload, Brush, CornerUpRight, ChevronRight, Check } from 'lucide-react';
+import { VectorPath, VectorNode } from '../types';
 import opentype from 'opentype.js';
 import { convertOpenTypePathToStrokes } from '../utils/fontGenerator';
 
 interface DrawingModalProps {
   char: string;
-  initialStrokes: Stroke[];
+  initialStrokes: VectorPath[];
   isOpen: boolean;
   onClose: () => void;
-  onSave: (strokes: Stroke[], previewUrl: string) => void;
-  onNext: (strokes: Stroke[], previewUrl: string) => void;
+  onSave: (paths: VectorPath[], previewUrl: string) => void;
+  onNext: (paths: VectorPath[], previewUrl: string) => void;
   isLast: boolean;
 }
 
-type ToolType = 'select' | 'pen' | 'square' | 'circle' | 'move';
+type Tool = 'select' | 'pen' | 'brush' | 'rect' | 'circle';
 
-const CANVAS_SIZE = 500;
-const BASELINE_Y = CANVAS_SIZE * 0.8;
-
-// --- Helper Functions for Vector Math ---
-
-const dist = (p1: {x:number, y:number}, p2: {x:number, y:number}) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+// Configurações do Editor
+const BASELINE_Y = 800;
+const ASCENDER_Y = 0;
+// Limites virtuais para as barras de rolagem (Reduzido para limitar a área)
+const SCROLL_RANGE = 1000; 
 
 export const DrawingModal: React.FC<DrawingModalProps> = ({ 
   char, initialStrokes, isOpen, onClose, onSave, onNext, isLast 
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null); 
-  
-  // Data Model
-  const [paths, setPaths] = useState<Stroke[]>([]);
-  const [history, setHistory] = useState<Stroke[][]>([]);
-  
-  // UI State
-  const [activeTool, setActiveTool] = useState<ToolType>('pen');
-  const [strokeWidth, setStrokeWidth] = useState<number>(15); // Used for Pen stroke expansion width
-  const [showGuide, setShowGuide] = useState<boolean>(true); 
-  const [traceImage, setTraceImage] = useState<HTMLImageElement | null>(null);
-  const [traceOpacity, setTraceOpacity] = useState(0.3);
-  
-  // Interaction State
+  // --- STATE ---
+  const [paths, setPaths] = useState<VectorPath[]>([]);
   const [selectedPathIds, setSelectedPathIds] = useState<string[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragMode, setDragMode] = useState<'none' | 'node' | 'handleIn' | 'handleOut' | 'path'>('none');
-  const [activeNodeIndex, setActiveNodeIndex] = useState<{pathId: string, nodeIndex: number} | null>(null);
-  const [dragStartPos, setDragStartPos] = useState({x:0, y:0});
+  const [selectedNodeId, setSelectedNodeId] = useState<{ pathId: string, index: number } | null>(null);
   
-  // Pen Drawing State
-  const [rawPoints, setRawPoints] = useState<{x:number, y:number}[]>([]);
+  // History State
+  const [history, setHistory] = useState<VectorPath[][]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
 
+  // Tool State
+  const [tool, setTool] = useState<Tool>('select');
+  const [brushSize, setBrushSize] = useState(40);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragType, setDragType] = useState<'none' | 'node' | 'handleIn' | 'handleOut' | 'path' | 'pan'>('none');
+  
+  // Viewport State (Pan & Zoom)
+  const [viewTransform, setViewTransform] = useState({ x: 0, y: 0, k: 0.6 }); 
+  const [startPan, setStartPan] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Pen/Brush Temp State
+  const [activePathId, setActivePathId] = useState<string | null>(null);
+  const [brushPoints, setBrushPoints] = useState<{x:number, y:number}[]>([]);
+
+  // Inicialização
   useEffect(() => {
     if (isOpen) {
-      setPaths(initialStrokes || []);
-      setHistory([]);
-      setActiveTool('pen');
-      setStrokeWidth(15);
-      setShowGuide(true);
-      setTraceImage(null);
-      setSelectedPathIds([]);
+      const initial = JSON.parse(JSON.stringify(initialStrokes || []));
+      setPaths(initial);
+      setHistory([initial]);
+      setHistoryIndex(0);
+      setViewTransform({ x: 100, y: 100, k: 0.6 }); 
+      setTool('select');
     }
-  }, [isOpen]);
+  }, [isOpen, initialStrokes]);
 
-  const saveToHistory = () => {
-      setHistory(prev => [...prev.slice(-20), JSON.parse(JSON.stringify(paths))]);
+  // --- HISTORY MANAGEMENT ---
+  const recordHistory = (newPaths: VectorPath[]) => {
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push(JSON.parse(JSON.stringify(newPaths)));
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
   };
 
-  const handleUndo = () => {
-      if (history.length === 0) return;
-      const previous = history[history.length - 1];
-      setPaths(previous);
-      setHistory(prev => prev.slice(0, -1));
-  };
-
-  // --- Rendering ---
-
-  const drawPath = (ctx: CanvasRenderingContext2D, path: Stroke, isSelected: boolean) => {
-      if (path.points.length === 0) return;
-      
-      ctx.beginPath();
-      const start = path.points[0];
-      ctx.moveTo(start.x, start.y);
-      
-      for (let i = 1; i < path.points.length; i++) {
-          const p = path.points[i];
-          const prev = path.points[i-1];
-          // Use handles if present
-          if ((prev.handleOut && (prev.handleOut.x !== 0 || prev.handleOut.y !== 0)) || 
-              (p.handleIn && (p.handleIn.x !== 0 || p.handleIn.y !== 0))) {
-              ctx.bezierCurveTo(
-                  prev.x + (prev.handleOut?.x || 0), prev.y + (prev.handleOut?.y || 0),
-                  p.x + (p.handleIn?.x || 0), p.y + (p.handleIn?.y || 0),
-                  p.x, p.y
-              );
-          } else {
-              ctx.lineTo(p.x, p.y);
-          }
+  const undo = useCallback(() => {
+      if (historyIndex > 0) {
+          setHistoryIndex(prev => prev - 1);
+          setPaths(JSON.parse(JSON.stringify(history[historyIndex - 1])));
       }
-      
-      if (path.isClosed) {
-          const first = path.points[0];
-          const last = path.points[path.points.length - 1];
-          if ((last.handleOut && (last.handleOut.x !== 0 || last.handleOut.y !== 0)) ||
-              (first.handleIn && (first.handleIn.x !== 0 || first.handleIn.y !== 0))) {
-              ctx.bezierCurveTo(
-                  last.x + (last.handleOut?.x || 0), last.y + (last.handleOut?.y || 0),
-                  first.x + (first.handleIn?.x || 0), first.y + (first.handleIn?.y || 0),
-                  first.x, first.y
-              );
-          } else {
-              ctx.closePath();
-          }
-      }
+  }, [history, historyIndex]);
 
-      ctx.fillStyle = path.isHole ? 'rgba(0,0,0,1)' : (path.fillColor || 'white');
-      if (path.isHole) ctx.globalCompositeOperation = 'destination-out';
-      ctx.fill();
-      ctx.globalCompositeOperation = 'source-over';
-      
-      if (path.strokeColor) {
-          ctx.strokeStyle = path.strokeColor;
-          ctx.lineWidth = path.width || 1;
-          ctx.stroke();
+  const redo = useCallback(() => {
+      if (historyIndex < history.length - 1) {
+          setHistoryIndex(prev => prev + 1);
+          setPaths(JSON.parse(JSON.stringify(history[historyIndex + 1])));
       }
+  }, [history, historyIndex]);
 
-      // Draw UI for selected path
-      if (isSelected && activeTool === 'select') {
-          ctx.lineWidth = 1;
-          ctx.strokeStyle = '#3b82f6'; // Blue selection
-          ctx.stroke();
-          
-          // Nodes
-          path.points.forEach((pt, idx) => {
-              // Draw Node
-              ctx.fillStyle = '#3b82f6';
-              ctx.fillRect(pt.x - 3, pt.y - 3, 6, 6);
-              
-              // Draw Handles if selected Node
-              if (activeNodeIndex?.pathId === path.id && activeNodeIndex?.nodeIndex === idx) {
-                  // Handle In
-                  if (pt.handleIn) {
-                      const hx = pt.x + pt.handleIn.x;
-                      const hy = pt.y + pt.handleIn.y;
-                      ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(hx, hy); ctx.strokeStyle='#93c5fd'; ctx.stroke();
-                      ctx.beginPath(); ctx.arc(hx, hy, 3, 0, Math.PI*2); ctx.fillStyle='#93c5fd'; ctx.fill();
-                  }
-                  // Handle Out
-                  if (pt.handleOut) {
-                      const hx = pt.x + pt.handleOut.x;
-                      const hy = pt.y + pt.handleOut.y;
-                      ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(hx, hy); ctx.strokeStyle='#93c5fd'; ctx.stroke();
-                      ctx.beginPath(); ctx.arc(hx, hy, 3, 0, Math.PI*2); ctx.fillStyle='#93c5fd'; ctx.fill();
-                  }
-              }
-          });
-      }
-  };
-
+  // Atalhos de Teclado
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Reference Image
-    if (traceImage) {
-        ctx.save();
-        ctx.globalAlpha = traceOpacity;
-        const scale = Math.min(canvas.width / traceImage.width, canvas.height / traceImage.height);
-        const x = (canvas.width - traceImage.width * scale) / 2;
-        const y = (canvas.height - traceImage.height * scale) / 2;
-        ctx.drawImage(traceImage, x, y, traceImage.width * scale, traceImage.height * scale);
-        ctx.restore();
-    }
-
-    // Guides
-    if (showGuide) {
-        ctx.save();
-        ctx.font = `bold ${CANVAS_SIZE * 0.65}px sans-serif`; 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'; 
-        ctx.textAlign = 'center';
-        ctx.fillText(char, CANVAS_SIZE / 2, BASELINE_Y);
-        ctx.restore();
-    }
-    
-    // Baseline
-    ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(0, BASELINE_Y); ctx.lineTo(CANVAS_SIZE, BASELINE_Y); ctx.stroke();
-
-    // Paths
-    paths.forEach(p => drawPath(ctx, p, selectedPathIds.includes(p.id || '')));
-
-    // Current Drawing (Pen)
-    if (activeTool === 'pen' && rawPoints.length > 0) {
-        ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(rawPoints[0].x, rawPoints[0].y);
-        for(let i=1; i<rawPoints.length; i++) ctx.lineTo(rawPoints[i].x, rawPoints[i].y);
-        ctx.stroke();
-    }
-
-  }, [paths, selectedPathIds, activeTool, rawPoints, showGuide, traceImage, traceOpacity, activeNodeIndex, char]);
-
-  // --- Interaction Logic ---
-
-  const getPointerPos = (e: React.MouseEvent | React.TouchEvent) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return {x:0, y:0};
-      const rect = canvas.getBoundingClientRect();
-      const cx = 'touches' in e ? e.touches[0].clientX : e.clientX;
-      const cy = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      return { x: (cx - rect.left) * scaleX, y: (cy - rect.top) * scaleY };
-  };
-
-  const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
-      e.preventDefault();
-      const pos = getPointerPos(e);
-      setIsDragging(true);
-      setDragStartPos(pos);
-
-      if (activeTool === 'pen') {
-          setRawPoints([pos]);
-          return;
-      }
-
-      if (activeTool === 'select') {
-          // Check for Nodes/Handles interaction first
-          if (selectedPathIds.length === 1) {
-              const pathId = selectedPathIds[0];
-              const path = paths.find(p => p.id === pathId);
-              if (path) {
-                  // Check Handles of active node
-                  if (activeNodeIndex?.pathId === pathId) {
-                      const pt = path.points[activeNodeIndex.nodeIndex];
-                      // Check Handle In
-                      if (pt.handleIn) {
-                          const hx = pt.x + pt.handleIn.x, hy = pt.y + pt.handleIn.y;
-                          if (dist(pos, {x:hx, y:hy}) < 8) {
-                              setDragMode('handleIn');
-                              saveToHistory();
-                              return;
-                          }
-                      }
-                      // Check Handle Out
-                      if (pt.handleOut) {
-                          const hx = pt.x + pt.handleOut.x, hy = pt.y + pt.handleOut.y;
-                          if (dist(pos, {x:hx, y:hy}) < 8) {
-                              setDragMode('handleOut');
-                              saveToHistory();
-                              return;
-                          }
-                      }
-                  }
-
-                  // Check Nodes
-                  for (let i = 0; i < path.points.length; i++) {
-                      if (dist(pos, path.points[i]) < 8) {
-                          setActiveNodeIndex({ pathId, nodeIndex: i });
-                          setDragMode('node');
-                          saveToHistory();
-                          return;
-                      }
-                  }
-              }
-          }
-
-          // Check Path Selection
-          // Simple bounding box check or point in poly
-          // Lógica simplificada: Clicar perto de um ponto ou dentro do path
-          // Reverse loop for Z-order
-          for (let i = paths.length - 1; i >= 0; i--) {
-              // Basic Hit Test on points
-              const p = paths[i];
-              const hit = p.points.some(pt => dist(pos, pt) < 20); // Close to outline
-              // Or inside (implementing point in poly is expensive, skip for now or use library)
-              
-              if (hit) {
-                  setSelectedPathIds([p.id || '']);
-                  setDragMode('path');
-                  saveToHistory();
-                  return;
-              }
-          }
-          
-          // Click on empty space
-          setSelectedPathIds([]);
-          setActiveNodeIndex(null);
-          setDragMode('none');
-      }
-      
-      // Shape Tools
-      if (activeTool === 'square' || activeTool === 'circle') {
-          saveToHistory();
-      }
-  };
-
-  const handleMove = (e: React.MouseEvent | React.TouchEvent) => {
-      e.preventDefault();
-      if (!isDragging) return;
-      const pos = getPointerPos(e);
-
-      if (activeTool === 'pen') {
-          setRawPoints(prev => [...prev, pos]);
-          return;
-      }
-
-      if (activeTool === 'select') {
-          const dx = pos.x - dragStartPos.x;
-          const dy = pos.y - dragStartPos.y;
-          setDragStartPos(pos);
-
-          if (dragMode === 'path' && selectedPathIds.length > 0) {
-              setPaths(prev => prev.map(p => {
-                  if (selectedPathIds.includes(p.id || '')) {
-                      return {
-                          ...p,
-                          points: p.points.map(pt => ({ ...pt, x: pt.x + dx, y: pt.y + dy }))
-                      };
-                  }
-                  return p;
-              }));
-          } else if (dragMode === 'node' && activeNodeIndex) {
-              setPaths(prev => prev.map(p => {
-                  if (p.id === activeNodeIndex.pathId) {
-                      const newPoints = [...p.points];
-                      const pt = newPoints[activeNodeIndex.nodeIndex];
-                      newPoints[activeNodeIndex.nodeIndex] = { ...pt, x: pt.x + dx, y: pt.y + dy };
-                      return { ...p, points: newPoints };
-                  }
-                  return p;
-              }));
-          } else if ((dragMode === 'handleIn' || dragMode === 'handleOut') && activeNodeIndex) {
-              setPaths(prev => prev.map(p => {
-                  if (p.id === activeNodeIndex.pathId) {
-                      const newPoints = [...p.points];
-                      const pt = newPoints[activeNodeIndex.nodeIndex];
-                      
-                      // Handle moves relative to Node
-                      // New Handle Pos (Absolute) = Mouse Pos
-                      // Handle Vector (Relative) = Mouse Pos - Node Pos
-                      const newHx = pos.x - pt.x;
-                      const newHy = pos.y - pt.y;
-
-                      if (dragMode === 'handleIn') {
-                          newPoints[activeNodeIndex.nodeIndex] = { 
-                              ...pt, 
-                              handleIn: { x: newHx, y: newHy },
-                              // If symmetric/smooth, update handleOut? 
-                              // For simple implementation, let's keep them independent (Cusp) or 
-                              // mirror if shift held (omitted for brevity)
-                          };
-                      } else {
-                          newPoints[activeNodeIndex.nodeIndex] = { 
-                              ...pt, 
-                              handleOut: { x: newHx, y: newHy }
-                          };
-                      }
-                      return { ...p, points: newPoints };
-                  }
-                  return p;
-              }));
-          }
-      }
-  };
-
-  const handleEnd = (e: React.MouseEvent | React.TouchEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-      setDragMode('none');
-
-      if (activeTool === 'pen' && rawPoints.length > 2) {
-          saveToHistory();
-          // Convert Pen Stroke to Vector Path (Expanded)
-          // 1. Simplify points (Basic subsampling)
-          const simplified = rawPoints.filter((_, i) => i % 3 === 0);
-          
-          // 2. Create Offset Path (Outline)
-          // Simple method: Create polygon by offsetting normals
-          const width = strokeWidth / 2;
-          const leftPts: Point[] = [];
-          const rightPts: Point[] = [];
-          
-          for (let i = 0; i < simplified.length - 1; i++) {
-              const p1 = simplified[i];
-              const p2 = simplified[i+1];
-              const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-              const normal = angle + Math.PI/2;
-              
-              const dx = Math.cos(normal) * width;
-              const dy = Math.sin(normal) * width;
-              
-              leftPts.push({ x: p1.x + dx, y: p1.y + dy, type: 'smooth' });
-              rightPts.push({ x: p1.x - dx, y: p1.y - dy, type: 'smooth' });
-          }
-          // Add last point
-          const last = simplified[simplified.length - 1];
-          // Use previous normal
-          const prev = simplified[simplified.length - 2];
-          const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
-          const normal = angle + Math.PI/2;
-          const dx = Math.cos(normal) * width;
-          const dy = Math.sin(normal) * width;
-          leftPts.push({ x: last.x + dx, y: last.y + dy, type: 'smooth' });
-          rightPts.push({ x: last.x - dx, y: last.y - dy, type: 'smooth' });
-
-          // Combine: Left + Right(Reverse)
-          const polyPoints = [...leftPts, ...rightPts.reverse()];
-          
-          const newPath: Stroke = {
-              id: crypto.randomUUID(),
-              points: polyPoints,
-              type: 'path',
-              isClosed: true,
-              filled: true,
-              fillColor: 'white'
-          };
-          
-          setPaths(prev => [...prev, newPath]);
-          setRawPoints([]);
-      }
-      
-      // Handle Shape Creation
-      if (activeTool === 'square' || activeTool === 'circle') {
-          // Calculate bounding box from drag
-          const pos = getPointerPos(e); // End pos
-          const start = dragStartPos;
-          const w = pos.x - start.x;
-          const h = pos.y - start.y;
-          
-          if (Math.abs(w) > 5 && Math.abs(h) > 5) {
-              const pts: Point[] = [];
-              if (activeTool === 'square') {
-                  pts.push({x: start.x, y: start.y, type:'cusp'});
-                  pts.push({x: start.x + w, y: start.y, type:'cusp'});
-                  pts.push({x: start.x + w, y: start.y + h, type:'cusp'});
-                  pts.push({x: start.x, y: start.y + h, type:'cusp'});
+      const handleKeyDown = (e: KeyboardEvent) => {
+          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+              e.preventDefault();
+              if (e.shiftKey) {
+                  redo();
               } else {
-                  // Circle approximation with 4 bezier points
-                  const kappa = 0.552284749831;
-                  const ox = (w / 2) * kappa; // control point offset horizontal
-                  const oy = (h / 2) * kappa; // control point offset vertical
-                  const xe = start.x + w; // x-end
-                  const ye = start.y + h; // y-end
-                  const xm = start.x + w / 2; // x-middle
-                  const ym = start.y + h / 2; // y-middle
-                  
-                  // Top
-                  pts.push({ x: xm, y: start.y, handleIn: {x:-ox, y:0}, handleOut: {x:ox, y:0}, type:'smooth' });
-                  // Right
-                  pts.push({ x: xe, y: ym, handleIn: {x:0, y:-oy}, handleOut: {x:0, y:oy}, type:'smooth' });
-                  // Bottom
-                  pts.push({ x: xm, y: ye, handleIn: {x:ox, y:0}, handleOut: {x:-ox, y:0}, type:'smooth' });
-                  // Left
-                  pts.push({ x: start.x, y: ym, handleIn: {x:0, y:oy}, handleOut: {x:0, y:-oy}, type:'smooth' });
+                  // Lógica Especial: Se estiver desenhando com a Pen, remove o último ponto
+                  if (tool === 'pen' && activePathId) {
+                      setPaths(prev => {
+                          const pathIndex = prev.findIndex(p => p.id === activePathId);
+                          if (pathIndex === -1) return prev;
+
+                          const path = prev[pathIndex];
+                          
+                          // Se tiver nós para remover
+                          if (path.nodes.length > 0) {
+                              // Se for o último nó restante, cancela o caminho atual
+                              if (path.nodes.length === 1) {
+                                  setActivePathId(null);
+                                  setSelectedPathIds([]);
+                                  setSelectedNodeId(null);
+                                  // Retorna os caminhos sem o caminho atual que foi cancelado
+                                  return prev.filter(p => p.id !== activePathId);
+                              }
+
+                              // Remove o último nó
+                              const newNodes = path.nodes.slice(0, -1);
+                              
+                              // Atualiza a seleção para o novo "último" nó para continuar desenhando dele
+                              setSelectedNodeId({ pathId: activePathId, index: newNodes.length - 1 });
+                              setDragType('handleOut'); // Prepara para arrastar handle se clicar
+
+                              const newPaths = [...prev];
+                              newPaths[pathIndex] = { ...path, nodes: newNodes };
+                              return newPaths;
+                          }
+                          return prev;
+                      });
+                  } else {
+                      // Comportamento padrão (Histórico Global)
+                      undo();
+                  }
               }
-              
-              const newShape: Stroke = {
-                  id: crypto.randomUUID(),
-                  points: pts,
-                  type: 'path',
-                  isClosed: true,
-                  filled: true,
-                  fillColor: 'white'
-              };
-              setPaths(prev => [...prev, newShape]);
           }
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+              if (selectedPathIds.length > 0) {
+                  const newPaths = paths.filter(p => !selectedPathIds.includes(p.id));
+                  setPaths(newPaths);
+                  recordHistory(newPaths);
+                  setSelectedPathIds([]);
+                  setSelectedNodeId(null);
+              }
+          }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo, selectedPathIds, paths, tool, activePathId]);
+
+
+  // --- HELPERS DE COORDENADAS ---
+  const getMousePos = (e: React.MouseEvent | React.TouchEvent) => {
+      const svg = containerRef.current?.querySelector('svg');
+      if (!svg) return { x: 0, y: 0 };
+      
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      
+      const rect = svg.getBoundingClientRect();
+      const svgX = clientX - rect.left;
+      const svgY = clientY - rect.top;
+      
+      return {
+          x: (svgX - viewTransform.x) / viewTransform.k,
+          y: (svgY - viewTransform.y) / viewTransform.k
+      };
+  };
+
+  // --- BRUSH LOGIC (Stroke to Outline) ---
+  const generateBrushOutline = (points: {x:number, y:number}[], width: number): VectorNode[] => {
+      if (points.length < 2) return [];
+      
+      const leftSide: {x:number, y:number}[] = [];
+      const rightSide: {x:number, y:number}[] = [];
+
+      for (let i = 0; i < points.length; i++) {
+          const curr = points[i];
+          const next = points[i + 1] || points[i];
+          const prev = points[i - 1] || points[i];
+          
+          // Vetor tangente
+          let dx = next.x - prev.x;
+          let dy = next.y - prev.y;
+          if (i === 0) { dx = next.x - curr.x; dy = next.y - curr.y; }
+          if (i === points.length - 1) { dx = curr.x - prev.x; dy = curr.y - prev.y; }
+
+          const len = Math.sqrt(dx*dx + dy*dy);
+          if (len === 0) continue;
+
+          // Normal (Perpendicular)
+          const nx = -dy / len;
+          const ny = dx / len;
+
+          leftSide.push({ x: curr.x + nx * (width / 2), y: curr.y + ny * (width / 2) });
+          rightSide.push({ x: curr.x - nx * (width / 2), y: curr.y - ny * (width / 2) });
+      }
+
+      // Converte para VectorNodes (simplificado, sem curvas complexas por enquanto para performance)
+      const allPoints = [...leftSide, ...rightSide.reverse()];
+      return allPoints.map(p => ({
+          x: p.x, y: p.y,
+          handleIn: {x: p.x, y: p.y},
+          handleOut: {x: p.x, y: p.y},
+          type: 'cusp'
+      }));
+  };
+
+  // --- ACTIONS ---
+
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+      const pos = getMousePos(e);
+      // Botão do meio ou Espaço pressionado = Pan
+      if (('button' in e && e.button === 1) || ('buttons' in e && e.buttons === 4)) {
+          setDragType('pan');
+          setStartPan({ 
+              x: ('clientX' in e ? e.clientX : e.touches[0].clientX) - viewTransform.x, 
+              y: ('clientY' in e ? e.clientY : e.touches[0].clientY) - viewTransform.y 
+          });
+          return;
+      }
+
+      if (tool === 'select') {
+          // Se clicou no target (SVG fundo) e não num elemento específico
+          if (e.target === e.currentTarget || (e.target as Element).tagName === 'svg') {
+              setSelectedPathIds([]);
+              setSelectedNodeId(null);
+          }
+      } 
+      else if (tool === 'pen') {
+          if (!activePathId) {
+              // Start New Path
+              const newId = crypto.randomUUID();
+              const newNode: VectorNode = {
+                  x: pos.x, y: pos.y,
+                  handleIn: { x: pos.x, y: pos.y },
+                  handleOut: { x: pos.x, y: pos.y },
+                  type: 'cusp'
+              };
+              const newPath = {
+                  id: newId,
+                  nodes: [newNode],
+                  isClosed: false,
+                  fill: 'black',
+                  isHole: false
+              };
+              setPaths(prev => [...prev, newPath]);
+              setActivePathId(newId);
+              setSelectedPathIds([newId]);
+              setSelectedNodeId({ pathId: newId, index: 0 });
+              setDragType('handleOut'); 
+          } else {
+              // Add Node
+              setPaths(prev => prev.map(p => {
+                  if (p.id === activePathId) {
+                      const newNode: VectorNode = {
+                          x: pos.x, y: pos.y,
+                          handleIn: { x: pos.x, y: pos.y },
+                          handleOut: { x: pos.x, y: pos.y },
+                          type: 'smooth'
+                      };
+                      return { ...p, nodes: [...p.nodes, newNode] };
+                  }
+                  return p;
+              }));
+              const path = paths.find(p => p.id === activePathId);
+              if (path) {
+                  setSelectedNodeId({ pathId: activePathId, index: path.nodes.length });
+                  setDragType('handleOut');
+              }
+          }
+          setIsDragging(true);
+      }
+      else if (tool === 'brush') {
+          setBrushPoints([{x: pos.x, y: pos.y}]);
+          const newId = crypto.randomUUID();
+          setActivePathId(newId);
+          // Placeholder path
+          setPaths(prev => [...prev, {
+              id: newId,
+              nodes: [],
+              isClosed: true,
+              fill: 'black',
+              isHole: false
+          }]);
+          setIsDragging(true);
       }
   };
 
-  const handleCreateHole = () => {
-      if (selectedPathIds.length > 0) {
-          saveToHistory();
+  const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
+      if (dragType === 'pan') {
+          const clientX = 'clientX' in e ? e.clientX : e.touches[0].clientX;
+          const clientY = 'clientY' in e ? e.clientY : e.touches[0].clientY;
+          setViewTransform(prev => ({
+              ...prev,
+              x: clientX - startPan.x,
+              y: clientY - startPan.y
+          }));
+          return;
+      }
+
+      if (!isDragging) return;
+      const pos = getMousePos(e);
+
+      // Lógica do Pincel (Brush)
+      if (tool === 'brush' && activePathId) {
+          const newPoints = [...brushPoints, {x: pos.x, y: pos.y}];
+          setBrushPoints(newPoints);
+          
+          // Otimização: Calcular outline a cada N pontos ou throttle
+          const outlineNodes = generateBrushOutline(newPoints, brushSize);
+          
           setPaths(prev => prev.map(p => {
-              if (selectedPathIds.includes(p.id || '')) {
-                  return { ...p, isHole: !p.isHole };
+              if (p.id === activePathId) {
+                  return { ...p, nodes: outlineNodes };
+              }
+              return p;
+          }));
+          return;
+      }
+
+      // Lógica de Edição de Nós
+      if (dragType === 'node' && selectedNodeId) {
+          setPaths(prev => prev.map(p => {
+              if (p.id === selectedNodeId.pathId) {
+                  const newNodes = [...p.nodes];
+                  const node = newNodes[selectedNodeId.index];
+                  const dx = pos.x - node.x;
+                  const dy = pos.y - node.y;
+                  
+                  newNodes[selectedNodeId.index] = {
+                      ...node,
+                      x: pos.x, y: pos.y,
+                      handleIn: { x: node.handleIn.x + dx, y: node.handleIn.y + dy },
+                      handleOut: { x: node.handleOut.x + dx, y: node.handleOut.y + dy }
+                  };
+                  return { ...p, nodes: newNodes };
+              }
+              return p;
+          }));
+      } else if ((dragType === 'handleIn' || dragType === 'handleOut') && selectedNodeId) {
+          setPaths(prev => prev.map(p => {
+              if (p.id === selectedNodeId.pathId) {
+                  const newNodes = [...p.nodes];
+                  const node = newNodes[selectedNodeId.index];
+                  
+                  if (dragType === 'handleIn') {
+                      newNodes[selectedNodeId.index] = { ...node, handleIn: { x: pos.x, y: pos.y } };
+                      if (node.type === 'smooth' || node.type === 'symmetric') {
+                          const dx = node.x - pos.x;
+                          const dy = node.y - pos.y;
+                          newNodes[selectedNodeId.index].handleOut = { x: node.x + dx, y: node.y + dy };
+                      }
+                  } else {
+                      newNodes[selectedNodeId.index] = { ...node, handleOut: { x: pos.x, y: pos.y } };
+                      if (node.type === 'smooth' || node.type === 'symmetric') {
+                          const dx = node.x - pos.x;
+                          const dy = node.y - pos.y;
+                          newNodes[selectedNodeId.index].handleIn = { x: node.x + dx, y: node.y + dy };
+                      }
+                  }
+                  return { ...p, nodes: newNodes };
               }
               return p;
           }));
       }
   };
 
-  const handleDelete = () => {
-      if (selectedPathIds.length > 0) {
-          saveToHistory();
-          setPaths(prev => prev.filter(p => !selectedPathIds.includes(p.id || '')));
-          setSelectedPathIds([]);
-          setActiveNodeIndex(null);
+  const handleMouseUp = () => {
+      if (isDragging) {
+          if (tool === 'brush') {
+              setActivePathId(null);
+              setBrushPoints([]);
+              recordHistory(paths);
+          } else if (tool !== 'pen') {
+              // Se não for pen, terminar drag registra história
+              // Se for pen, não registra ainda pois o path continua aberto
+              if (dragType !== 'none') recordHistory(paths);
+          }
+      }
+      setIsDragging(false);
+      if (dragType === 'pan') setDragType('none');
+      else if (tool === 'select') setDragType('none');
+  };
+
+  const handleNodeMouseDown = (e: React.MouseEvent, pathId: string, index: number) => {
+      if (tool !== 'select') return;
+      e.stopPropagation();
+      setSelectedNodeId({ pathId, index });
+      setSelectedPathIds([pathId]);
+      setDragType('node');
+      setIsDragging(true);
+  };
+
+  const handleHandleMouseDown = (e: React.MouseEvent, type: 'handleIn' | 'handleOut') => {
+      e.stopPropagation();
+      setDragType(type);
+      setIsDragging(true);
+  };
+
+  const handlePathMouseDown = (e: React.MouseEvent, pathId: string) => {
+      if (tool !== 'select') return;
+      setSelectedPathIds([pathId]);
+  };
+
+  const closePath = () => {
+      if (activePathId) {
+          setPaths(prev => prev.map(p => p.id === activePathId ? { ...p, isClosed: true } : p));
+          setActivePathId(null);
+          setSelectedNodeId(null);
+          recordHistory(paths);
       }
   };
 
-  // --- Rendering Utils ---
-  const saveResult = () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      // Get data URL for preview
-      const previewUrl = canvas.toDataURL('image/png');
-      onSave(paths, previewUrl);
+  const handleWheel = (e: React.WheelEvent) => {
+      e.preventDefault(); 
+      const scaleBy = 1.1;
+      const oldScale = viewTransform.k;
+      const newScale = e.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
+      setViewTransform(prev => ({ ...prev, k: Math.max(0.1, Math.min(10, newScale)) }));
+  };
+
+  // --- SVG IMPORT ---
+  const handleImportSvg = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+          const svgContent = ev.target?.result as string;
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(svgContent, 'image/svg+xml');
+          
+          // Extrair paths (simplificado: pega o primeiro 'd' válido)
+          const pathEl = doc.querySelector('path');
+          if (pathEl) {
+              const d = pathEl.getAttribute('d');
+              if (d) {
+                  // Usa opentype.js para parsear o path string
+                  const otPath = opentype.Path.fromSVG(d);
+                  // Usa nosso utilitário existente
+                  const newPaths = convertOpenTypePathToStrokes(otPath, 1000, 1000);
+                  
+                  if (newPaths.length > 0) {
+                      const updatedPaths = [...paths, ...newPaths];
+                      setPaths(updatedPaths);
+                      recordHistory(updatedPaths);
+                  }
+              }
+          }
+      };
+      reader.readAsText(file);
+  };
+
+  // --- SVG PATH GENERATOR ---
+  const generateD = (nodes: VectorNode[], closed: boolean) => {
+      if (nodes.length === 0) return '';
+      let d = `M ${nodes[0].x} ${nodes[0].y}`;
+      for (let i = 1; i < nodes.length; i++) {
+          const curr = nodes[i];
+          const prev = nodes[i-1];
+          d += ` C ${prev.handleOut.x} ${prev.handleOut.y}, ${curr.handleIn.x} ${curr.handleIn.y}, ${curr.x} ${curr.y}`;
+      }
+      if (closed) {
+          const first = nodes[0];
+          const last = nodes[nodes.length-1];
+          d += ` C ${last.handleOut.x} ${last.handleOut.y}, ${first.handleIn.x} ${first.handleIn.y}, ${first.x} ${first.y} Z`;
+      }
+      return d;
+  };
+
+  const handleSaveAndExit = () => {
+      const previewSvg = `<svg viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg"><path d="${paths.map(p => generateD(p.nodes, p.isClosed)).join(' ')}" fill="black" /></svg>`;
+      const url = "data:image/svg+xml;base64," + btoa(previewSvg);
+      onSave(paths, url);
+  };
+
+  const handleNext = () => {
+      const previewSvg = `<svg viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg"><path d="${paths.map(p => generateD(p.nodes, p.isClosed)).join(' ')}" fill="black" /></svg>`;
+      const url = "data:image/svg+xml;base64," + btoa(previewSvg);
+      onNext(paths, url);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[150] bg-slate-950 flex flex-col">
-        {/* Header */}
-        <div className="h-14 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-900">
-            <div className="flex items-center gap-3">
-                <span className="text-xl font-bold text-white bg-blue-600 w-8 h-8 flex items-center justify-center rounded">{char}</span>
-                <span className="text-slate-400 text-xs hidden sm:inline">Editor Vetorial</span>
-            </div>
-            <div className="flex items-center gap-2">
-                <button onClick={handleUndo} className="p-2 text-slate-400 hover:text-white" title="Desfazer"><Undo size={18}/></button>
-                <button onClick={handleDelete} className="p-2 text-red-400 hover:text-red-300" title="Excluir"><Eraser size={18}/></button>
-                <div className="h-6 w-px bg-slate-700 mx-2"></div>
-                <button onClick={onClose} className="p-2 text-slate-400 hover:text-white"><X size={20}/></button>
-            </div>
-        </div>
+    // Alterado: h-screen fixo para h-[100dvh] (viewport dinâmico mobile), e flex-col no mobile
+    <div className="fixed inset-0 z-[9999] bg-[#09090b] flex flex-col md:flex-row text-white font-sans overflow-hidden h-[100dvh]">
+      
+      {/* Sidebar Toolstrip - Agora horizontal no rodapé (mobile) e vertical na esquerda (desktop) */}
+      <div className="md:w-16 w-full h-16 md:h-full border-t md:border-t-0 md:border-r border-zinc-800 bg-[#121215] flex flex-row md:flex-col items-center justify-around md:justify-start py-2 md:py-4 gap-1 md:gap-3 z-50 shrink-0 order-last md:order-first">
+          <div className="mb-0 md:mb-2 hidden md:block">
+             <span className="text-xl font-bold bg-purple-600 w-10 h-10 rounded-lg flex items-center justify-center shadow-glow">{char}</span>
+          </div>
+          
+          <div className="w-px h-8 bg-zinc-800 hidden md:block my-1"></div>
 
-        {/* Workspace */}
-        <div className="flex-1 flex overflow-hidden">
-            {/* Toolbar */}
-            <div className="w-16 bg-slate-900 border-r border-slate-800 flex flex-col items-center py-4 gap-2 z-10">
-                <button onClick={() => setActiveTool('select')} className={`p-3 rounded-xl transition ${activeTool === 'select' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`} title="Selecionar / Editar Nós">
-                    <MousePointer2 size={20} />
-                </button>
-                <button onClick={() => setActiveTool('pen')} className={`p-3 rounded-xl transition ${activeTool === 'pen' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`} title="Pincel (Desenhar)">
-                    <PenTool size={20} />
-                </button>
-                <button onClick={() => setActiveTool('square')} className={`p-3 rounded-xl transition ${activeTool === 'square' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`} title="Retângulo">
-                    <Square size={20} />
-                </button>
-                <button onClick={() => setActiveTool('circle')} className={`p-3 rounded-xl transition ${activeTool === 'circle' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`} title="Círculo">
-                    <Circle size={20} />
-                </button>
-                
-                <div className="h-px w-8 bg-slate-800 my-2"></div>
-                
-                {/* Context Actions */}
-                <button onClick={handleCreateHole} className={`p-3 rounded-xl text-slate-400 hover:text-white ${selectedPathIds.length > 0 ? '' : 'opacity-50 cursor-not-allowed'}`} title="Tornar Buraco (Subtrair)">
-                    <Minus size={20} />
-                </button>
-                
-                <div className="mt-auto flex flex-col gap-2">
-                    <button onClick={() => setShowGuide(!showGuide)} className={`p-2 rounded ${showGuide ? 'text-blue-400' : 'text-slate-500'}`}><Eye size={18}/></button>
-                </div>
-            </div>
+          <button onClick={() => { setTool('select'); setActivePathId(null); }} className={`p-3 rounded-xl transition-all duration-200 group relative ${tool === 'select' ? 'bg-primary text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`} title="Seleção (V)">
+              <MousePointer2 size={20} />
+          </button>
+          
+          <button onClick={() => setTool('pen')} className={`p-3 rounded-xl transition-all duration-200 group relative ${tool === 'pen' ? 'bg-primary text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`} title="Caneta Bézier (P)">
+              <PenTool size={20} />
+          </button>
 
-            {/* Canvas Area */}
-            <div className="flex-1 bg-slate-950 flex items-center justify-center relative overflow-hidden">
-                <canvas 
-                    ref={canvasRef}
-                    width={CANVAS_SIZE}
-                    height={CANVAS_SIZE}
-                    className="bg-black border border-slate-800 shadow-2xl cursor-crosshair touch-none"
-                    style={{ width: 'min(90vw, 80vh)', height: 'min(90vw, 80vh)' }}
-                    onMouseDown={handleStart}
-                    onMouseMove={handleMove}
-                    onMouseUp={handleEnd}
-                    onTouchStart={handleStart}
-                    onTouchMove={handleMove}
-                    onTouchEnd={handleEnd}
-                />
-                
-                {/* Float Controls */}
-                {activeTool === 'pen' && (
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-800 px-4 py-2 rounded-full border border-slate-700 flex items-center gap-3">
-                        <span className="text-xs text-slate-400 font-bold uppercase">Espessura</span>
-                        <input type="range" min="5" max="100" value={strokeWidth} onChange={(e) => setStrokeWidth(Number(e.target.value))} className="w-32 h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500" />
-                        <span className="text-xs text-white w-6 text-center">{strokeWidth}</span>
-                    </div>
-                )}
-            </div>
-        </div>
+          <button onClick={() => setTool('brush')} className={`p-3 rounded-xl transition-all duration-200 group relative ${tool === 'brush' ? 'bg-primary text-white shadow-lg' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`} title="Pincel / Caligrafia (B)">
+              <Brush size={20} />
+          </button>
+          
+          <div className="w-px h-8 md:w-8 md:h-px bg-zinc-800 my-1 hidden md:block"></div>
+          
+          <button onClick={() => fileInputRef.current?.click()} className="p-3 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition hidden md:block" title="Importar Vetor SVG">
+              <Upload size={20} />
+          </button>
+          <input type="file" accept=".svg" className="hidden" ref={fileInputRef} onChange={handleImportSvg} />
+          
+          <div className="md:mt-auto flex flex-row md:flex-col gap-1 md:gap-2 ml-auto md:ml-0 pr-4 md:pr-0">
+             <button onClick={undo} disabled={historyIndex <= 0} className="p-3 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition disabled:opacity-30" title="Desfazer (Ctrl+Z)"><RotateCcw size={20} /></button>
+             <button onClick={redo} disabled={historyIndex >= history.length - 1} className="p-3 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition disabled:opacity-30" title="Refazer (Ctrl+Shift+Z)"><RotateCw size={20} /></button>
+          </div>
+      </div>
 
-        {/* Footer */}
-        <div className="h-16 border-t border-slate-800 bg-slate-900 flex items-center justify-end px-6 gap-4">
-            <button onClick={saveResult} className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold text-sm transition">
-                Salvar
-            </button>
-            <button onClick={() => { saveResult(); onNext([], ""); }} className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-sm transition flex items-center gap-2">
-                {isLast ? "Finalizar" : "Próximo"} <ChevronRight size={16} />
-            </button>
-        </div>
+      {/* Main Area */}
+      <div className="flex-1 flex flex-col min-w-0 relative h-full">
+          
+          {/* Header Superior - Sempre Visível */}
+          <div className="h-14 md:h-16 border-b border-zinc-800 bg-[#121215] flex items-center justify-between px-4 md:px-6 z-50 shrink-0 shadow-xl">
+              <div className="flex items-center gap-4">
+                  <span className="md:hidden text-xl font-bold bg-purple-600 w-8 h-8 rounded-lg flex items-center justify-center shadow-glow">{char}</span>
+                  <span className="text-zinc-400 text-xs md:text-sm font-medium tracking-wider hidden sm:block">EDITOR DE GLIFO</span>
+                  
+                  {tool === 'brush' && (
+                      <div className="flex items-center gap-2 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800 ml-2 md:ml-4 animate-fade-in">
+                          <span className="text-[10px] md:text-xs text-zinc-500 font-bold uppercase hidden sm:inline">Espessura</span>
+                          <input type="range" min="10" max="200" value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="w-16 md:w-24 h-1.5 bg-zinc-700 rounded-full accent-primary cursor-pointer" />
+                      </div>
+                  )}
+              </div>
+              
+              <div className="flex items-center gap-2 md:gap-3">
+                  <div className="hidden md:flex items-center bg-zinc-900 rounded-lg p-1 mr-4 border border-zinc-800">
+                      <button onClick={() => setViewTransform(prev => ({...prev, k: prev.k * 1.2}))} className="p-2 text-zinc-400 hover:text-white rounded hover:bg-zinc-800"><ZoomIn size={16} /></button>
+                      <button onClick={() => setViewTransform(prev => ({...prev, k: prev.k * 0.8}))} className="p-2 text-zinc-400 hover:text-white rounded hover:bg-zinc-800"><ZoomOut size={16} /></button>
+                  </div>
+
+                  {isLast ? (
+                      <button onClick={handleSaveAndExit} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 md:px-6 py-1.5 md:py-2 rounded-xl text-xs md:text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-emerald-900/20">
+                          <Check size={16} /> <span className="hidden sm:inline">Finalizar</span>
+                      </button>
+                  ) : (
+                      <>
+                        <button onClick={handleSaveAndExit} className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-xl text-xs md:text-sm font-bold flex items-center gap-2 transition">
+                            <Save size={16} /> <span className="hidden sm:inline">Salvar</span>
+                        </button>
+                        <button onClick={handleNext} className="bg-primary hover:bg-amber-600 text-white px-4 md:px-6 py-1.5 md:py-2 rounded-xl text-xs md:text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-primary/20">
+                            <span className="hidden sm:inline">Próxima</span> <ChevronRight size={16} />
+                        </button>
+                      </>
+                  )}
+                  
+                  <button onClick={onClose} className="p-2 hover:bg-red-900/20 text-zinc-500 hover:text-red-400 rounded-lg transition ml-1 md:ml-2"><X size={20} /></button>
+              </div>
+          </div>
+
+          {/* Canvas */}
+          <div 
+            ref={containerRef}
+            className="flex-1 relative bg-[#1a1a1a] overflow-hidden cursor-crosshair touch-none w-full"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onTouchStart={handleMouseDown}
+            onTouchMove={handleMouseMove}
+            onTouchEnd={handleMouseUp}
+            onWheel={handleWheel}
+          >
+              <svg width="100%" height="100%" className="block">
+                  <defs>
+                      <pattern id="grid" width={100 * viewTransform.k} height={100 * viewTransform.k} patternUnits="userSpaceOnUse" x={viewTransform.x} y={viewTransform.y}>
+                          <path d={`M ${100 * viewTransform.k} 0 L 0 0 0 ${100 * viewTransform.k}`} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth={1} />
+                      </pattern>
+                      <pattern id="grid-sub" width={20 * viewTransform.k} height={20 * viewTransform.k} patternUnits="userSpaceOnUse" x={viewTransform.x} y={viewTransform.y}>
+                          <path d={`M ${20 * viewTransform.k} 0 L 0 0 0 ${20 * viewTransform.k}`} fill="none" stroke="rgba(255,255,255,0.015)" strokeWidth={0.5} />
+                      </pattern>
+                  </defs>
+                  
+                  <rect width="100%" height="100%" fill="#1a1a1a" />
+                  <rect width="100%" height="100%" fill="url(#grid-sub)" pointerEvents="none" />
+                  <rect width="100%" height="100%" fill="url(#grid)" pointerEvents="none" />
+
+                  <g id="canvas-content" transform={`translate(${viewTransform.x}, ${viewTransform.y}) scale(${viewTransform.k})`}>
+                      
+                      {/* Ghost Letter (Guia) */}
+                      <text 
+                        x="500" 
+                        y="800" 
+                        textAnchor="middle" 
+                        fontSize="800" 
+                        fill="white" 
+                        opacity="0.05" 
+                        pointerEvents="none"
+                        fontFamily="serif"
+                      >
+                        {char}
+                      </text>
+
+                      {/* Guides */}
+                      <line x1={-5000} y1={BASELINE_Y} x2={5000} y2={BASELINE_Y} stroke="#ef4444" strokeWidth={2} strokeDasharray="10 5" opacity={0.3} />
+                      <line x1={-5000} y1={ASCENDER_Y} x2={5000} y2={ASCENDER_Y} stroke="#3b82f6" strokeWidth={2} strokeDasharray="10 5" opacity={0.3} />
+                      <text x={10} y={BASELINE_Y - 10} fill="#ef4444" fontSize={24} opacity={0.5}>Baseline</text>
+                      <text x={10} y={ASCENDER_Y + 30} fill="#3b82f6" fontSize={24} opacity={0.5}>Ascender</text>
+
+                      {/* Character Paths */}
+                      {paths.map(path => (
+                          <path 
+                            key={path.id}
+                            d={generateD(path.nodes, path.isClosed)}
+                            fill={path.isHole ? 'black' : 'white'}
+                            fillRule="evenodd"
+                            fillOpacity={0.9}
+                            stroke={selectedPathIds.includes(path.id) ? '#3b82f6' : 'none'}
+                            strokeWidth={2}
+                            onMouseDown={(e) => handlePathMouseDown(e, path.id)}
+                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                          />
+                      ))}
+
+                      {/* Pen Preview Line */}
+                      {tool === 'pen' && activePathId && paths.find(p => p.id === activePathId)?.nodes.length! > 0 && (
+                          <line 
+                            x1={paths.find(p => p.id === activePathId)!.nodes.slice(-1)[0].x} 
+                            y1={paths.find(p => p.id === activePathId)!.nodes.slice(-1)[0].y} 
+                            x2={((getMousePos({ clientX: 0, clientY: 0 } as any).x) * 0) + ((getMousePos({ clientX: 0, clientY: 0 } as any).x) * 0)} // Placeholder, real calc needs ref tracking which is hard in render
+                            stroke="rgba(59,130,246,0.5)" strokeWidth={2} 
+                            strokeDasharray="5 5"
+                          />
+                      )}
+
+                      {/* Editing UI (Nodes & Handles) */}
+                      {selectedPathIds.map(pathId => {
+                          const path = paths.find(p => p.id === pathId);
+                          if (!path) return null;
+                          return path.nodes.map((node, i) => (
+                              <g key={`${pathId}-${i}`}>
+                                  {/* Lines to Handles */}
+                                  {selectedNodeId?.pathId === pathId && selectedNodeId.index === i && (
+                                      <>
+                                          <line x1={node.x} y1={node.y} x2={node.handleIn.x} y2={node.handleIn.y} stroke="#93c5fd" strokeWidth={1} />
+                                          <line x1={node.x} y1={node.y} x2={node.handleOut.x} y2={node.handleOut.y} stroke="#93c5fd" strokeWidth={1} />
+                                          
+                                          {/* Handles - Tamanho aumentado (7px) */}
+                                          <circle cx={node.handleIn.x} cy={node.handleIn.y} r={7 / viewTransform.k} fill="#93c5fd" stroke="black" strokeWidth={1} onMouseDown={(e) => handleHandleMouseDown(e, 'handleIn')} className="cursor-pointer" />
+                                          <circle cx={node.handleOut.x} cy={node.handleOut.y} r={7 / viewTransform.k} fill="#93c5fd" stroke="black" strokeWidth={1} onMouseDown={(e) => handleHandleMouseDown(e, 'handleOut')} className="cursor-pointer" />
+                                      </>
+                                  )}
+                                  {/* Anchor Point - Tamanho aumentado (14px) e removido hover:scale para evitar tremor */}
+                                  <rect 
+                                    x={node.x - (7 / viewTransform.k)} y={node.y - (7 / viewTransform.k)} 
+                                    width={14 / viewTransform.k} height={14 / viewTransform.k} 
+                                    fill={selectedNodeId?.pathId === pathId && selectedNodeId.index === i ? '#3b82f6' : 'white'} 
+                                    stroke="black" strokeWidth={1}
+                                    onMouseDown={(e) => handleNodeMouseDown(e, pathId, i)}
+                                    className="cursor-pointer hover:stroke-primary hover:stroke-[2px] transition-colors"
+                                  />
+                              </g>
+                          ));
+                      })}
+                  </g>
+              </svg>
+
+              {/* Scrollbars (Fake Pan Controllers) - Reposicionados para não conflitar no mobile */}
+              <div className="absolute bottom-4 left-4 right-16 md:left-6 md:right-10 h-4 bg-zinc-900/80 rounded-full border border-zinc-700 flex items-center px-1 z-40 backdrop-blur-sm">
+                  <input 
+                    type="range" 
+                    min={-SCROLL_RANGE} 
+                    max={SCROLL_RANGE} 
+                    value={-viewTransform.x} 
+                    onChange={(e) => setViewTransform(prev => ({ ...prev, x: -Number(e.target.value) }))}
+                    className="w-full h-1.5 bg-zinc-700 rounded-full appearance-none cursor-pointer accent-primary"
+                    title="Mover Horizontalmente"
+                  />
+              </div>
+              <div className="absolute top-16 right-2 bottom-16 w-4 bg-zinc-900/80 rounded-full border border-zinc-700 flex flex-col justify-center py-1 z-40 backdrop-blur-sm">
+                  <input 
+                    type="range" 
+                    min={-SCROLL_RANGE} 
+                    max={SCROLL_RANGE} 
+                    value={-viewTransform.y} 
+                    onChange={(e) => setViewTransform(prev => ({ ...prev, y: -Number(e.target.value) }))}
+                    className="h-full w-1.5 bg-zinc-700 rounded-full appearance-none cursor-pointer accent-primary"
+                    style={{ writingMode: 'vertical-lr', direction: 'rtl', margin: '0 auto' }}
+                    title="Mover Verticalmente"
+                  />
+              </div>
+
+              {/* Floating Action Bar */}
+              {selectedPathIds.length > 0 && (
+                  <div className="absolute bottom-12 md:bottom-10 left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-700 rounded-full px-4 py-2 md:px-6 md:py-3 flex items-center gap-4 md:gap-6 shadow-2xl animate-slide-up-bounce z-50 whitespace-nowrap">
+                      <button onClick={() => {
+                          setPaths(prev => prev.map(p => {
+                              if (selectedPathIds.includes(p.id)) return { ...p, isHole: !p.isHole };
+                              return p;
+                          }));
+                      }} className="flex items-center gap-2 text-xs font-bold text-white hover:text-blue-400">
+                          <Minus size={16} /> <span className="hidden sm:inline">{paths.find(p => p.id === selectedPathIds[0])?.isHole ? 'Remover Buraco' : 'Tornar Buraco'}</span><span className="sm:hidden">Buraco</span>
+                      </button>
+                      
+                      <div className="w-px h-6 bg-zinc-700"></div>
+                      
+                      {activePathId && selectedPathIds.includes(activePathId) && (
+                          <button onClick={closePath} className="flex items-center gap-2 text-xs font-bold text-emerald-400 hover:text-emerald-300">
+                              <CornerUpRight size={16} /> <span className="hidden sm:inline">Fechar Caminho</span><span className="sm:hidden">Fechar</span>
+                          </button>
+                      )}
+                      
+                      <div className="w-px h-6 bg-zinc-700"></div>
+
+                      <button onClick={() => {
+                          const newPaths = paths.filter(p => !selectedPathIds.includes(p.id));
+                          setPaths(newPaths);
+                          recordHistory(newPaths);
+                          setSelectedPathIds([]);
+                          setSelectedNodeId(null);
+                      }} className="text-red-400 hover:text-red-300 flex items-center gap-2 text-xs font-bold">
+                          <X size={16} /> <span className="hidden sm:inline">Excluir</span>
+                      </button>
+                  </div>
+              )}
+          </div>
+      </div>
     </div>
   );
 };

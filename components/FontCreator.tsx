@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { PenTool, Download, Type, Hash, CaseSensitive, Trash2, Upload, Loader2, Languages, ArrowRightLeft, MoveHorizontal } from 'lucide-react';
 import { GlyphMap, Stroke } from '../types';
@@ -36,7 +35,12 @@ export const FontCreator: React.FC = () => {
     if (editingChar) {
       setGlyphs(prev => ({
         ...prev,
-        [editingChar]: { char: editingChar, strokes, previewUrl }
+        [editingChar]: { 
+          char: editingChar, 
+          paths: strokes, 
+          previewUrl,
+          advanceWidth: 0 
+        }
       }));
       setEditingChar(null);
     }
@@ -46,7 +50,12 @@ export const FontCreator: React.FC = () => {
     if (editingChar) {
       setGlyphs(prev => ({
         ...prev,
-        [editingChar]: { char: editingChar, strokes, previewUrl }
+        [editingChar]: { 
+          char: editingChar, 
+          paths: strokes, 
+          previewUrl,
+          advanceWidth: 0 
+        }
       }));
 
       const currentIndex = currentChars.indexOf(editingChar);
@@ -129,8 +138,9 @@ export const FontCreator: React.FC = () => {
                        const previewUrl = generatePreviewFromStrokes(strokes, 100, 100);
                        newGlyphs[char] = {
                            char,
-                           strokes,
-                           previewUrl
+                           paths: strokes,
+                           previewUrl,
+                           advanceWidth: 0
                        };
                    }
                }
@@ -318,7 +328,7 @@ export const FontCreator: React.FC = () => {
         char={editingChar || ''}
         isOpen={!!editingChar}
         onClose={() => setEditingChar(null)}
-        initialStrokes={editingChar && glyphs[editingChar] ? glyphs[editingChar].strokes : []}
+        initialStrokes={editingChar && glyphs[editingChar] ? glyphs[editingChar].paths : []}
         onSave={handleSaveChar}
         onNext={handleNextChar}
         isLast={isLast}

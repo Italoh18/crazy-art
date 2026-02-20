@@ -11,6 +11,7 @@ import Products from './pages/Products';
 import DRE from './pages/DRE';
 import Orders from './pages/Orders';
 import FontFinder from './pages/FontFinder';
+import FontEditor from './pages/FontEditor'; // Nova Importação
 import Programs from './pages/Programs';
 import Shop from './pages/Shop';
 import CarouselManager from './pages/CarouselManager';
@@ -29,7 +30,7 @@ import TraceMagic from './pages/TraceMagic';
 import CdrConverter from './pages/CdrConverter';
 import Feedbacks from './pages/Feedbacks';
 import PricingCalculator from './pages/PricingCalculator';
-import SmartEnlargement from './pages/SmartEnlargement'; // Nova Importação
+import SmartEnlargement from './pages/SmartEnlargement';
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
 
@@ -76,6 +77,7 @@ const AppRoutes = () => {
             <Route path="/shop" element={<Shop />} />
             <Route path="/programs" element={<Programs />} />
             <Route path="/font-finder" element={<FontFinder />} />
+            <Route path="/font-editor" element={<FontEditor />} /> {/* Nova Rota */}
             <Route path="/layout-builder" element={<LayoutBuilder />} />
             <Route path="/remove-bg" element={<BackgroundRemover />} />
             <Route path="/pixel-art" element={<PixelArt />} />
@@ -84,7 +86,7 @@ const AppRoutes = () => {
             <Route path="/trace-magic" element={<TraceMagic />} />
             <Route path="/cdr-converter" element={<CdrConverter />} />
             <Route path="/pricing-calculator" element={<PricingCalculator />} />
-            <Route path="/smart-enlargement" element={<SmartEnlargement />} /> {/* Nova Rota */}
+            <Route path="/smart-enlargement" element={<SmartEnlargement />} />
             <Route path="/my-area" element={<ClientRoute />} />
             <Route path="/pending-confirmations" element={<ProtectedRoute requiredRole="admin"><PendingOrders /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><Orders /></ProtectedRoute>} />
