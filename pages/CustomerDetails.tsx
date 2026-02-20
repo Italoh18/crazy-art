@@ -412,6 +412,189 @@ export default function CustomerDetails() {
       return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Aberto</span>;
   };
 
+  const renderClientView = () => {
+    const hasOverdue = _overdueOrders.length > 0;
+
+    return (
+      <div className="max-w-6xl mx-auto pb-24 animate-fade-in-up">
+        <div className="flex items-center gap-4 mb-8">
+            <Link to="/" className="p-3 bg-zinc-900 border border-white/5 hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-white transition">
+                <ArrowLeft size={20} />
+            </Link>
+            <h1 className="text-3xl font-bold text-white tracking-tight font-heading">Minha Área</h1>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Coluna Esquerda: Dados Cadastrais */}
+            <div className="bg-[#121215] border border-white/5 rounded-3xl p-8 relative overflow-hidden">
+                <div className="flex justify-between items-center mb-8">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <User className="text-primary" size={24} />
+                        Dados Cadastrais
+                    </h2>
+                    <button onClick={openEditModal} className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition" title="Editar Dados">
+                        <Edit size={18} />
+                    </button>
+                </div>
+
+                <div className="space-y-6">
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Nome Completo</label>
+                        <p className="text-white font-medium text-lg">{customer.name}</p>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">CPF / CNPJ</label>
+                        <div className="flex items-center gap-2">
+                            <p className="text-zinc-300 font-mono text-lg">{customer.cpf}</p>
+                            <Lock size={14} className="text-zinc-600" title="Não editável" />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Telefone</label>
+                        <p className="text-zinc-300 font-mono text-lg">{customer.phone}</p>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Email</label>
+                        <div className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5">
+                            <p className="text-zinc-300 truncate">{customer.email || 'Não cadastrado'}</p>
+                            <button className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg transition font-bold">
+                                Trocar Email
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Endereço</label>
+                        <p className="text-zinc-300 leading-relaxed">
+                            {customer.address?.street ? `${customer.address.street}, ${customer.address.number} - ${customer.address.zipCode}` : 'Endereço não cadastrado'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Coluna Direita: Ações e Status */}
+            <div className="space-y-6">
+                {/* Botão Nuvem */}
+                {cloudUrl ? (
+                    <a 
+                        href={isCloudLocked ? undefined : cloudUrl} 
+                        target={isCloudLocked ? undefined : "_blank"}
+                        rel="noopener noreferrer"
+                        onClick={(e) => isCloudLocked && e.preventDefault()}
+                        className={`
+                            relative w-full h-40 rounded-3xl flex flex-col items-center justify-center gap-4 transition-all duration-300 group overflow-hidden border
+                            ${isCloudLocked 
+                                ? 'bg-red-900/10 border-red-500/20 cursor-not-allowed opacity-80' 
+                                : 'bg-gradient-to-br from-[#1e1b4b] to-[#0f0e26] border-indigo-500/30 hover:border-indigo-400 hover:shadow-2xl hover:shadow-indigo-900/20 hover:scale-[1.02]'
+                            }
+                        `}
+                    >
+                        <div className={`p-4 rounded-full ${isCloudLocked ? 'bg-red-500/10 text-red-500' : 'bg-indigo-500/10 text-indigo-400 group-hover:text-white group-hover:bg-indigo-500 transition-colors'}`}>
+                            {isCloudLocked ? <Lock size={40} /> : <Cloud size={40} />}
+                        </div>
+                        <div className="text-center">
+                            <h3 className={`text-2xl font-bold ${isCloudLocked ? 'text-red-400' : 'text-white'}`}>Acessar Nuvem</h3>
+                            {isCloudLocked && <p className="text-xs text-red-400 mt-1">Bloqueado: Regularize suas pendências</p>}
+                        </div>
+                    </a>
+                ) : (
+                    <div className="w-full h-40 rounded-3xl bg-zinc-900/50 border border-white/5 flex flex-col items-center justify-center gap-2 text-zinc-500">
+                        <Cloud size={32} className="opacity-20" />
+                        <p className="text-sm">Nuvem não configurada</p>
+                    </div>
+                )}
+
+                {/* Botão Lista Pública */}
+                <button 
+                    onClick={() => alert("Funcionalidade de Lista Pública em breve!")}
+                    className="w-full h-32 bg-[#121215] hover:bg-[#18181b] border border-white/5 hover:border-white/10 rounded-3xl flex items-center justify-between px-8 transition-all group hover:scale-[1.02]"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                            <ListChecks size={32} />
+                        </div>
+                        <div className="text-left">
+                            <h3 className="text-xl font-bold text-white">Lista Pública</h3>
+                            <p className="text-zinc-500 text-sm">Envie sua lista para impressão</p>
+                        </div>
+                    </div>
+                    <ChevronRight className="text-zinc-600 group-hover:text-white transition-colors" size={24} />
+                </button>
+
+                {/* Status Financeiro */}
+                <div className={`w-full p-6 rounded-3xl border flex items-center gap-4 ${hasOverdue ? 'bg-red-500/5 border-red-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
+                    <div className={`p-3 rounded-full ${hasOverdue ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                        {hasOverdue ? <AlertTriangle size={24} /> : <CheckCircle size={24} />}
+                    </div>
+                    <div>
+                        <h3 className={`text-lg font-bold ${hasOverdue ? 'text-red-400' : 'text-emerald-400'}`}>
+                            {hasOverdue ? 'Faturas em Aberto' : 'Você está em dia!'}
+                        </h3>
+                        <p className={`text-sm ${hasOverdue ? 'text-red-400/70' : 'text-emerald-400/70'}`}>
+                            {hasOverdue 
+                                ? 'Existem pendências financeiras em sua conta.' 
+                                : 'Parabéns, não constam pendências financeiras.'}
+                        </p>
+                        {hasOverdue && (
+                            <Link to="/my-orders" className="text-xs font-bold text-red-400 hover:text-red-300 underline mt-1 block">
+                                Ver pendências em Meus Pedidos
+                            </Link>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {/* Modal de Edição (Reaproveitado) */}
+        {isEditModalOpen && (
+            <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative animate-scale-in max-h-[90vh] overflow-y-auto">
+                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e]">
+                        <h2 className="text-xl font-bold text-white flex items-center gap-2"><Edit size={20} className="text-primary" /> Editar Dados</h2>
+                        <button onClick={() => setIsEditModalOpen(false)} className="text-zinc-500 hover:text-white"><X size={24} /></button>
+                    </div>
+                    <form onSubmit={handleEditSubmit} className="p-6 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="md:col-span-2">
+                                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Nome Completo</label>
+                                <input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Telefone</label>
+                                <input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">CPF / CNPJ (Somente Leitura)</label>
+                                <input value={formData.cpf} disabled className="w-full bg-black/20 border border-zinc-800/50 rounded-xl px-4 py-3 text-zinc-500 cursor-not-allowed" />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Endereço</label>
+                                <div className="grid grid-cols-3 gap-4">
+                                    <input placeholder="Rua" value={formData.address?.street} onChange={e => setFormData({...formData, address: {...formData.address, street: e.target.value}})} className="col-span-2 w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" />
+                                    <input placeholder="Número" value={formData.address?.number} onChange={e => setFormData({...formData, address: {...formData.address, number: e.target.value}})} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" />
+                                    <input placeholder="CEP" value={formData.address?.zipCode} onChange={e => setFormData({...formData, address: {...formData.address, zipCode: e.target.value}})} className="col-span-3 w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
+                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-6 py-3 text-zinc-400 hover:text-white font-bold transition">Cancelar</button>
+                            <button type="submit" className="px-6 py-3 bg-primary hover:bg-amber-600 text-white rounded-xl font-bold shadow-lg transition active:scale-95">Salvar Alterações</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
+      </div>
+    );
+  };
+
+  if (role === 'client') {
+    return renderClientView();
+  }
+
   return (
     <div className="space-y-8 pb-24 relative animate-fade-in-up">
         {/* Header */}

@@ -220,7 +220,7 @@ export default function Home() {
       </div>
 
       {/* CABEÇALHO (HEADER) */}
-      <header className="fixed top-0 left-0 w-full z-50 h-20 px-6 grid grid-cols-3 items-center bg-black/80 backdrop-blur-md border-b border-white/5 transition-all duration-300">
+      <header className="fixed top-0 left-0 w-full z-[60] h-20 px-6 grid grid-cols-3 items-center bg-black/80 backdrop-blur-md border-b border-white/5 transition-all duration-300">
         <div className="flex justify-start">
             <button 
               className={`md:hidden transition p-2 rounded-full ${isMobileMenuOpen ? 'text-white bg-white/10' : 'text-zinc-300 hover:text-white'}`}

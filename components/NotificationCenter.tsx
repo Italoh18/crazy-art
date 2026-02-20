@@ -130,7 +130,7 @@ export const NotificationCenter = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-80 md:w-96 bg-[#18181b] border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-50 animate-scale-in origin-top-right">
+        <div className="absolute right-0 mt-3 w-80 md:w-96 bg-[#18181b] border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-[100] animate-scale-in origin-top-right">
             <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50 backdrop-blur">
                 <h3 className="text-sm font-bold text-white tracking-wide">Notificações</h3>
                 <div className="flex gap-2">
