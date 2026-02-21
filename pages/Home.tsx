@@ -520,7 +520,7 @@ export default function Home() {
                         CRAZY ART
                     </h2>
                     <div className="h-px w-24 bg-zinc-700 mx-auto my-6"></div>
-                    <p className="text-zinc-300 text-sm md:text-lg tracking-[0.5em] text-center uppercase animate-fade-in-up font-light" style={{ animationDelay: '200ms' }}>
+                    <p className="bg-gradient-to-r from-yellow-400 to-red-600 bg-clip-text text-transparent text-sm md:text-lg tracking-[0.5em] text-center uppercase animate-fade-in-up font-medium" style={{ animationDelay: '200ms' }}>
                         transformando ideias
                     </p>
                 </div>
@@ -562,7 +562,7 @@ export default function Home() {
         {trustedCompanies.length > 0 && (
             <div className="w-full bg-zinc-950/80 backdrop-blur-sm py-12 border-t border-zinc-900 mb-8 animate-fade-in-up">
                 <div className="max-w-7xl mx-auto px-6">
-                    <h3 className="text-center text-sm font-bold text-zinc-500 uppercase tracking-[0.3em] mb-8 opacity-60">Empresas que Confiam</h3>
+                    <h3 className="text-center text-sm font-bold bg-gradient-to-r from-yellow-400 to-red-600 bg-clip-text text-transparent uppercase tracking-[0.3em] mb-8">Empresas que Confiam</h3>
                     <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-70 hover:opacity-100 transition-opacity duration-500">
                         {trustedCompanies.map((company) => (
                             <div key={company.id} className="w-20 h-20 md:w-24 md:h-24 flex items-center justify-center grayscale hover:grayscale-0 transition-all duration-500 hover:scale-110">
