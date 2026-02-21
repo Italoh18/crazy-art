@@ -527,7 +527,7 @@ export default function Home() {
           )}
 
           {!gameMode && (
-            <div className="absolute bottom-0 left-0 w-full h-[100px] z-40 bg-gradient-to-t from-black via-black/80 to-transparent" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute bottom-0 left-0 w-full h-[200px] z-40 bg-gradient-to-t from-black via-black/80 to-transparent" onClick={(e) => e.stopPropagation()}>
                 <div className="w-full h-full flex transition-transform duration-700 ease-in-out" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
                     {carouselImages.length > 0 ? (
                         carouselImages.map((img) => (

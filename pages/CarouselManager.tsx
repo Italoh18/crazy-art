@@ -32,7 +32,7 @@ export default function CarouselManager() {
               onChange={(e) => setNewUrl(e.target.value)}
             />
             <LinkIcon className="absolute left-3 top-3 text-zinc-500" size={18} />
-            <p className="text-[10px] text-zinc-500 mt-1.5 ml-1">Tamanho recomendado: <span className="text-primary font-bold">1920x100 pixels</span> (ou proporção ultra-wide)</p>
+            <p className="text-[10px] text-zinc-500 mt-1.5 ml-1">Tamanho recomendado: <span className="text-primary font-bold">1920x200 pixels</span> (ou proporção ultra-wide)</p>
           </div>
           <button 
             type="submit"
