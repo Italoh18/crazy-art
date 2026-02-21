@@ -365,7 +365,8 @@ export default function CustomerDetails() {
           address: { ...customer.address },
           creditLimit: customer.creditLimit,
           cloudLink: cloudUrl,
-          isSubscriber: customer.isSubscriber
+          isSubscriber: customer.isSubscriber,
+          subscriptionExpiresAt: customer.subscriptionExpiresAt ? customer.subscriptionExpiresAt.split('T')[0] : ''
       });
       setIsEditModalOpen(true);
   };
@@ -1240,19 +1241,33 @@ export default function CustomerDetails() {
                             <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Nome Completo</label>
                             <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.name || ''} onChange={e => setFormData({...formData, name: e.target.value})} />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Telefone</label>
                                 <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">CPF / CNPJ</label>
+                                <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.cpf || ''} onChange={e => setFormData({...formData, cpf: e.target.value})} />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Email</label>
+                                <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Limite (R$)</label>
                                 <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition font-mono" value={formData.creditLimit || ''} onChange={e => setFormData({...formData, creditLimit: parseFloat(e.target.value)})} />
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Email</label>
-                            <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} />
+                        <div className="space-y-2">
+                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Endereço</label>
+                            <div className="grid grid-cols-3 gap-4">
+                                <input placeholder="Rua" value={formData.address?.street || ''} onChange={e => setFormData({...formData, address: {...formData.address, street: e.target.value}})} className="col-span-2 w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" />
+                                <input placeholder="Número" value={formData.address?.number || ''} onChange={e => setFormData({...formData, address: {...formData.address, number: e.target.value}})} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" />
+                                <input placeholder="CEP" value={formData.address?.zipCode || ''} onChange={e => setFormData({...formData, address: {...formData.address, zipCode: e.target.value}})} className="col-span-3 w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" />
+                            </div>
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Link Nuvem (Opcional)</label>
@@ -1260,20 +1275,34 @@ export default function CustomerDetails() {
                         </div>
                         
                         {/* Toggle de Assinatura */}
-                        <div className="flex items-center justify-between bg-purple-900/10 border border-purple-500/20 p-4 rounded-xl">
-                            <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-full ${formData.isSubscriber ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
-                                    <Sparkles size={18} />
+                        <div className="bg-purple-900/10 border border-purple-500/20 p-4 rounded-xl space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-full ${formData.isSubscriber ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+                                        <Sparkles size={18} />
+                                    </div>
+                                    <div>
+                                        <span className="block text-sm font-bold text-white">Assinante Quitanda</span>
+                                        <span className="text-[10px] text-zinc-400 block">Permite baixar artes sem custo adicional.</span>
+                                    </div>
                                 </div>
-                                <div>
-                                    <span className="block text-sm font-bold text-white">Assinante Quitanda</span>
-                                    <span className="text-[10px] text-zinc-400 block">Permite baixar artes sem custo adicional.</span>
-                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" className="sr-only peer" checked={!!formData.isSubscriber} onChange={(e) => setFormData({...formData, isSubscriber: e.target.checked})} />
+                                    <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                </label>
                             </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" className="sr-only peer" checked={!!formData.isSubscriber} onChange={(e) => setFormData({...formData, isSubscriber: e.target.checked})} />
-                                <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                            </label>
+
+                            {formData.isSubscriber && (
+                                <div className="animate-fade-in pt-2 border-t border-purple-500/10">
+                                    <label className="block text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1.5 ml-1">Data de Expiração</label>
+                                    <input 
+                                        type="date" 
+                                        className="w-full bg-black/40 border border-purple-500/30 rounded-xl px-4 py-2 text-white focus:border-purple-500 outline-none transition text-sm" 
+                                        value={formData.subscriptionExpiresAt || ''} 
+                                        onChange={e => setFormData({...formData, subscriptionExpiresAt: e.target.value})} 
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         <div className="pt-6 flex justify-end gap-3 border-t border-white/5 mt-2">
