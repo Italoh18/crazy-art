@@ -41,6 +41,80 @@ export default function PendingOrders() {
     }
   };
 
+  const OrderProgress = ({ order }: { order: Order }) => {
+    const stages = [
+        { id: 'open', label: 'Aberto' },
+        { id: 'paid', label: 'Pago' },
+        { id: 'production', label: 'Produção' },
+        { id: 'revision', label: 'Alteração' },
+        { id: 'finished', label: 'Pronto' }
+    ];
+
+    const getStatusIndex = (s: string) => {
+        if (s === 'cancelled') return -1;
+        const idx = stages.findIndex(stage => stage.id === s);
+        if (idx !== -1) return idx;
+        if (s === 'open') return 0;
+        if (s === 'paid') return 1;
+        if (s === 'production') return 2;
+        if (s === 'revision') return 3;
+        if (s === 'finished') return 4;
+        return 0;
+    };
+
+    const currentIndex = getStatusIndex(order.status);
+
+    return (
+        <div className="w-full py-4">
+            <div className="relative flex justify-between">
+                <div className="absolute top-3.5 left-0 w-full h-0.5 bg-zinc-800 z-0"></div>
+                <div 
+                    className="absolute top-3.5 left-0 h-0.5 bg-primary z-0 transition-all duration-700 ease-in-out"
+                    style={{ width: currentIndex >= 0 ? `${(currentIndex / (stages.length - 1)) * 100}%` : '0%' }}
+                ></div>
+
+                {stages.map((stage, idx) => {
+                    const isActive = idx <= currentIndex;
+                    const isCurrent = idx === currentIndex;
+                    const isPaidStage = stage.id === 'paid';
+                    const useRed = isPaidStage && isActive && !order.paid_at;
+
+                    return (
+                        <button 
+                            key={stage.id} 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (stage.id === 'finished') handleConfirm(order.id);
+                                else handleUpdateStatus(order.id, stage.id);
+                            }}
+                            className="relative z-10 flex flex-col items-center group/step"
+                        >
+                            <div 
+                                className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${
+                                    isActive 
+                                        ? (useRed ? 'bg-red-600 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.6)]' : 'bg-primary border-primary shadow-[0_0_10px_rgba(245,158,11,0.4)]')
+                                        : 'bg-zinc-900 border-zinc-800 group-hover/step:border-zinc-600'
+                                }`}
+                            >
+                                {isActive ? (
+                                    <Check size={12} className="text-white" strokeWidth={3} />
+                                ) : (
+                                    <div className="w-1.5 h-1.5 rounded-full bg-zinc-700 group-hover/step:bg-zinc-500"></div>
+                                )}
+                            </div>
+                            <span className={`text-[8px] font-black uppercase tracking-tighter mt-2 text-center max-w-[60px] leading-none ${
+                                isActive ? (useRed ? 'text-red-400' : 'text-white') : 'text-zinc-600 group-hover/step:text-zinc-400'
+                            }`}>
+                                {stage.label}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+  };
+
   return (
     <div className="space-y-6 animate-fade-in pb-20">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -92,27 +166,16 @@ export default function PendingOrders() {
                               <p className="text-zinc-500 text-xs line-clamp-1">{order.description}</p>
                           </div>
 
-                          <div className="flex flex-wrap gap-2">
-                             {order.size_list && (
-                                 <span className="bg-blue-500/10 text-blue-400 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-500/20 flex items-center gap-1">
-                                     <ListChecks size={12} /> POSSUI LISTA
-                                 </span>
-                             )}
-                             <select 
-                                value={order.status}
-                                onChange={(e) => handleUpdateStatus(order.id, e.target.value)}
-                                className={`text-[10px] font-bold px-2 py-1 rounded-lg border bg-zinc-950 outline-none cursor-pointer transition-colors ${
-                                    order.status === 'paid' ? 'border-emerald-500/30 text-emerald-400' :
-                                    order.status === 'production' ? 'border-blue-500/30 text-blue-400' :
-                                    order.status === 'revision' ? 'border-amber-500/30 text-amber-400' :
-                                    'border-zinc-700 text-zinc-500'
-                                }`}
-                             >
-                                <option value="open">ABERTO</option>
-                                <option value="paid">PAGO</option>
-                                <option value="production">EM PRODUÇÃO</option>
-                                <option value="revision">EM ALTERAÇÃO</option>
-                             </select>
+                          <div className="flex flex-col gap-4">
+                             <OrderProgress order={order} />
+                             
+                             <div className="flex flex-wrap gap-2">
+                                {order.size_list && (
+                                    <span className="bg-blue-500/10 text-blue-400 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-500/20 flex items-center gap-1">
+                                        <ListChecks size={12} /> POSSUI LISTA
+                                    </span>
+                                )}
+                             </div>
                           </div>
 
                           <div className="pt-4 border-t border-zinc-800 flex gap-2">
@@ -142,6 +205,11 @@ export default function PendingOrders() {
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+                      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+                          <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4 ml-1">Status de Produção (Clique para alterar)</h3>
+                          <OrderProgress order={viewingOrder} />
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                           <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
                               <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Cliente</span>
