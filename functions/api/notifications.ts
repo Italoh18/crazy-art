@@ -104,18 +104,20 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         // 2. VERIFICAÇÃO DE ASSINATURAS EXPIRANDO
         if (user.role === 'client' && user.clientId) {
             const client: any = await env.DB.prepare(
-                "SELECT id, name, email, subscription_expires_at FROM clients WHERE id = ? AND is_subscriber = 1"
+                "SELECT * FROM clients WHERE id = ? AND is_subscriber = 1"
             ).bind(user.clientId).first();
 
-            if (client && client.subscription_expires_at) {
-                const expiresAt = new Date(client.subscription_expires_at);
+            const subscriptionExpiresAt = client?.subscription_expires_at || client?.subscriptionExpiresAt;
+
+            if (client && subscriptionExpiresAt) {
+                const expiresAt = new Date(subscriptionExpiresAt);
                 const now = new Date();
                 const diffTime = expiresAt.getTime() - now.getTime();
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
                 // Se faltar 2 dias ou menos (28 dias se passaram)
                 if (diffDays <= 2 && diffDays > -5) {
-                    const refId = `sub_expiring_${client.id}_${client.subscription_expires_at.substring(0, 10)}`;
+                    const refId = `sub_expiring_${client.id}_${subscriptionExpiresAt.substring(0, 10)}`;
                     const existing = await env.DB.prepare("SELECT id FROM notifications WHERE reference_id = ?").bind(refId).first();
 
                     if (!existing) {

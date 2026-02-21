@@ -9,23 +9,33 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     return Response.json({ token, role: 'admin' });
   }
 
+  const mapClient = (c: any) => {
+    if (!c) return null;
+    return {
+      ...c,
+      cloudLink: c.cloudLink || c.cloud_link,
+      isSubscriber: c.isSubscriber !== undefined ? c.isSubscriber : (c.is_subscriber === 1),
+      subscriptionExpiresAt: c.subscriptionExpiresAt || c.subscription_expires_at
+    };
+  };
+
   if (email && password) {
     const hashedPassword = await hashPassword(password);
-    const client: any = await env.DB.prepare('SELECT *, cloud_link as cloudLink, is_subscriber as isSubscriber, subscription_expires_at as subscriptionExpiresAt FROM clients WHERE email = ? AND password_hash = ?')
+    const client: any = await env.DB.prepare('SELECT * FROM clients WHERE email = ? AND password_hash = ?')
       .bind(email, hashedPassword)
       .first();
     
     if (client) {
       const token = await createJWT({ role: 'client', clientId: client.id }, env.JWT_SECRET);
-      return Response.json({ token, role: 'client', customer: client });
+      return Response.json({ token, role: 'client', customer: mapClient(client) });
     }
   }
 
   if (cpf) {
-    const client: any = await env.DB.prepare('SELECT *, cloud_link as cloudLink, is_subscriber as isSubscriber, subscription_expires_at as subscriptionExpiresAt FROM clients WHERE cpf = ?').bind(cpf).first();
+    const client: any = await env.DB.prepare('SELECT * FROM clients WHERE cpf = ?').bind(cpf).first();
     if (client) {
       const token = await createJWT({ role: 'client', clientId: client.id }, env.JWT_SECRET);
-      return Response.json({ token, role: 'client', customer: client });
+      return Response.json({ token, role: 'client', customer: mapClient(client) });
     }
   }
 
