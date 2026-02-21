@@ -512,7 +512,8 @@ export default function CustomerDetails() {
       }
   };
 
-  const OrderProgress = ({ status, items, paidAt }: { status: string, items?: any[], paidAt?: string | null }) => {
+  const OrderProgress = ({ order, isAdmin, onStatusUpdate, onConfirm }: { order: any, isAdmin: boolean, onStatusUpdate?: (id: string, status: string) => void, onConfirm?: (id: string) => void }) => {
+    const { status, paid_at: paidAt } = order;
     const stages = [
         { id: 'open', label: 'Pedido Realizado' },
         { id: 'paid', label: 'Pago' },
@@ -535,6 +536,17 @@ export default function CustomerDetails() {
 
     const currentIndex = getStatusIndex(status);
 
+    const handleStepClick = (e: React.MouseEvent, stageId: string) => {
+        e.stopPropagation();
+        if (!isAdmin || !onStatusUpdate || !onConfirm) return;
+
+        if (stageId === 'finished') {
+            onConfirm(order.id);
+        } else {
+            onStatusUpdate(order.id, stageId);
+        }
+    };
+
     return (
         <div className="w-full py-6 px-2">
             <div className="relative flex justify-between">
@@ -550,13 +562,19 @@ export default function CustomerDetails() {
                     // Regra: Pago em vermelho se estiver ativo mas não houver data de pagamento (crédito)
                     const useRed = isPaidStage && isActive && !paidAt;
 
+                    const ProgressNode = isAdmin ? 'button' : 'div';
+
                     return (
-                        <div key={stage.id} className="relative z-10 flex flex-col items-center">
+                        <ProgressNode 
+                            key={stage.id} 
+                            onClick={(e: any) => handleStepClick(e, stage.id)}
+                            className={`relative z-10 flex flex-col items-center ${isAdmin ? 'group/step cursor-pointer' : ''}`}
+                        >
                             <div 
                                 className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${
                                     isActive 
                                         ? (useRed ? 'bg-red-600 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.6)]' : 'bg-primary border-primary shadow-[0_0_10px_rgba(245,158,11,0.4)]')
-                                        : 'bg-zinc-900 border-zinc-800'
+                                        : `bg-zinc-900 border-zinc-800 ${isAdmin ? 'group-hover/step:border-zinc-600' : ''}`
                                 }`}
                             >
                                 {isActive ? (
@@ -566,11 +584,11 @@ export default function CustomerDetails() {
                                 )}
                             </div>
                             <span className={`text-[8px] font-black uppercase tracking-tighter mt-2 text-center max-w-[60px] leading-none ${
-                                isActive ? (useRed ? 'text-red-400' : 'text-white') : 'text-zinc-600'
+                                isActive ? (useRed ? 'text-red-400' : 'text-white') : `text-zinc-600 ${isAdmin ? 'group-hover/step:text-zinc-400' : ''}`
                             }`}>
                                 {stage.label}
                             </span>
-                        </div>
+                        </ProgressNode>
                     );
                 })}
             </div>
@@ -1204,8 +1222,13 @@ export default function CustomerDetails() {
                     <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
                         {/* Stepper de Progresso */}
                         <div className="bg-zinc-950/50 border border-white/5 rounded-2xl p-4">
-                            <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Progresso do Pedido</h3>
-                            <OrderProgress status={viewingOrder.status} items={viewingOrder.items} paidAt={viewingOrder.paid_at} />
+                            <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Progresso do Pedido {role === 'admin' && <span className="text-primary/70">(clique para alterar)</span>}</h3>
+                            <OrderProgress 
+                                order={viewingOrder}
+                                isAdmin={role === 'admin'}
+                                onStatusUpdate={updateOrderStatus}
+                                onConfirm={handleManualPayment}
+                            />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">

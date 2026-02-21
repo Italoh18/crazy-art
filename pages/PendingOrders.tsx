@@ -94,7 +94,7 @@ export default function PendingOrders() {
                                     isActive 
                                         ? (useRed ? 'bg-red-600 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.6)]' : 'bg-primary border-primary shadow-[0_0_10px_rgba(245,158,11,0.4)]')
                                         : 'bg-zinc-900 border-zinc-800 group-hover/step:border-zinc-600'
-                                }`}
+                                } ${isCurrent && !useRed ? 'ring-2 ring-offset-2 ring-primary ring-offset-zinc-900' : ''}`}
                             >
                                 {isActive ? (
                                     <Check size={12} className="text-white" strokeWidth={3} />
