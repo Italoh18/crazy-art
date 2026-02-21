@@ -328,7 +328,7 @@ export default function FontEditor() {
           const targetPaths = sortedIndices.map(i => paths[i]);
           let resultPoly: any = vectorPathToCoords(targetPaths[0]);
           for (let i = 1; i < targetPaths.length; i++) {
-              resultPoly = martinez.union(resultPoly, vectorPathToCoords(targetPaths[i]));
+              resultPoly = martinez.union(resultPoly, vectorPathToCoords(targetPaths[i]) as any);
           }
           const newPathsFromOp = coordsToVectorPath(resultPoly);
           const finalPaths = [...paths.filter(p => !selectedPathIds.includes(p.id)), ...newPathsFromOp];
@@ -347,7 +347,7 @@ export default function FontEditor() {
               const targetPath = paths.find(p => p.id === id);
               if (!targetPath) return;
               const targetPoly = vectorPathToCoords(targetPath);
-              const resultPoly = martinez.diff(targetPoly, cutterPoly);
+              const resultPoly = martinez.diff(targetPoly, cutterPoly as any);
               const resultVectorPaths = coordsToVectorPath(resultPoly);
               allNewResults.push(...resultVectorPaths);
           });

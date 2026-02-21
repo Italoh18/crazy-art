@@ -360,7 +360,7 @@ export default function Home() {
                               <item.icon size={14} />
                               <div className="flex flex-col items-start leading-none">
                                   <span>{item.name}</span>
-                                  {item.sub && <span className="text-[8px] opacity-50 mt-0.5 tracking-tight font-normal">{item.sub}</span>}
+                                  {item.sub && <span className="text-[8px] opacity-50 mt-0.5 tracking-tight font-normal">{(item as any).sub}</span>}
                               </div>
                               <span className="text-[8px] opacity-50 ml-1 bg-zinc-800 px-1 rounded">(Breve)</span>
                           </span>

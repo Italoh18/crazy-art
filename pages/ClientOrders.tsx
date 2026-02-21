@@ -70,13 +70,13 @@ export default function ClientOrders() {
   today.setHours(0,0,0,0);
 
   const _openOrders = allCustomerOrders.filter(o => {
-      if (o.status !== 'open') return false;
+      if (!['open', 'production', 'revision'].includes(o.status)) return false;
       const due = new Date(o.due_date);
       return due >= today;
   });
 
   const _overdueOrders = allCustomerOrders.filter(o => {
-      if (o.status !== 'open') return false;
+      if (!['open', 'production', 'revision'].includes(o.status)) return false;
       const due = new Date(o.due_date);
       return due < today;
   });
@@ -96,7 +96,7 @@ export default function ClientOrders() {
   const totalPayableValue = allPayableOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
 
   const currentTabPayableOrders = useMemo(() => 
-      displayedOrders.filter(o => o.status === 'open'),
+      displayedOrders.filter(o => ['open', 'production', 'revision'].includes(o.status)),
   [displayedOrders]);
 
   const isAllSelected = currentTabPayableOrders.length > 0 && currentTabPayableOrders.every(o => selectedOrderIds.includes(o.id));
@@ -208,9 +208,85 @@ export default function ClientOrders() {
   };
 
   const renderStatusBadge = (status: string, isLate: boolean) => {
-      if (status === 'paid') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-wide">Pago</span>;
-      if (isLate) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wide">Atrasado</span>;
-      return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Aberto</span>;
+      switch(status) {
+          case 'paid': return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-wide">Pago</span>;
+          case 'production': return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20 uppercase tracking-wide">Em Produção</span>;
+          case 'revision': return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Em Alteração</span>;
+          case 'finished': return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-500 border border-purple-500/20 uppercase tracking-wide">Finalizado</span>;
+          case 'cancelled': return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wide">Cancelado</span>;
+          default: 
+              if (isLate) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wide">Atrasado</span>;
+              return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Aberto</span>;
+      }
+  };
+
+  const OrderProgress = ({ status, items, paidAt }: { status: string, items?: any[], paidAt?: string | null }) => {
+    const stages = [
+        { id: 'open', label: 'Pedido Realizado' },
+        { id: 'paid', label: 'Pago' },
+        { id: 'production', label: 'Em Produção' },
+        { id: 'revision', label: 'Em Alteração' },
+        { id: 'finished', label: 'Finalizado' }
+    ];
+
+    const getStatusIndex = (s: string) => {
+        if (s === 'cancelled') return -1;
+        const idx = stages.findIndex(stage => stage.id === s);
+        if (idx !== -1) return idx;
+        // Mapeamento de segurança
+        if (s === 'open') return 0;
+        if (s === 'paid') return 1;
+        if (s === 'production') return 2;
+        if (s === 'revision') return 3;
+        if (s === 'finished') return 4;
+        return 0;
+    };
+
+    const currentIndex = getStatusIndex(status);
+
+    return (
+        <div className="w-full py-8 px-2">
+            <div className="relative flex justify-between">
+                {/* Linha de Fundo */}
+                <div className="absolute top-4 left-0 w-full h-0.5 bg-zinc-800 z-0"></div>
+                {/* Linha de Progresso */}
+                <div 
+                    className="absolute top-4 left-0 h-0.5 bg-primary z-0 transition-all duration-700 ease-in-out"
+                    style={{ width: currentIndex >= 0 ? `${(currentIndex / (stages.length - 1)) * 100}%` : '0%' }}
+                ></div>
+
+                {stages.map((stage, idx) => {
+                    const isActive = idx <= currentIndex;
+                    const isPaidStage = stage.id === 'paid';
+                    // Regra: Pago em vermelho se estiver ativo mas não houver data de pagamento (crédito)
+                    const useRed = isPaidStage && isActive && !paidAt;
+
+                    return (
+                        <div key={stage.id} className="relative z-10 flex flex-col items-center">
+                            <div 
+                                className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${
+                                    isActive 
+                                        ? (useRed ? 'bg-red-600 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.6)]' : 'bg-primary border-primary shadow-[0_0_10px_rgba(245,158,11,0.4)]')
+                                        : 'bg-zinc-900 border-zinc-800'
+                                }`}
+                            >
+                                {isActive ? (
+                                    <Check size={14} className="text-white" strokeWidth={3} />
+                                ) : (
+                                    <div className="w-1.5 h-1.5 rounded-full bg-zinc-700"></div>
+                                )}
+                            </div>
+                            <span className={`text-[9px] font-black uppercase tracking-tighter mt-3 text-center max-w-[70px] leading-none ${
+                                isActive ? (useRed ? 'text-red-400' : 'text-white') : 'text-zinc-600'
+                            }`}>
+                                {stage.label}
+                            </span>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
   };
 
   return (
@@ -356,26 +432,26 @@ export default function ClientOrders() {
                                 const isSelected = selectedOrderIds.includes(order.id);
                                 return (
                                     <tr key={order.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? 'bg-primary/5' : ''}`}>
-                                        <td className="px-4 md:px-6 py-4">{order.status === 'open' && <input type="checkbox" checked={isSelected} onChange={() => {}} onClick={(e) => toggleSelectOrder(order.id, e)} className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" />}</td>
-                                        <td className="px-4 md:px-6 py-4">
-                                            <div className="font-mono text-zinc-300 font-bold">#{order.formattedOrderNumber || order.order_number}</div>
-                                            <div className="md:hidden mt-1.5">
+                                        <td className="px-4 md:px-6 py-8">{['open', 'production', 'revision'].includes(order.status) && <input type="checkbox" checked={isSelected} onChange={() => {}} onClick={(e) => toggleSelectOrder(order.id, e)} className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" />}</td>
+                                        <td className="px-4 md:px-6 py-8">
+                                            <div className="font-mono text-zinc-300 font-bold text-lg">#{order.formattedOrderNumber || order.order_number}</div>
+                                            <div className="md:hidden mt-2">
                                                 {renderStatusBadge(order.status, isLate)}
                                             </div>
-                                            <div className="text-xs text-zinc-600 max-w-[200px] truncate font-sans mt-1">{order.description || "Sem descrição"}</div>
+                                            <div className="text-xs text-zinc-500 max-w-[250px] truncate font-sans mt-2">{order.description || "Sem descrição"}</div>
                                         </td>
-                                        <td className="px-6 py-4 hidden md:table-cell">{new Date(order.order_date).toLocaleDateString()}</td>
-                                        <td className={`px-6 py-4 hidden md:table-cell ${isLate ? 'text-red-400 font-bold' : ''}`}>{new Date(order.due_date).toLocaleDateString()}</td>
-                                        <td className="px-6 py-4 hidden md:table-cell">
+                                        <td className="px-6 py-8 hidden md:table-cell font-medium">{new Date(order.order_date).toLocaleDateString()}</td>
+                                        <td className={`px-6 py-8 hidden md:table-cell font-medium ${isLate ? 'text-red-400 font-bold' : ''}`}>{new Date(order.due_date).toLocaleDateString()}</td>
+                                        <td className="px-6 py-8 hidden md:table-cell">
                                             {renderStatusBadge(order.status, isLate)}
                                         </td>
-                                        <td className="px-4 md:px-6 py-4 text-right"><div className="font-mono font-bold text-white text-sm md:text-base">R$ {Number(order.total || 0).toFixed(2)}</div><div className={`md:hidden text-[10px] mt-1 font-medium ${isLate ? 'text-red-400' : 'text-zinc-500'}`}>Vence: {new Date(order.due_date).toLocaleDateString().slice(0,5)}</div></td>
-                                        <td className="px-4 md:px-6 py-4 text-center">
-                                            <div className="flex items-center justify-end md:justify-center gap-2">
-                                                {order.status === 'open' ? (
-                                                    <button onClick={() => initiatePaymentFlow([order.id])} className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1.5 rounded-lg transition font-bold inline-flex items-center gap-1 shadow-lg shadow-emerald-600/20" title="Pagar agora"><DollarSign size={12} /> <span className="hidden md:inline">Pagar</span></button>
-                                                ) : <span className="hidden md:inline text-xs text-zinc-700 italic">Concluído</span>}
-                                                <button onClick={() => fetchAndSetViewingOrder(order)} className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition border border-transparent hover:border-zinc-700" title="Ver Detalhes"><Eye size={16} /></button>
+                                        <td className="px-4 md:px-6 py-8 text-right"><div className="font-mono font-black text-white text-base md:text-xl">R$ {Number(order.total || 0).toFixed(2)}</div><div className={`md:hidden text-[10px] mt-1 font-bold ${isLate ? 'text-red-400' : 'text-zinc-500'}`}>Vence: {new Date(order.due_date).toLocaleDateString().slice(0,5)}</div></td>
+                                        <td className="px-4 md:px-6 py-8 text-center">
+                                            <div className="flex items-center justify-end md:justify-center gap-3">
+                                                {['open', 'production', 'revision'].includes(order.status) ? (
+                                                    <button onClick={() => initiatePaymentFlow([order.id])} className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl transition font-bold inline-flex items-center gap-2 shadow-lg shadow-emerald-600/20" title="Pagar agora"><DollarSign size={14} /> <span className="hidden md:inline">Pagar</span></button>
+                                                ) : <span className="hidden md:inline text-xs text-zinc-600 font-bold uppercase tracking-widest italic">Concluído</span>}
+                                                <button onClick={() => fetchAndSetViewingOrder(order)} className="p-2.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition border border-white/5 hover:border-zinc-700" title="Ver Detalhes"><Eye size={20} /></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -478,46 +554,83 @@ export default function ClientOrders() {
 
         {/* Order Details View */}
         {viewingOrder && (
-            <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/80 backdrop-blur-sm p-4 animate-fade-in overflow-y-auto">
-                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative flex flex-col max-h-[85vh] animate-scale-in">
+            <div className="fixed inset-0 z-[100] flex justify-center items-start pt-12 md:pt-24 bg-black/90 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
+                <div className="bg-[#121215] border border-white/10 rounded-3xl w-full max-w-2xl shadow-2xl relative flex flex-col max-h-[90vh] animate-scale-in overflow-hidden">
                     
-                    <div className="p-6 border-b border-white/5 flex justify-between items-start bg-[#0c0c0e] rounded-t-2xl">
+                    <div className="p-8 border-b border-white/5 flex justify-between items-start bg-[#0c0c0e]">
                         <div>
-                            <h2 className="text-xl font-bold text-white flex items-center gap-2"><Package size={20} className="text-primary" /> Pedido #{viewingOrder.formattedOrderNumber || viewingOrder.order_number}</h2>
-                            <p className="text-zinc-500 text-xs mt-1">{viewingOrder.description || "Sem descrição adicional"}</p>
+                            <div className="flex items-center gap-3 mb-1">
+                                <Package size={24} className="text-primary" />
+                                <h2 className="text-2xl font-black text-white tracking-tighter">PEDIDO #{viewingOrder.formattedOrderNumber || viewingOrder.order_number}</h2>
+                            </div>
+                            <p className="text-zinc-500 text-sm font-medium">{viewingOrder.description || "Sem descrição adicional"}</p>
                         </div>
-                        <button onClick={() => setViewingOrder(null)} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button>
+                        <button onClick={() => setViewingOrder(null)} className="p-2 bg-zinc-900 rounded-xl text-zinc-500 hover:text-white hover:rotate-90 transition-all border border-white/5"><X size={24} /></button>
                     </div>
 
-                    <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5"><span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Data do Pedido</span><span className="text-white font-mono text-sm">{new Date(viewingOrder.order_date).toLocaleDateString()}</span></div>
-                            <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5"><span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Vencimento</span><span className={`font-mono text-sm ${new Date(viewingOrder.due_date) < new Date() && viewingOrder.status === 'open' ? 'text-red-400 font-bold' : 'text-white'}`}>{new Date(viewingOrder.due_date).toLocaleDateString()}</span></div>
+                    <div className="p-8 overflow-y-auto custom-scrollbar space-y-8">
+                        {/* Stepper de Progresso */}
+                        <div className="bg-zinc-950/50 border border-white/5 rounded-2xl p-4">
+                            <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Status do Pedido</h3>
+                            <OrderProgress status={viewingOrder.status} items={viewingOrder.items} paidAt={viewingOrder.paid_at} />
                         </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-zinc-900/50 p-5 rounded-2xl border border-white/5 flex flex-col justify-center">
+                                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Data do Pedido</span>
+                                <span className="text-white font-mono text-lg font-bold">{new Date(viewingOrder.order_date).toLocaleDateString()}</span>
+                            </div>
+                            <div className="bg-zinc-900/50 p-5 rounded-2xl border border-white/5 flex flex-col justify-center">
+                                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Vencimento</span>
+                                <span className={`font-mono text-lg font-bold ${new Date(viewingOrder.due_date) < new Date() && viewingOrder.status === 'open' ? 'text-red-400' : 'text-white'}`}>{new Date(viewingOrder.due_date).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+
                         {viewingOrder.size_list && (
-                            <div><h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Lista de Produção</h3><div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">{(typeof viewingOrder.size_list === 'string' ? JSON.parse(viewingOrder.size_list) : viewingOrder.size_list).map((item: SizeListItem, idx: number) => (<div key={idx} className="bg-zinc-900/30 p-2 rounded border border-white/5 flex justify-between items-center text-xs"><span className="text-zinc-300 font-bold">{item.size} <span className="text-zinc-500 font-normal">({item.category})</span></span>{item.isSimple ? <span className="text-white bg-zinc-700 px-2 py-0.5 rounded font-mono">x{item.quantity}</span> : <span className="text-primary font-bold uppercase">{item.name || '-'} <span className="text-white font-mono">{item.number ? `#${item.number}` : ''}</span></span>}</div>))}</div></div>
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2 ml-1"><ListChecks size={16} className="text-primary" /> Lista de Produção</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {(typeof viewingOrder.size_list === 'string' ? JSON.parse(viewingOrder.size_list) : viewingOrder.size_list).map((item: SizeListItem, idx: number) => (
+                                        <div key={idx} className="bg-zinc-900/30 p-4 rounded-xl border border-white/5 flex justify-between items-center group hover:border-primary/30 transition-colors">
+                                            <div className="flex flex-col">
+                                                <span className="text-zinc-300 font-black text-sm uppercase">{item.size} <span className="text-zinc-500 font-bold text-[10px]">({item.category})</span></span>
+                                                {!item.isSimple && <span className="text-primary font-bold text-xs uppercase mt-0.5">{item.name || '-'}</span>}
+                                            </div>
+                                            <div className="text-right">
+                                                {item.isSimple ? (
+                                                    <span className="bg-zinc-800 text-white px-3 py-1 rounded-lg font-mono font-bold text-sm">x{item.quantity}</span>
+                                                ) : (
+                                                    <span className="text-white font-mono font-black text-lg">{item.number ? `#${item.number}` : ''}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         )}
                         
-                        {/* LISTA DE ITENS COM DOWNLOAD SE APLICÁVEL */}
+                        {/* LISTA DE ITENS */}
                         {viewingOrder.items && viewingOrder.items.length > 0 && (
-                            <div>
-                                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Package size={14} /> Itens do Pedido</h3>
-                                <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2 ml-1"><Package size={16} className="text-primary" /> Itens do Pedido</h3>
+                                <div className="bg-zinc-950 rounded-2xl border border-white/5 overflow-hidden divide-y divide-white/5">
                                     {viewingOrder.items.map((item: any, idx: number) => (
-                                        <div key={idx} className="bg-zinc-900/30 p-2 rounded border border-white/5 flex justify-between items-center text-xs">
-                                            <span className="text-zinc-300 truncate flex-1">{item.name} (x{item.quantity})</span>
-                                            {/* Botão de Download para Artes Pagas */}
+                                        <div key={idx} className="p-4 flex justify-between items-center hover:bg-white/[0.02] transition-colors">
+                                            <div className="flex flex-col">
+                                                <span className="text-white font-bold text-sm">{item.name} <span className="text-primary">x{item.quantity}</span></span>
+                                                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">{item.type === 'art' ? 'Arte Digital' : item.type === 'service' ? 'Serviço' : 'Produto'}</span>
+                                            </div>
                                             {item.type === 'art' && viewingOrder.status === 'paid' && item.downloadLink ? (
                                                 <a 
                                                     href={item.downloadLink} 
                                                     target="_blank" 
                                                     rel="noopener noreferrer"
-                                                    className="ml-2 px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded flex items-center gap-1 font-bold text-[10px] transition"
+                                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl flex items-center gap-2 font-black text-xs transition shadow-lg shadow-emerald-900/20"
                                                 >
-                                                    <CloudDownload size={12} /> Baixar
+                                                    <CloudDownload size={14} /> BAIXAR
                                                 </a>
                                             ) : (
-                                                <span className="text-white font-mono ml-2">R$ {Number(item.total).toFixed(2)}</span>
+                                                <span className="text-white font-mono font-bold">R$ {Number(item.total).toFixed(2)}</span>
                                             )}
                                         </div>
                                     ))}
@@ -525,8 +638,16 @@ export default function ClientOrders() {
                             </div>
                         )}
 
-                        <div><h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Resumo Financeiro</h3><div className="space-y-2"><div className="bg-zinc-900/30 p-3 rounded-xl border border-white/5 flex justify-between items-center"><span className="text-zinc-300 text-sm">Valor Total</span><span className="text-white font-mono font-bold text-sm">R$ {Number(viewingOrder.total || 0).toFixed(2)}</span></div></div></div>
-                        <div className="flex justify-between items-center bg-zinc-900 p-4 rounded-xl border border-white/5"><span className="text-sm text-zinc-400">Status Atual</span>{renderStatusBadge(viewingOrder.status, new Date(viewingOrder.due_date) < new Date())}</div>
+                        <div className="pt-6 border-t border-white/5 flex justify-between items-end">
+                            <div>
+                                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Total do Pedido</span>
+                                <span className="text-4xl font-black text-white tracking-tighter">R$ {Number(viewingOrder.total || 0).toFixed(2)}</span>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-2">Status Atual</span>
+                                {renderStatusBadge(viewingOrder.status, new Date(viewingOrder.due_date) < new Date())}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

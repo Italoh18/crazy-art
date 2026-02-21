@@ -163,7 +163,7 @@ export default function Customers() {
                    )}
                </div>
                
-               {customer.creditLimit > 0 && (
+               {customer.creditLimit && customer.creditLimit > 0 && (
                    <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/5 p-2.5 rounded-xl border border-emerald-500/10 mt-2 group-hover:border-emerald-500/30 transition-colors">
                        <CreditCard size={14} />
                        <span className="text-xs font-bold tracking-wide">Limite: R$ {customer.creditLimit.toFixed(2)}</span>

@@ -179,6 +179,15 @@ export default function Shop() {
       setStep('questionnaire');
   };
 
+  const addToCartFromList = (product: Product) => {
+    setCart(prev => [...prev, {
+        product: product,
+        quantity: 1,
+        description: '',
+        tempId: crypto.randomUUID()
+    }]);
+  };
+
   const removeFromCart = (tempId: string) => {
       setCart(prev => prev.filter(item => item.tempId !== tempId));
       if (cart.length <= 1 && step === 'questionnaire') setStep('list');
@@ -369,7 +378,7 @@ export default function Shop() {
             amount: 20.00,
             payerEmail: currentCustomer.email,
             payerName: currentCustomer.name,
-            type: 'subscription'
+ 
         });
         if (res?.init_point) {
             window.location.href = res.init_point;
@@ -459,22 +468,28 @@ export default function Shop() {
         )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">{filteredItems.map((item) => {
             // Verifica se deve exibir "Assinatura" ou preço
-            const isArt = (item.type as any) === 'art';
+            const isArt = item.type === 'art';
             const showFree = isSubscriber && isArt;
             
             return (
-            <div key={item.id} onClick={() => openProduct(item)} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-primary/50 transition cursor-pointer group h-full flex flex-col">
-                <div className="h-56 bg-zinc-800 flex items-center justify-center relative overflow-hidden">
-                    {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" /> : item.type === 'art' ? <Palette size={64} className="text-purple-500/50" /> : <ShoppingBag size={64} className="text-zinc-700" />}
-                    <div className={`absolute bottom-3 left-3 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase backdrop-blur-md ${showFree ? 'bg-gradient-to-r from-purple-600 to-pink-600' : item.type === 'art' ? 'bg-purple-600/80' : 'bg-black/60'}`}>
-                        {showFree ? <span className="flex items-center gap-1"><Crown size={12} /> ASSINATURA</span> : `R$ ${item.price.toFixed(2)}`}
+            <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-primary/50 transition group h-full flex flex-col relative">
+                <div onClick={() => openProduct(item)} className="cursor-pointer flex-1 flex flex-col">
+                    <div className="h-56 bg-zinc-800 flex items-center justify-center relative overflow-hidden">
+                        {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" /> : item.type === 'art' ? <Palette size={64} className="text-purple-500/50" /> : <ShoppingBag size={64} className="text-zinc-700" />}
+                        <div className={`absolute bottom-3 left-3 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase backdrop-blur-md ${showFree ? 'bg-gradient-to-r from-purple-600 to-pink-600' : item.type === 'art' ? 'bg-purple-600/80' : 'bg-black/60'}`}>
+                            {showFree ? <span className="flex items-center gap-1"><Crown size={12} /> ASSINATURA</span> : `R$ ${item.price.toFixed(2)}`}
+                        </div>
                     </div>
+                    <div className="p-5 flex-1 flex flex-col"><h3 className="font-bold text-white text-lg leading-tight">{item.name}</h3><p className="text-zinc-500 text-xs mt-2 line-clamp-2 flex-1">{item.description || 'Clique para ver detalhes'}</p>{item.priceVariations && item.priceVariations.length > 0 && (<div className="mt-2 text-[10px] text-emerald-400 bg-emerald-900/20 px-2 py-1 rounded border border-emerald-500/20 inline-block w-fit"><Tag size={10} className="inline mr-1" /> Preços especiais p/ atacado</div>)}{item.type === 'art' && (<div className="mt-3 flex flex-wrap gap-2"><div className="flex items-center gap-1 text-[10px] text-purple-400 font-bold uppercase tracking-wider"><CloudDownload size={12} /> Digital</div>{item.subcategory && (<span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">{item.subcategory}</span>)}</div>)}</div>
                 </div>
-                <div className="p-5 flex-1 flex flex-col"><h3 className="font-bold text-white text-lg leading-tight">{item.name}</h3><p className="text-zinc-500 text-xs mt-2 line-clamp-2 flex-1">{item.description || 'Clique para ver detalhes'}</p>{item.priceVariations && item.priceVariations.length > 0 && (<div className="mt-2 text-[10px] text-emerald-400 bg-emerald-900/20 px-2 py-1 rounded border border-emerald-500/20 inline-block w-fit"><Tag size={10} className="inline mr-1" /> Preços especiais p/ atacado</div>)}{item.type === 'art' && (<div className="mt-3 flex flex-wrap gap-2"><div className="flex items-center gap-1 text-[10px] text-purple-400 font-bold uppercase tracking-wider"><CloudDownload size={12} /> Digital</div>{item.subcategory && (<span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">{item.subcategory}</span>)}</div>)}</div></div>
+                <button onClick={(e) => { e.stopPropagation(); addToCartFromList(item); }} className="absolute top-3 right-3 bg-black/50 p-3 rounded-full text-white hover:bg-primary transition opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0">
+                    <ShoppingCart size={18} />
+                </button>
+            </div>
             )
         })}</div>
         {filteredItems.length === 0 && <div className="text-center py-20 opacity-50"><p>Nenhum item encontrado.</p>{activeTab === 'art' && <p className="text-xs mt-2">Tente outra aba ou categoria.</p>}</div>}
-        {cart.length > 0 && (<div className="fixed top-24 right-4 z-40 w-auto animate-fade-in-up"><div className="bg-zinc-900/90 backdrop-blur-md border border-primary/50 p-4 rounded-2xl shadow-2xl flex items-center justify-between gap-4"><div className="flex items-center gap-3"><div className="bg-primary text-white w-10 h-10 rounded-full flex items-center justify-center font-bold">{cart.length}</div><div className="flex flex-col"><span className="text-white text-sm font-bold">Carrinho</span><span className="text-zinc-400 text-xs">R$ {calculateFinalOrder().total.toFixed(2)}</span></div></div><button onClick={() => setStep('questionnaire')} className="bg-white text-black px-6 py-2.5 rounded-xl font-bold text-sm">Ver</button></div></div>)}
+         
     </div>
   );
 
@@ -624,7 +639,15 @@ export default function Shop() {
                 <h1 className="text-3xl font-bold text-white tracking-tight font-heading">{getHeaderTitle()}</h1>
             </div>
         </div>
+        <div className="flex items-center gap-4">
         {role === 'client' && currentCustomer && <div className="hidden sm:flex bg-zinc-900 px-4 py-2 rounded-full border border-zinc-800 items-center gap-3"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div><span className="text-xs text-zinc-400">Logado como <span className="text-white font-bold">{currentCustomer.name.split(' ')[0]}</span></span></div>}
+        {cart.length > 0 && (
+            <button onClick={() => setStep('questionnaire')} className="relative bg-zinc-900 p-3 rounded-full border border-zinc-800 text-white hover:border-primary transition">
+                <ShoppingCart size={20} />
+                <div className="absolute -top-1 -right-1 bg-primary text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-zinc-950">{cart.length}</div>
+            </button>
+        )}
+        </div>
       </div>
       <div className="max-w-7xl mx-auto">
           {role === 'guest' ? (

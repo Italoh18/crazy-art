@@ -101,10 +101,10 @@ export default function CustomerDetails() {
       setIsLoadingSecurity(true);
       setSecurityError('');
       try {
-          const emailToSend = type === 'email' ? newEmail : customer.email;
+          const emailToSend = type === 'email' ? newEmail : customer?.email;
           if (!emailToSend) throw new Error("Email inválido.");
           
-          await api.sendVerificationCode(customer.id, emailToSend, type);
+          await api.sendVerificationCode(customer!.id, emailToSend, type);
           setVerificationStep('verify');
       } catch (e: any) {
           setSecurityError(e.message || "Erro ao enviar código.");
@@ -117,8 +117,8 @@ export default function CustomerDetails() {
       setIsLoadingSecurity(true);
       setSecurityError('');
       try {
-          const emailToVerify = type === 'email' ? newEmail : customer.email;
-          await api.verifyCode(customer.id, emailToVerify, verificationCode, type);
+          const emailToVerify = type === 'email' ? newEmail : customer?.email;
+          await api.verifyCode(customer!.id, emailToVerify, verificationCode, type);
           setVerificationStep('update');
       } catch (e: any) {
           setSecurityError(e.message || "Código inválido.");
@@ -134,7 +134,7 @@ export default function CustomerDetails() {
       }
       setIsLoadingSecurity(true);
       try {
-          await api.updatePassword(customer.id, newPassword);
+          await api.updatePassword(customer!.id, newPassword);
           setIsPasswordModalOpen(false);
           alert("Senha atualizada com sucesso!");
       } catch (e: any) {
@@ -147,7 +147,7 @@ export default function CustomerDetails() {
   const handleUpdateEmail = async () => {
       setIsLoadingSecurity(true);
       try {
-          await api.updateEmail(customer.id, newEmail);
+          await api.updateEmail(customer!.id, newEmail);
           setIsEmailModalOpen(false);
           alert("Email atualizado com sucesso! Faça login novamente se necessário.");
           window.location.reload();
@@ -197,10 +197,10 @@ export default function CustomerDetails() {
       );
   }
 
-  const cloudUrl = customer.cloudLink || (customer as any).cloud_link;
+  const cloudUrl = customer?.cloudLink || (customer as any)?.cloud_link;
 
   const allCustomerOrders = orders
-    .filter(o => o.client_id === customer.id)
+    .filter(o => o.client_id === customer?.id)
     .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
 
   const today = new Date();
@@ -257,7 +257,7 @@ export default function CustomerDetails() {
   const totalOpen = _openOrders.reduce((acc, o) => acc + Number(o.total || 0), 0) + _overdueOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
   const totalOverdueValue = _overdueOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
 
-  const creditLimit = customer.creditLimit || 50;
+  const creditLimit = customer?.creditLimit || 50;
   const availableCredit = creditLimit - totalOpen;
   const usedPercentage = Math.min(100, (totalOpen / creditLimit) * 100);
   
@@ -305,8 +305,8 @@ export default function CustomerDetails() {
             orderId: orderIds.join(','),
             title: amount < (pendingPaymentData?.total || 0) ? `[PARCIAL] ${title}` : title,
             amount: amount,
-            payerEmail: customer.email,
-            payerName: customer.name
+            payerEmail: customer?.email,
+            payerName: customer?.name,
         });
 
         if (res && res.init_point) {
@@ -352,21 +352,21 @@ export default function CustomerDetails() {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      await updateCustomer(customer.id, formData);
+      await updateCustomer(customer!.id, formData);
       setIsEditModalOpen(false);
   };
   
   const openEditModal = () => {
       setFormData({
-          name: customer.name,
-          email: customer.email,
-          phone: customer.phone,
-          cpf: customer.cpf,
-          address: { ...customer.address },
-          creditLimit: customer.creditLimit,
+          name: customer?.name,
+          email: customer?.email,
+          phone: customer?.phone,
+          cpf: customer?.cpf,
+          address: { ...customer?.address },
+          creditLimit: customer?.creditLimit,
           cloudLink: cloudUrl,
-          isSubscriber: customer.isSubscriber,
-          subscriptionExpiresAt: customer.subscriptionExpiresAt ? customer.subscriptionExpiresAt.split('T')[0] : '',
+          isSubscriber: customer?.isSubscriber,
+          subscriptionExpiresAt: customer?.subscriptionExpiresAt ? customer.subscriptionExpiresAt.split('T')[0] : '',
           password: ''
       });
       setIsEditModalOpen(true);
@@ -532,26 +532,26 @@ export default function CustomerDetails() {
                 <div className="space-y-6">
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Nome Completo</label>
-                        <p className="text-white font-medium text-lg">{customer.name}</p>
+                        <p className="text-white font-medium text-lg">{customer?.name}</p>
                     </div>
 
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">CPF / CNPJ</label>
                         <div className="flex items-center gap-2">
-                            <p className="text-zinc-300 font-mono text-lg">{customer.cpf}</p>
+                            <p className="text-zinc-300 font-mono text-lg">{customer?.cpf}</p>
                             <Lock size={14} className="text-zinc-600" title="Não editável" />
                         </div>
                     </div>
 
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Telefone</label>
-                        <p className="text-zinc-300 font-mono text-lg">{customer.phone}</p>
+                        <p className="text-zinc-300 font-mono text-lg">{customer?.phone}</p>
                     </div>
 
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Email</label>
                         <div className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5">
-                            <p className="text-zinc-300 truncate">{customer.email || 'Não cadastrado'}</p>
+                            <p className="text-zinc-300 truncate">{customer?.email || 'Não cadastrado'}</p>
                             <button onClick={handleOpenEmailModal} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg transition font-bold">
                                 Trocar Email
                             </button>
@@ -571,7 +571,7 @@ export default function CustomerDetails() {
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Endereço</label>
                         <p className="text-zinc-300 leading-relaxed">
-                            {customer.address?.street ? `${customer.address.street}, ${customer.address.number} - ${customer.address.zipCode}` : 'Endereço não cadastrado'}
+                            {customer?.address?.street ? `${customer.address.street}, ${customer.address.number} - ${customer.address.zipCode}` : 'Endereço não cadastrado'}
                         </p>
                     </div>
                 </div>
@@ -661,7 +661,7 @@ export default function CustomerDetails() {
                     <div className="p-6 space-y-6">
                         {verificationStep === 'request' && (
                             <div className="text-center space-y-4">
-                                <p className="text-zinc-400 text-sm">Para sua segurança, enviaremos um código de verificação para seu email cadastrado: <span className="text-white font-bold">{customer.email}</span></p>
+                                <p className="text-zinc-400 text-sm">Para sua segurança, enviaremos um código de verificação para seu email cadastrado: <span className="text-white font-bold">{customer?.email}</span></p>
                                 <button onClick={() => handleSendCode('password')} disabled={isLoadingSecurity} className="w-full py-3 bg-primary hover:bg-amber-600 text-white rounded-xl font-bold transition flex items-center justify-center gap-2">
                                     {isLoadingSecurity ? <Loader2 className="animate-spin" size={18} /> : <Mail size={18} />}
                                     Enviar Código
