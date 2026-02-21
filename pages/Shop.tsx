@@ -309,6 +309,12 @@ export default function Shop() {
     setIsProcessing(true);
     try {
         const { items, total } = calculateFinalOrder();
+        const allServices = items.every(i => i.type === 'service');
+        
+        // Verifica se pode ser faturado automaticamente (Adicionar à Conta)
+        const openOrdersTotal = orders.filter(o => o.client_id === currentCustomer.id && o.status === 'open').reduce((a, o) => a + Number(o.total || 0), 0);
+        const willBeAutoPaid = allServices && (currentCustomer.creditLimit || 0) >= (openOrdersTotal + total);
+
         const orderData = {
             client_id: currentCustomer.id,
             description: cart.map(i => `${i.product.name} (x${i.quantity})`).join('; ') + 
@@ -318,13 +324,19 @@ export default function Shop() {
             items: items,
             total: total,
             size_list: sizeList.length > 0 ? JSON.stringify(sizeList) : null,
-            status: 'open', source: 'shop',
+            status: willBeAutoPaid ? 'paid' : 'open', 
+            source: 'shop',
             order_date: new Date().toISOString().split('T')[0],
             due_date: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
         };
         const res = await addOrder(orderData);
         setLastCreatedOrder({ ...res, items }); 
-        setStep('checkout');
+        
+        if (willBeAutoPaid) {
+            setStep('success');
+        } else {
+            setStep('checkout');
+        }
     } finally { setIsProcessing(false); }
   };
 
@@ -579,7 +591,22 @@ export default function Shop() {
                     <div className="pt-6 space-y-4">
                         <div className={canAddToAccount ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-4"}>
                             {canAddToAccount && (
-                                <button onClick={() => setStep('success')} className="w-full bg-zinc-100 text-black py-4 rounded-2xl font-bold hover:bg-white transition flex items-center justify-center gap-3 shadow-xl uppercase tracking-wider text-xs sm:text-sm"><Wallet size={18} /> Adicionar à Conta</button>
+                                <button 
+                                    onClick={async () => {
+                                        if (!lastCreatedOrder) return;
+                                        setIsProcessing(true);
+                                        try {
+                                            await api.updateOrder(lastCreatedOrder.id, { status: 'paid' });
+                                            setStep('success');
+                                        } finally {
+                                            setIsProcessing(false);
+                                        }
+                                    }} 
+                                    disabled={isProcessing}
+                                    className="w-full bg-zinc-100 text-black py-4 rounded-2xl font-bold hover:bg-white transition flex items-center justify-center gap-3 shadow-xl uppercase tracking-wider text-xs sm:text-sm"
+                                >
+                                    {isProcessing ? <Loader2 className="animate-spin" /> : <Wallet size={18} />} Adicionar à Conta
+                                </button>
                             )}
                             <button 
                                 onClick={handlePayMercadoPago} 

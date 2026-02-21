@@ -15,17 +15,14 @@ export default function PendingOrders() {
 
   /**
    * REGRAS PARA FILA DE PRODUÇÃO:
-   * 1. Pedido não confirmado (is_confirmed !== 1).
-   * 2. Pedido não cancelado.
-   * 3. ORIGEM OBRIGATÓRIA: Deve vir da loja (source === 'shop').
+   * 1. Pedido não finalizado ou cancelado.
    */
   const pendingOrders = useMemo(() => {
     return orders.filter(o => {
       // Pedido já finalizado ou cancelado? Fora.
-      if (o.is_confirmed === 1 || o.status === 'cancelled') return false;
+      if (o.status === 'finished' || o.status === 'cancelled') return false;
 
-      // Filtro solicitado: APENAS pedidos feitos a partir da loja
-      return o.source === 'shop';
+      return true;
     }).sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime());
   }, [orders]);
 
@@ -34,9 +31,13 @@ export default function PendingOrders() {
     (o.formattedOrderNumber || '').includes(searchTerm)
   );
 
+  const handleUpdateStatus = async (orderId: string, status: any) => {
+    await updateOrder(orderId, { status });
+  };
+
   const handleConfirm = async (orderId: string) => {
-    if (confirm("Marcar pedido como concluído e remover da fila de pendentes?")) {
-        await updateOrder(orderId, { is_confirmed: 1 });
+    if (confirm("Marcar pedido como FINALIZADO e remover da fila de produção?")) {
+        await updateOrder(orderId, { status: 'finished' });
     }
   };
 
@@ -97,9 +98,21 @@ export default function PendingOrders() {
                                      <ListChecks size={12} /> POSSUI LISTA
                                  </span>
                              )}
-                             <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border ${order.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
-                                 {order.status === 'paid' ? 'PAGO' : 'AGUARD. PGTO'}
-                             </span>
+                             <select 
+                                value={order.status}
+                                onChange={(e) => handleUpdateStatus(order.id, e.target.value)}
+                                className={`text-[10px] font-bold px-2 py-1 rounded-lg border bg-zinc-950 outline-none cursor-pointer transition-colors ${
+                                    order.status === 'paid' ? 'border-emerald-500/30 text-emerald-400' :
+                                    order.status === 'production' ? 'border-blue-500/30 text-blue-400' :
+                                    order.status === 'revision' ? 'border-amber-500/30 text-amber-400' :
+                                    'border-zinc-700 text-zinc-500'
+                                }`}
+                             >
+                                <option value="open">ABERTO</option>
+                                <option value="paid">PAGO</option>
+                                <option value="production">EM PRODUÇÃO</option>
+                                <option value="revision">EM ALTERAÇÃO</option>
+                             </select>
                           </div>
 
                           <div className="pt-4 border-t border-zinc-800 flex gap-2">
@@ -192,8 +205,8 @@ export default function PendingOrders() {
                       <button onClick={() => window.print()} className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2">
                           <Download size={18} /> IMPRIMIR
                       </button>
-                      <button onClick={() => handleConfirm(viewingOrder.id)} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-emerald-900/20">
-                          MARCAR COMO PRONTO
+                      <button onClick={() => handleConfirm(viewingOrder.id)} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-purple-900/20">
+                          FINALIZAR PEDIDO
                       </button>
                   </div>
               </div>

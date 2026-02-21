@@ -470,6 +470,7 @@ export default function CustomerDetails() {
 
   const handleFinalizeOrder = async () => {
       if (orderItems.length === 0 && !newOrderData.description) return;
+      const allServices = orderItems.every(i => i.type === 'service');
       const payload = {
           client_id: customer.id,
           description: newOrderData.description || `Pedido com ${orderItems.length} itens`,
@@ -477,7 +478,7 @@ export default function CustomerDetails() {
           due_date: newOrderData.dueDate,
           items: orderItems,
           total: orderTotal,
-          status: 'open'
+          status: allServices ? 'paid' : 'open'
       };
       if (editingOrderId) await updateOrder(editingOrderId, payload);
       else await addOrder(payload);
@@ -499,9 +500,83 @@ export default function CustomerDetails() {
   };
 
   const renderStatusBadge = (status: string, isLate: boolean) => {
-      if (status === 'paid') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-wide">Pago</span>;
-      if (isLate) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wide">Atrasado</span>;
-      return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Aberto</span>;
+      switch(status) {
+          case 'paid': return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-wide">Pago</span>;
+          case 'production': return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20 uppercase tracking-wide">Em Produção</span>;
+          case 'revision': return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Em Alteração</span>;
+          case 'finished': return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-500 border border-purple-500/20 uppercase tracking-wide">Finalizado</span>;
+          case 'cancelled': return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wide">Cancelado</span>;
+          default: 
+              if (isLate) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wide">Atrasado</span>;
+              return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Aberto</span>;
+      }
+  };
+
+  const OrderProgress = ({ status, items }: { status: string, items?: any[] }) => {
+    const stages = [
+        { id: 'open', label: 'Pedido Realizado' },
+        { id: 'paid', label: 'Pago' },
+        { id: 'production', label: 'Em Produção' },
+        { id: 'revision', label: 'Em Alteração' },
+        { id: 'finished', label: 'Finalizado' }
+    ];
+
+    const getStatusIndex = (s: string) => {
+        if (s === 'cancelled') return -1;
+        const idx = stages.findIndex(stage => stage.id === s);
+        if (idx !== -1) return idx;
+        if (s === 'open') return 0;
+        if (s === 'paid') return 1;
+        if (s === 'production') return 2;
+        if (s === 'revision') return 3;
+        if (s === 'finished') return 4;
+        return 0;
+    };
+
+    const currentIndex = getStatusIndex(status);
+    const isServiceOnly = items?.every(i => i.type === 'service');
+
+    return (
+        <div className="w-full py-6 px-2">
+            <div className="relative flex justify-between">
+                <div className="absolute top-3.5 left-0 w-full h-0.5 bg-zinc-800 z-0"></div>
+                <div 
+                    className="absolute top-3.5 left-0 h-0.5 bg-primary z-0 transition-all duration-700 ease-in-out"
+                    style={{ width: currentIndex >= 0 ? `${(currentIndex / (stages.length - 1)) * 100}%` : '0%' }}
+                ></div>
+
+                {stages.map((stage, idx) => {
+                    const isActive = idx <= currentIndex;
+                    const isCurrent = idx === currentIndex;
+                    const isPaidStage = stage.id === 'paid';
+                    const useRed = isPaidStage && isCurrent && isServiceOnly;
+
+                    return (
+                        <div key={stage.id} className="relative z-10 flex flex-col items-center">
+                            <div 
+                                className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${
+                                    isActive 
+                                        ? (useRed ? 'bg-red-600 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.6)]' : 'bg-primary border-primary shadow-[0_0_10px_rgba(245,158,11,0.4)]')
+                                        : 'bg-zinc-900 border-zinc-800'
+                                }`}
+                            >
+                                {isActive ? (
+                                    <Check size={12} className="text-white" strokeWidth={3} />
+                                ) : (
+                                    <div className="w-1.5 h-1.5 rounded-full bg-zinc-700"></div>
+                                )}
+                            </div>
+                            <span className={`text-[8px] font-black uppercase tracking-tighter mt-2 text-center max-w-[60px] leading-none ${
+                                isActive ? (useRed ? 'text-red-400' : 'text-white') : 'text-zinc-600'
+                            }`}>
+                                {stage.label}
+                            </span>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
   };
 
   const renderClientView = () => {
@@ -1128,6 +1203,12 @@ export default function CustomerDetails() {
                     </div>
 
                     <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
+                        {/* Stepper de Progresso */}
+                        <div className="bg-zinc-950/50 border border-white/5 rounded-2xl p-4">
+                            <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Progresso do Pedido</h3>
+                            <OrderProgress status={viewingOrder.status} items={viewingOrder.items} />
+                        </div>
+
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5"><span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Data do Pedido</span><span className="text-white font-mono text-sm">{new Date(viewingOrder.order_date).toLocaleDateString()}</span></div>
                             <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5"><span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Vencimento</span><span className={`font-mono text-sm ${new Date(viewingOrder.due_date) < new Date() && viewingOrder.status === 'open' ? 'text-red-400 font-bold' : 'text-white'}`}>{new Date(viewingOrder.due_date).toLocaleDateString()}</span></div>

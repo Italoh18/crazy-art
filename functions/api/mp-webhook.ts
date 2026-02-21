@@ -125,8 +125,16 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                 .bind(newLimit, orderInfo.client_id).run();
 
             // 3. Atualiza Pedido para Pago
-            await env.DB.prepare("UPDATE orders SET status = 'paid', paid_at = ? WHERE id = ?")
-                .bind(nowTs, orderId).run();
+            // Verifica se possui produtos para mover para produção automaticamente
+            const { results: items } = await env.DB.prepare(`
+                SELECT type FROM order_items WHERE order_id = ?
+            `).bind(orderId).all();
+            
+            const hasProducts = (items || []).some((i: any) => i.type === 'product');
+            const newStatus = hasProducts ? 'production' : 'paid';
+
+            await env.DB.prepare("UPDATE orders SET status = ?, paid_at = ? WHERE id = ?")
+                .bind(newStatus, nowTs, orderId).run();
             
             const formattedNum = String(orderInfo.order_number).padStart(5, '0');
                 
