@@ -324,7 +324,7 @@ export default function Shop() {
             items: items,
             total: total,
             size_list: sizeList.length > 0 ? JSON.stringify(sizeList) : null,
-            status: willBeAutoPaid ? 'paid' : 'open', 
+            status: willBeAutoPaid ? 'production' : 'open', 
             source: 'shop',
             order_date: new Date().toISOString().split('T')[0],
             due_date: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],

@@ -220,7 +220,7 @@ export default function ClientOrders() {
       }
   };
 
-  const OrderProgress = ({ status, items }: { status: string, items?: any[] }) => {
+  const OrderProgress = ({ status, items, paidAt }: { status: string, items?: any[], paidAt?: string | null }) => {
     const stages = [
         { id: 'open', label: 'Pedido Realizado' },
         { id: 'paid', label: 'Pago' },
@@ -243,7 +243,6 @@ export default function ClientOrders() {
     };
 
     const currentIndex = getStatusIndex(status);
-    const isServiceOnly = items?.every(i => i.type === 'service');
 
     return (
         <div className="w-full py-8 px-2">
@@ -258,10 +257,9 @@ export default function ClientOrders() {
 
                 {stages.map((stage, idx) => {
                     const isActive = idx <= currentIndex;
-                    const isCurrent = idx === currentIndex;
                     const isPaidStage = stage.id === 'paid';
-                    // Regra: Pago em vermelho se for serviço e estiver no status pago
-                    const useRed = isPaidStage && isCurrent && isServiceOnly;
+                    // Regra: Pago em vermelho se estiver ativo mas não houver data de pagamento (crédito)
+                    const useRed = isPaidStage && isActive && !paidAt;
 
                     return (
                         <div key={stage.id} className="relative z-10 flex flex-col items-center">
@@ -574,7 +572,7 @@ export default function ClientOrders() {
                         {/* Stepper de Progresso */}
                         <div className="bg-zinc-950/50 border border-white/5 rounded-2xl p-4">
                             <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Status do Pedido</h3>
-                            <OrderProgress status={viewingOrder.status} items={viewingOrder.items} />
+                            <OrderProgress status={viewingOrder.status} items={viewingOrder.items} paidAt={viewingOrder.paid_at} />
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -478,7 +478,7 @@ export default function CustomerDetails() {
           due_date: newOrderData.dueDate,
           items: orderItems,
           total: orderTotal,
-          status: allServices ? 'paid' : 'open'
+          status: allServices ? 'production' : 'open'
       };
       if (editingOrderId) await updateOrder(editingOrderId, payload);
       else await addOrder(payload);
@@ -512,7 +512,7 @@ export default function CustomerDetails() {
       }
   };
 
-  const OrderProgress = ({ status, items }: { status: string, items?: any[] }) => {
+  const OrderProgress = ({ status, items, paidAt }: { status: string, items?: any[], paidAt?: string | null }) => {
     const stages = [
         { id: 'open', label: 'Pedido Realizado' },
         { id: 'paid', label: 'Pago' },
@@ -534,7 +534,6 @@ export default function CustomerDetails() {
     };
 
     const currentIndex = getStatusIndex(status);
-    const isServiceOnly = items?.every(i => i.type === 'service');
 
     return (
         <div className="w-full py-6 px-2">
@@ -547,9 +546,9 @@ export default function CustomerDetails() {
 
                 {stages.map((stage, idx) => {
                     const isActive = idx <= currentIndex;
-                    const isCurrent = idx === currentIndex;
                     const isPaidStage = stage.id === 'paid';
-                    const useRed = isPaidStage && isCurrent && isServiceOnly;
+                    // Regra: Pago em vermelho se estiver ativo mas não houver data de pagamento (crédito)
+                    const useRed = isPaidStage && isActive && !paidAt;
 
                     return (
                         <div key={stage.id} className="relative z-10 flex flex-col items-center">
@@ -1206,7 +1205,7 @@ export default function CustomerDetails() {
                         {/* Stepper de Progresso */}
                         <div className="bg-zinc-950/50 border border-white/5 rounded-2xl p-4">
                             <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Progresso do Pedido</h3>
-                            <OrderProgress status={viewingOrder.status} items={viewingOrder.items} />
+                            <OrderProgress status={viewingOrder.status} items={viewingOrder.items} paidAt={viewingOrder.paid_at} />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
