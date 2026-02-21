@@ -356,6 +356,30 @@ export default function Shop() {
     }
   };
 
+  const handleSubscriptionPayment = async () => {
+    if (role !== 'client' || !currentCustomer) {
+        setNotification({ message: 'Por favor, faça login para assinar.', type: 'error' });
+        return;
+    }
+    setIsProcessing(true);
+    try {
+        const res = await api.createPayment({
+            orderId: currentCustomer.id,
+            title: 'Assinatura Crazy Art - Downloads Ilimitados',
+            amount: 20.00,
+            payerEmail: currentCustomer.email,
+            payerName: currentCustomer.name,
+            type: 'subscription'
+        });
+        if (res?.init_point) {
+            window.location.href = res.init_point;
+        }
+    } catch (e: any) {
+        setNotification({ message: 'Erro ao gerar pagamento: ' + e.message, type: 'error' });
+        setIsProcessing(false);
+    }
+  };
+
   const canAddToAccount = useMemo(() => {
     if (!currentCustomer || !lastCreatedOrder) return false;
     const { items } = calculateFinalOrder();
@@ -381,6 +405,36 @@ export default function Shop() {
                         Ir para Loja Geral <ArrowUpRight size={12} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                     </button>
                 </div>
+
+                {!isSubscriber && (
+                    <button 
+                        onClick={handleSubscriptionPayment}
+                        disabled={isProcessing}
+                        className="w-full bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 p-[1px] rounded-2xl group hover:scale-[1.02] transition-all duration-500 shadow-xl shadow-purple-500/20 active:scale-95 mb-4"
+                    >
+                        <div className="bg-zinc-950 rounded-2xl px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 group-hover:bg-zinc-900 transition-colors">
+                            <div className="flex items-center gap-4">
+                                <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-3 rounded-xl text-white shadow-lg">
+                                    <Crown size={24} />
+                                </div>
+                                <div className="text-left">
+                                    <h4 className="text-white font-black text-lg uppercase tracking-tighter leading-none">Assinatura Crazy Art</h4>
+                                    <p className="text-zinc-400 text-[10px] uppercase tracking-widest mt-1">Downloads grátis ilimitados das artes da quitanda</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                    <span className="block text-zinc-500 text-[10px] uppercase font-bold">Apenas</span>
+                                    <span className="text-2xl font-black text-white">R$ 20<span className="text-sm font-normal text-zinc-500">/mês</span></span>
+                                </div>
+                                <div className="bg-white text-black px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest group-hover:bg-primary group-hover:text-white transition-all flex items-center gap-2">
+                                    {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <Zap size={16} />} Assinar Agora
+                                </div>
+                            </div>
+                        </div>
+                    </button>
+                )}
+
                 {latestArts.length > 0 && (
                     <div className="w-full bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 mb-4">
                         <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-2 px-1"><Sparkles size={12} className="text-primary" /> Últimas Artes Adicionadas</h3>

@@ -7,24 +7,30 @@ export interface Env {
 export const onRequestPost: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
     const body = await request.json() as any;
-    const { orderId, title, amount, payerEmail, payerName } = body;
+    const { orderId, title, amount, payerEmail, payerName, type: paymentType } = body;
 
     if (!env.MP_ACCESS_TOKEN) {
       console.error("[CreatePayment] Token ausente.");
       return new Response(JSON.stringify({ error: 'Erro de configuração (Token).' }), { status: 500 });
     }
 
-    if (!orderId || !amount) {
+    if (!orderId && paymentType !== 'subscription') {
       return new Response(JSON.stringify({ error: 'Dados do pedido ausentes.' }), { status: 400 });
     }
 
+    if (!amount) {
+      return new Response(JSON.stringify({ error: 'Valor ausente.' }), { status: 400 });
+    }
+
     // Limpeza de IDs
-    const cleanOrderId = String(orderId).split(',').map(id => id.trim()).join(',');
+    const cleanOrderId = String(orderId || '').split(',').map(id => id.trim()).join(',');
     const isMultiple = cleanOrderId.includes(',');
     
     let externalRef = cleanOrderId;
 
-    if (isMultiple) {
+    if (paymentType === 'subscription') {
+        externalRef = `SUB_${orderId}`; // Aqui orderId é na verdade o clientId
+    } else if (isMultiple) {
         const batchId = crypto.randomUUID();
         const now = new Date().toISOString();
         try {

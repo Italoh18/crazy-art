@@ -35,6 +35,25 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
       const reference = paymentData.external_reference;
 
       if (reference) {
+        if (reference.startsWith('SUB_')) {
+          const clientId = reference.replace('SUB_', '');
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + 30); // 30 dias de assinatura
+          
+          await env.DB.prepare(
+            "UPDATE clients SET is_subscriber = 1, subscription_expires_at = ? WHERE id = ?"
+          ).bind(expiresAt.toISOString(), clientId).first();
+
+          // Notificação de Assinatura
+          await env.DB.prepare(`
+            INSERT INTO notifications (
+                id, target_role, user_id, type, title, message, created_at, is_read
+            ) VALUES (?, 'client', ?, 'success', 'Assinatura Ativada', 'Sua assinatura Crazy Art foi ativada com sucesso! Aproveite downloads ilimitados.', ?, 0)
+          `).bind(crypto.randomUUID(), clientId, nowTs).run();
+
+          return new Response('OK', { status: 200 });
+        }
+
         let orderIds: string[] = [];
 
         try {

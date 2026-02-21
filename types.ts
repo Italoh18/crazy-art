@@ -13,6 +13,7 @@ export interface Customer {
   cloudLink?: string; 
   creditLimit?: number;
   isSubscriber?: boolean; 
+  subscriptionExpiresAt?: string;
   created_at: string;
 }
 

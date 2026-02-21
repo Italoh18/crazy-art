@@ -11,7 +11,8 @@ export type TemplateType =
   | 'newOrderAdmin' 
   | 'paymentConfirmedAdmin' 
   | 'overdueClient' 
-  | 'overdueAdmin';
+  | 'overdueAdmin'
+  | 'subscriptionExpiring';
 
 // Helper para formatar o remetente corretamente
 const getSender = (env: any) => {
@@ -138,6 +139,23 @@ const defaultTemplates = {
         <h2 style="color: #DC2626;">⚠️ Pedido em Atraso</h2>
         <p>O pedido <strong>#${vars.orderNumber}</strong> do cliente <strong>${vars.customerName}</strong> está vencido.</p>
         <p><strong>Vencimento:</strong> ${vars.dueDate}</p>
+      </div>
+    `
+  }),
+
+  subscriptionExpiring: (vars: any) => ({
+    subject: `Sua Assinatura Crazy Art está expirando!`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; line-height: 1.6; max-width: 600px;">
+        <h2 style="color: #A855F7;">Olá, ${vars.customerName}!</h2>
+        <p>Sua assinatura <strong>Crazy Art</strong> expira em <strong>${vars.daysLeft}</strong>.</p>
+        <p>Renove agora para continuar aproveitando downloads grátis ilimitados de todas as artes da nossa quitanda.</p>
+        <div style="background: #f3e8ff; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #d8b4fe;">
+          <p style="margin: 0; font-size: 16px; color: #6b21a8;"><strong>Benefício:</strong> Downloads Ilimitados</p>
+        </div>
+        <p>Acesse a loja e clique no botão de assinatura para renovar por apenas R$ 20,00.</p>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #777;">Crazy Art Studio</p>
       </div>
     `
   })

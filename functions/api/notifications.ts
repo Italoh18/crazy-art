@@ -101,7 +101,53 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           }
         }
 
-        // 2. BUSCAR NOTIFICAÇÕES REAIS
+        // 2. VERIFICAÇÃO DE ASSINATURAS EXPIRANDO
+        if (user.role === 'client' && user.clientId) {
+            const client: any = await env.DB.prepare(
+                "SELECT id, name, email, subscription_expires_at FROM clients WHERE id = ? AND is_subscriber = 1"
+            ).bind(user.clientId).first();
+
+            if (client && client.subscription_expires_at) {
+                const expiresAt = new Date(client.subscription_expires_at);
+                const now = new Date();
+                const diffTime = expiresAt.getTime() - now.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                // Se faltar 2 dias ou menos (28 dias se passaram)
+                if (diffDays <= 2 && diffDays > -5) {
+                    const refId = `sub_expiring_${client.id}_${client.subscription_expires_at.substring(0, 10)}`;
+                    const existing = await env.DB.prepare("SELECT id FROM notifications WHERE reference_id = ?").bind(refId).first();
+
+                    if (!existing) {
+                        const message = `Sua assinatura Crazy Art expira em ${diffDays <= 0 ? 'hoje' : diffDays + ' dias'}. Renove agora para manter seus benefícios!`;
+                        
+                        await env.DB.prepare(`
+                            INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, reference_id, is_read)
+                            VALUES (?, 'client', ?, 'warning', 'Assinatura Expirando', ?, ?, ?, 0)
+                        `).bind(crypto.randomUUID(), client.id, message, now.toISOString(), refId).run();
+
+                        if (client.email) {
+                            const emailData = await getRenderedTemplate(env, 'subscriptionExpiring', {
+                                customerName: client.name,
+                                daysLeft: diffDays <= 0 ? 'hoje' : diffDays
+                            });
+                            await sendEmail(env, {
+                                to: client.email,
+                                subject: emailData.subject,
+                                html: emailData.html
+                            });
+                        }
+                    }
+                }
+
+                // Se já expirou há mais de 1 dia, desativa
+                if (diffDays < 0) {
+                    await env.DB.prepare("UPDATE clients SET is_subscriber = 0 WHERE id = ?").bind(client.id).run();
+                }
+            }
+        }
+
+        // 3. BUSCAR NOTIFICAÇÕES REAIS
         let query = "SELECT * FROM notifications WHERE ";
         let params: any[] = [];
 

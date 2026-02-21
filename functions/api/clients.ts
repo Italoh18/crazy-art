@@ -11,14 +11,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       if (!user) return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
       if (id) {
         // Mapeia cloud_link snake_case para cloudLink camelCase no objeto único
-        const client: any = await env.DB.prepare('SELECT *, cloud_link as cloudLink, is_subscriber as isSubscriber FROM clients WHERE id = ?').bind(String(id)).first();
+        const client: any = await env.DB.prepare('SELECT *, cloud_link as cloudLink, is_subscriber as isSubscriber, subscription_expires_at as subscriptionExpiresAt FROM clients WHERE id = ?').bind(String(id)).first();
         return Response.json(client);
       }
       
       // Mapeia cloud_link snake_case para cloudLink camelCase na lista
       const { results } = await env.DB.prepare(`
         SELECT 
-          id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link as cloudLink, is_subscriber as isSubscriber
+          id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link as cloudLink, is_subscriber as isSubscriber, subscription_expires_at as subscriptionExpiresAt
         FROM clients ORDER BY created_at DESC
       `).all();
       
