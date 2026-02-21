@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS clients (
     creditLimit REAL DEFAULT 0,
     cloud_link TEXT,
     is_subscriber INTEGER DEFAULT 0, 
+    password_hash TEXT,
     created_at TEXT NOT NULL
 );
 

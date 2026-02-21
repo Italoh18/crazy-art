@@ -12,6 +12,7 @@ export default function Home() {
   const [loginMode, setLoginMode] = useState<'client' | 'admin'>('client');
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [error, setError] = useState('');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [gameMode, setGameMode] = useState(false);
@@ -120,11 +121,11 @@ export default function Home() {
         setError('Código de acesso inválido.');
       }
     } else {
-      const success = await loginClient(inputValue);
+      const success = await loginClient(inputValue, loginPassword);
       if (success) {
         setIsModalOpen(false);
       } else {
-        setError('Documento (CPF/CNPJ) não encontrado.');
+        setError('E-mail ou senha incorretos.');
       }
     }
   };
@@ -158,7 +159,7 @@ export default function Home() {
             password: regData.password // Pass password to addCustomer
         });
         
-        const success = await loginClient(regData.cpf);
+        const success = await loginClient(regData.email, regData.password);
         if (success) {
             setIsModalOpen(false);
         } else {
@@ -197,7 +198,7 @@ export default function Home() {
 
   const handleLoginInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (loginMode === 'client') {
-          setInputValue(maskDocument(e.target.value));
+          setInputValue(e.target.value);
       } else {
           setInputValue(e.target.value);
       }
@@ -592,18 +593,29 @@ export default function Home() {
                         {loginMode === 'client' ? <User className="text-primary" size={40} strokeWidth={1.5} /> : <Lock className="text-secondary" size={40} strokeWidth={1.5} />}
                     </div>
                     <h2 className="text-2xl font-bold text-white uppercase tracking-wide" style={headerFont}>{loginMode === 'client' ? 'Área do Cliente' : 'Acesso Adm'}</h2>
-                    <p className="text-zinc-500 text-sm mt-2">{loginMode === 'client' ? 'Entre com seu CPF ou CNPJ' : 'Digite o código administrativo'}</p>
+                    <p className="text-zinc-500 text-sm mt-2">{loginMode === 'client' ? 'Entre com seu e-mail e senha' : 'Digite o código administrativo'}</p>
                 </div>
                 
                 <form onSubmit={handleLogin} className="space-y-5 relative z-10">
-                    <input 
-                        type={loginMode === 'client' ? "text" : "password"} 
-                        placeholder={loginMode === 'client' ? "000.000.000-00" : "Código de Acesso"} 
-                        className="w-full bg-black/50 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-widest font-mono" 
-                        value={inputValue} 
-                        onChange={handleLoginInputChange} 
-                        autoFocus 
-                    />
+                    <div className="space-y-4">
+                        <input 
+                            type="text" 
+                            placeholder={loginMode === 'client' ? "E-mail" : "Código de Acesso"} 
+                            className="w-full bg-black/50 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-wider" 
+                            value={inputValue} 
+                            onChange={handleLoginInputChange} 
+                            autoFocus 
+                        />
+                        {loginMode === 'client' && (
+                            <input 
+                                type="password" 
+                                placeholder="Sua Senha" 
+                                className="w-full bg-black/50 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-wider" 
+                                value={loginPassword} 
+                                onChange={(e) => setLoginPassword(e.target.value)} 
+                            />
+                        )}
+                    </div>
                     {error && <div className="text-red-500 text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20 animate-pulse text-xs font-bold">{error}</div>}
                     <button type="submit" className="w-full bg-zinc-100 text-black font-bold py-4 rounded-xl hover:bg-white transition-all transform active:scale-95 uppercase tracking-wider text-sm btn-active-effect shadow-xl">Entrar</button>
                 </form>

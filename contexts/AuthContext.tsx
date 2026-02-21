@@ -10,7 +10,7 @@ interface AuthContextType {
   role: UserRole;
   currentCustomer: Customer | null;
   loginAdmin: (code: string) => Promise<boolean>;
-  loginClient: (cpf: string) => Promise<boolean>;
+  loginClient: (emailOrCpf: string, password?: string) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -48,9 +48,10 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
     return false;
   };
 
-  const loginClient = async (cpf: string) => {
+  const loginClient = async (emailOrCpf: string, password?: string) => {
     try {
-        const data = await api.auth({ cpf });
+        const payload = password ? { email: emailOrCpf, password } : { cpf: emailOrCpf };
+        const data = await api.auth(payload);
         if (data.token && data.customer) {
             setRole('client');
             setCurrentCustomer(data.customer);

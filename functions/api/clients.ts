@@ -1,15 +1,14 @@
 
-import { Env, getAuth } from './_auth';
+import { Env, getAuth, hashPassword } from './_auth';
 
 export const onRequest: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
     const user = await getAuth(request, env);
-    if (!user) return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
-
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
 
     if (request.method === 'GET') {
+      if (!user) return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
       if (id) {
         // Mapeia cloud_link snake_case para cloudLink camelCase no objeto único
         const client: any = await env.DB.prepare('SELECT *, cloud_link as cloudLink, is_subscriber as isSubscriber FROM clients WHERE id = ?').bind(String(id)).first();
@@ -27,7 +26,6 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     }
 
     if (request.method === 'POST') {
-      if (user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
       const body = await request.json() as any;
       
       const cpf = String(body.cpf || '').trim();
@@ -37,9 +35,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const newId = crypto.randomUUID();
       const now = new Date().toISOString();
       
-      // Adicionado cloud_link e is_subscriber no INSERT
+      const passwordHash = body.password ? await hashPassword(body.password) : null;
+      
+      // Se não for admin, creditLimit e isSubscriber são forçados a 0
+      const creditLimit = user?.role === 'admin' ? (parseFloat(body.creditLimit) || 0) : 0;
+      const isSubscriber = user?.role === 'admin' ? (body.isSubscriber ? 1 : 0) : 0;
+
       await env.DB.prepare(
-        'INSERT INTO clients (id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link, is_subscriber) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO clients (id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link, is_subscriber, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
         newId,
         String(body.name || '').trim(),
@@ -49,38 +52,58 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         body.address?.street ? String(body.address.street).trim() : null,
         body.address?.number ? String(body.address.number).trim() : null,
         body.address?.zipCode ? String(body.address.zipCode).trim() : null,
-        parseFloat(body.creditLimit) || 0,
+        creditLimit,
         now,
         body.cloudLink ? String(body.cloudLink).trim() : null,
-        body.isSubscriber ? 1 : 0
+        isSubscriber,
+        passwordHash
       ).run();
 
       return Response.json({ success: true, id: newId });
     }
 
     if (request.method === 'PUT' && id) {
+      if (!user) return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
       const body = await request.json() as any;
       
-      // Adicionado cloud_link e is_subscriber no UPDATE
-      await env.DB.prepare(
-        'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=?, creditLimit=?, cloud_link=?, is_subscriber=? WHERE id=?'
-      ).bind(
-        String(body.name || '').trim(),
-        body.email ? String(body.email).trim() : null,
-        body.phone ? String(body.phone).trim() : null,
-        body.address?.street ? String(body.address.street).trim() : null,
-        body.address?.number ? String(body.address.number).trim() : null,
-        body.address?.zipCode ? String(body.address.zipCode).trim() : null,
-        parseFloat(body.creditLimit) || 0,
-        body.cloudLink ? String(body.cloudLink).trim() : null,
-        body.isSubscriber ? 1 : 0,
-        String(id)
-      ).run();
+      // Apenas admin pode mudar creditLimit e isSubscriber
+      if (user.role === 'admin') {
+        await env.DB.prepare(
+          'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=?, creditLimit=?, cloud_link=?, is_subscriber=? WHERE id=?'
+        ).bind(
+          String(body.name || '').trim(),
+          body.email ? String(body.email).trim() : null,
+          body.phone ? String(body.phone).trim() : null,
+          body.address?.street ? String(body.address.street).trim() : null,
+          body.address?.number ? String(body.address.number).trim() : null,
+          body.address?.zipCode ? String(body.address.zipCode).trim() : null,
+          parseFloat(body.creditLimit) || 0,
+          body.cloudLink ? String(body.cloudLink).trim() : null,
+          body.isSubscriber ? 1 : 0,
+          String(id)
+        ).run();
+      } else if (user.clientId === id) {
+        // Cliente pode atualizar seus próprios dados (exceto creditLimit e isSubscriber)
+        await env.DB.prepare(
+          'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=? WHERE id=?'
+        ).bind(
+          String(body.name || '').trim(),
+          body.email ? String(body.email).trim() : null,
+          body.phone ? String(body.phone).trim() : null,
+          body.address?.street ? String(body.address.street).trim() : null,
+          body.address?.number ? String(body.address.number).trim() : null,
+          body.address?.zipCode ? String(body.address.zipCode).trim() : null,
+          String(id)
+        ).run();
+      } else {
+        return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
+      }
+      
       return Response.json({ success: true });
     }
 
     if (request.method === 'DELETE' && id) {
-      if (user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
+      if (!user || user.role !== 'admin') return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
       await env.DB.prepare('DELETE FROM clients WHERE id = ?').bind(String(id)).run();
       return Response.json({ success: true });
     }

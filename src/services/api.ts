@@ -34,7 +34,7 @@ const handleResponse = async (res: Response) => {
 };
 
 export const api = {
-  async auth(payload: { code?: string, cpf?: string }) {
+  async auth(payload: { code?: string, cpf?: string, email?: string, password?: string }) {
     const res = await fetch('/api/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
