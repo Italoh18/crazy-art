@@ -15,14 +15,17 @@ export default function PendingOrders() {
 
   /**
    * REGRAS PARA FILA DE PRODUÇÃO:
-   * 1. Pedido não finalizado ou cancelado.
+   * 1. Pedido não confirmado (is_confirmed !== 1).
+   * 2. Pedido não cancelado.
+   * 3. ORIGEM OBRIGATÓRIA: Deve vir da loja (source === 'shop').
    */
   const pendingOrders = useMemo(() => {
     return orders.filter(o => {
       // Pedido já finalizado ou cancelado? Fora.
-      if (o.status === 'finished' || o.status === 'cancelled') return false;
+      if (o.is_confirmed === 1 || o.status === 'cancelled') return false;
 
-      return true;
+      // Filtro solicitado: APENAS pedidos feitos a partir da loja
+      return o.source === 'shop';
     }).sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime());
   }, [orders]);
 
@@ -31,88 +34,10 @@ export default function PendingOrders() {
     (o.formattedOrderNumber || '').includes(searchTerm)
   );
 
-  const handleUpdateStatus = async (orderId: string, status: any) => {
-    await updateOrder(orderId, { status });
-  };
-
   const handleConfirm = async (orderId: string) => {
-    if (confirm("Marcar pedido como FINALIZADO e remover da fila de produção?")) {
-        await updateOrder(orderId, { status: 'finished' });
+    if (confirm("Marcar pedido como concluído e remover da fila de pendentes?")) {
+        await updateOrder(orderId, { is_confirmed: 1 });
     }
-  };
-
-  const OrderProgress = ({ order }: { order: Order }) => {
-    const stages = [
-        { id: 'open', label: 'Aberto' },
-        { id: 'paid', label: 'Pago' },
-        { id: 'production', label: 'Produção' },
-        { id: 'revision', label: 'Alteração' },
-        { id: 'finished', label: 'Pronto' }
-    ];
-
-    const getStatusIndex = (s: string) => {
-        if (s === 'cancelled') return -1;
-        const idx = stages.findIndex(stage => stage.id === s);
-        if (idx !== -1) return idx;
-        if (s === 'open') return 0;
-        if (s === 'paid') return 1;
-        if (s === 'production') return 2;
-        if (s === 'revision') return 3;
-        if (s === 'finished') return 4;
-        return 0;
-    };
-
-    const currentIndex = getStatusIndex(order.status);
-
-    return (
-        <div className="w-full py-4">
-            <div className="relative flex justify-between">
-                <div className="absolute top-3.5 left-0 w-full h-0.5 bg-zinc-800 z-0"></div>
-                <div 
-                    className="absolute top-3.5 left-0 h-0.5 bg-primary z-0 transition-all duration-700 ease-in-out"
-                    style={{ width: currentIndex >= 0 ? `${(currentIndex / (stages.length - 1)) * 100}%` : '0%' }}
-                ></div>
-
-                {stages.map((stage, idx) => {
-                    const isActive = idx <= currentIndex;
-                    const isCurrent = idx === currentIndex;
-                    const isPaidStage = stage.id === 'paid';
-                    const useRed = isPaidStage && isActive && !order.paid_at;
-
-                    return (
-                        <button 
-                            key={stage.id} 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (stage.id === 'finished') handleConfirm(order.id);
-                                else handleUpdateStatus(order.id, stage.id);
-                            }}
-                            className="relative z-10 flex flex-col items-center group/step"
-                        >
-                            <div 
-                                className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${
-                                    isActive 
-                                        ? (useRed ? 'bg-red-600 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.6)]' : 'bg-primary border-primary shadow-[0_0_10px_rgba(245,158,11,0.4)]')
-                                        : 'bg-zinc-900 border-zinc-800 group-hover/step:border-zinc-600'
-                                } ${isCurrent && !useRed ? 'ring-2 ring-offset-2 ring-primary ring-offset-zinc-900' : ''}`}
-                            >
-                                {isActive ? (
-                                    <Check size={12} className="text-white" strokeWidth={3} />
-                                ) : (
-                                    <div className="w-1.5 h-1.5 rounded-full bg-zinc-700 group-hover/step:bg-zinc-500"></div>
-                                )}
-                            </div>
-                            <span className={`text-[8px] font-black uppercase tracking-tighter mt-2 text-center max-w-[60px] leading-none ${
-                                isActive ? (useRed ? 'text-red-400' : 'text-white') : 'text-zinc-600 group-hover/step:text-zinc-400'
-                            }`}>
-                                {stage.label}
-                            </span>
-                        </button>
-                    );
-                })}
-            </div>
-        </div>
-    );
   };
 
   return (
@@ -166,16 +91,15 @@ export default function PendingOrders() {
                               <p className="text-zinc-500 text-xs line-clamp-1">{order.description}</p>
                           </div>
 
-                          <div className="flex flex-col gap-4">
-                             <OrderProgress order={order} />
-                             
-                             <div className="flex flex-wrap gap-2">
-                                {order.size_list && (
-                                    <span className="bg-blue-500/10 text-blue-400 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-500/20 flex items-center gap-1">
-                                        <ListChecks size={12} /> POSSUI LISTA
-                                    </span>
-                                )}
-                             </div>
+                          <div className="flex flex-wrap gap-2">
+                             {order.size_list && (
+                                 <span className="bg-blue-500/10 text-blue-400 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-500/20 flex items-center gap-1">
+                                     <ListChecks size={12} /> POSSUI LISTA
+                                 </span>
+                             )}
+                             <span className={`text-[10px] font-bold px-2 py-1 rounded-lg border ${order.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
+                                 {order.status === 'paid' ? 'PAGO' : 'AGUARD. PGTO'}
+                             </span>
                           </div>
 
                           <div className="pt-4 border-t border-zinc-800 flex gap-2">
@@ -205,11 +129,6 @@ export default function PendingOrders() {
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
-                      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-                          <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4 ml-1">Status de Produção (Clique para alterar)</h3>
-                          <OrderProgress order={viewingOrder} />
-                      </div>
-
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                           <div className="bg-zinc-900/50 p-4 rounded-2xl border border-zinc-800">
                               <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Cliente</span>
@@ -273,8 +192,8 @@ export default function PendingOrders() {
                       <button onClick={() => window.print()} className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2">
                           <Download size={18} /> IMPRIMIR
                       </button>
-                      <button onClick={() => handleConfirm(viewingOrder.id)} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-purple-900/20">
-                          FINALIZAR PEDIDO
+                      <button onClick={() => handleConfirm(viewingOrder.id)} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-emerald-900/20">
+                          MARCAR COMO PRONTO
                       </button>
                   </div>
               </div>

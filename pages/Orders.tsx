@@ -20,7 +20,7 @@ export default function Orders() {
   const [dateFilter, setDateFilter] = useState(initialMonth ? `${initialMonth.split('/')[1]}-${initialMonth.split('/')[0]}` : '');
 
   const isOverdue = (order: Order) => {
-    if (!order.due_date || !['open', 'production', 'revision'].includes(order.status)) return false;
+    if (!order.due_date || order.status !== 'open') return false;
     return new Date(order.due_date) < new Date();
   };
 
@@ -29,12 +29,8 @@ export default function Orders() {
     if (statusFilter === 'overdue') {
         if (!isOverdue(order)) return false;
     } else if (statusFilter !== 'all') {
-        if (statusFilter === 'open') {
-            if (isOverdue(order)) return false;
-            if (!['open', 'production', 'revision'].includes(order.status)) return false;
-        } else if (order.status !== statusFilter) {
-            return false;
-        }
+        if (statusFilter === 'open' && isOverdue(order)) return false; // Aberto puro, sem atraso
+        if (order.status !== statusFilter) return false;
     }
 
     // 2. Filtro de Data (Mês/Ano)

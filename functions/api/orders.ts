@@ -150,18 +150,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       }
 
       if (Object.keys(body).length === 1 && body.status) {
-        let updateQuery = 'UPDATE orders SET status = ?';
-        let updateParams: any[] = [String(body.status)];
-        
-        if (body.status === 'paid') {
-          updateQuery += ', paid_at = ?';
-          updateParams.push(new Date().toISOString());
-        }
-        
-        updateQuery += ' WHERE id = ?';
-        updateParams.push(String(id));
-
-        await env.DB.prepare(updateQuery).bind(...updateParams).run();
+        await env.DB.prepare('UPDATE orders SET status = ? WHERE id = ?')
+          .bind(String(body.status), String(id))
+          .run();
         return Response.json({ success: true });
       }
 

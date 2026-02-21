@@ -49,7 +49,7 @@ export interface OrderItem {
   downloadLink?: string; 
 }
 
-export type OrderStatus = 'open' | 'paid' | 'production' | 'revision' | 'finished' | 'cancelled';
+export type OrderStatus = 'open' | 'paid' | 'cancelled';
 
 export interface SizeListItem {
   id: string;

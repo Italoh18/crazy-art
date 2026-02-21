@@ -207,13 +207,13 @@ export default function CustomerDetails() {
   today.setHours(0,0,0,0);
 
   const _openOrders = allCustomerOrders.filter(o => {
-      if (!['open', 'production', 'revision'].includes(o.status)) return false;
+      if (o.status !== 'open') return false;
       const due = new Date(o.due_date);
       return due >= today;
   });
 
   const _overdueOrders = allCustomerOrders.filter(o => {
-      if (!['open', 'production', 'revision'].includes(o.status)) return false;
+      if (o.status !== 'open') return false;
       const due = new Date(o.due_date);
       return due < today;
   });
@@ -236,7 +236,7 @@ export default function CustomerDetails() {
   const totalPayableValue = allPayableOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
 
   const currentTabPayableOrders = useMemo(() => 
-      displayedOrders.filter(o => ['open', 'production', 'revision'].includes(o.status)),
+      displayedOrders.filter(o => o.status === 'open'),
   [displayedOrders]);
 
   const isAllSelected = currentTabPayableOrders.length > 0 && currentTabPayableOrders.every(o => selectedOrderIds.includes(o.id));
@@ -470,7 +470,6 @@ export default function CustomerDetails() {
 
   const handleFinalizeOrder = async () => {
       if (orderItems.length === 0 && !newOrderData.description) return;
-      const allServices = orderItems.every(i => i.type === 'service');
       const payload = {
           client_id: customer.id,
           description: newOrderData.description || `Pedido com ${orderItems.length} itens`,
@@ -478,7 +477,7 @@ export default function CustomerDetails() {
           due_date: newOrderData.dueDate,
           items: orderItems,
           total: orderTotal,
-          status: allServices ? 'production' : 'open'
+          status: 'open'
       };
       if (editingOrderId) await updateOrder(editingOrderId, payload);
       else await addOrder(payload);
@@ -500,100 +499,9 @@ export default function CustomerDetails() {
   };
 
   const renderStatusBadge = (status: string, isLate: boolean) => {
-      switch(status) {
-          case 'paid': return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-wide">Pago</span>;
-          case 'production': return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20 uppercase tracking-wide">Em Produção</span>;
-          case 'revision': return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Em Alteração</span>;
-          case 'finished': return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-500 border border-purple-500/20 uppercase tracking-wide">Finalizado</span>;
-          case 'cancelled': return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wide">Cancelado</span>;
-          default: 
-              if (isLate) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wide">Atrasado</span>;
-              return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Aberto</span>;
-      }
-  };
-
-  const OrderProgress = ({ order, isAdmin, onStatusUpdate, onConfirm }: { order: any, isAdmin: boolean, onStatusUpdate?: (id: string, status: string) => void, onConfirm?: (id: string) => void }) => {
-    const { status, paid_at: paidAt } = order;
-    const stages = [
-        { id: 'open', label: 'Pedido Realizado' },
-        { id: 'paid', label: 'Pago' },
-        { id: 'production', label: 'Em Produção' },
-        { id: 'revision', label: 'Em Alteração' },
-        { id: 'finished', label: 'Finalizado' }
-    ];
-
-    const getStatusIndex = (s: string) => {
-        if (s === 'cancelled') return -1;
-        const idx = stages.findIndex(stage => stage.id === s);
-        if (idx !== -1) return idx;
-        if (s === 'open') return 0;
-        if (s === 'paid') return 1;
-        if (s === 'production') return 2;
-        if (s === 'revision') return 3;
-        if (s === 'finished') return 4;
-        return 0;
-    };
-
-    const currentIndex = getStatusIndex(status);
-
-    const handleStepClick = (e: React.MouseEvent, stageId: string) => {
-        e.stopPropagation();
-        if (!isAdmin || !onStatusUpdate || !onConfirm) return;
-
-        if (stageId === 'finished') {
-            onConfirm(order.id);
-        } else {
-            onStatusUpdate(order.id, stageId);
-        }
-    };
-
-    return (
-        <div className="w-full py-6 px-2">
-            <div className="relative flex justify-between">
-                <div className="absolute top-3.5 left-0 w-full h-0.5 bg-zinc-800 z-0"></div>
-                <div 
-                    className="absolute top-3.5 left-0 h-0.5 bg-primary z-0 transition-all duration-700 ease-in-out"
-                    style={{ width: currentIndex >= 0 ? `${(currentIndex / (stages.length - 1)) * 100}%` : '0%' }}
-                ></div>
-
-                {stages.map((stage, idx) => {
-                    const isActive = idx <= currentIndex;
-                    const isPaidStage = stage.id === 'paid';
-                    // Regra: Pago em vermelho se estiver ativo mas não houver data de pagamento (crédito)
-                    const useRed = isPaidStage && isActive && !paidAt;
-
-                    const ProgressNode = isAdmin ? 'button' : 'div';
-
-                    return (
-                        <ProgressNode 
-                            key={stage.id} 
-                            onClick={(e: any) => handleStepClick(e, stage.id)}
-                            className={`relative z-10 flex flex-col items-center ${isAdmin ? 'group/step cursor-pointer' : ''}`}
-                        >
-                            <div 
-                                className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${
-                                    isActive 
-                                        ? (useRed ? 'bg-red-600 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.6)]' : 'bg-primary border-primary shadow-[0_0_10px_rgba(245,158,11,0.4)]')
-                                        : `bg-zinc-900 border-zinc-800 ${isAdmin ? 'group-hover/step:border-zinc-600' : ''}`
-                                }`}
-                            >
-                                {isActive ? (
-                                    <Check size={12} className="text-white" strokeWidth={3} />
-                                ) : (
-                                    <div className="w-1.5 h-1.5 rounded-full bg-zinc-700"></div>
-                                )}
-                            </div>
-                            <span className={`text-[8px] font-black uppercase tracking-tighter mt-2 text-center max-w-[60px] leading-none ${
-                                isActive ? (useRed ? 'text-red-400' : 'text-white') : `text-zinc-600 ${isAdmin ? 'group-hover/step:text-zinc-400' : ''}`
-                            }`}>
-                                {stage.label}
-                            </span>
-                        </ProgressNode>
-                    );
-                })}
-            </div>
-        </div>
-    );
+      if (status === 'paid') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-wide">Pago</span>;
+      if (isLate) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wide">Atrasado</span>;
+      return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Aberto</span>;
   };
 
   const renderClientView = () => {
@@ -1075,7 +983,7 @@ export default function CustomerDetails() {
                                 const isSelected = selectedOrderIds.includes(order.id);
                                 return (
                                     <tr key={order.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? 'bg-primary/5' : ''}`}>
-                                        <td className="px-4 md:px-6 py-4">{['open', 'production', 'revision'].includes(order.status) && <input type="checkbox" checked={isSelected} onChange={() => {}} onClick={(e) => toggleSelectOrder(order.id, e)} className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" />}</td>
+                                        <td className="px-4 md:px-6 py-4">{order.status === 'open' && <input type="checkbox" checked={isSelected} onChange={() => {}} onClick={(e) => toggleSelectOrder(order.id, e)} className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" />}</td>
                                         <td className="px-4 md:px-6 py-4">
                                             <div className="font-mono text-zinc-300 font-bold">#{order.formattedOrderNumber || order.order_number}</div>
                                             <div className="md:hidden mt-1.5">
@@ -1101,7 +1009,7 @@ export default function CustomerDetails() {
                                         <td className="px-4 md:px-6 py-4 text-right"><div className="font-mono font-bold text-white text-sm md:text-base">R$ {Number(order.total || 0).toFixed(2)}</div><div className={`md:hidden text-[10px] mt-1 font-medium ${isLate ? 'text-red-400' : 'text-zinc-500'}`}>Vence: {new Date(order.due_date).toLocaleDateString().slice(0,5)}</div></td>
                                         <td className="px-4 md:px-6 py-4 text-center">
                                             <div className="flex items-center justify-end md:justify-center gap-2">
-                                                {['open', 'production', 'revision'].includes(order.status) ? (
+                                                {order.status === 'open' ? (
                                                     <button onClick={() => initiatePaymentFlow([order.id])} className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1.5 rounded-lg transition font-bold inline-flex items-center gap-1 shadow-lg shadow-emerald-600/20" title="Pagar agora"><DollarSign size={12} /> <span className="hidden md:inline">Pagar</span></button>
                                                 ) : <span className="hidden md:inline text-xs text-zinc-700 italic">Concluído</span>}
                                                 <button onClick={() => fetchAndSetViewingOrder(order)} className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition border border-transparent hover:border-zinc-700" title="Ver Detalhes"><Eye size={16} /></button>
@@ -1220,17 +1128,6 @@ export default function CustomerDetails() {
                     </div>
 
                     <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
-                        {/* Stepper de Progresso */}
-                        <div className="bg-zinc-950/50 border border-white/5 rounded-2xl p-4">
-                            <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Progresso do Pedido {role === 'admin' && <span className="text-primary/70">(clique para alterar)</span>}</h3>
-                            <OrderProgress 
-                                order={viewingOrder}
-                                isAdmin={role === 'admin'}
-                                onStatusUpdate={updateOrderStatus}
-                                onConfirm={handleManualPayment}
-                            />
-                        </div>
-
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5"><span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Data do Pedido</span><span className="text-white font-mono text-sm">{new Date(viewingOrder.order_date).toLocaleDateString()}</span></div>
                             <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5"><span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Vencimento</span><span className={`font-mono text-sm ${new Date(viewingOrder.due_date) < new Date() && viewingOrder.status === 'open' ? 'text-red-400 font-bold' : 'text-white'}`}>{new Date(viewingOrder.due_date).toLocaleDateString()}</span></div>
