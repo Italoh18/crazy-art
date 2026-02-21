@@ -366,7 +366,8 @@ export default function CustomerDetails() {
           creditLimit: customer.creditLimit,
           cloudLink: cloudUrl,
           isSubscriber: customer.isSubscriber,
-          subscriptionExpiresAt: customer.subscriptionExpiresAt ? customer.subscriptionExpiresAt.split('T')[0] : ''
+          subscriptionExpiresAt: customer.subscriptionExpiresAt ? customer.subscriptionExpiresAt.split('T')[0] : '',
+          password: ''
       });
       setIsEditModalOpen(true);
   };
@@ -1272,6 +1273,20 @@ export default function CustomerDetails() {
                         <div>
                             <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Link Nuvem (Opcional)</label>
                             <div className="relative"><input className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" value={formData.cloudLink || ''} onChange={e => setFormData({...formData, cloudLink: e.target.value})} placeholder="https://..." /><Cloud className="absolute left-3 top-3.5 text-zinc-600" size={18} /></div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Alterar Senha (Opcional)</label>
+                            <div className="relative">
+                                <input 
+                                    type="password"
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" 
+                                    value={formData.password || ''} 
+                                    onChange={e => setFormData({...formData, password: e.target.value})} 
+                                    placeholder="Deixe em branco para manter a atual" 
+                                />
+                                <Lock className="absolute left-3 top-3.5 text-zinc-600" size={18} />
+                            </div>
                         </div>
                         
                         {/* Toggle de Assinatura */}

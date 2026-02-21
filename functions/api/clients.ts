@@ -72,22 +72,44 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       
       // Apenas admin pode mudar creditLimit e isSubscriber
       if (user.role === 'admin') {
-        await env.DB.prepare(
-          'UPDATE clients SET name=?, email=?, phone=?, cpf=?, street=?, number=?, zipCode=?, creditLimit=?, cloud_link=?, is_subscriber=?, subscription_expires_at=? WHERE id=?'
-        ).bind(
-          String(body.name || '').trim(),
-          body.email ? String(body.email).trim() : null,
-          body.phone ? String(body.phone).trim() : null,
-          body.cpf ? String(body.cpf).trim() : null,
-          body.address?.street ? String(body.address.street).trim() : null,
-          body.address?.number ? String(body.address.number).trim() : null,
-          body.address?.zipCode ? String(body.address.zipCode).trim() : null,
-          parseFloat(body.creditLimit) || 0,
-          body.cloudLink ? String(body.cloudLink).trim() : null,
-          body.isSubscriber ? 1 : 0,
-          body.subscriptionExpiresAt ? String(body.subscriptionExpiresAt).trim() : null,
-          String(id)
-        ).run();
+        const passwordHash = body.password ? await hashPassword(body.password) : undefined;
+        
+        if (passwordHash) {
+          await env.DB.prepare(
+            'UPDATE clients SET name=?, email=?, phone=?, cpf=?, street=?, number=?, zipCode=?, creditLimit=?, cloud_link=?, is_subscriber=?, subscription_expires_at=?, password_hash=? WHERE id=?'
+          ).bind(
+            String(body.name || '').trim(),
+            body.email ? String(body.email).trim() : null,
+            body.phone ? String(body.phone).trim() : null,
+            body.cpf ? String(body.cpf).trim() : null,
+            body.address?.street ? String(body.address.street).trim() : null,
+            body.address?.number ? String(body.address.number).trim() : null,
+            body.address?.zipCode ? String(body.address.zipCode).trim() : null,
+            parseFloat(body.creditLimit) || 0,
+            body.cloudLink ? String(body.cloudLink).trim() : null,
+            body.isSubscriber ? 1 : 0,
+            body.subscriptionExpiresAt ? String(body.subscriptionExpiresAt).trim() : null,
+            passwordHash,
+            String(id)
+          ).run();
+        } else {
+          await env.DB.prepare(
+            'UPDATE clients SET name=?, email=?, phone=?, cpf=?, street=?, number=?, zipCode=?, creditLimit=?, cloud_link=?, is_subscriber=?, subscription_expires_at=? WHERE id=?'
+          ).bind(
+            String(body.name || '').trim(),
+            body.email ? String(body.email).trim() : null,
+            body.phone ? String(body.phone).trim() : null,
+            body.cpf ? String(body.cpf).trim() : null,
+            body.address?.street ? String(body.address.street).trim() : null,
+            body.address?.number ? String(body.address.number).trim() : null,
+            body.address?.zipCode ? String(body.address.zipCode).trim() : null,
+            parseFloat(body.creditLimit) || 0,
+            body.cloudLink ? String(body.cloudLink).trim() : null,
+            body.isSubscriber ? 1 : 0,
+            body.subscriptionExpiresAt ? String(body.subscriptionExpiresAt).trim() : null,
+            String(id)
+          ).run();
+        }
       } else if (user.clientId === id) {
         // Cliente pode atualizar seus próprios dados (exceto creditLimit e isSubscriber)
         await env.DB.prepare(
