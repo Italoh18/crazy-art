@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { DataProvider, useData } from './contexts/DataContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { CartProvider } from './contexts/CartContext';
 import { Layout } from './components/Layout';
 import Home from './pages/Home';
 import Customers from './pages/Customers';
@@ -180,9 +181,11 @@ export default function App() {
   return (
     <DataProvider>
       <AuthProvider>
-        <Router>
-          <AppContent showIntro={showIntro} setShowIntro={handleSetShowIntro} />
-        </Router>
+        <CartProvider>
+          <Router>
+            <AppContent showIntro={showIntro} setShowIntro={handleSetShowIntro} />
+          </Router>
+        </CartProvider>
       </AuthProvider>
     </DataProvider>
   );

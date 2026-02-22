@@ -211,8 +211,8 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
       if (('button' in e && e.button === 1) || ('buttons' in e && e.buttons === 4)) {
           setDragType('pan');
           setStartPan({ 
-              x: ('clientX' in e ? e.clientX : e.touches[0].clientX) - viewTransform.x, 
-              y: ('clientY' in e ? e.clientY : e.touches[0].clientY) - viewTransform.y 
+              x: ('touches' in e ? (e as any).touches[0].clientX : e.clientX) - viewTransform.x, 
+              y: ('touches' in e ? (e as any).touches[0].clientY : e.clientY) - viewTransform.y 
           });
           return;
       }
@@ -286,8 +286,8 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
 
   const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
       if (dragType === 'pan') {
-          const clientX = 'clientX' in e ? e.clientX : e.touches[0].clientX;
-          const clientY = 'clientY' in e ? e.clientY : e.touches[0].clientY;
+          const clientX = 'touches' in e ? (e as any).touches[0].clientX : e.clientX;
+          const clientY = 'touches' in e ? (e as any).touches[0].clientY : e.clientY;
           setViewTransform(prev => ({
               ...prev,
               x: clientX - startPan.x,
@@ -434,7 +434,7 @@ export const DrawingModal: React.FC<DrawingModalProps> = ({
               const d = pathEl.getAttribute('d');
               if (d) {
                   // Usa opentype.js para parsear o path string
-                  const otPath = opentype.Path.fromSVG(d);
+                  const otPath = (opentype.Path as any).fromSVG(d);
                   // Usa nosso utilitário existente
                   const newPaths = convertOpenTypePathToStrokes(otPath, 1000, 1000);
                   

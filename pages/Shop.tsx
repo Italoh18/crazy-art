@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useCart } from '../contexts/CartContext';
 import { Product, Order, SizeListItem, Coupon, ItemType } from '../types';
 import { api } from '../src/services/api';
 
@@ -25,7 +26,7 @@ interface CartItem {
 
 // Categorias visíveis apenas na aba "Estampas"
 const DEFAULT_ART_CATEGORIES = [
-    'Todos', 'Carnaval', 'Colegio', 'Futebol', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais'
+    'Todos', 'Carnaval', 'Colegio', 'Futebol', 'Volei', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais'
 ];
 
 // Cores padronizadas para o filtro (Setorização)
@@ -45,6 +46,7 @@ export const ART_COLOR_FILTERS = [
 export default function Shop() {
   const { products, addOrder, orders, validateCoupon } = useData();
   const { role, currentCustomer } = useAuth();
+  const { cart, addToCart: addToCartGlobal, removeFromCart: removeFromCartGlobal, clearCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -58,7 +60,6 @@ export default function Shop() {
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [wantsDigitalGrid, setWantsDigitalGrid] = useState(false);
   
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [currentOrderDesc, setCurrentOrderDesc] = useState('');
   const [currentOrderQty, setCurrentOrderQty] = useState<number | string>(1);
@@ -89,12 +90,18 @@ export default function Shop() {
   useEffect(() => {
       const params = new URLSearchParams(location.search);
       const tab = params.get('tab');
+      const action = params.get('action');
+
       if (tab === 'art') {
           setActiveTab('art');
       } else if (tab === 'service') {
           setActiveTab('service');
       } else {
           setActiveTab('product');
+      }
+
+      if (action === 'cart') {
+          setStep('questionnaire');
       }
   }, [location.search]);
 
@@ -157,39 +164,24 @@ export default function Shop() {
 
   const addToCart = () => {
       if (!viewingProduct) return;
-      setCart(prev => [...prev, {
-          product: viewingProduct,
-          quantity: Number(currentOrderQty) || 1,
-          description: currentOrderDesc,
-          tempId: crypto.randomUUID()
-      }]);
+      addToCartGlobal(viewingProduct, Number(currentOrderQty) || 1, currentOrderDesc);
       setViewingProduct(null);
       setStep('list');
   };
 
   const buyNow = () => {
       if (!viewingProduct) return;
-      setCart(prev => [...prev, {
-          product: viewingProduct,
-          quantity: Number(currentOrderQty) || 1,
-          description: currentOrderDesc,
-          tempId: crypto.randomUUID()
-      }]);
+      addToCartGlobal(viewingProduct, Number(currentOrderQty) || 1, currentOrderDesc);
       setViewingProduct(null);
       setStep('questionnaire');
   };
 
   const addToCartFromList = (product: Product) => {
-    setCart(prev => [...prev, {
-        product: product,
-        quantity: 1,
-        description: '',
-        tempId: crypto.randomUUID()
-    }]);
+    addToCartGlobal(product, 1, '');
   };
 
   const removeFromCart = (tempId: string) => {
-      setCart(prev => prev.filter(item => item.tempId !== tempId));
+      removeFromCartGlobal(tempId);
       if (cart.length <= 1 && step === 'questionnaire') setStep('list');
   };
 
@@ -476,15 +468,22 @@ export default function Shop() {
                 <div onClick={() => openProduct(item)} className="cursor-pointer flex-1 flex flex-col">
                     <div className="h-56 bg-zinc-800 flex items-center justify-center relative overflow-hidden">
                         {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" /> : item.type === 'art' ? <Palette size={64} className="text-purple-500/50" /> : <ShoppingBag size={64} className="text-zinc-700" />}
-                        <div className={`absolute bottom-3 left-3 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase backdrop-blur-md ${showFree ? 'bg-gradient-to-r from-purple-600 to-pink-600' : item.type === 'art' ? 'bg-purple-600/80' : 'bg-black/60'}`}>
+                        
+                        {/* Botão Carrinho no Canto Inferior Esquerdo da Visualização */}
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); addToCartFromList(item); }} 
+                            className="absolute bottom-3 left-3 bg-primary p-2.5 rounded-full text-white hover:bg-amber-600 transition shadow-lg z-10 active:scale-90"
+                            title="Adicionar ao Carrinho"
+                        >
+                            <ShoppingCart size={16} />
+                        </button>
+
+                        <div className={`absolute bottom-3 right-3 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase backdrop-blur-md ${showFree ? 'bg-gradient-to-r from-purple-600 to-pink-600' : item.type === 'art' ? 'bg-purple-600/80' : 'bg-black/60'}`}>
                             {showFree ? <span className="flex items-center gap-1"><Crown size={12} /> ASSINATURA</span> : `R$ ${item.price.toFixed(2)}`}
                         </div>
                     </div>
                     <div className="p-5 flex-1 flex flex-col"><h3 className="font-bold text-white text-lg leading-tight">{item.name}</h3><p className="text-zinc-500 text-xs mt-2 line-clamp-2 flex-1">{item.description || 'Clique para ver detalhes'}</p>{item.priceVariations && item.priceVariations.length > 0 && (<div className="mt-2 text-[10px] text-emerald-400 bg-emerald-900/20 px-2 py-1 rounded border border-emerald-500/20 inline-block w-fit"><Tag size={10} className="inline mr-1" /> Preços especiais p/ atacado</div>)}{item.type === 'art' && (<div className="mt-3 flex flex-wrap gap-2"><div className="flex items-center gap-1 text-[10px] text-purple-400 font-bold uppercase tracking-wider"><CloudDownload size={12} /> Digital</div>{item.subcategory && (<span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">{item.subcategory}</span>)}</div>)}</div>
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); addToCartFromList(item); }} className="absolute top-3 right-3 bg-black/50 p-3 rounded-full text-white hover:bg-primary transition opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0">
-                    <ShoppingCart size={18} />
-                </button>
             </div>
             )
         })}</div>
@@ -594,7 +593,7 @@ export default function Shop() {
                     <div className="pt-6 space-y-4">
                         <div className={canAddToAccount ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-4"}>
                             {canAddToAccount && (
-                                <button onClick={() => setStep('success')} className="w-full bg-zinc-100 text-black py-4 rounded-2xl font-bold hover:bg-white transition flex items-center justify-center gap-3 shadow-xl uppercase tracking-wider text-xs sm:text-sm"><Wallet size={18} /> Adicionar à Conta</button>
+                                <button onClick={() => { clearCart(); setStep('success'); }} className="w-full bg-zinc-100 text-black py-4 rounded-2xl font-bold hover:bg-white transition flex items-center justify-center gap-3 shadow-xl uppercase tracking-wider text-xs sm:text-sm"><Wallet size={18} /> Adicionar à Conta</button>
                             )}
                             <button 
                                 onClick={handlePayMercadoPago} 

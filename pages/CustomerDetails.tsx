@@ -117,7 +117,7 @@ export default function CustomerDetails() {
       setIsLoadingSecurity(true);
       setSecurityError('');
       try {
-          const emailToVerify = type === 'email' ? newEmail : customer?.email;
+          const emailToVerify = type === 'email' ? newEmail : customer!.email;
           await api.verifyCode(customer!.id, emailToVerify, verificationCode, type);
           setVerificationStep('update');
       } catch (e: any) {
@@ -539,7 +539,7 @@ export default function CustomerDetails() {
                         <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">CPF / CNPJ</label>
                         <div className="flex items-center gap-2">
                             <p className="text-zinc-300 font-mono text-lg">{customer?.cpf}</p>
-                            <Lock size={14} className="text-zinc-600" title="Não editável" />
+                            <Lock size={14} className="text-zinc-600" />
                         </div>
                     </div>
 

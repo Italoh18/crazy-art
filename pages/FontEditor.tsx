@@ -347,7 +347,7 @@ export default function FontEditor() {
               const targetPath = paths.find(p => p.id === id);
               if (!targetPath) return;
               const targetPoly = vectorPathToCoords(targetPath);
-              const resultPoly = martinez.diff(targetPoly, cutterPoly as any);
+              const resultPoly = martinez.diff(targetPoly as any, cutterPoly as any);
               const resultVectorPaths = coordsToVectorPath(resultPoly);
               allNewResults.push(...resultVectorPaths);
           });

@@ -1,8 +1,9 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid, TrendingUp } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid, TrendingUp, ShoppingCart } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useCart } from '../contexts/CartContext';
 import { SeasonalEffects } from './SeasonalEffects';
 import { StickManCleaner } from './StickManCleaner';
 import { CosmicPulseSystem } from './CosmicPulseSystem';
@@ -18,7 +19,29 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { role, logout, currentCustomer } = useAuth();
+  const { cartCount } = useCart();
   const userMenuRef = useRef<HTMLDivElement>(null);
+  
+  const CartButton = () => {
+    if (role === 'admin') return null; // Admin doesn't need cart usually, but user asked for it in header. 
+    // Actually, user said "no cabeçalho", didn't specify only client. 
+    // But cart is for buying. Admin might not buy. 
+    // Let's show it if they are not guest.
+    
+    return (
+      <Link 
+        to="/shop?action=cart" 
+        className="relative p-2 text-zinc-400 hover:text-white transition hover:bg-white/10 rounded-full group"
+      >
+        <ShoppingCart size={20} className="group-hover:scale-110 transition-transform" />
+        {cartCount > 0 && (
+          <span className="absolute top-0 right-0 bg-primary text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-black animate-in zoom-in">
+            {cartCount}
+          </span>
+        )}
+      </Link>
+    );
+  };
   
   const handleLogout = () => {
     logout();
@@ -155,6 +178,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                     
                     <div className="flex justify-end items-center gap-4">
                         <div className="hidden md:flex items-center space-x-6" ref={userMenuRef}>
+                            <CartButton />
                             <NotificationCenter />
                             
                             <div className="relative">
@@ -219,6 +243,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                             </div>
                         </div>
                         <div className="flex items-center gap-4 md:hidden">
+                            <CartButton />
                             <NotificationCenter />
                         </div>
                     </div>
@@ -349,6 +374,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             </div>
             
             <div className="flex items-center gap-4">
+                <CartButton />
                 <NotificationCenter />
                 <div className="flex flex-col items-end mr-2 hidden sm:block">
                   <span className="text-xs font-bold text-white">Administrador</span>
