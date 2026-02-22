@@ -58,6 +58,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           primaryColor: row.primary_color || null,
           description: row.description || null,
           priceVariations: row.price_variations ? JSON.parse(row.price_variations) : [],
+          supplierLink: row.supplier_link || null,
           active: row.active === 1,
           created_at: row.created_at
         }));
@@ -89,12 +90,13 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const val_color = toText(body.primaryColor);
       const val_desc = toText(body.description);
       const val_variations = body.priceVariations ? JSON.stringify(body.priceVariations) : null;
+      const val_supplier = toText(body.supplierLink || body.supplier_link);
       const val_active = 1;
 
       if (!val_name) return new Response(JSON.stringify({ error: 'O nome é obrigatório' }), { status: 400 });
 
-      const query = `INSERT INTO catalog (type, name, price, cost, cost_price, image_url, download_link, subcategory, primary_color, description, price_variations, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-      const bindValues = [val_type, val_name, val_price, val_cost_base, val_cost_base, val_image, val_download, val_sub, val_color, val_desc, val_variations, val_active];
+      const query = `INSERT INTO catalog (type, name, price, cost, cost_price, image_url, download_link, subcategory, primary_color, description, price_variations, supplier_link, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const bindValues = [val_type, val_name, val_price, val_cost_base, val_cost_base, val_image, val_download, val_sub, val_color, val_desc, val_variations, val_supplier, val_active];
 
       const result = await env.DB.prepare(query).bind(...bindValues).run();
       return Response.json({ success: true, id: String(result.meta.last_row_id) });
@@ -113,9 +115,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const val_color = toText(body.primaryColor);
       const val_desc = toText(body.description);
       const val_variations = body.priceVariations ? JSON.stringify(body.priceVariations) : null;
+      const val_supplier = toText(body.supplierLink || body.supplier_link);
       
-      let query = 'UPDATE catalog SET name=?, price=?, cost=?, cost_price=?, image_url=?, download_link=?, subcategory=?, primary_color=?, description=?, price_variations=?';
-      const args = [val_name, val_price, val_cost_base, val_cost_base, val_image, val_download, val_sub, val_color, val_desc, val_variations];
+      let query = 'UPDATE catalog SET name=?, price=?, cost=?, cost_price=?, image_url=?, download_link=?, subcategory=?, primary_color=?, description=?, price_variations=?, supplier_link=?';
+      const args = [val_name, val_price, val_cost_base, val_cost_base, val_image, val_download, val_sub, val_color, val_desc, val_variations, val_supplier];
 
       if (body.active !== undefined) {
         query += ', active=?';

@@ -43,7 +43,8 @@ export default function Products() {
     imageUrl: '',
     downloadLink: '',
     subcategory: '',
-    primaryColor: '#000000'
+    primaryColor: '#000000',
+    supplierLink: ''
   });
 
   // State para variações de preço (Apenas Produtos)
@@ -60,7 +61,7 @@ export default function Products() {
   const openNewModal = () => {
       setIsEditMode(false);
       setEditId(null);
-      setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '', downloadLink: '', subcategory: '', primaryColor: '#000000' });
+      setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '', downloadLink: '', subcategory: '', primaryColor: '#000000', supplierLink: '' });
       setVariations([]);
       setIsModalOpen(true);
   };
@@ -76,7 +77,8 @@ export default function Products() {
           imageUrl: item.imageUrl || '',
           downloadLink: item.downloadLink || '',
           subcategory: item.subcategory || '',
-          primaryColor: item.primaryColor || '#000000'
+          primaryColor: item.primaryColor || '#000000',
+          supplierLink: item.supplierLink || ''
       });
       setVariations(item.priceVariations || []);
       setIsModalOpen(true);
@@ -113,7 +115,8 @@ export default function Products() {
         downloadLink: activeTab === 'art' ? formData.downloadLink : null,
         subcategory: activeTab === 'art' ? formData.subcategory : null,
         primaryColor: activeTab === 'art' ? formData.primaryColor : null,
-        priceVariations: activeTab === 'product' ? variations : []
+        priceVariations: activeTab === 'product' ? variations : [],
+        supplierLink: formData.supplierLink || null
     };
 
     try {
@@ -245,6 +248,7 @@ export default function Products() {
                     </>
                 )}
                 {activeTab === 'product' && <th className="px-6 py-5">Atacado?</th>}
+                <th className="px-6 py-5">Fornecedor</th>
                 <th className="px-6 py-5">Custo</th>
                 <th className="px-6 py-5">Venda</th>
                 <th className="px-6 py-5 text-right">Ações</th>
@@ -310,6 +314,13 @@ export default function Products() {
                             ) : <span className="text-zinc-600 text-[10px]">-</span>}
                         </td>
                     )}
+                    <td className="px-6 py-4">
+                        {item.supplierLink ? (
+                            <a href={item.supplierLink} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 flex items-center gap-1 text-xs font-bold truncate max-w-[120px]">
+                                <LinkIcon size={14} /> Fornecedor
+                            </a>
+                        ) : <span className="text-zinc-600 text-xs">-</span>}
+                    </td>
                     <td className="px-6 py-4 text-zinc-500 font-mono text-xs">
                         {item.costPrice ? `R$ ${Number(item.costPrice).toFixed(2)}` : '-'}
                     </td>
@@ -451,6 +462,20 @@ export default function Products() {
                         className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
                         value={formData.imageUrl}
                         onChange={e => setFormData({ ...formData, imageUrl: e.target.value })}
+                        />
+                        <LinkIcon className="absolute left-3 top-3.5 text-zinc-600" size={16} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Link do Fornecedor</label>
+                    <div className="relative">
+                        <input
+                        type="text"
+                        placeholder="https://..."
+                        className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
+                        value={formData.supplierLink}
+                        onChange={e => setFormData({ ...formData, supplierLink: e.target.value })}
                         />
                         <LinkIcon className="absolute left-3 top-3.5 text-zinc-600" size={16} />
                     </div>

@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS catalog (
     image_url TEXT,
     download_link TEXT,
     description TEXT,
+    supplier_link TEXT,
     active INTEGER DEFAULT 1,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );

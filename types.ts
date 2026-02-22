@@ -36,6 +36,7 @@ export interface Product {
   subcategory?: string; 
   primaryColor?: string; 
   priceVariations?: PriceVariation[]; 
+  supplierLink?: string;
 }
 
 export interface OrderItem {
