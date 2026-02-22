@@ -469,20 +469,23 @@ export default function Shop() {
                     <div className="h-56 bg-zinc-800 flex items-center justify-center relative overflow-hidden">
                         {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" /> : item.type === 'art' ? <Palette size={64} className="text-purple-500/50" /> : <ShoppingBag size={64} className="text-zinc-700" />}
                         
-                        {/* Botão Carrinho no Canto Inferior Esquerdo da Visualização */}
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); addToCartFromList(item); }} 
-                            className="absolute bottom-3 left-3 bg-primary p-2.5 rounded-full text-white hover:bg-amber-600 transition shadow-lg z-10 active:scale-90"
-                            title="Adicionar ao Carrinho"
-                        >
-                            <ShoppingCart size={16} />
-                        </button>
-
                         <div className={`absolute bottom-3 right-3 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase backdrop-blur-md ${showFree ? 'bg-gradient-to-r from-purple-600 to-pink-600' : item.type === 'art' ? 'bg-purple-600/80' : 'bg-black/60'}`}>
                             {showFree ? <span className="flex items-center gap-1"><Crown size={12} /> ASSINATURA</span> : `R$ ${item.price.toFixed(2)}`}
                         </div>
                     </div>
-                    <div className="p-5 flex-1 flex flex-col"><h3 className="font-bold text-white text-lg leading-tight">{item.name}</h3><p className="text-zinc-500 text-xs mt-2 line-clamp-2 flex-1">{item.description || 'Clique para ver detalhes'}</p>{item.priceVariations && item.priceVariations.length > 0 && (<div className="mt-2 text-[10px] text-emerald-400 bg-emerald-900/20 px-2 py-1 rounded border border-emerald-500/20 inline-block w-fit"><Tag size={10} className="inline mr-1" /> Preços especiais p/ atacado</div>)}{item.type === 'art' && (<div className="mt-3 flex flex-wrap gap-2"><div className="flex items-center gap-1 text-[10px] text-purple-400 font-bold uppercase tracking-wider"><CloudDownload size={12} /> Digital</div>{item.subcategory && (<span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">{item.subcategory}</span>)}</div>)}</div>
+                    <div className="p-5 flex-1 flex flex-col">
+                        <div className="flex justify-between items-start gap-2">
+                            <h3 className="font-bold text-white text-lg leading-tight flex-1">{item.name}</h3>
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); addToCartFromList(item); }} 
+                                className="bg-primary p-2 rounded-full text-white hover:bg-amber-600 transition shadow-lg shrink-0 active:scale-90"
+                                title="Adicionar ao Carrinho"
+                            >
+                                <ShoppingCart size={14} />
+                            </button>
+                        </div>
+                        <p className="text-zinc-500 text-xs mt-2 line-clamp-2 flex-1">{item.description || 'Clique para ver detalhes'}</p>
+{item.priceVariations && item.priceVariations.length > 0 && (<div className="mt-2 text-[10px] text-emerald-400 bg-emerald-900/20 px-2 py-1 rounded border border-emerald-500/20 inline-block w-fit"><Tag size={10} className="inline mr-1" /> Preços especiais p/ atacado</div>)}{item.type === 'art' && (<div className="mt-3 flex flex-wrap gap-2"><div className="flex items-center gap-1 text-[10px] text-purple-400 font-bold uppercase tracking-wider"><CloudDownload size={12} /> Digital</div>{item.subcategory && (<span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">{item.subcategory}</span>)}</div>)}</div>
                 </div>
             </div>
             )
