@@ -26,7 +26,7 @@ export default function Statement() {
 
     const paidOrders = useMemo(() => {
         return customerOrders
-            .filter(o => o.status === 'paid')
+            .filter(o => o.status === 'paid' || !!o.paid_at)
             .sort((a, b) => new Date(b.paid_at || b.created_at || '').getTime() - new Date(a.paid_at || a.created_at || '').getTime());
     }, [customerOrders]);
 

@@ -15,12 +15,12 @@ export default function Orders() {
   const initialFilter = location.state?.filter || 'all';
   const initialMonth = location.state?.month || '';
 
-  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'paid' | 'overdue'>(initialFilter);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'paid' | 'finished' | 'overdue'>(initialFilter);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState(initialMonth ? `${initialMonth.split('/')[1]}-${initialMonth.split('/')[0]}` : '');
 
   const isOverdue = (order: Order) => {
-    if (!order.due_date || !['open', 'production', 'revision'].includes(order.status)) return false;
+    if (!order.due_date || !['open', 'paid', 'production', 'revision'].includes(order.status)) return false;
     return new Date(order.due_date) < new Date();
   };
 
@@ -31,7 +31,12 @@ export default function Orders() {
     } else if (statusFilter !== 'all') {
         if (statusFilter === 'open') {
             if (isOverdue(order)) return false;
-            if (!['open', 'production', 'revision'].includes(order.status)) return false;
+            // "Aberto" agora inclui 'paid' para não sumir da lista ao pagar
+            if (!['open', 'paid', 'production', 'revision'].includes(order.status)) return false;
+        } else if (statusFilter === 'paid') {
+            // "Pagos" inclui status 'paid' ou qualquer um que tenha data de pagamento e não esteja cancelado
+            const isPaid = order.status === 'paid' || !!order.paid_at;
+            if (!isPaid || order.status === 'cancelled') return false;
         } else if (order.status !== statusFilter) {
             return false;
         }
