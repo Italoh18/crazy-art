@@ -38,6 +38,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             const diffTime = now.getTime() - dueDate.getTime();
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+            /* 
+            // DESATIVADO: Permite que o admin defina o limite manualmente mesmo com atraso
             if (diffDays > 30 && order.creditLimit > 20) {
                 // Se deve mais de 30 dias e ainda tem limite alto, corta pra 20
                 console.log(`[Auto-Penalty] Cliente ${order.client_name} tem atraso de ${diffDays} dias. Reduzindo limite.`);
@@ -54,6 +56,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                     `).bind(crypto.randomUUID(), order.client_id, new Date().toISOString(), penaltyId).run();
                 }
             }
+            */
             // -----------------------------------------------------------
 
             try {

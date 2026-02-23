@@ -55,7 +55,7 @@ export default function Shop() {
   const [searchTerm, setSearchTerm] = useState('');
   
   // States exclusivos da Quitanda
-  const [quitandaTab, setQuitandaTab] = useState<'estampas' | 'logos' | 'bordados'>('estampas');
+  const [quitandaTab, setQuitandaTab] = useState<'estampas' | 'logos' | 'bordados' | 'diversos'>('estampas');
   const [activeArtCategory, setActiveArtCategory] = useState('Todos');
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [wantsDigitalGrid, setWantsDigitalGrid] = useState(false);
@@ -112,7 +112,8 @@ export default function Shop() {
           p.type === 'art' && 
           p.subcategory && 
           p.subcategory !== 'Logos' && 
-          p.subcategory !== 'Bordados'
+          p.subcategory !== 'Bordados' &&
+          p.subcategory !== 'Diversos'
       ).forEach(p => {
           if (p.subcategory) existingCats.add(p.subcategory);
       });
@@ -140,8 +141,10 @@ export default function Shop() {
              if (item.subcategory !== 'Bordados') matches = false;
          } else if (quitandaTab === 'logos') {
              if (item.subcategory !== 'Logos') matches = false;
+         } else if (quitandaTab === 'diversos') {
+             if (item.subcategory !== 'Diversos') matches = false;
          } else {
-             if (item.subcategory === 'Logos' || item.subcategory === 'Bordados') matches = false;
+             if (item.subcategory === 'Logos' || item.subcategory === 'Bordados' || item.subcategory === 'Diversos') matches = false;
              if (matches && activeArtCategory !== 'Todos' && item.subcategory !== activeArtCategory) matches = false;
          }
      }
@@ -446,7 +449,7 @@ export default function Shop() {
                         </div>
                     </div>
                 )}
-                <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-full max-w-md border border-zinc-800 shadow-xl overflow-x-auto mb-2"><button onClick={() => { setQuitandaTab('estampas'); setSelectedColor(null); setSearchTerm(''); }} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${quitandaTab === 'estampas' ? 'bg-purple-600 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}>ESTAMPAS</button><button onClick={() => { setQuitandaTab('logos'); setSelectedColor(null); setSearchTerm(''); }} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${quitandaTab === 'logos' ? 'bg-purple-600 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}>LOGOS</button><button onClick={() => { setQuitandaTab('bordados'); setSelectedColor(null); setSearchTerm(''); }} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${quitandaTab === 'bordados' ? 'bg-purple-600 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}>BORDADOS</button></div>
+                <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-full max-w-md border border-zinc-800 shadow-xl overflow-x-auto mb-2"><button onClick={() => { setQuitandaTab('estampas'); setSelectedColor(null); setSearchTerm(''); }} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${quitandaTab === 'estampas' ? 'bg-purple-600 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}>ESTAMPAS</button><button onClick={() => { setQuitandaTab('logos'); setSelectedColor(null); setSearchTerm(''); }} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${quitandaTab === 'logos' ? 'bg-purple-600 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}>LOGOS</button><button onClick={() => { setQuitandaTab('bordados'); setSelectedColor(null); setSearchTerm(''); }} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${quitandaTab === 'bordados' ? 'bg-purple-600 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}>BORDADOS</button><button onClick={() => { setQuitandaTab('diversos'); setSelectedColor(null); setSearchTerm(''); }} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${quitandaTab === 'diversos' ? 'bg-purple-600 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}>DIVERSOS</button></div>
                 {quitandaTab === 'estampas' && (
                     <div className="w-full overflow-x-auto pb-2"><div className="flex gap-2 min-w-max px-1">{artCategories.map(cat => (<button key={cat} onClick={() => setActiveArtCategory(cat)} className={`px-4 py-2 rounded-full text-xs font-bold transition whitespace-nowrap border ${activeArtCategory === cat ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-900/50' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600'}`}>{cat}</button>))}</div></div>
                 )}
@@ -454,22 +457,22 @@ export default function Shop() {
             </div>
         ) : (
             <div className="flex flex-col items-center mb-10 space-y-6">
-                <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-full max-w-md border border-zinc-800 shadow-xl overflow-x-auto"><button onClick={() => setActiveTab('product')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'product' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>PRODUTOS</button><button onClick={() => setActiveTab('service')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'service' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>SERVIÇOS</button><button onClick={() => { setActiveTab('art'); setQuitandaTab('estampas'); }} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap flex items-center justify-center gap-1 ${activeTab === 'art' ? 'bg-purple-500 text-white shadow-sm' : 'text-zinc-500 hover:text-purple-400'}`}><Palette size={12} /> QUITANDA</button></div>
+                <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-full max-w-md border border-zinc-800 shadow-xl overflow-x-auto"><button onClick={() => setActiveTab('product')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'product' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>PRODUTOS</button><button onClick={() => setActiveTab('service')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'service' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>SERVIÇOS</button><button onClick={() => { setActiveTab('art'); setQuitandaTab('estampas'); }} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap flex items-center justify-center gap-1 text-zinc-500 hover:text-purple-400`}><Palette size={12} /> QUITANDA</button></div>
                 <div className="w-full max-w-md relative"><input type="text" placeholder="Buscar na loja..." className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-primary outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /><Search className="absolute left-3 top-3.5 text-zinc-600" size={20} /></div>
             </div>
         )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">{filteredItems.map((item) => {
             // Verifica se deve exibir "Assinatura" ou preço
-            const isArt = item.type === 'art';
+            const isArt = (item.type as string) === 'art';
             const showFree = isSubscriber && isArt;
             
             return (
             <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-primary/50 transition group h-full flex flex-col relative">
                 <div onClick={() => openProduct(item)} className="cursor-pointer flex-1 flex flex-col">
                     <div className="h-56 bg-zinc-800 flex items-center justify-center relative overflow-hidden">
-                        {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" /> : item.type === 'art' ? <Palette size={64} className="text-purple-500/50" /> : <ShoppingBag size={64} className="text-zinc-700" />}
+                        {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" /> : isArt ? <Palette size={64} className="text-purple-500/50" /> : <ShoppingBag size={64} className="text-zinc-700" />}
                         
-                        <div className={`absolute bottom-3 right-3 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase backdrop-blur-md ${showFree ? 'bg-gradient-to-r from-purple-600 to-pink-600' : item.type === 'art' ? 'bg-purple-600/80' : 'bg-black/60'}`}>
+                        <div className={`absolute bottom-3 right-3 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase backdrop-blur-md ${showFree ? 'bg-gradient-to-r from-purple-600 to-pink-600' : isArt ? 'bg-purple-600/80' : 'bg-black/60'}`}>
                             {showFree ? <span className="flex items-center gap-1"><Crown size={12} /> ASSINATURA</span> : `R$ ${item.price.toFixed(2)}`}
                         </div>
                     </div>
@@ -485,7 +488,7 @@ export default function Shop() {
                             </button>
                         </div>
                         <p className="text-zinc-500 text-xs mt-2 line-clamp-2 flex-1">{item.description || 'Clique para ver detalhes'}</p>
-{item.priceVariations && item.priceVariations.length > 0 && (<div className="mt-2 text-[10px] text-emerald-400 bg-emerald-900/20 px-2 py-1 rounded border border-emerald-500/20 inline-block w-fit"><Tag size={10} className="inline mr-1" /> Preços especiais p/ atacado</div>)}{item.type === 'art' && (<div className="mt-3 flex flex-wrap gap-2"><div className="flex items-center gap-1 text-[10px] text-purple-400 font-bold uppercase tracking-wider"><CloudDownload size={12} /> Digital</div>{item.subcategory && (<span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">{item.subcategory}</span>)}</div>)}</div>
+{item.priceVariations && item.priceVariations.length > 0 && (<div className="mt-2 text-[10px] text-emerald-400 bg-emerald-900/20 px-2 py-1 rounded border border-emerald-500/20 inline-block w-fit"><Tag size={10} className="inline mr-1" /> Preços especiais p/ atacado</div>)}{isArt && (<div className="mt-3 flex flex-wrap gap-2"><div className="flex items-center gap-1 text-[10px] text-purple-400 font-bold uppercase tracking-wider"><CloudDownload size={12} /> Digital</div>{item.subcategory && (<span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">{item.subcategory}</span>)}</div>)}</div>
                 </div>
             </div>
             )
