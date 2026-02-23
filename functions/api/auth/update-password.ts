@@ -1,5 +1,5 @@
 
-export async function onRequestPost(context: any) {
+export async function onRequestPost(context) {
   try {
     const { id, password } = await context.request.json();
 
@@ -30,7 +30,7 @@ export async function onRequestPost(context: any) {
 
     return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
 
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message || 'Erro interno' }), { status: 500 });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
   }
 }
