@@ -207,13 +207,15 @@ export default function CustomerDetails() {
   today.setHours(0,0,0,0);
 
   const _openOrders = allCustomerOrders.filter(o => {
-      if (o.status !== 'open') return false;
+      if (!['open', 'production', 'revision'].includes(o.status)) return false;
+      if (o.status === 'paid' || o.paid_at) return false;
       const due = new Date(o.due_date);
       return due >= today;
   });
 
   const _overdueOrders = allCustomerOrders.filter(o => {
-      if (o.status !== 'open') return false;
+      if (!['open', 'production', 'revision'].includes(o.status)) return false;
+      if (o.status === 'paid' || o.paid_at) return false;
       const due = new Date(o.due_date);
       return due < today;
   });
@@ -531,6 +533,8 @@ export default function CustomerDetails() {
   const renderStatusBadge = (status: string, isLate: boolean) => {
       if (status === 'paid') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-wide">Pago</span>;
       if (status === 'finished') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase tracking-wide">Finalizado</span>;
+      if (status === 'production') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20 uppercase tracking-wide">Em Produção</span>;
+      if (status === 'revision') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Em Alteração</span>;
       if (isLate) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wide">Atrasado</span>;
       return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Aberto</span>;
   };
@@ -1018,7 +1022,13 @@ export default function CustomerDetails() {
                                         <td className="px-4 md:px-6 py-4">
                                             <div className="font-mono text-zinc-300 font-bold">#{order.formattedOrderNumber || order.order_number}</div>
                                             <div className="md:hidden mt-1.5">
-                                                {renderStatusBadge(order.status, isLate)}
+                                                <div className="flex items-center gap-2">
+                                                    <div 
+                                                        className={`w-2 h-2 rounded-full ${order.paid_at || order.status === 'paid' ? 'bg-emerald-500' : 'bg-red-500'}`} 
+                                                        title={order.paid_at || order.status === 'paid' ? 'Pago' : 'Não Pago'}
+                                                    />
+                                                    {renderStatusBadge(order.status, isLate)}
+                                                </div>
                                                 {role === 'admin' && order.status === 'paid' && order.paid_at && (
                                                     <span className="text-[9px] text-zinc-500 ml-2 font-mono">
                                                        {new Date(order.paid_at).toLocaleDateString()}
@@ -1030,7 +1040,13 @@ export default function CustomerDetails() {
                                         <td className="px-6 py-4 hidden md:table-cell">{new Date(order.order_date).toLocaleDateString()}</td>
                                         <td className={`px-6 py-4 hidden md:table-cell ${isLate ? 'text-red-400 font-bold' : ''}`}>{new Date(order.due_date).toLocaleDateString()}</td>
                                         <td className="px-6 py-4 hidden md:table-cell">
-                                            {renderStatusBadge(order.status, isLate)}
+                                            <div className="flex items-center gap-2">
+                                                <div 
+                                                    className={`w-2 h-2 rounded-full ${order.paid_at || order.status === 'paid' ? 'bg-emerald-500' : 'bg-red-500'}`} 
+                                                    title={order.paid_at || order.status === 'paid' ? 'Pago' : 'Não Pago'}
+                                                />
+                                                {renderStatusBadge(order.status, isLate)}
+                                            </div>
                                             {role === 'admin' && order.status === 'paid' && order.paid_at && (
                                                 <div className="text-[10px] text-zinc-500 mt-1 font-mono">
                                                     Pg: {new Date(order.paid_at).toLocaleDateString()}
