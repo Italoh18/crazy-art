@@ -20,8 +20,17 @@ export default function Orders() {
   const [dateFilter, setDateFilter] = useState(initialMonth ? `${initialMonth.split('/')[1]}-${initialMonth.split('/')[0]}` : '');
 
   const isOverdue = (order: Order) => {
-    if (!order.due_date || !['open', 'production', 'revision'].includes(order.status)) return false;
-    return new Date(order.due_date) < new Date();
+    if (!order.due_date || !['open', 'production', 'revision', 'finished'].includes(order.status)) return false;
+    if (order.status === 'paid' || order.paid_at) return false;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const due = new Date(order.due_date);
+    // Handle timezone shift for YYYY-MM-DD strings
+    if (order.due_date.length === 10) {
+      const localDue = new Date(order.due_date + 'T00:00:00');
+      return localDue < today;
+    }
+    return due < today;
   };
 
   const filteredOrders = orders.filter(order => {

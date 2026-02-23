@@ -72,14 +72,14 @@ export default function ClientOrders() {
   const _openOrders = allCustomerOrders.filter(o => {
       if (!['open', 'production', 'revision', 'finished'].includes(o.status)) return false;
       if (o.status === 'paid' || o.paid_at) return false;
-      const due = new Date(o.due_date);
+      const due = o.due_date.length === 10 ? new Date(o.due_date + 'T00:00:00') : new Date(o.due_date);
       return due >= today;
   });
 
   const _overdueOrders = allCustomerOrders.filter(o => {
       if (!['open', 'production', 'revision', 'finished'].includes(o.status)) return false;
       if (o.status === 'paid' || o.paid_at) return false;
-      const due = new Date(o.due_date);
+      const due = o.due_date.length === 10 ? new Date(o.due_date + 'T00:00:00') : new Date(o.due_date);
       return due < today;
   });
 
@@ -449,7 +449,7 @@ export default function ClientOrders() {
                             displayedOrders.map(order => {
                                 const isLate = ['open', 'production', 'revision', 'finished'].includes(order.status) && 
                                              !(order.paid_at || order.status === 'paid') && 
-                                             new Date(order.due_date) < today;
+                                             (order.due_date.length === 10 ? new Date(order.due_date + 'T00:00:00') : new Date(order.due_date)) < today;
                                 const isSelected = selectedOrderIds.includes(order.id);
                                 return (
                                     <tr key={order.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? 'bg-primary/5' : ''}`}>
