@@ -42,8 +42,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const passwordHash = body.password ? await hashPassword(body.password) : null;
       
       // Se não for admin, creditLimit e isSubscriber são forçados a 0
-      const creditLimit = user?.role === 'admin' ? (parseFloat(body.creditLimit) || 0) : 0;
-      const isSubscriber = user?.role === 'admin' ? (body.isSubscriber ? 1 : 0) : 0;
+      const creditLimitVal = body.creditLimit !== undefined ? body.creditLimit : body.credit_limit;
+      const creditLimit = user?.role === 'admin' ? (parseFloat(creditLimitVal) || 0) : 0;
+      
+      const isSubscriberVal = body.isSubscriber !== undefined ? body.isSubscriber : body.is_subscriber;
+      const isSubscriber = user?.role === 'admin' ? (isSubscriberVal ? 1 : 0) : 0;
 
       await env.DB.prepare(
         'INSERT INTO clients (id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link, is_subscriber, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
@@ -58,7 +61,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         body.address?.zipCode ? String(body.address.zipCode).trim() : null,
         creditLimit,
         now,
-        body.cloudLink ? String(body.cloudLink).trim() : null,
+        body.cloudLink || body.cloud_link ? String(body.cloudLink || body.cloud_link).trim() : null,
         isSubscriber,
         passwordHash
       ).run();
@@ -74,6 +77,15 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       if (user.role === 'admin') {
         const passwordHash = body.password ? await hashPassword(body.password) : undefined;
         
+        const creditLimitVal = body.creditLimit !== undefined ? body.creditLimit : body.credit_limit;
+        const creditLimit = parseFloat(creditLimitVal) || 0;
+        
+        const isSubscriberVal = body.isSubscriber !== undefined ? body.isSubscriber : body.is_subscriber;
+        const isSubscriber = isSubscriberVal ? 1 : 0;
+
+        const cloudLink = body.cloudLink || body.cloud_link;
+        const subscriptionExpiresAt = body.subscriptionExpiresAt || body.subscription_expires_at;
+
         if (passwordHash) {
           await env.DB.prepare(
             'UPDATE clients SET name=?, email=?, phone=?, cpf=?, street=?, number=?, zipCode=?, creditLimit=?, cloud_link=?, is_subscriber=?, subscription_expires_at=?, password_hash=? WHERE id=?'
@@ -85,10 +97,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             body.address?.street ? String(body.address.street).trim() : null,
             body.address?.number ? String(body.address.number).trim() : null,
             body.address?.zipCode ? String(body.address.zipCode).trim() : null,
-            parseFloat(body.creditLimit) || 0,
-            body.cloudLink ? String(body.cloudLink).trim() : null,
-            body.isSubscriber ? 1 : 0,
-            body.subscriptionExpiresAt ? String(body.subscriptionExpiresAt).trim() : null,
+            creditLimit,
+            cloudLink ? String(cloudLink).trim() : null,
+            isSubscriber,
+            subscriptionExpiresAt ? String(subscriptionExpiresAt).trim() : null,
             passwordHash,
             String(id)
           ).run();
@@ -103,10 +115,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             body.address?.street ? String(body.address.street).trim() : null,
             body.address?.number ? String(body.address.number).trim() : null,
             body.address?.zipCode ? String(body.address.zipCode).trim() : null,
-            parseFloat(body.creditLimit) || 0,
-            body.cloudLink ? String(body.cloudLink).trim() : null,
-            body.isSubscriber ? 1 : 0,
-            body.subscriptionExpiresAt ? String(body.subscriptionExpiresAt).trim() : null,
+            creditLimit,
+            cloudLink ? String(cloudLink).trim() : null,
+            isSubscriber,
+            subscriptionExpiresAt ? String(subscriptionExpiresAt).trim() : null,
             String(id)
           ).run();
         }

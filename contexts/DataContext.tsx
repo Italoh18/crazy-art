@@ -49,7 +49,7 @@ const normalizeCustomer = (c: any): Customer => {
       number: c.number || '',
       zipCode: c.zipCode || ''
     },
-    creditLimit: typeof c.creditLimit === 'number' ? c.creditLimit : (typeof c.credit_limit === 'number' ? c.credit_limit : 0),
+    creditLimit: c.creditLimit !== undefined ? Number(c.creditLimit) : (c.credit_limit !== undefined ? Number(c.credit_limit) : 0),
     isSubscriber: c.isSubscriber === 1 || c.isSubscriber === true || c.is_subscriber === 1 || c.is_subscriber === true
   };
 };
