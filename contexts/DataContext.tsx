@@ -13,7 +13,7 @@ interface DataContextType {
   faviconUrl: string | null;
   isLoading: boolean;
   addCustomer: (customer: any) => Promise<void>;
-  updateCustomer: (id: string, data: any) => Promise<void>;
+  updateCustomer: (id: string, data: any) => Promise<any>;
   deleteCustomer: (id: string) => Promise<void>;
   addProduct: (product: any) => Promise<any>;
   updateProduct: (id: string, data: any) => Promise<void>;
@@ -131,8 +131,9 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
 
   const updateCustomer = async (id: string, data: any) => {
     try {
-      await api.updateClient(id, data);
+      const res = await api.updateClient(id, data);
       await loadData(true);
+      return res;
     } catch (e: any) { alert(e.message); }
   };
 

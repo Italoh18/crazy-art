@@ -372,7 +372,17 @@ export default function CustomerDetails() {
           credit_limit: formData.creditLimit,
           is_subscriber: formData.isSubscriber ? 1 : 0
       };
-      await updateCustomer(customer!.id, payload);
+      const res = await updateCustomer(customer!.id, payload);
+      
+      if (res && res.client) {
+          const returnedLimit = res.client.creditLimit !== undefined ? res.client.creditLimit : res.client.credit_limit;
+          const sentLimit = payload.credit_limit;
+          
+          if (returnedLimit !== undefined && Math.abs(Number(returnedLimit) - Number(sentLimit)) > 0.01) {
+               alert(`Atenção: O limite de crédito pode não ter sido salvo corretamente.\nEnviado: ${sentLimit}\nRetornado: ${returnedLimit}\n\nPor favor, verifique se você tem permissão de administrador.`);
+          }
+      }
+      
       setIsEditModalOpen(false);
   };
   

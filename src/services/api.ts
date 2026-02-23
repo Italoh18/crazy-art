@@ -49,7 +49,9 @@ export const api = {
   },
 
   async getClients() {
-    const res = await fetch(`/api/clients?_t=${Date.now()}`, { headers: getHeaders() });
+    const res = await fetch(`/api/clients?_t=${Date.now()}`, { 
+      headers: { ...getHeaders(), 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache' } 
+    });
     return handleResponse(res);
   },
   async createClient(data: any) {

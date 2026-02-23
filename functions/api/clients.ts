@@ -139,7 +139,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
       }
       
-      return Response.json({ success: true });
+      const updatedClient = await env.DB.prepare('SELECT * FROM clients WHERE id = ?').bind(String(id)).first();
+      return Response.json({ success: true, client: updatedClient });
     }
 
     if (request.method === 'DELETE' && id) {
