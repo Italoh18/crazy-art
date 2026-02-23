@@ -207,23 +207,21 @@ export default function CustomerDetails() {
   today.setHours(0,0,0,0);
 
   const _openOrders = allCustomerOrders.filter(o => {
-      if (!['open', 'production', 'revision', 'finished'].includes(o.status)) return false;
-      if (o.status === 'paid' || o.paid_at) return false;
-      const due = o.due_date.length === 10 ? new Date(o.due_date + 'T00:00:00') : new Date(o.due_date);
+      if (o.status !== 'open') return false;
+      const due = new Date(o.due_date);
       return due >= today;
   });
 
   const _overdueOrders = allCustomerOrders.filter(o => {
-      if (!['open', 'production', 'revision', 'finished'].includes(o.status)) return false;
-      if (o.status === 'paid' || o.paid_at) return false;
-      const due = o.due_date.length === 10 ? new Date(o.due_date + 'T00:00:00') : new Date(o.due_date);
+      if (o.status !== 'open') return false;
+      const due = new Date(o.due_date);
       return due < today;
   });
 
   // Lógica de Bloqueio da Nuvem
   const isCloudLocked = role === 'client' && _overdueOrders.length > 0;
 
-  const _paidOrders = allCustomerOrders.filter(o => o.status === 'paid' || o.paid_at);
+  const _paidOrders = allCustomerOrders.filter(o => o.status === 'paid');
 
   const displayedOrders = useMemo(() => {
       switch(activeTab) {
@@ -238,7 +236,7 @@ export default function CustomerDetails() {
   const totalPayableValue = allPayableOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
 
   const currentTabPayableOrders = useMemo(() => 
-      displayedOrders.filter(o => ['open', 'production', 'revision', 'finished'].includes(o.status) && !(o.paid_at || o.status === 'paid')),
+      displayedOrders.filter(o => o.status === 'open'),
   [displayedOrders]);
 
   const isAllSelected = currentTabPayableOrders.length > 0 && currentTabPayableOrders.every(o => selectedOrderIds.includes(o.id));
@@ -533,8 +531,6 @@ export default function CustomerDetails() {
   const renderStatusBadge = (status: string, isLate: boolean) => {
       if (status === 'paid') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-wide">Pago</span>;
       if (status === 'finished') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase tracking-wide">Finalizado</span>;
-      if (status === 'production') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20 uppercase tracking-wide">Em Produção</span>;
-      if (status === 'revision') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Em Alteração</span>;
       if (isLate) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wide">Atrasado</span>;
       return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Aberto</span>;
   };
@@ -1014,23 +1010,15 @@ export default function CustomerDetails() {
                             <tr><td colSpan={7} className="text-center py-16 text-zinc-600"><div className="flex flex-col items-center gap-2"><Layers size={32} className="opacity-20" /><p>Nenhum pedido nesta categoria.</p></div></td></tr>
                         ) : (
                             displayedOrders.map(order => {
-                                const isLate = ['open', 'production', 'revision', 'finished'].includes(order.status) && 
-                                             !(order.paid_at || order.status === 'paid') && 
-                                             (order.due_date.length === 10 ? new Date(order.due_date + 'T00:00:00') : new Date(order.due_date)) < today;
+                                const isLate = order.status === 'open' && new Date(order.due_date) < new Date();
                                 const isSelected = selectedOrderIds.includes(order.id);
                                 return (
                                     <tr key={order.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? 'bg-primary/5' : ''}`}>
-                                        <td className="px-4 md:px-6 py-4">{['open', 'production', 'revision', 'finished'].includes(order.status) && !(order.paid_at || order.status === 'paid') && <input type="checkbox" checked={isSelected} onChange={() => {}} onClick={(e) => toggleSelectOrder(order.id, e)} className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" />}</td>
+                                        <td className="px-4 md:px-6 py-4">{order.status === 'open' && <input type="checkbox" checked={isSelected} onChange={() => {}} onClick={(e) => toggleSelectOrder(order.id, e)} className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" />}</td>
                                         <td className="px-4 md:px-6 py-4">
                                             <div className="font-mono text-zinc-300 font-bold">#{order.formattedOrderNumber || order.order_number}</div>
                                             <div className="md:hidden mt-1.5">
-                                                <div className="flex items-center gap-2">
-                                                    <div 
-                                                        className={`w-2 h-2 rounded-full ${order.paid_at || order.status === 'paid' ? 'bg-emerald-500' : 'bg-red-500'}`} 
-                                                        title={order.paid_at || order.status === 'paid' ? 'Pago' : 'Não Pago'}
-                                                    />
-                                                    {renderStatusBadge(order.status, isLate)}
-                                                </div>
+                                                {renderStatusBadge(order.status, isLate)}
                                                 {role === 'admin' && order.status === 'paid' && order.paid_at && (
                                                     <span className="text-[9px] text-zinc-500 ml-2 font-mono">
                                                        {new Date(order.paid_at).toLocaleDateString()}
@@ -1042,13 +1030,7 @@ export default function CustomerDetails() {
                                         <td className="px-6 py-4 hidden md:table-cell">{new Date(order.order_date).toLocaleDateString()}</td>
                                         <td className={`px-6 py-4 hidden md:table-cell ${isLate ? 'text-red-400 font-bold' : ''}`}>{new Date(order.due_date).toLocaleDateString()}</td>
                                         <td className="px-6 py-4 hidden md:table-cell">
-                                            <div className="flex items-center gap-2">
-                                                <div 
-                                                    className={`w-2 h-2 rounded-full ${order.paid_at || order.status === 'paid' ? 'bg-emerald-500' : 'bg-red-500'}`} 
-                                                    title={order.paid_at || order.status === 'paid' ? 'Pago' : 'Não Pago'}
-                                                />
-                                                {renderStatusBadge(order.status, isLate)}
-                                            </div>
+                                            {renderStatusBadge(order.status, isLate)}
                                             {role === 'admin' && order.status === 'paid' && order.paid_at && (
                                                 <div className="text-[10px] text-zinc-500 mt-1 font-mono">
                                                     Pg: {new Date(order.paid_at).toLocaleDateString()}
@@ -1179,12 +1161,7 @@ export default function CustomerDetails() {
                     <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5"><span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Data do Pedido</span><span className="text-white font-mono text-sm">{new Date(viewingOrder.order_date).toLocaleDateString()}</span></div>
-                            <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5"><span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Vencimento</span><span className={`font-mono text-sm ${
-                                ['open', 'production', 'revision', 'finished'].includes(viewingOrder.status) && 
-                                !(viewingOrder.paid_at || viewingOrder.status === 'paid') && 
-                                (viewingOrder.due_date.length === 10 ? new Date(viewingOrder.due_date + 'T00:00:00') : new Date(viewingOrder.due_date)) < today 
-                                ? 'text-red-400 font-bold' : 'text-white'
-                            }`}>{new Date(viewingOrder.due_date).toLocaleDateString()}</span></div>
+                            <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5"><span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Vencimento</span><span className={`font-mono text-sm ${new Date(viewingOrder.due_date) < new Date() && viewingOrder.status === 'open' ? 'text-red-400 font-bold' : 'text-white'}`}>{new Date(viewingOrder.due_date).toLocaleDateString()}</span></div>
                         </div>
                         {viewingOrder.size_list && (
                             <div><h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Lista de Produção</h3><div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">{(typeof viewingOrder.size_list === 'string' ? JSON.parse(viewingOrder.size_list) : viewingOrder.size_list).map((item: SizeListItem, idx: number) => (<div key={idx} className="bg-zinc-900/30 p-2 rounded border border-white/5 flex justify-between items-center text-xs"><span className="text-zinc-300 font-bold">{item.size} <span className="text-zinc-500 font-normal">({item.category})</span></span>{item.isSimple ? <span className="text-white bg-zinc-700 px-2 py-0.5 rounded font-mono">x{item.quantity}</span> : <span className="text-primary font-bold uppercase">{item.name || '-'} <span className="text-white font-mono">{item.number ? `#${item.number}` : ''}</span></span>}</div>))}</div></div>
@@ -1218,11 +1195,7 @@ export default function CustomerDetails() {
                         )}
 
                         <div><h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Resumo Financeiro</h3><div className="space-y-2"><div className="bg-zinc-900/30 p-3 rounded-xl border border-white/5 flex justify-between items-center"><span className="text-zinc-300 text-sm">Valor Total</span><span className="text-white font-mono font-bold text-sm">R$ {Number(viewingOrder.total || 0).toFixed(2)}</span></div></div></div>
-                        <div className="flex justify-between items-center bg-zinc-900 p-4 rounded-xl border border-white/5"><span className="text-sm text-zinc-400">Status Atual</span>{renderStatusBadge(viewingOrder.status, 
-                            ['open', 'production', 'revision', 'finished'].includes(viewingOrder.status) && 
-                            !(viewingOrder.paid_at || viewingOrder.status === 'paid') && 
-                            (viewingOrder.due_date.length === 10 ? new Date(viewingOrder.due_date + 'T00:00:00') : new Date(viewingOrder.due_date)) < today
-                        )}</div>
+                        <div className="flex justify-between items-center bg-zinc-900 p-4 rounded-xl border border-white/5"><span className="text-sm text-zinc-400">Status Atual</span>{renderStatusBadge(viewingOrder.status, new Date(viewingOrder.due_date) < new Date())}</div>
                     </div>
 
                     <div className="p-6 border-t border-white/5 bg-[#0c0c0e] rounded-b-2xl">

@@ -46,20 +46,15 @@ export default function DRE() {
       data[sortKey].salesGross += val;
       data[sortKey].salesCost += cost;
 
-      const today = new Date();
-      today.setHours(0,0,0,0);
-
       // 2. Cálculo de Recebimento (Fluxo de Caixa) & Gráfico
-      if (order.status === 'paid' || order.paid_at) {
+      if (order.status === 'paid') {
         data[sortKey].revenue += val;
         
         data[sortKey].receivedGross += val;
         data[sortKey].receivedCost += cost;
 
-      } else if (['open', 'production', 'revision', 'finished'].includes(order.status)) {
-        const due = order.due_date && order.due_date.length === 10 ? new Date(order.due_date + 'T00:00:00') : new Date(order.due_date || '');
-        const isLate = order.due_date && due < today;
-        
+      } else if (order.status === 'open') {
+        const isLate = order.due_date && new Date(order.due_date) < new Date();
         if (isLate) {
             data[sortKey].overdue += val;
         } else {
@@ -74,8 +69,8 @@ export default function DRE() {
   const chartData = getDataByMonth();
 
   // Summary Totals
-  const totalRevenue = orders.filter(o => o.status === 'paid' || o.paid_at).reduce((acc, c) => acc + Number(c.total || 0), 0);
-  const totalReceivable = orders.filter(o => ['open', 'production', 'revision', 'finished'].includes(o.status) && !(o.status === 'paid' || o.paid_at)).reduce((acc, c) => acc + Number(c.total || 0), 0);
+  const totalRevenue = orders.filter(o => o.status === 'paid').reduce((acc, c) => acc + Number(c.total || 0), 0);
+  const totalReceivable = orders.filter(o => o.status === 'open').reduce((acc, c) => acc + Number(c.total || 0), 0);
 
   const handleBarClick = (data: any, index: number, type: 'revenue' | 'receivable' | 'overdue') => {
       if (!data || !data.name) return;

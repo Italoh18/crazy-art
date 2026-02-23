@@ -70,38 +70,33 @@ export default function ClientOrders() {
   today.setHours(0,0,0,0);
 
   const _openOrders = allCustomerOrders.filter(o => {
-      if (!['open', 'production', 'revision', 'finished'].includes(o.status)) return false;
-      if (o.status === 'paid' || o.paid_at) return false;
-      const due = o.due_date.length === 10 ? new Date(o.due_date + 'T00:00:00') : new Date(o.due_date);
+      if (!['open', 'production', 'revision'].includes(o.status)) return false;
+      const due = new Date(o.due_date);
       return due >= today;
   });
 
   const _overdueOrders = allCustomerOrders.filter(o => {
-      if (!['open', 'production', 'revision', 'finished'].includes(o.status)) return false;
-      if (o.status === 'paid' || o.paid_at) return false;
-      const due = o.due_date.length === 10 ? new Date(o.due_date + 'T00:00:00') : new Date(o.due_date);
+      if (!['open', 'production', 'revision'].includes(o.status)) return false;
+      const due = new Date(o.due_date);
       return due < today;
   });
 
   // Lógica de Bloqueio da Nuvem
   const isCloudLocked = _overdueOrders.length > 0;
 
-  const _paidOrders = allCustomerOrders.filter(o => o.status === 'paid' || o.paid_at);
-
   const displayedOrders = useMemo(() => {
       switch(activeTab) {
           case 'open': return _openOrders;
           case 'overdue': return _overdueOrders;
-          case 'paid': return _paidOrders;
-          default: return allCustomerOrders;
+          default: return [..._openOrders, ..._overdueOrders];
       }
-  }, [activeTab, _openOrders, _overdueOrders, _paidOrders, allCustomerOrders]);
+  }, [activeTab, _openOrders, _overdueOrders]);
 
   const allPayableOrders = [..._openOrders, ..._overdueOrders];
   const totalPayableValue = allPayableOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
 
   const currentTabPayableOrders = useMemo(() => 
-      displayedOrders.filter(o => ['open', 'production', 'revision', 'finished'].includes(o.status) && !(o.paid_at || o.status === 'paid')),
+      displayedOrders.filter(o => ['open', 'production', 'revision'].includes(o.status)),
   [displayedOrders]);
 
   const isAllSelected = currentTabPayableOrders.length > 0 && currentTabPayableOrders.every(o => selectedOrderIds.includes(o.id));
@@ -118,7 +113,6 @@ export default function ClientOrders() {
       }
   };
 
-  const totalPaid = _paidOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
   const totalOpen = _openOrders.reduce((acc, o) => acc + Number(o.total || 0), 0) + _overdueOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
   const totalOverdueValue = _overdueOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
 
@@ -407,17 +401,6 @@ export default function ClientOrders() {
                     <span className={`text-4xl font-black tracking-tight ${totalOverdueValue > 0 ? 'text-zinc-300' : 'text-zinc-700'}`}>{Number(totalOverdueValue).toFixed(2)}</span>
                 </div>
             </div>
-
-            <div className="bg-[#0c0c0e] border border-white/5 p-6 rounded-2xl relative overflow-hidden group">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-500"><CheckCircle size={20} /></div>
-                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Total Pago</span>
-                </div>
-                <div>
-                    <span className="text-zinc-500 text-lg font-medium mr-1">R$</span>
-                    <span className={`text-4xl font-black tracking-tight ${totalPaid > 0 ? 'text-emerald-400' : 'text-zinc-700'}`}>{Number(totalPaid).toFixed(2)}</span>
-                </div>
-            </div>
         </div>
 
         {/* Tabs and Table */}
@@ -425,8 +408,6 @@ export default function ClientOrders() {
             <div className="flex flex-col sm:flex-row border-b border-white/5 bg-[#0c0c0e]">
                 <button onClick={() => setActiveTab('open')} className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'open' ? 'text-primary bg-primary/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}>Abertos{_openOrders.length > 0 && <span className="ml-2 text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">{_openOrders.length}</span>}{activeTab === 'open' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_-2px_10px_rgba(245,158,11,0.5)]"></div>}</button>
                 <button onClick={() => setActiveTab('overdue')} className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'overdue' ? 'text-red-500 bg-red-500/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}>Atrasados{_overdueOrders.length > 0 && <span className="ml-2 text-[10px] bg-red-500/20 text-red-500 px-2 py-0.5 rounded-full">{_overdueOrders.length}</span>}{activeTab === 'overdue' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-red-500 shadow-[0_-2px_10px_rgba(239,68,68,0.5)]"></div>}</button>
-                <button onClick={() => setActiveTab('paid')} className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'paid' ? 'text-emerald-500 bg-emerald-500/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}>Pagos{_paidOrders.length > 0 && <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-500 px-2 py-0.5 rounded-full">{_paidOrders.length}</span>}{activeTab === 'paid' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-emerald-500 shadow-[0_-2px_10px_rgba(16,185,129,0.5)]"></div>}</button>
-                <button onClick={() => setActiveTab('all')} className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'all' ? 'text-white bg-white/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}>Histórico{activeTab === 'all' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-zinc-500"></div>}</button>
             </div>
 
             <div className="overflow-x-auto pb-24">
@@ -447,13 +428,11 @@ export default function ClientOrders() {
                             <tr><td colSpan={7} className="text-center py-16 text-zinc-600"><div className="flex flex-col items-center gap-2"><ListChecks size={32} className="opacity-20" /><p>Nenhum pedido nesta categoria.</p></div></td></tr>
                         ) : (
                             displayedOrders.map(order => {
-                                const isLate = ['open', 'production', 'revision', 'finished'].includes(order.status) && 
-                                             !(order.paid_at || order.status === 'paid') && 
-                                             (order.due_date.length === 10 ? new Date(order.due_date + 'T00:00:00') : new Date(order.due_date)) < today;
+                                const isLate = order.status === 'open' && new Date(order.due_date) < new Date();
                                 const isSelected = selectedOrderIds.includes(order.id);
                                 return (
                                     <tr key={order.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? 'bg-primary/5' : ''}`}>
-                                        <td className="px-4 md:px-6 py-8">{['open', 'production', 'revision', 'finished'].includes(order.status) && !(order.paid_at || order.status === 'paid') && <input type="checkbox" checked={isSelected} onChange={() => {}} onClick={(e) => toggleSelectOrder(order.id, e)} className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" />}</td>
+                                        <td className="px-4 md:px-6 py-8">{['open', 'production', 'revision'].includes(order.status) && <input type="checkbox" checked={isSelected} onChange={() => {}} onClick={(e) => toggleSelectOrder(order.id, e)} className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" />}</td>
                                         <td className="px-4 md:px-6 py-8">
                                             <div className="font-mono text-zinc-300 font-bold text-lg">#{order.formattedOrderNumber || order.order_number}</div>
                                             <div className="md:hidden mt-2">
@@ -464,18 +443,12 @@ export default function ClientOrders() {
                                         <td className="px-6 py-8 hidden md:table-cell font-medium">{new Date(order.order_date).toLocaleDateString()}</td>
                                         <td className={`px-6 py-8 hidden md:table-cell font-medium ${isLate ? 'text-red-400 font-bold' : ''}`}>{new Date(order.due_date).toLocaleDateString()}</td>
                                         <td className="px-6 py-8 hidden md:table-cell">
-                                            <div className="flex items-center gap-2">
-                                                <div 
-                                                    className={`w-2 h-2 rounded-full ${order.paid_at || order.status === 'paid' ? 'bg-emerald-500' : 'bg-red-500'}`} 
-                                                    title={order.paid_at || order.status === 'paid' ? 'Pago' : 'Não Pago'}
-                                                />
-                                                {renderStatusBadge(order.status, isLate)}
-                                            </div>
+                                            {renderStatusBadge(order.status, isLate)}
                                         </td>
                                         <td className="px-4 md:px-6 py-8 text-right"><div className="font-mono font-black text-white text-base md:text-xl">R$ {Number(order.total || 0).toFixed(2)}</div><div className={`md:hidden text-[10px] mt-1 font-bold ${isLate ? 'text-red-400' : 'text-zinc-500'}`}>Vence: {new Date(order.due_date).toLocaleDateString().slice(0,5)}</div></td>
                                         <td className="px-4 md:px-6 py-8 text-center">
                                             <div className="flex items-center justify-end md:justify-center gap-3">
-                                                {['open', 'production', 'revision', 'finished'].includes(order.status) && !(order.paid_at || order.status === 'paid') ? (
+                                                {['open', 'production', 'revision'].includes(order.status) ? (
                                                     <button onClick={() => initiatePaymentFlow([order.id])} className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl transition font-bold inline-flex items-center gap-2 shadow-lg shadow-emerald-600/20" title="Pagar agora"><DollarSign size={14} /> <span className="hidden md:inline">Pagar</span></button>
                                                 ) : <span className="hidden md:inline text-xs text-zinc-600 font-bold uppercase tracking-widest italic">Concluído</span>}
                                                 <button onClick={() => fetchAndSetViewingOrder(order)} className="p-2.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition border border-white/5 hover:border-zinc-700" title="Ver Detalhes"><Eye size={20} /></button>
@@ -609,12 +582,7 @@ export default function ClientOrders() {
                             </div>
                             <div className="bg-zinc-900/50 p-5 rounded-2xl border border-white/5 flex flex-col justify-center">
                                 <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Vencimento</span>
-                                <span className={`font-mono text-lg font-bold ${
-                                    ['open', 'production', 'revision', 'finished'].includes(viewingOrder.status) && 
-                                    !(viewingOrder.paid_at || viewingOrder.status === 'paid') && 
-                                    (viewingOrder.due_date.length === 10 ? new Date(viewingOrder.due_date + 'T00:00:00') : new Date(viewingOrder.due_date)) < today 
-                                    ? 'text-red-400' : 'text-white'
-                                }`}>{new Date(viewingOrder.due_date).toLocaleDateString()}</span>
+                                <span className={`font-mono text-lg font-bold ${new Date(viewingOrder.due_date) < new Date() && viewingOrder.status === 'open' ? 'text-red-400' : 'text-white'}`}>{new Date(viewingOrder.due_date).toLocaleDateString()}</span>
                             </div>
                         </div>
 
@@ -677,11 +645,7 @@ export default function ClientOrders() {
                             </div>
                             <div className="text-right">
                                 <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-2">Status Atual</span>
-                                {renderStatusBadge(viewingOrder.status, 
-                                    ['open', 'production', 'revision', 'finished'].includes(viewingOrder.status) && 
-                                    !(viewingOrder.paid_at || viewingOrder.status === 'paid') && 
-                                    (viewingOrder.due_date.length === 10 ? new Date(viewingOrder.due_date + 'T00:00:00') : new Date(viewingOrder.due_date)) < today
-                                )}
+                                {renderStatusBadge(viewingOrder.status, new Date(viewingOrder.due_date) < new Date())}
                             </div>
                         </div>
                     </div>
