@@ -362,7 +362,7 @@ export default function Home() {
                                   <span>{item.name}</span>
                                   {item.sub && <span className="text-[8px] opacity-50 mt-0.5 tracking-tight font-normal">{(item as any).sub}</span>}
                               </div>
-                              <span className="text-[8px] opacity-50 ml-1 bg-zinc-800 px-1 rounded">(Breve)</span>
+                              <span className="text-[8px] ml-1 bg-orange-500/20 text-orange-500 px-1 rounded font-bold">(Breve)</span>
                           </span>
                       ) : (
                           <Link 
@@ -475,7 +475,7 @@ export default function Home() {
 
                      <div className="w-full text-left px-4 py-3 rounded-xl opacity-50 cursor-not-allowed flex items-center gap-4">
                         <div className="bg-zinc-800 p-2 rounded-lg text-zinc-500"><BookOpen size={20} /></div>
-                        <span className="text-zinc-500 font-bold text-sm uppercase tracking-wide">Blog (Em Breve)</span>
+                        <span className="text-zinc-500 font-bold text-sm uppercase tracking-wide">Blog <span className="text-orange-500 text-[10px] ml-1">(Em Breve)</span></span>
                      </div>
                 </div>
             </div>
