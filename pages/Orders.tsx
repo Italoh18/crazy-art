@@ -30,7 +30,7 @@ export default function Orders() {
         if (!isOverdue(order)) return false;
     } else if (statusFilter !== 'all') {
         if (statusFilter === 'production') {
-            // "Em Produção": Todos os pedidos que NÃO estão finalizados nem cancelados
+            // "Em Produção": Todos os pedidos (pagos ou não) que NÃO estão finalizados nem cancelados
             if (['finished', 'cancelled'].includes(order.status)) return false;
         } else if (statusFilter === 'open') {
             if (isOverdue(order)) return false;
@@ -159,28 +159,16 @@ export default function Orders() {
                                       <td className="px-6 py-4">
                                           <div className="flex items-center gap-2">
                                               <div 
-                                                  className={`w-2 h-2 rounded-full ${order.paid_at || order.status === 'paid' ? 'bg-emerald-500' : 'bg-red-500'}`} 
-                                                  title={order.paid_at || order.status === 'paid' ? 'Pago' : 'Não Pago'}
+                                                  className={`w-2 h-2 rounded-full ${['paid', 'production', 'revision', 'finished'].includes(order.status) ? 'bg-emerald-500' : 'bg-red-500'}`} 
+                                                  title={['paid', 'production', 'revision', 'finished'].includes(order.status) ? 'Pago' : 'Não Pago'}
                                               />
-                                              {order.status === 'cancelled' ? (
-                                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-500 border border-red-500/20">
-                                                      <AlertTriangle size={12} /> Cancelado
+                                              {order.status === 'paid' ? (
+                                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                                      <CheckCircle size={12} /> Pago ({order.payment_method === 'mercadopago' ? 'ML' : 'Admin'})
                                                   </span>
                                               ) : order.status === 'finished' ? (
                                                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
                                                       <CheckCircle size={12} /> Finalizado
-                                                  </span>
-                                              ) : order.status === 'paid' || order.paid_at ? (
-                                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                                                      <CheckCircle size={12} /> Pago ({order.payment_method === 'mercadopago' ? 'ML' : 'Admin'})
-                                                  </span>
-                                              ) : order.status === 'production' ? (
-                                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                                                      <Clock size={12} /> Em Produção
-                                                  </span>
-                                              ) : order.status === 'revision' ? (
-                                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                                                      <AlertTriangle size={12} /> Em Alteração
                                                   </span>
                                               ) : overdue ? (
                                                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-500 border border-red-500/20">
