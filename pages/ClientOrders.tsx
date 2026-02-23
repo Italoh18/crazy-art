@@ -443,7 +443,13 @@ export default function ClientOrders() {
                                         <td className="px-6 py-8 hidden md:table-cell font-medium">{new Date(order.order_date).toLocaleDateString()}</td>
                                         <td className={`px-6 py-8 hidden md:table-cell font-medium ${isLate ? 'text-red-400 font-bold' : ''}`}>{new Date(order.due_date).toLocaleDateString()}</td>
                                         <td className="px-6 py-8 hidden md:table-cell">
-                                            {renderStatusBadge(order.status, isLate)}
+                                            <div className="flex items-center gap-2">
+                                                <div 
+                                                    className={`w-2 h-2 rounded-full ${order.paid_at || order.status === 'paid' ? 'bg-emerald-500' : 'bg-red-500'}`} 
+                                                    title={order.paid_at || order.status === 'paid' ? 'Pago' : 'Não Pago'}
+                                                />
+                                                {renderStatusBadge(order.status, isLate)}
+                                            </div>
                                         </td>
                                         <td className="px-4 md:px-6 py-8 text-right"><div className="font-mono font-black text-white text-base md:text-xl">R$ {Number(order.total || 0).toFixed(2)}</div><div className={`md:hidden text-[10px] mt-1 font-bold ${isLate ? 'text-red-400' : 'text-zinc-500'}`}>Vence: {new Date(order.due_date).toLocaleDateString().slice(0,5)}</div></td>
                                         <td className="px-4 md:px-6 py-8 text-center">
