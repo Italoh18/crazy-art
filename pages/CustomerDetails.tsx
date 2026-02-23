@@ -367,7 +367,12 @@ export default function CustomerDetails() {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      await updateCustomer(customer!.id, formData);
+      const payload = {
+          ...formData,
+          credit_limit: formData.creditLimit,
+          is_subscriber: formData.isSubscriber ? 1 : 0
+      };
+      await updateCustomer(customer!.id, payload);
       setIsEditModalOpen(false);
   };
   
