@@ -70,13 +70,15 @@ export default function ClientOrders() {
   today.setHours(0,0,0,0);
 
   const _openOrders = allCustomerOrders.filter(o => {
-      if (!['open', 'production', 'revision'].includes(o.status)) return false;
+      if (!['open', 'production', 'revision', 'finished'].includes(o.status)) return false;
+      if (o.status === 'paid' || o.paid_at) return false;
       const due = new Date(o.due_date);
       return due >= today;
   });
 
   const _overdueOrders = allCustomerOrders.filter(o => {
-      if (!['open', 'production', 'revision'].includes(o.status)) return false;
+      if (!['open', 'production', 'revision', 'finished'].includes(o.status)) return false;
+      if (o.status === 'paid' || o.paid_at) return false;
       const due = new Date(o.due_date);
       return due < today;
   });
@@ -84,13 +86,16 @@ export default function ClientOrders() {
   // Lógica de Bloqueio da Nuvem
   const isCloudLocked = _overdueOrders.length > 0;
 
+  const _paidOrders = allCustomerOrders.filter(o => o.status === 'paid' || o.paid_at);
+
   const displayedOrders = useMemo(() => {
       switch(activeTab) {
           case 'open': return _openOrders;
           case 'overdue': return _overdueOrders;
-          default: return [..._openOrders, ..._overdueOrders];
+          case 'paid': return _paidOrders;
+          default: return allCustomerOrders;
       }
-  }, [activeTab, _openOrders, _overdueOrders]);
+  }, [activeTab, _openOrders, _overdueOrders, _paidOrders, allCustomerOrders]);
 
   const allPayableOrders = [..._openOrders, ..._overdueOrders];
   const totalPayableValue = allPayableOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
@@ -113,6 +118,7 @@ export default function ClientOrders() {
       }
   };
 
+  const totalPaid = _paidOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
   const totalOpen = _openOrders.reduce((acc, o) => acc + Number(o.total || 0), 0) + _overdueOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
   const totalOverdueValue = _overdueOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
 
@@ -401,6 +407,17 @@ export default function ClientOrders() {
                     <span className={`text-4xl font-black tracking-tight ${totalOverdueValue > 0 ? 'text-zinc-300' : 'text-zinc-700'}`}>{Number(totalOverdueValue).toFixed(2)}</span>
                 </div>
             </div>
+
+            <div className="bg-[#0c0c0e] border border-white/5 p-6 rounded-2xl relative overflow-hidden group">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-500"><CheckCircle size={20} /></div>
+                    <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Total Pago</span>
+                </div>
+                <div>
+                    <span className="text-zinc-500 text-lg font-medium mr-1">R$</span>
+                    <span className={`text-4xl font-black tracking-tight ${totalPaid > 0 ? 'text-emerald-400' : 'text-zinc-700'}`}>{Number(totalPaid).toFixed(2)}</span>
+                </div>
+            </div>
         </div>
 
         {/* Tabs and Table */}
@@ -408,6 +425,8 @@ export default function ClientOrders() {
             <div className="flex flex-col sm:flex-row border-b border-white/5 bg-[#0c0c0e]">
                 <button onClick={() => setActiveTab('open')} className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'open' ? 'text-primary bg-primary/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}>Abertos{_openOrders.length > 0 && <span className="ml-2 text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">{_openOrders.length}</span>}{activeTab === 'open' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_-2px_10px_rgba(245,158,11,0.5)]"></div>}</button>
                 <button onClick={() => setActiveTab('overdue')} className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'overdue' ? 'text-red-500 bg-red-500/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}>Atrasados{_overdueOrders.length > 0 && <span className="ml-2 text-[10px] bg-red-500/20 text-red-500 px-2 py-0.5 rounded-full">{_overdueOrders.length}</span>}{activeTab === 'overdue' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-red-500 shadow-[0_-2px_10px_rgba(239,68,68,0.5)]"></div>}</button>
+                <button onClick={() => setActiveTab('paid')} className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'paid' ? 'text-emerald-500 bg-emerald-500/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}>Pagos{_paidOrders.length > 0 && <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-500 px-2 py-0.5 rounded-full">{_paidOrders.length}</span>}{activeTab === 'paid' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-emerald-500 shadow-[0_-2px_10px_rgba(16,185,129,0.5)]"></div>}</button>
+                <button onClick={() => setActiveTab('all')} className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'all' ? 'text-white bg-white/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}>Histórico{activeTab === 'all' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-zinc-500"></div>}</button>
             </div>
 
             <div className="overflow-x-auto pb-24">
@@ -428,7 +447,9 @@ export default function ClientOrders() {
                             <tr><td colSpan={7} className="text-center py-16 text-zinc-600"><div className="flex flex-col items-center gap-2"><ListChecks size={32} className="opacity-20" /><p>Nenhum pedido nesta categoria.</p></div></td></tr>
                         ) : (
                             displayedOrders.map(order => {
-                                const isLate = order.status === 'open' && new Date(order.due_date) < new Date();
+                                const isLate = ['open', 'production', 'revision', 'finished'].includes(order.status) && 
+                                             !(order.paid_at || order.status === 'paid') && 
+                                             new Date(order.due_date) < today;
                                 const isSelected = selectedOrderIds.includes(order.id);
                                 return (
                                     <tr key={order.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? 'bg-primary/5' : ''}`}>

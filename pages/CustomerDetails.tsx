@@ -207,14 +207,14 @@ export default function CustomerDetails() {
   today.setHours(0,0,0,0);
 
   const _openOrders = allCustomerOrders.filter(o => {
-      if (!['open', 'production', 'revision'].includes(o.status)) return false;
+      if (!['open', 'production', 'revision', 'finished'].includes(o.status)) return false;
       if (o.status === 'paid' || o.paid_at) return false;
       const due = new Date(o.due_date);
       return due >= today;
   });
 
   const _overdueOrders = allCustomerOrders.filter(o => {
-      if (!['open', 'production', 'revision'].includes(o.status)) return false;
+      if (!['open', 'production', 'revision', 'finished'].includes(o.status)) return false;
       if (o.status === 'paid' || o.paid_at) return false;
       const due = new Date(o.due_date);
       return due < today;
@@ -223,7 +223,7 @@ export default function CustomerDetails() {
   // Lógica de Bloqueio da Nuvem
   const isCloudLocked = role === 'client' && _overdueOrders.length > 0;
 
-  const _paidOrders = allCustomerOrders.filter(o => o.status === 'paid');
+  const _paidOrders = allCustomerOrders.filter(o => o.status === 'paid' || o.paid_at);
 
   const displayedOrders = useMemo(() => {
       switch(activeTab) {
@@ -1014,11 +1014,13 @@ export default function CustomerDetails() {
                             <tr><td colSpan={7} className="text-center py-16 text-zinc-600"><div className="flex flex-col items-center gap-2"><Layers size={32} className="opacity-20" /><p>Nenhum pedido nesta categoria.</p></div></td></tr>
                         ) : (
                             displayedOrders.map(order => {
-                                const isLate = order.status === 'open' && new Date(order.due_date) < new Date();
+                                const isLate = ['open', 'production', 'revision', 'finished'].includes(order.status) && 
+                                             !(order.paid_at || order.status === 'paid') && 
+                                             new Date(order.due_date) < today;
                                 const isSelected = selectedOrderIds.includes(order.id);
                                 return (
                                     <tr key={order.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? 'bg-primary/5' : ''}`}>
-                                        <td className="px-4 md:px-6 py-4">{order.status === 'open' && <input type="checkbox" checked={isSelected} onChange={() => {}} onClick={(e) => toggleSelectOrder(order.id, e)} className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" />}</td>
+                                        <td className="px-4 md:px-6 py-4">{['open', 'production', 'revision', 'finished'].includes(order.status) && !(order.paid_at || order.status === 'paid') && <input type="checkbox" checked={isSelected} onChange={() => {}} onClick={(e) => toggleSelectOrder(order.id, e)} className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" />}</td>
                                         <td className="px-4 md:px-6 py-4">
                                             <div className="font-mono text-zinc-300 font-bold">#{order.formattedOrderNumber || order.order_number}</div>
                                             <div className="md:hidden mt-1.5">
