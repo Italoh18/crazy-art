@@ -338,7 +338,22 @@ export default function CustomerDetails() {
 
   const handleManualPayment = async (orderId: string) => {
       if (confirm("Confirmar recebimento manual deste pedido?")) {
-          await updateOrderStatus(orderId, 'paid');
+          await updateOrder(orderId, { 
+              status: 'paid', 
+              payment_method: 'admin', 
+              paid_at: new Date().toISOString() 
+          });
+          if (viewingOrder?.id === orderId) setViewingOrder(null);
+      }
+  };
+
+  const handleFinishOrder = async (orderId: string) => {
+      if (confirm("Deseja marcar este pedido como FINALIZADO?")) {
+          await updateOrder(orderId, { 
+              status: 'finished', 
+              finished_by_admin: 1, 
+              finished_at: new Date().toISOString() 
+          });
           if (viewingOrder?.id === orderId) setViewingOrder(null);
       }
   };
@@ -500,6 +515,7 @@ export default function CustomerDetails() {
 
   const renderStatusBadge = (status: string, isLate: boolean) => {
       if (status === 'paid') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase tracking-wide">Pago</span>;
+      if (status === 'finished') return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase tracking-wide">Finalizado</span>;
       if (isLate) return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-wide">Atrasado</span>;
       return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Aberto</span>;
   };
@@ -1178,11 +1194,28 @@ export default function CustomerDetails() {
                                 )}
                                 
                                 {viewingOrder.status === 'paid' && (
+                                    <div className="flex gap-3">
+                                        <button 
+                                            onClick={() => handleFinishOrder(viewingOrder.id)} 
+                                            className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2 border border-blue-500/20"
+                                        >
+                                            <CheckCircle size={16} /> Finalizar
+                                        </button>
+                                        <button 
+                                            onClick={() => handleReopenOrder(viewingOrder.id)} 
+                                            className="flex-1 py-3 bg-amber-600/10 hover:bg-amber-600 text-amber-500 hover:text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2 border border-amber-600/20"
+                                        >
+                                            <RotateCcw size={16} /> Reabrir
+                                        </button>
+                                    </div>
+                                )}
+
+                                {viewingOrder.status === 'finished' && (
                                     <button 
                                         onClick={() => handleReopenOrder(viewingOrder.id)} 
                                         className="w-full py-3 bg-amber-600/10 hover:bg-amber-600 text-amber-500 hover:text-white rounded-xl font-bold transition text-sm flex items-center justify-center gap-2 border border-amber-600/20"
                                     >
-                                        <RotateCcw size={16} /> Reabrir Pedido (Marcar como Pendente)
+                                        <RotateCcw size={16} /> Reabrir (Voltar para Aberto)
                                     </button>
                                 )}
 

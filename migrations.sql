@@ -44,6 +44,9 @@ CREATE TABLE IF NOT EXISTS orders (
     source TEXT DEFAULT 'admin',
     size_list TEXT,
     is_confirmed INTEGER DEFAULT 0,
+    payment_method TEXT,
+    finished_by_admin INTEGER DEFAULT 0,
+    finished_at TEXT,
     paid_at TEXT,
     created_at TEXT NOT NULL,
     FOREIGN KEY (client_id) REFERENCES clients(id)

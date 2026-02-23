@@ -154,7 +154,12 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         let updateParams: any[] = [String(body.status)];
         
         if (body.status === 'paid') {
-          updateQuery += ', paid_at = ?';
+          updateQuery += ', paid_at = ?, payment_method = ?';
+          updateParams.push(new Date().toISOString(), 'admin');
+        }
+
+        if (body.status === 'finished') {
+          updateQuery += ', finished_at = ?, finished_by_admin = 1';
           updateParams.push(new Date().toISOString());
         }
         

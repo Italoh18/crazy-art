@@ -100,6 +100,7 @@ export default function Orders() {
                 <option value="all">Todos</option>
                 <option value="open">Em Aberto</option>
                 <option value="paid">Pagos</option>
+                <option value="finished">Finalizados</option>
                 <option value="overdue">Atrasados</option>
              </select>
              
@@ -154,7 +155,11 @@ export default function Orders() {
                                       <td className="px-6 py-4">
                                           {order.status === 'paid' ? (
                                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                                                  <CheckCircle size={12} /> Pago
+                                                  <CheckCircle size={12} /> Pago ({order.payment_method === 'mercadopago' ? 'ML' : 'Admin'})
+                                              </span>
+                                          ) : order.status === 'finished' ? (
+                                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                  <CheckCircle size={12} /> Finalizado
                                               </span>
                                           ) : overdue ? (
                                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-500 border border-red-500/20">

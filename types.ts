@@ -83,6 +83,9 @@ export interface Order {
   size_list?: SizeListItem[] | string; 
   is_confirmed?: number; 
   has_files?: number;
+  payment_method?: 'mercadopago' | 'admin' | 'credit_limit';
+  finished_by_admin?: number;
+  finished_at?: string;
   items?: OrderItem[]; 
 }
 

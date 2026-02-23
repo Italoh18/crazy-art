@@ -195,7 +195,7 @@ export const VirtualAssistant = () => {
       >
         {isOpen ? <X className="text-white" size={24} /> : <MessageCircle className="text-white" size={28} />}
         {!isOpen && (
-            <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-black animate-bounce"></span>
+            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-black animate-bounce"></span>
         )}
       </button>
 

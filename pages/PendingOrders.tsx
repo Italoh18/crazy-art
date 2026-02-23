@@ -32,12 +32,21 @@ export default function PendingOrders() {
   );
 
   const handleUpdateStatus = async (orderId: string, status: any) => {
-    await updateOrder(orderId, { status });
+    const data: any = { status };
+    if (status === 'paid') {
+        data.payment_method = 'admin';
+        data.paid_at = new Date().toISOString();
+    }
+    await updateOrder(orderId, data);
   };
 
   const handleConfirm = async (orderId: string) => {
     if (confirm("Marcar pedido como FINALIZADO e remover da fila de produção?")) {
-        await updateOrder(orderId, { status: 'finished' });
+        await updateOrder(orderId, { 
+            status: 'finished',
+            finished_by_admin: 1,
+            finished_at: new Date().toISOString()
+        });
     }
   };
 

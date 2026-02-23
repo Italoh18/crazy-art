@@ -133,7 +133,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             const hasProducts = (items || []).some((i: any) => i.type === 'product');
             const newStatus = hasProducts ? 'production' : 'paid';
 
-            await env.DB.prepare("UPDATE orders SET status = ?, paid_at = ? WHERE id = ?")
+            await env.DB.prepare("UPDATE orders SET status = ?, paid_at = ?, payment_method = 'mercadopago' WHERE id = ?")
                 .bind(newStatus, nowTs, orderId).run();
             
             const formattedNum = String(orderInfo.order_number).padStart(5, '0');
