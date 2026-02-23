@@ -101,7 +101,7 @@ export default function ClientOrders() {
   const totalPayableValue = allPayableOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
 
   const currentTabPayableOrders = useMemo(() => 
-      displayedOrders.filter(o => ['open', 'production', 'revision'].includes(o.status)),
+      displayedOrders.filter(o => ['open', 'production', 'revision', 'finished'].includes(o.status) && !(o.paid_at || o.status === 'paid')),
   [displayedOrders]);
 
   const isAllSelected = currentTabPayableOrders.length > 0 && currentTabPayableOrders.every(o => selectedOrderIds.includes(o.id));
@@ -453,7 +453,7 @@ export default function ClientOrders() {
                                 const isSelected = selectedOrderIds.includes(order.id);
                                 return (
                                     <tr key={order.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? 'bg-primary/5' : ''}`}>
-                                        <td className="px-4 md:px-6 py-8">{['open', 'production', 'revision'].includes(order.status) && <input type="checkbox" checked={isSelected} onChange={() => {}} onClick={(e) => toggleSelectOrder(order.id, e)} className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" />}</td>
+                                        <td className="px-4 md:px-6 py-8">{['open', 'production', 'revision', 'finished'].includes(order.status) && !(order.paid_at || order.status === 'paid') && <input type="checkbox" checked={isSelected} onChange={() => {}} onClick={(e) => toggleSelectOrder(order.id, e)} className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" />}</td>
                                         <td className="px-4 md:px-6 py-8">
                                             <div className="font-mono text-zinc-300 font-bold text-lg">#{order.formattedOrderNumber || order.order_number}</div>
                                             <div className="md:hidden mt-2">
@@ -475,7 +475,7 @@ export default function ClientOrders() {
                                         <td className="px-4 md:px-6 py-8 text-right"><div className="font-mono font-black text-white text-base md:text-xl">R$ {Number(order.total || 0).toFixed(2)}</div><div className={`md:hidden text-[10px] mt-1 font-bold ${isLate ? 'text-red-400' : 'text-zinc-500'}`}>Vence: {new Date(order.due_date).toLocaleDateString().slice(0,5)}</div></td>
                                         <td className="px-4 md:px-6 py-8 text-center">
                                             <div className="flex items-center justify-end md:justify-center gap-3">
-                                                {['open', 'production', 'revision'].includes(order.status) ? (
+                                                {['open', 'production', 'revision', 'finished'].includes(order.status) && !(order.paid_at || order.status === 'paid') ? (
                                                     <button onClick={() => initiatePaymentFlow([order.id])} className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl transition font-bold inline-flex items-center gap-2 shadow-lg shadow-emerald-600/20" title="Pagar agora"><DollarSign size={14} /> <span className="hidden md:inline">Pagar</span></button>
                                                 ) : <span className="hidden md:inline text-xs text-zinc-600 font-bold uppercase tracking-widest italic">Concluído</span>}
                                                 <button onClick={() => fetchAndSetViewingOrder(order)} className="p-2.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition border border-white/5 hover:border-zinc-700" title="Ver Detalhes"><Eye size={20} /></button>
@@ -609,7 +609,12 @@ export default function ClientOrders() {
                             </div>
                             <div className="bg-zinc-900/50 p-5 rounded-2xl border border-white/5 flex flex-col justify-center">
                                 <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Vencimento</span>
-                                <span className={`font-mono text-lg font-bold ${new Date(viewingOrder.due_date) < new Date() && viewingOrder.status === 'open' ? 'text-red-400' : 'text-white'}`}>{new Date(viewingOrder.due_date).toLocaleDateString()}</span>
+                                <span className={`font-mono text-lg font-bold ${
+                                    ['open', 'production', 'revision', 'finished'].includes(viewingOrder.status) && 
+                                    !(viewingOrder.paid_at || viewingOrder.status === 'paid') && 
+                                    (viewingOrder.due_date.length === 10 ? new Date(viewingOrder.due_date + 'T00:00:00') : new Date(viewingOrder.due_date)) < today 
+                                    ? 'text-red-400' : 'text-white'
+                                }`}>{new Date(viewingOrder.due_date).toLocaleDateString()}</span>
                             </div>
                         </div>
 
@@ -672,7 +677,11 @@ export default function ClientOrders() {
                             </div>
                             <div className="text-right">
                                 <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-2">Status Atual</span>
-                                {renderStatusBadge(viewingOrder.status, new Date(viewingOrder.due_date) < new Date())}
+                                {renderStatusBadge(viewingOrder.status, 
+                                    ['open', 'production', 'revision', 'finished'].includes(viewingOrder.status) && 
+                                    !(viewingOrder.paid_at || viewingOrder.status === 'paid') && 
+                                    (viewingOrder.due_date.length === 10 ? new Date(viewingOrder.due_date + 'T00:00:00') : new Date(viewingOrder.due_date)) < today
+                                )}
                             </div>
                         </div>
                     </div>

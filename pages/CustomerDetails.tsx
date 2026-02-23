@@ -238,7 +238,7 @@ export default function CustomerDetails() {
   const totalPayableValue = allPayableOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
 
   const currentTabPayableOrders = useMemo(() => 
-      displayedOrders.filter(o => o.status === 'open'),
+      displayedOrders.filter(o => ['open', 'production', 'revision', 'finished'].includes(o.status) && !(o.paid_at || o.status === 'paid')),
   [displayedOrders]);
 
   const isAllSelected = currentTabPayableOrders.length > 0 && currentTabPayableOrders.every(o => selectedOrderIds.includes(o.id));
@@ -1179,7 +1179,12 @@ export default function CustomerDetails() {
                     <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5"><span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Data do Pedido</span><span className="text-white font-mono text-sm">{new Date(viewingOrder.order_date).toLocaleDateString()}</span></div>
-                            <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5"><span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Vencimento</span><span className={`font-mono text-sm ${new Date(viewingOrder.due_date) < new Date() && viewingOrder.status === 'open' ? 'text-red-400 font-bold' : 'text-white'}`}>{new Date(viewingOrder.due_date).toLocaleDateString()}</span></div>
+                            <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5"><span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Vencimento</span><span className={`font-mono text-sm ${
+                                ['open', 'production', 'revision', 'finished'].includes(viewingOrder.status) && 
+                                !(viewingOrder.paid_at || viewingOrder.status === 'paid') && 
+                                (viewingOrder.due_date.length === 10 ? new Date(viewingOrder.due_date + 'T00:00:00') : new Date(viewingOrder.due_date)) < today 
+                                ? 'text-red-400 font-bold' : 'text-white'
+                            }`}>{new Date(viewingOrder.due_date).toLocaleDateString()}</span></div>
                         </div>
                         {viewingOrder.size_list && (
                             <div><h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Lista de Produção</h3><div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">{(typeof viewingOrder.size_list === 'string' ? JSON.parse(viewingOrder.size_list) : viewingOrder.size_list).map((item: SizeListItem, idx: number) => (<div key={idx} className="bg-zinc-900/30 p-2 rounded border border-white/5 flex justify-between items-center text-xs"><span className="text-zinc-300 font-bold">{item.size} <span className="text-zinc-500 font-normal">({item.category})</span></span>{item.isSimple ? <span className="text-white bg-zinc-700 px-2 py-0.5 rounded font-mono">x{item.quantity}</span> : <span className="text-primary font-bold uppercase">{item.name || '-'} <span className="text-white font-mono">{item.number ? `#${item.number}` : ''}</span></span>}</div>))}</div></div>
@@ -1213,7 +1218,11 @@ export default function CustomerDetails() {
                         )}
 
                         <div><h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Resumo Financeiro</h3><div className="space-y-2"><div className="bg-zinc-900/30 p-3 rounded-xl border border-white/5 flex justify-between items-center"><span className="text-zinc-300 text-sm">Valor Total</span><span className="text-white font-mono font-bold text-sm">R$ {Number(viewingOrder.total || 0).toFixed(2)}</span></div></div></div>
-                        <div className="flex justify-between items-center bg-zinc-900 p-4 rounded-xl border border-white/5"><span className="text-sm text-zinc-400">Status Atual</span>{renderStatusBadge(viewingOrder.status, new Date(viewingOrder.due_date) < new Date())}</div>
+                        <div className="flex justify-between items-center bg-zinc-900 p-4 rounded-xl border border-white/5"><span className="text-sm text-zinc-400">Status Atual</span>{renderStatusBadge(viewingOrder.status, 
+                            ['open', 'production', 'revision', 'finished'].includes(viewingOrder.status) && 
+                            !(viewingOrder.paid_at || viewingOrder.status === 'paid') && 
+                            (viewingOrder.due_date.length === 10 ? new Date(viewingOrder.due_date + 'T00:00:00') : new Date(viewingOrder.due_date)) < today
+                        )}</div>
                     </div>
 
                     <div className="p-6 border-t border-white/5 bg-[#0c0c0e] rounded-b-2xl">
