@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, Calendar, Filter, Eye, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
-import { Order } from '../types';
+import { Order, ProductionStep } from '../types';
 import { ProductionPath } from '../components/ProductionPath';
 
 export default function Orders() {
@@ -17,6 +17,7 @@ export default function Orders() {
   const initialMonth = location.state?.month || '';
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'paid' | 'finished' | 'overdue'>(initialFilter);
+  const [productionFilter, setProductionFilter] = useState<ProductionStep | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState(initialMonth ? `${initialMonth.split('/')[1]}-${initialMonth.split('/')[0]}` : '');
 
@@ -59,7 +60,16 @@ export default function Orders() {
         const desc = order.description ? order.description.toLowerCase() : '';
         const number = order.formattedOrderNumber || String(order.order_number);
         
-        return clientName.includes(lowerSearch) || desc.includes(lowerSearch) || number.includes(lowerSearch);
+        if (!clientName.includes(lowerSearch) && !desc.includes(lowerSearch) && !number.includes(lowerSearch)) {
+            return false;
+        }
+    }
+
+    // 4. Filtro de Produção
+    if (productionFilter !== 'all') {
+        if ((order.production_step || 'production') !== productionFilter) {
+            return false;
+        }
     }
 
     return true;
@@ -109,10 +119,22 @@ export default function Orders() {
                 <option value="finished">Finalizados</option>
                 <option value="overdue">Atrasados</option>
              </select>
+
+             <select 
+                className="bg-black/40 border border-zinc-700 rounded-lg px-4 py-2.5 text-white focus:border-primary outline-none transition cursor-pointer"
+                value={productionFilter}
+                onChange={(e) => setProductionFilter(e.target.value as any)}
+             >
+                <option value="all">Fase Produção</option>
+                <option value="production">Em Produção</option>
+                <option value="approval">Em Aprovação</option>
+                <option value="finishing">Finalizando</option>
+                <option value="completed">Concluído</option>
+             </select>
              
-             {(dateFilter || statusFilter !== 'all' || searchTerm) && (
+             {(dateFilter || statusFilter !== 'all' || productionFilter !== 'all' || searchTerm) && (
                  <button 
-                    onClick={() => { setDateFilter(''); setStatusFilter('all'); setSearchTerm(''); }}
+                    onClick={() => { setDateFilter(''); setStatusFilter('all'); setProductionFilter('all'); setSearchTerm(''); }}
                     className="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm font-bold transition whitespace-nowrap"
                  >
                     Limpar

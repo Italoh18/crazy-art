@@ -128,7 +128,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
   const adminNavItems = [
     { name: 'Dashboard', path: '/', icon: Home },
-    { name: 'Fila de Produção', path: '/pending-confirmations', icon: Clock },
     { name: 'Pedidos', path: '/orders', icon: ClipboardList }, 
     { name: 'Clientes', path: '/customers', icon: Users },
     { name: 'Produtos', path: '/products', icon: Package },
