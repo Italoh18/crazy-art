@@ -229,8 +229,6 @@ export default function ClientOrders() {
     const stages = [
         { id: 'open', label: 'Pedido Realizado' },
         { id: 'paid', label: 'Pago' },
-        { id: 'production', label: 'Em Produção' },
-        { id: 'revision', label: 'Em Alteração' },
         { id: 'finished', label: 'Finalizado' }
     ];
 
@@ -241,9 +239,8 @@ export default function ClientOrders() {
         // Mapeamento de segurança
         if (s === 'open') return 0;
         if (s === 'paid') return 1;
-        if (s === 'production') return 2;
-        if (s === 'revision') return 3;
-        if (s === 'finished') return 4;
+        if (s === 'production' || s === 'revision') return 1; // Mapeia para pago se estiver no meio
+        if (s === 'finished') return 2;
         return 0;
     };
 
