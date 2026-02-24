@@ -75,7 +75,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   );
 
   const Footer = () => (
-    <footer className="glass-panel border-t-0 border-t-zinc-800/30 py-8 px-6 mt-auto w-full z-10 relative z-20 seasonal-target backdrop-blur-xl">
+    <footer className="bg-black/90 border-t border-white/5 py-10 px-6 mt-auto w-full z-10 relative z-20 seasonal-target backdrop-blur-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
         <div className="flex flex-col text-center md:text-left">
           <h2 className="text-xl font-bold text-white mb-1 uppercase bg-clip-text text-transparent bg-crazy-gradient tracking-widest drop-shadow-sm" style={timesFont}>CRAZY ART</h2>

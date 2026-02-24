@@ -91,10 +91,6 @@ const AppRoutes = () => {
             <Route path="/pricing-calculator" element={<PricingCalculator />} />
             <Route path="/smart-enlargement" element={<SmartEnlargement />} />
             <Route path="/my-area" element={<ClientRoute />} />
-            <Route path="/my-orders" element={<ClientOrdersRoute />} />
-            <Route path="/statement" element={<StatementRoute />} /> {/* Nova Rota */}
-            <Route path="/pending-confirmations" element={<ProtectedRoute requiredRole="admin"><PendingOrders /></ProtectedRoute>} />
-            <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><Orders /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute requiredRole="admin"><Customers /></ProtectedRoute>} />
             <Route path="/customers/:id" element={<ProtectedRoute requiredRole="admin"><CustomerDetails /></ProtectedRoute>} />
             <Route path="/products" element={<ProtectedRoute requiredRole="admin"><Products /></ProtectedRoute>} />

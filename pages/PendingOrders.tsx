@@ -21,6 +21,9 @@ export default function PendingOrders() {
     return orders.filter(o => {
       // Pedido já finalizado ou cancelado? Fora.
       if (o.status === 'finished' || o.status === 'cancelled') return false;
+      
+      // Apenas pedidos da loja
+      if (o.source !== 'shop') return false;
 
       return true;
     }).sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime());
