@@ -1,6 +1,7 @@
 
 -- ==========================================================
 -- CRAZY ART - SCHEMA COMPLETO PARA CLOUDFLARE D1
+--dados d1
 -- Execute estes comandos no console do Cloudflare D1
 -- ==========================================================
 
