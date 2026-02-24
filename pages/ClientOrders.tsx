@@ -5,7 +5,7 @@ import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   User, DollarSign, CheckCircle, AlertTriangle, Loader2, ArrowLeft, Cloud, 
-  ListChecks, Eye, Coins, Lock, Package, X, Check, CloudDownload, Sparkles, CreditCard
+  ListChecks, Eye, Coins, Lock, Package, X, Check, CloudDownload, Sparkles, CreditCard, Trash2
 } from 'lucide-react';
 import { api } from '../src/services/api';
 import { SizeListItem } from '../types';
@@ -13,7 +13,7 @@ import { SizeListItem } from '../types';
 export default function ClientOrders() {
   const navigate = useNavigate();
   const { 
-      customers, orders, updateOrderStatus, isLoading 
+      customers, orders, updateOrderStatus, isLoading, deleteOrder
   } = useData();
   const { role, currentCustomer } = useAuth();
   
@@ -229,6 +229,8 @@ export default function ClientOrders() {
     const stages = [
         { id: 'open', label: 'Pedido Realizado' },
         { id: 'paid', label: 'Pago' },
+        { id: 'production', label: 'Em Produção' },
+        { id: 'revision', label: 'Em Alteração' },
         { id: 'finished', label: 'Finalizado' }
     ];
 
@@ -239,8 +241,9 @@ export default function ClientOrders() {
         // Mapeamento de segurança
         if (s === 'open') return 0;
         if (s === 'paid') return 1;
-        if (s === 'production' || s === 'revision') return 1; // Mapeia para pago se estiver no meio
-        if (s === 'finished') return 2;
+        if (s === 'production') return 2;
+        if (s === 'revision') return 3;
+        if (s === 'finished') return 4;
         return 0;
     };
 
@@ -413,56 +416,123 @@ export default function ClientOrders() {
                 <button onClick={() => setActiveTab('paid')} className={`flex-1 py-4 px-6 text-sm font-bold uppercase tracking-wider transition-all relative ${activeTab === 'paid' ? 'text-emerald-500 bg-emerald-500/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]'}`}>Pagos{_paidOrders.length > 0 && <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-500 px-2 py-0.5 rounded-full">{_paidOrders.length}</span>}{activeTab === 'paid' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-emerald-500 shadow-[0_-2px_10px_rgba(16,185,129,0.5)]"></div>}</button>
             </div>
 
-            <div className="overflow-x-auto pb-24">
-                <table className="w-full text-left text-sm text-zinc-400">
-                    <thead className="bg-white/[0.02] text-zinc-500 font-bold uppercase text-[10px] tracking-wider border-b border-white/5">
-                        <tr>
-                            <th className="px-4 md:px-6 py-4 w-10">{currentTabPayableOrders.length > 0 && <input type="checkbox" checked={isAllSelected} onChange={() => {}} onClick={handleSelectAll} className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" title="Selecionar todos os pedidos pagáveis desta lista" />}</th>
-                            <th className="px-4 md:px-6 py-4">Pedido / Info</th>
-                            <th className="px-6 py-4 hidden md:table-cell">Data</th>
-                            <th className="px-6 py-4 hidden md:table-cell">Vencimento</th>
-                            <th className="px-6 py-4 hidden md:table-cell">Status</th>
-                            <th className="px-4 md:px-6 py-4 text-right">Valor / Venc..</th>
-                            <th className="px-4 md:px-6 py-4 text-center">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                        {displayedOrders.length === 0 ? (
-                            <tr><td colSpan={7} className="text-center py-16 text-zinc-600"><div className="flex flex-col items-center gap-2"><ListChecks size={32} className="opacity-20" /><p>Nenhum pedido nesta categoria.</p></div></td></tr>
-                        ) : (
-                            displayedOrders.map(order => {
-                                const isLate = order.status === 'open' && new Date(order.due_date) < new Date();
-                                const isSelected = selectedOrderIds.includes(order.id);
-                                return (
-                                    <tr key={order.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? 'bg-primary/5' : ''}`}>
-                                        <td className="px-4 md:px-6 py-8">{['open', 'production', 'revision'].includes(order.status) && <input type="checkbox" checked={isSelected} onChange={() => {}} onClick={(e) => toggleSelectOrder(order.id, e)} className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" />}</td>
-                                        <td className="px-4 md:px-6 py-8">
-                                            <div className="font-mono text-zinc-300 font-bold text-lg">#{order.formattedOrderNumber || order.order_number}</div>
-                                            <div className="md:hidden mt-2">
-                                                {renderStatusBadge(order.status, isLate)}
+            <div className="p-4 bg-[#0c0c0e] border-b border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    {currentTabPayableOrders.length > 0 && (
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                            <input 
+                                type="checkbox" 
+                                checked={isAllSelected} 
+                                onChange={() => {}} 
+                                onClick={handleSelectAll} 
+                                className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" 
+                            />
+                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest group-hover:text-zinc-300 transition-colors">Selecionar Todos</span>
+                        </label>
+                    )}
+                </div>
+                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                    {displayedOrders.length} {displayedOrders.length === 1 ? 'Pedido' : 'Pedidos'}
+                </div>
+            </div>
+
+            <div className="p-6 pb-24">
+                {displayedOrders.length === 0 ? (
+                    <div className="text-center py-16 text-zinc-600">
+                        <div className="flex flex-col items-center gap-2">
+                            <ListChecks size={32} className="opacity-20" />
+                            <p>Nenhum pedido nesta categoria.</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {displayedOrders.map(order => {
+                            const isLate = ['open', 'production', 'revision'].includes(order.status) && new Date(order.due_date) < today;
+                            const isSelected = selectedOrderIds.includes(order.id);
+                            const isPaid = order.status === 'paid' || !!order.paid_at;
+                            
+                            let borderColor = 'border-amber-500/50';
+                            if (isPaid) borderColor = 'border-emerald-500/50';
+                            else if (isLate) borderColor = 'border-red-500/50';
+
+                            return (
+                                <div 
+                                    key={order.id} 
+                                    className={`bg-[#0c0c0e] border-2 rounded-2xl p-6 relative overflow-hidden group transition-all hover:shadow-2xl hover:shadow-black/50 ${borderColor} ${isSelected ? 'ring-2 ring-primary/20' : ''}`}
+                                >
+                                    {/* Canto superior esquerdo: numero do pedido e checkbox */}
+                                    <div className="flex items-center gap-3 mb-6">
+                                        {['open', 'production', 'revision'].includes(order.status) && (
+                                            <input 
+                                                type="checkbox" 
+                                                checked={isSelected} 
+                                                onChange={() => {}} 
+                                                onClick={(e) => toggleSelectOrder(order.id, e)} 
+                                                className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-5 h-5 cursor-pointer accent-primary" 
+                                            />
+                                        )}
+                                        <span className="font-mono text-zinc-300 font-bold text-lg">#{order.formattedOrderNumber || order.order_number}</span>
+                                    </div>
+
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
+                                        {/* A esquerda do bloco */}
+                                        <div className="space-y-3 flex-1 min-w-0">
+                                            <h3 className="text-white font-bold text-xl truncate pr-4" title={order.description || "Sem descrição"}>
+                                                {order.description || "Sem descrição"}
+                                            </h3>
+                                            <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-zinc-500 font-medium">
+                                                <div className="flex items-center gap-1">
+                                                    <span>Data:</span>
+                                                    <span className="text-zinc-300">{new Date(order.order_date).toLocaleDateString()}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <span>Vencimento:</span>
+                                                    <span className={isLate ? 'text-red-400 font-bold' : 'text-zinc-300'}>
+                                                        {new Date(order.due_date).toLocaleDateString()}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <div className="text-xs text-zinc-500 max-w-[250px] truncate font-sans mt-2">{order.description || "Sem descrição"}</div>
-                                        </td>
-                                        <td className="px-6 py-8 hidden md:table-cell font-medium">{new Date(order.order_date).toLocaleDateString()}</td>
-                                        <td className={`px-6 py-8 hidden md:table-cell font-medium ${isLate ? 'text-red-400 font-bold' : ''}`}>{new Date(order.due_date).toLocaleDateString()}</td>
-                                        <td className="px-6 py-8 hidden md:table-cell">
-                                            {renderStatusBadge(order.status, isLate)}
-                                        </td>
-                                        <td className="px-4 md:px-6 py-8 text-right"><div className="font-mono font-black text-white text-base md:text-xl">R$ {Number(order.total || 0).toFixed(2)}</div><div className={`md:hidden text-[10px] mt-1 font-bold ${isLate ? 'text-red-400' : 'text-zinc-500'}`}>Vence: {new Date(order.due_date).toLocaleDateString().slice(0,5)}</div></td>
-                                        <td className="px-4 md:px-6 py-8 text-center">
-                                            <div className="flex items-center justify-end md:justify-center gap-3">
-                                                {['open', 'production', 'revision'].includes(order.status) ? (
-                                                    <button onClick={() => initiatePaymentFlow([order.id])} className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl transition font-bold inline-flex items-center gap-2 shadow-lg shadow-emerald-600/20" title="Pagar agora"><DollarSign size={14} /> <span className="hidden md:inline">Pagar</span></button>
-                                                ) : <span className="hidden md:inline text-xs text-zinc-600 font-bold uppercase tracking-widest italic">Concluído</span>}
-                                                <button onClick={() => fetchAndSetViewingOrder(order)} className="p-2.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition border border-white/5 hover:border-zinc-700" title="Ver Detalhes"><Eye size={20} /></button>
+                                            <div className="pt-2 flex items-baseline gap-1">
+                                                <span className="text-zinc-500 text-sm font-bold uppercase tracking-wider">Valor:</span>
+                                                <span className="text-3xl font-black text-white tracking-tight font-mono">
+                                                    R$ {Number(order.total || 0).toFixed(2)}
+                                                </span>
                                             </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })
-                        )}
-                    </tbody>
-                </table>
+                                        </div>
+
+                                        {/* A direita do bloco: ações */}
+                                        <div className="flex flex-col gap-2 w-full sm:w-auto sm:min-w-[120px]">
+                                            {['open', 'production', 'revision'].includes(order.status) ? (
+                                                <button 
+                                                    onClick={() => initiatePaymentFlow([order.id])} 
+                                                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl transition font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 text-xs active:scale-95"
+                                                >
+                                                    <DollarSign size={14} /> Pagar
+                                                </button>
+                                            ) : (
+                                                <div className="w-full px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-[10px] font-bold uppercase tracking-widest text-center">
+                                                    Pagamento Concluído
+                                                </div>
+                                            )}
+                                            <button 
+                                                onClick={() => fetchAndSetViewingOrder(order)} 
+                                                className="w-full p-2.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition border border-white/5 hover:border-zinc-700 flex items-center justify-center gap-2 text-xs font-bold active:scale-95"
+                                            >
+                                                <Eye size={16} /> Detalhes
+                                            </button>
+                                            <button 
+                                                onClick={() => deleteOrder(order.id)} 
+                                                className="w-full p-2.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition border border-white/5 hover:border-red-500/20 flex items-center justify-center gap-2 text-xs font-bold active:scale-95"
+                                            >
+                                                <Trash2 size={16} /> Excluir
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </div>
 
@@ -574,7 +644,7 @@ export default function ClientOrders() {
                     <div className="p-8 overflow-y-auto custom-scrollbar space-y-8">
                         {/* Stepper de Progresso */}
                         <div className="bg-zinc-950/50 border border-white/5 rounded-2xl p-4">
-                            <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Status do Pedido</h3>
+                            <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Status de Pagamento</h3>
                             <OrderProgress status={viewingOrder.status} items={viewingOrder.items} paidAt={viewingOrder.paid_at} />
                         </div>
 
@@ -647,7 +717,7 @@ export default function ClientOrders() {
                                 <span className="text-4xl font-black text-white tracking-tighter">R$ {Number(viewingOrder.total || 0).toFixed(2)}</span>
                             </div>
                             <div className="text-right">
-                                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-2">Status Atual</span>
+                                <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-2">Status de Pagamento</span>
                                 {renderStatusBadge(viewingOrder.status, new Date(viewingOrder.due_date) < new Date())}
                             </div>
                         </div>
