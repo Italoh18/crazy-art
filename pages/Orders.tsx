@@ -4,6 +4,7 @@ import { useData } from '../contexts/DataContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, Calendar, Filter, Eye, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 import { Order } from '../types';
+import { ProductionPath } from '../components/ProductionPath';
 
 export default function Orders() {
   const { orders } = useData();
@@ -130,6 +131,7 @@ export default function Orders() {
                           <th className="px-6 py-4">Cliente</th>
                           <th className="px-6 py-4">Data</th>
                           <th className="px-6 py-4">Status</th>
+                          <th className="px-6 py-4">Produção</th>
                           <th className="px-6 py-4 text-right">Valor</th>
                           <th className="px-6 py-4 text-center">Ações</th>
                       </tr>
@@ -175,6 +177,9 @@ export default function Orders() {
                                                   <Clock size={12} /> Aberto
                                               </span>
                                           )}
+                                      </td>
+                                      <td className="px-6 py-4">
+                                          <ProductionPath orderId={order.id} currentStep={order.production_step || 'production'} isCompact />
                                       </td>
                                       <td className="px-6 py-4 text-right font-mono text-white font-bold">
                                           R$ {order.total.toFixed(2)}

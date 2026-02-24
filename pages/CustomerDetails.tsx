@@ -11,7 +11,8 @@ import {
   Coins, Lock, RotateCcw, CloudDownload, Sparkles, ChevronRight
 } from 'lucide-react';
 import { api } from '../src/services/api';
-import { SizeListItem } from '../types';
+import { SizeListItem, Order } from '../types';
+import { ProductionPath } from '../components/ProductionPath';
 
 export default function CustomerDetails() {
   const { id: paramId } = useParams<{ id: string }>();
@@ -1197,6 +1198,13 @@ export default function CustomerDetails() {
 
                         <div><h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Resumo Financeiro</h3><div className="space-y-2"><div className="bg-zinc-900/30 p-3 rounded-xl border border-white/5 flex justify-between items-center"><span className="text-zinc-300 text-sm">Valor Total</span><span className="text-white font-mono font-bold text-sm">R$ {Number(viewingOrder.total || 0).toFixed(2)}</span></div></div></div>
                         <div className="flex justify-between items-center bg-zinc-900 p-4 rounded-xl border border-white/5"><span className="text-sm text-zinc-400">Status Atual</span>{renderStatusBadge(viewingOrder.status, new Date(viewingOrder.due_date) < new Date())}</div>
+                        
+                        <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5">
+                            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <Clock size={14} /> Progresso da Produção
+                            </h3>
+                            <ProductionPath orderId={viewingOrder.id} currentStep={viewingOrder.production_step || 'production'} />
+                        </div>
                     </div>
 
                     <div className="p-6 border-t border-white/5 bg-[#0c0c0e] rounded-b-2xl">

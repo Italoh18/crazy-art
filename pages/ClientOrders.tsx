@@ -7,6 +7,7 @@ import {
   User, DollarSign, CheckCircle, AlertTriangle, Loader2, ArrowLeft, Cloud, 
   ListChecks, Eye, Coins, Lock, Package, X, Check, CloudDownload, Sparkles, CreditCard, Trash2
 } from 'lucide-react';
+import { ProductionPath } from '../components/ProductionPath';
 import { api } from '../src/services/api';
 import { SizeListItem } from '../types';
 
@@ -461,17 +462,20 @@ export default function ClientOrders() {
                                     className={`bg-[#0c0c0e] border-2 rounded-2xl p-6 relative overflow-hidden group transition-all hover:shadow-2xl hover:shadow-black/50 ${borderColor} ${isSelected ? 'ring-2 ring-primary/20' : ''}`}
                                 >
                                     {/* Canto superior esquerdo: numero do pedido e checkbox */}
-                                    <div className="flex items-center gap-3 mb-6">
-                                        {['open', 'production', 'revision'].includes(order.status) && (
-                                            <input 
-                                                type="checkbox" 
-                                                checked={isSelected} 
-                                                onChange={() => {}} 
-                                                onClick={(e) => toggleSelectOrder(order.id, e)} 
-                                                className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-5 h-5 cursor-pointer accent-primary" 
-                                            />
-                                        )}
-                                        <span className="font-mono text-zinc-300 font-bold text-lg">#{order.formattedOrderNumber || order.order_number}</span>
+                                    <div className="flex items-center justify-between mb-6">
+                                        <div className="flex items-center gap-3">
+                                            {['open', 'production', 'revision'].includes(order.status) && (
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={isSelected} 
+                                                    onChange={() => {}} 
+                                                    onClick={(e) => toggleSelectOrder(order.id, e)} 
+                                                    className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-5 h-5 cursor-pointer accent-primary" 
+                                                />
+                                            )}
+                                            <span className="font-mono text-zinc-300 font-bold text-lg">#{order.formattedOrderNumber || order.order_number}</span>
+                                        </div>
+                                        <ProductionPath orderId={order.id} currentStep={order.production_step || 'production'} isCompact />
                                     </div>
 
                                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
@@ -643,9 +647,17 @@ export default function ClientOrders() {
 
                     <div className="p-8 overflow-y-auto custom-scrollbar space-y-8">
                         {/* Stepper de Progresso */}
-                        <div className="bg-zinc-950/50 border border-white/5 rounded-2xl p-4">
-                            <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Status de Pagamento</h3>
-                            <OrderProgress status={viewingOrder.status} items={viewingOrder.items} paidAt={viewingOrder.paid_at} />
+                        <div className="bg-zinc-950/50 border border-white/5 rounded-2xl p-4 space-y-4">
+                            <div>
+                                <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Caminho de Produção</h3>
+                                <div className="bg-black/20 p-4 rounded-xl border border-white/5">
+                                    <ProductionPath orderId={viewingOrder.id} currentStep={viewingOrder.production_step || 'production'} />
+                                </div>
+                            </div>
+                            <div>
+                                <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Status de Pagamento</h3>
+                                <OrderProgress status={viewingOrder.status} items={viewingOrder.items} paidAt={viewingOrder.paid_at} />
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

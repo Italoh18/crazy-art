@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Customer, Product, Order, OrderStatus, CarouselImage, TrustedCompany, Coupon } from '../types';
+import { Customer, Product, Order, OrderStatus, ProductionStep, CarouselImage, TrustedCompany, Coupon } from '../types';
 import { api } from '../src/services/api';
 
 interface DataContextType {
@@ -22,6 +22,7 @@ interface DataContextType {
   updateOrder: (id: string, data: any) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
   updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
+  updateProductionStep: (id: string, step: ProductionStep) => Promise<void>;
   addCarouselImage: (url: string) => Promise<void>;
   deleteCarouselImage: (id: string) => Promise<void>;
   addTrustedCompany: (name: string, imageUrl: string) => Promise<void>;
@@ -220,6 +221,13 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     } catch (e: any) { alert(e.message); }
   };
 
+  const updateProductionStep = async (id: string, step: ProductionStep) => {
+    try {
+      await api.updateProductionStep(id, step);
+      await loadData(true);
+    } catch (e: any) { alert(e.message); }
+  };
+
   const addCarouselImage = async (url: string) => {
     try {
       await api.addCarouselImage(url);
@@ -330,7 +338,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       customers, products, orders, carouselImages, trustedCompanies, coupons, faviconUrl, isLoading, 
       addCustomer, updateCustomer, deleteCustomer,
       addProduct, updateProduct, deleteProduct, 
-      addOrder, updateOrder, deleteOrder, updateOrderStatus,
+      addOrder, updateOrder, deleteOrder, updateOrderStatus, updateProductionStep,
       addCarouselImage, deleteCarouselImage,
       addTrustedCompany, deleteTrustedCompany,
       addCoupon, deleteCoupon, validateCoupon, loadCoupons,

@@ -72,11 +72,12 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const status = String(body.status || 'open');
       const source = String(body.source || 'admin');
       const size_list = body.size_list ? String(body.size_list) : null;
+      const production_step = String(body.production_step || 'production');
 
       if (!client_id) return new Response(JSON.stringify({ error: 'client_id é obrigatório' }), { status: 400 });
 
       await env.DB.prepare(
-        'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, total_cost, status, created_at, size_list, is_confirmed, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)'
+        'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, total_cost, status, created_at, size_list, is_confirmed, source, production_step) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)'
       ).bind(
         newId,
         nextOrderNumber,
@@ -89,7 +90,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         status,
         now,
         size_list,
-        source
+        source,
+        production_step
       ).run();
 
       const items = Array.isArray(body.items) ? body.items : [];
@@ -149,21 +151,50 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           return Response.json({ success: true });
       }
 
-      if (Object.keys(body).length === 1 && body.status) {
-        let updateQuery = 'UPDATE orders SET status = ?';
-        let updateParams: any[] = [String(body.status)];
-        
-        if (body.status === 'paid') {
-          updateQuery += ', paid_at = ?, payment_method = ?';
-          updateParams.push(new Date().toISOString(), 'admin');
+      if (Object.keys(body).length === 1 && (body.status || body.production_step)) {
+        let updateQuery = 'UPDATE orders SET ';
+        let updateParams: any[] = [];
+        let clauses: string[] = [];
+
+        if (body.status) {
+            clauses.push('status = ?');
+            updateParams.push(String(body.status));
+            
+            if (body.status === 'paid') {
+                clauses.push('paid_at = ?', 'payment_method = ?');
+                updateParams.push(new Date().toISOString(), 'admin');
+            }
+
+            if (body.status === 'finished') {
+                clauses.push('finished_at = ?', 'finished_by_admin = 1');
+                updateParams.push(new Date().toISOString());
+            }
         }
 
-        if (body.status === 'finished') {
-          updateQuery += ', finished_at = ?, finished_by_admin = 1';
-          updateParams.push(new Date().toISOString());
+        if (body.production_step) {
+            clauses.push('production_step = ?');
+            updateParams.push(String(body.production_step));
+
+            // Notificação para o cliente quando entra em aprovação
+            if (body.production_step === 'approval') {
+                const order: any = await env.DB.prepare('SELECT order_number, client_id FROM orders WHERE id = ?').bind(id).first();
+                if (order) {
+                    const formattedNum = String(order.order_number).padStart(5, '0');
+                    await env.DB.prepare(`
+                        INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, reference_id, is_read)
+                        VALUES (?, 'client', ?, 'info', 'Aguardando Aprovação', ?, ?, ?, 0)
+                    `).bind(
+                        crypto.randomUUID(), 
+                        order.client_id, 
+                        `Seu pedido #${formattedNum} está aguardando sua aprovação para seguir na produção.`, 
+                        new Date().toISOString(), 
+                        `approval_${id}`
+                    ).run();
+                }
+            }
         }
         
-        updateQuery += ' WHERE id = ?';
+        updateQuery += clauses.join(', ') + ' WHERE id = ?';
         updateParams.push(String(id));
 
         await env.DB.prepare(updateQuery).bind(...updateParams).run();

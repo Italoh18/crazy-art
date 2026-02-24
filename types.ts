@@ -52,6 +52,8 @@ export interface OrderItem {
 
 export type OrderStatus = 'open' | 'paid' | 'production' | 'revision' | 'finished' | 'cancelled';
 
+export type ProductionStep = 'production' | 'approval' | 'finishing' | 'completed';
+
 export interface SizeListItem {
   id: string;
   category: 'unisex' | 'feminina' | 'infantil';
@@ -86,6 +88,7 @@ export interface Order {
   payment_method?: 'mercadopago' | 'admin' | 'credit_limit';
   finished_by_admin?: number;
   finished_at?: string;
+  production_step?: ProductionStep;
   items?: OrderItem[]; 
 }
 

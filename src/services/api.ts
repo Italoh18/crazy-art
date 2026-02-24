@@ -111,6 +111,14 @@ export const api = {
     const res = await fetch(`/api/orders?id=${encodeURIComponent(id)}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
+  async updateProductionStep(id: string, step: string) {
+    const res = await fetch(`/api/orders?id=${encodeURIComponent(id)}`, { 
+      method: 'PUT', 
+      headers: getHeaders(), 
+      body: JSON.stringify({ production_step: step }) 
+    });
+    return handleResponse(res);
+  },
   async deleteOrder(id: string) {
     const res = await fetch(`/api/orders?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
