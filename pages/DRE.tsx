@@ -54,7 +54,7 @@ export default function DRE() {
         data[sortKey].receivedGross += val;
         data[sortKey].receivedCost += cost;
 
-      } else if (order.status === 'open') {
+      } else if (['open', 'production', 'revision'].includes(order.status)) {
         const isLate = order.due_date && new Date(order.due_date) < new Date();
         if (isLate) {
             data[sortKey].overdue += val;
@@ -71,7 +71,7 @@ export default function DRE() {
 
   // Summary Totals
   const totalRevenue = orders.filter(o => (o.status === 'paid' || !!o.paid_at) && o.status !== 'cancelled').reduce((acc, c) => acc + Number(c.total || 0), 0);
-  const totalReceivable = orders.filter(o => o.status === 'open' && !o.paid_at).reduce((acc, c) => acc + Number(c.total || 0), 0);
+  const totalReceivable = orders.filter(o => ['open', 'production', 'revision'].includes(o.status) && !o.paid_at).reduce((acc, c) => acc + Number(c.total || 0), 0);
 
   const handleBarClick = (data: any, index: number, type: 'revenue' | 'receivable' | 'overdue') => {
       if (!data || !data.name) return;
