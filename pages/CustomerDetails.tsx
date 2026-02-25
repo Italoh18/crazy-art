@@ -260,7 +260,7 @@ export default function CustomerDetails() {
   const totalOpen = _openOrders.reduce((acc, o) => acc + Number(o.total || 0), 0) + _overdueOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
   const totalOverdueValue = _overdueOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
 
-  const creditLimit = customer?.creditLimit || 50;
+  const creditLimit = customer?.creditLimit || 0;
   const availableCredit = creditLimit - totalOpen;
   const usedPercentage = Math.min(100, (totalOpen / creditLimit) * 100);
   
