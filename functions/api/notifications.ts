@@ -20,7 +20,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         // 1. VERIFICAÇÃO AUTOMÁTICA DE ATRASOS
         const { results: overdueOrders } = await env.DB.prepare(
           `SELECT 
-             o.id, o.order_number, o.client_id, o.description, o.due_date, 
+             o.id, o.order_number, o.client_id, o.description, o.due_date, o.total,
+             o.credit_penalty_applied,
              c.email as client_email, c.name as client_name, c.creditLimit
            FROM orders o 
            JOIN clients c ON o.client_id = c.id
@@ -34,29 +35,39 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             const dueDate = new Date(order.due_date);
             const dateStr = dueDate.toLocaleDateString();
             
-            // --- NOVA LÓGICA: Penalidade Severa Automática (> 30 dias) ---
             const diffTime = now.getTime() - dueDate.getTime();
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-            /* 
-            // DESATIVADO: Permite que o admin defina o limite manualmente mesmo com atraso
-            if (diffDays > 30 && order.creditLimit > 20) {
-                // Se deve mais de 30 dias e ainda tem limite alto, corta pra 20
-                console.log(`[Auto-Penalty] Cliente ${order.client_name} tem atraso de ${diffDays} dias. Reduzindo limite.`);
-                await env.DB.prepare("UPDATE clients SET creditLimit = 20.00 WHERE id = ?").bind(order.client_id).run();
+            // --- NOVA LÓGICA: Penalidade Automática (> 15 dias) ---
+            if (diffDays > 15 && !order.credit_penalty_applied) {
+                const penaltyValue = (Number(order.total || 0) / 2);
+                const newLimit = Math.max(0, Number(order.creditLimit || 0) - penaltyValue);
                 
-                // Notifica a redução
-                const penaltyId = `penalty_${order.client_id}_${order.id}`;
-                const existingPenalty = await env.DB.prepare("SELECT id FROM notifications WHERE reference_id = ?").bind(penaltyId).first();
+                console.log(`[Auto-Penalty] Cliente ${order.client_name} tem atraso de ${diffDays} dias no pedido #${formattedOrder}. Reduzindo limite.`);
+                
+                // 1. Atualiza limite do cliente
+                await env.DB.prepare("UPDATE clients SET creditLimit = ? WHERE id = ?").bind(newLimit, order.client_id).run();
+                
+                // 2. Marca pedido como penalizado
+                await env.DB.prepare("UPDATE orders SET credit_penalty_applied = 1 WHERE id = ?").bind(order.id).run();
+                
+                // 3. Notifica o cliente
+                const penaltyNotifId = `penalty_15d_${order.id}`;
+                const existingPenalty = await env.DB.prepare("SELECT id FROM notifications WHERE reference_id = ?").bind(penaltyNotifId).first();
                 
                 if (!existingPenalty) {
                     await env.DB.prepare(`
                         INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, reference_id, is_read) 
-                        VALUES (?, 'client', ?, 'error', 'Limite Reduzido', 'Devido a um atraso superior a 30 dias, seu limite foi reduzido para R$ 20,00.', ?, ?, 0)
-                    `).bind(crypto.randomUUID(), order.client_id, new Date().toISOString(), penaltyId).run();
+                        VALUES (?, 'client', ?, 'error', 'Limite Reduzido por Atraso', ?, ?, ?, 0)
+                    `).bind(
+                        crypto.randomUUID(), 
+                        order.client_id, 
+                        `Seu limite de crédito foi reduzido em R$ ${penaltyValue.toFixed(2)} devido ao atraso superior a 15 dias no pedido #${formattedOrder}.`, 
+                        new Date().toISOString(), 
+                        penaltyNotifId
+                    ).run();
                 }
             }
-            */
             // -----------------------------------------------------------
 
             try {

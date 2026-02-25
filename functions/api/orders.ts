@@ -163,6 +163,41 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             if (body.status === 'paid') {
                 clauses.push('paid_at = ?', 'payment_method = ?');
                 updateParams.push(new Date().toISOString(), 'admin');
+
+                // Lógica de Crédito para Pagamento Manual
+                const orderInfo: any = await env.DB.prepare(`
+                    SELECT o.total, o.due_date, o.client_id, o.credit_bonus_applied, o.credit_penalty_applied,
+                           c.creditLimit
+                    FROM orders o
+                    JOIN clients c ON o.client_id = c.id
+                    WHERE o.id = ?
+                `).bind(id).first();
+
+                if (orderInfo) {
+                    const now = new Date();
+                    const dueDate = new Date(orderInfo.due_date);
+                    now.setHours(0,0,0,0);
+                    dueDate.setHours(0,0,0,0);
+                    const diffDays = Math.ceil((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+                    
+                    let newLimit = Number(orderInfo.creditLimit || 0);
+                    const orderTotal = Number(orderInfo.total || 0);
+                    let bonusApplied = orderInfo.credit_bonus_applied || 0;
+                    let penaltyApplied = orderInfo.credit_penalty_applied || 0;
+
+                    if (diffDays <= 0 && !bonusApplied) {
+                        newLimit += (orderTotal / 2);
+                        bonusApplied = 1;
+                        await env.DB.prepare("UPDATE clients SET creditLimit = ? WHERE id = ?").bind(newLimit, orderInfo.client_id).run();
+                    } else if (diffDays > 15 && !penaltyApplied) {
+                        newLimit = Math.max(0, newLimit - (orderTotal / 2));
+                        penaltyApplied = 1;
+                        await env.DB.prepare("UPDATE clients SET creditLimit = ? WHERE id = ?").bind(newLimit, orderInfo.client_id).run();
+                    }
+
+                    clauses.push('credit_bonus_applied = ?', 'credit_penalty_applied = ?');
+                    updateParams.push(bonusApplied, penaltyApplied);
+                }
             }
 
             if (body.status === 'finished') {

@@ -49,6 +49,9 @@ CREATE TABLE IF NOT EXISTS orders (
     finished_by_admin INTEGER DEFAULT 0,
     finished_at TEXT,
     paid_at TEXT,
+    production_step TEXT DEFAULT 'production',
+    credit_bonus_applied INTEGER DEFAULT 0,
+    credit_penalty_applied INTEGER DEFAULT 0,
     created_at TEXT NOT NULL,
     FOREIGN KEY (client_id) REFERENCES clients(id)
 );

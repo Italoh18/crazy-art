@@ -102,21 +102,27 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             let newLimit = Number(orderInfo.creditLimit || 0);
             const orderTotal = Number(orderInfo.total || 0);
             let creditMessage = "";
+            let bonusApplied = 0;
+            let penaltyApplied = 0;
 
-            if (diffDays > 30) {
-                // REGRA 3: Atraso > 30 dias -> Crédito cai para R$ 20,00
-                newLimit = 20.00;
-                creditMessage = "Devido ao atraso superior a 30 dias, seu limite de crédito foi reajustado para R$ 20,00.";
-            } else if (diffDays > 5) {
-                // REGRA 2: Atraso > 5 dias -> Diminui metade do valor do pedido
-                newLimit = Math.max(0, newLimit - (orderTotal / 2));
-                creditMessage = `Pagamento com atraso (+${diffDays} dias). Seu limite de crédito foi reduzido em R$ ${(orderTotal/2).toFixed(2)}.`;
-            } else if (diffDays <= 0) {
+            if (diffDays <= 0) {
                 // REGRA 1: Pagamento em dia ou adiantado -> Aumenta metade do valor do pedido
                 newLimit = newLimit + (orderTotal / 2);
                 creditMessage = `Pagamento pontual! Seu limite de crédito aumentou em R$ ${(orderTotal/2).toFixed(2)}.`;
+                bonusApplied = 1;
+            } else if (diffDays > 15) {
+                // REGRA 2: Pagamento com atraso superior a 15 dias -> Diminui metade do valor do pedido (se ainda não penalizado)
+                // Buscamos se já foi penalizado antes
+                const alreadyPenalty: any = await env.DB.prepare("SELECT credit_penalty_applied FROM orders WHERE id = ?").bind(orderId).first();
+                if (!alreadyPenalty?.credit_penalty_applied) {
+                    newLimit = Math.max(0, newLimit - (orderTotal / 2));
+                    creditMessage = `Pagamento com atraso (+${diffDays} dias). Seu limite de crédito foi reduzido em R$ ${(orderTotal/2).toFixed(2)}.`;
+                    penaltyApplied = 1;
+                } else {
+                    creditMessage = "Pagamento recebido (penalidade de atraso já havia sido aplicada).";
+                }
             } else {
-                // Entre 1 e 5 dias de atraso: Mantém o crédito (sem penalidade, sem bônus)
+                // Entre 1 e 15 dias de atraso: Mantém o crédito
                 creditMessage = "Pagamento recebido.";
             }
 
@@ -133,8 +139,8 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             const hasProducts = (items || []).some((i: any) => i.type === 'product');
             const newStatus = hasProducts ? 'production' : 'paid';
 
-            await env.DB.prepare("UPDATE orders SET status = ?, paid_at = ?, payment_method = 'mercadopago' WHERE id = ?")
-                .bind(newStatus, nowTs, orderId).run();
+            await env.DB.prepare("UPDATE orders SET status = ?, paid_at = ?, payment_method = 'mercadopago', credit_bonus_applied = ?, credit_penalty_applied = ? WHERE id = ?")
+                .bind(newStatus, nowTs, bonusApplied, penaltyApplied || (diffDays > 15 ? 1 : 0), orderId).run();
             
             const formattedNum = String(orderInfo.order_number).padStart(5, '0');
                 

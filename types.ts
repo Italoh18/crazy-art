@@ -89,6 +89,8 @@ export interface Order {
   finished_by_admin?: number;
   finished_at?: string;
   production_step?: ProductionStep;
+  credit_bonus_applied?: number;
+  credit_penalty_applied?: number;
   items?: OrderItem[]; 
 }
 
