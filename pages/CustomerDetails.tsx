@@ -47,7 +47,8 @@ export default function CustomerDetails() {
   const [newOrderData, setNewOrderData] = useState({
       description: '',
       orderDate: new Date().toISOString().split('T')[0],
-      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      discount: 0
   });
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [itemSearch, setItemSearch] = useState('');
@@ -417,7 +418,8 @@ export default function CustomerDetails() {
       setNewOrderData({
           description: '',
           orderDate: new Date().toISOString().split('T')[0],
-          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          discount: 0
       });
       setOrderItems([]);
       setItemSearch('');
@@ -446,9 +448,10 @@ export default function CustomerDetails() {
           const fullOrder = await api.getOrder(order.id);
           setNewOrderData({
               description: fullOrder.description || '',
-              order_date: fullOrder.order_date ? fullOrder.order_date.split('T')[0] : '',
-              due_date: fullOrder.due_date ? fullOrder.due_date.split('T')[0] : ''
-          } as any);
+              orderDate: fullOrder.order_date ? fullOrder.order_date.split('T')[0] : '',
+              dueDate: fullOrder.due_date ? fullOrder.due_date.split('T')[0] : '',
+              discount: fullOrder.discount || 0
+          });
           if (fullOrder.items) {
               const mappedItems = fullOrder.items.map((i: any) => ({
                   productId: i.catalog_id || 'manual',
@@ -499,7 +502,8 @@ export default function CustomerDetails() {
       setOrderItems(prev => prev.map((item, i) => i === index ? { ...item, quantity: parsedQty, total: parsedQty * item.unitPrice } : item));
   };
 
-  const orderTotal = orderItems.reduce((acc, item) => acc + (typeof item.quantity === 'number' ? item.total : 0), 0);
+  const orderSubtotal = orderItems.reduce((acc, item) => acc + (typeof item.quantity === 'number' ? item.total : 0), 0);
+  const orderTotal = Math.max(0, orderSubtotal - (Number(newOrderData.discount) || 0));
 
   const handleFinalizeOrder = async () => {
       if (orderItems.length === 0 && !newOrderData.description) return;
@@ -509,7 +513,7 @@ export default function CustomerDetails() {
           order_date: newOrderData.orderDate,
           due_date: newOrderData.dueDate,
           items: orderItems,
-          total: orderTotal,
+          discount: Number(newOrderData.discount || 0),
           status: 'open'
       };
       if (editingOrderId) await updateOrder(editingOrderId, payload);
@@ -1196,7 +1200,25 @@ export default function CustomerDetails() {
                             </div>
                         )}
 
-                        <div><h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Resumo Financeiro</h3><div className="space-y-2"><div className="bg-zinc-900/30 p-3 rounded-xl border border-white/5 flex justify-between items-center"><span className="text-zinc-300 text-sm">Valor Total</span><span className="text-white font-mono font-bold text-sm">R$ {Number(viewingOrder.total || 0).toFixed(2)}</span></div></div></div>
+                        <div>
+                            <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Resumo Financeiro</h3>
+                            <div className="space-y-2">
+                                <div className="bg-zinc-900/30 p-3 rounded-xl border border-white/5 flex justify-between items-center">
+                                    <span className="text-zinc-300 text-sm">Subtotal</span>
+                                    <span className="text-white font-mono text-sm">R$ {Number((viewingOrder.total || 0) + (viewingOrder.discount || 0)).toFixed(2)}</span>
+                                </div>
+                                {viewingOrder.discount > 0 && (
+                                    <div className="bg-zinc-900/30 p-3 rounded-xl border border-white/5 flex justify-between items-center">
+                                        <span className="text-zinc-300 text-sm">Desconto</span>
+                                        <span className="text-red-400 font-mono text-sm">- R$ {Number(viewingOrder.discount).toFixed(2)}</span>
+                                    </div>
+                                )}
+                                <div className="bg-primary/10 p-3 rounded-xl border border-primary/20 flex justify-between items-center">
+                                    <span className="text-primary font-bold text-sm">Valor Final</span>
+                                    <span className="text-primary font-mono font-bold text-sm">R$ {Number(viewingOrder.total || 0).toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
                         <div className="flex justify-between items-center bg-zinc-900 p-4 rounded-xl border border-white/5"><span className="text-sm text-zinc-400">Status Atual</span>{renderStatusBadge(viewingOrder.status, new Date(viewingOrder.due_date) < new Date())}</div>
                         
                         <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5">
@@ -1281,11 +1303,35 @@ export default function CustomerDetails() {
                                         <div className="grid grid-cols-2 gap-4 mt-3"><button onClick={() => { setQuickCreateType('product'); setIsQuickCreateOpen(true); }} className="flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800 py-3 rounded-xl transition group"><Package size={16} className="text-zinc-500 group-hover:text-white" /><span className="text-xs font-bold text-zinc-400 group-hover:text-white uppercase">Criar Produto</span></button><button onClick={() => { setQuickCreateType('service'); setIsQuickCreateOpen(true); }} className="flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800 py-3 rounded-xl transition group"><Wrench size={16} className="text-zinc-500 group-hover:text-white" /><span className="text-xs font-bold text-zinc-400 group-hover:text-white uppercase">Criar Serviço</span></button></div>
                                     </div>
                                 )}
-                                <div className="mt-6 space-y-2">{orderItems.map((item, idx) => (<div key={idx} className="flex items-center justify-between bg-zinc-900/40 p-3 rounded-xl border border-white/5 group hover:border-white/10 transition"><span className="text-sm text-zinc-300 font-medium truncate flex-1">{item.productName}</span><div className="flex items-center gap-4"><div className="flex items-center bg-black/40 rounded-lg p-1"><button onClick={() => updateItemQuantity(idx, String(Number(item.quantity || 0) - 1))} className="p-1 hover:text-white text-zinc-500"><Minus size={12} /></button><input type="number" className="w-10 bg-transparent text-center text-xs font-bold text-white outline-none appearance-none" value={item.quantity} onChange={(e) => updateItemQuantity(idx, e.target.value)} /><button onClick={() => updateItemQuantity(idx, String(Number(item.quantity || 0) + 1))} className="p-1 hover:text-white text-zinc-500"><Plus size={12} /></button></div><span className="text-sm font-mono text-emerald-400 w-20 text-right">R$ {Number(item.total).toFixed(2)}</span><button onClick={() => handleRemoveItem(idx)} className="text-zinc-600 hover:text-red-500 transition"><Trash2 size={16} /></button></div></div>))}</div>
+                                 <div className="mt-6 space-y-2">{orderItems.map((item, idx) => (<div key={idx} className="flex items-center justify-between bg-zinc-900/40 p-3 rounded-xl border border-white/5 group hover:border-white/10 transition"><span className="text-sm text-zinc-300 font-medium truncate flex-1">{item.productName}</span><div className="flex items-center gap-4"><div className="flex items-center bg-black/40 rounded-lg p-1"><button onClick={() => updateItemQuantity(idx, String(Number(item.quantity || 0) - 1))} className="p-1 hover:text-white text-zinc-500"><Minus size={12} /></button><input type="number" className="w-10 bg-transparent text-center text-xs font-bold text-white outline-none appearance-none" value={item.quantity} onChange={(e) => updateItemQuantity(idx, e.target.value)} /><button onClick={() => updateItemQuantity(idx, String(Number(item.quantity || 0) + 1))} className="p-1 hover:text-white text-zinc-500"><Plus size={12} /></button></div><span className="text-sm font-mono text-emerald-400 w-20 text-right">R$ {Number(item.total).toFixed(2)}</span><button onClick={() => handleRemoveItem(idx)} className="text-zinc-600 hover:text-red-500 transition"><Trash2 size={16} /></button></div></div>))}</div>
+                            </div>
+                            
+                            {/* Campo de Desconto */}
+                            <div className="pt-4 border-t border-white/5">
+                                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Desconto no Total (R$)</label>
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">R$</span>
+                                    <input 
+                                        type="number" 
+                                        className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary outline-none transition font-mono" 
+                                        placeholder="0.00" 
+                                        value={newOrderData.discount || ''} 
+                                        onChange={(e) => setNewOrderData({...newOrderData, discount: parseFloat(e.target.value) || 0})} 
+                                    />
+                                </div>
                             </div>
                         </div>
                     )}
-                    <div className="p-6 border-t border-white/5 bg-[#0c0c0e] flex justify-between items-center rounded-b-2xl shrink-0"><div><p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-0.5">Total Geral</p><h2 className="text-3xl font-black text-white">R$ {Number(orderTotal).toFixed(2)}</h2></div><button onClick={handleFinalizeOrder} className="bg-gradient-to-r from-primary to-orange-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95 transition">{editingOrderId ? 'SALVAR ALTERAÇÕES' : 'FINALIZAR PEDIDO'}</button></div>
+                    <div className="p-6 border-t border-white/5 bg-[#0c0c0e] flex justify-between items-center rounded-b-2xl shrink-0">
+                        <div>
+                            {Number(newOrderData.discount) > 0 && (
+                                <p className="text-[10px] text-zinc-500 line-through mb-0.5">Subtotal: R$ {orderSubtotal.toFixed(2)}</p>
+                            )}
+                            <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-0.5">Total Geral</p>
+                            <h2 className="text-3xl font-black text-white">R$ {Number(orderTotal).toFixed(2)}</h2>
+                        </div>
+                        <button onClick={handleFinalizeOrder} className="bg-gradient-to-r from-primary to-orange-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95 transition">{editingOrderId ? 'SALVAR ALTERAÇÕES' : 'FINALIZAR PEDIDO'}</button>
+                    </div>
                 </div>
             </div>
         )}

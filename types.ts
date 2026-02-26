@@ -91,6 +91,7 @@ export interface Order {
   production_step?: ProductionStep;
   credit_bonus_applied?: number;
   credit_penalty_applied?: number;
+  discount?: number;
   items?: OrderItem[]; 
 }
 

@@ -203,8 +203,11 @@ export default function Orders() {
                                       <td className="px-6 py-4">
                                           <ProductionPath orderId={order.id} currentStep={order.production_step || 'production'} isCompact />
                                       </td>
-                                      <td className="px-6 py-4 text-right font-mono text-white font-bold">
-                                          R$ {order.total.toFixed(2)}
+                                      <td className="px-6 py-4 text-right">
+                                          <div className="font-mono text-white font-bold">R$ {order.total.toFixed(2)}</div>
+                                          {order.discount ? (
+                                              <div className="text-[10px] text-red-400 font-medium">Desc: R$ {Number(order.discount).toFixed(2)}</div>
+                                          ) : null}
                                       </td>
                                       <td className="px-6 py-4 text-center">
                                           <button 

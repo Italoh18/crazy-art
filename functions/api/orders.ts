@@ -73,11 +73,12 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const source = String(body.source || 'admin');
       const size_list = body.size_list ? String(body.size_list) : null;
       const production_step = String(body.production_step || 'production');
+      const discount = Number(body.discount || 0);
 
       if (!client_id) return new Response(JSON.stringify({ error: 'client_id é obrigatório' }), { status: 400 });
 
       await env.DB.prepare(
-        'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, total_cost, status, created_at, size_list, is_confirmed, source, production_step) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)'
+        'INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, total_cost, status, created_at, size_list, is_confirmed, source, production_step, discount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)'
       ).bind(
         newId,
         nextOrderNumber,
@@ -91,7 +92,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         now,
         size_list,
         source,
-        production_step
+        production_step,
+        discount
       ).run();
 
       const items = Array.isArray(body.items) ? body.items : [];
@@ -127,13 +129,13 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         }
 
         await env.DB.prepare('UPDATE orders SET total = ?, total_cost = ? WHERE id = ?')
-            .bind(calculatedTotal, calculatedCost, newId).run();
+            .bind(calculatedTotal - discount, calculatedCost, newId).run();
       }
 
       return Response.json({ 
         success: true,
         id: newId,
-        total: calculatedTotal,
+        total: calculatedTotal - discount,
         order_number: nextOrderNumber,
         formattedOrderNumber: formattedOrder
       });
@@ -242,10 +244,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const due_date = String(body.due_date || body.dueDate || '');
       const status = String(body.status || 'open');
       const size_list = body.size_list ? String(body.size_list) : null;
+      const discount = Number(body.discount || 0);
 
       // 1. Atualiza dados básicos (Sem zerar datas se vierem nulas)
-      let updateOrderQuery = 'UPDATE orders SET description = ?, status = ?, size_list = ?';
-      let updateOrderParams = [description, status, size_list];
+      let updateOrderQuery = 'UPDATE orders SET description = ?, status = ?, size_list = ?, discount = ?';
+      let updateOrderParams = [description, status, size_list, discount];
 
       if (order_date) {
           updateOrderQuery += ', order_date = ?';
@@ -298,7 +301,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
           // Atualiza totais na tabela principal
           await env.DB.prepare('UPDATE orders SET total = ?, total_cost = ? WHERE id = ?')
-              .bind(calculatedTotal, calculatedCost, String(id)).run();
+              .bind(calculatedTotal - discount, calculatedCost, String(id)).run();
       }
 
       return Response.json({ success: true });

@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS orders (
     production_step TEXT DEFAULT 'production',
     credit_bonus_applied INTEGER DEFAULT 0,
     credit_penalty_applied INTEGER DEFAULT 0,
+    discount REAL DEFAULT 0,
     created_at TEXT NOT NULL,
     FOREIGN KEY (client_id) REFERENCES clients(id)
 );
