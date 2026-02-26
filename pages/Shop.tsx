@@ -111,11 +111,18 @@ export default function Shop() {
       products.filter(p => 
           p.type === 'art' && 
           p.subcategory && 
-          p.subcategory !== 'Logos' && 
-          p.subcategory !== 'Bordados' &&
-          p.subcategory !== 'Diversos'
+          !p.subcategory.includes('Logos') && 
+          !p.subcategory.includes('Bordados') &&
+          !p.subcategory.includes('Diversos')
       ).forEach(p => {
-          if (p.subcategory) existingCats.add(p.subcategory);
+          if (p.subcategory) {
+              p.subcategory.split(',').forEach(s => {
+                  const trimmed = s.trim();
+                  if (trimmed && trimmed !== 'Logos' && trimmed !== 'Bordados' && trimmed !== 'Diversos') {
+                      existingCats.add(trimmed);
+                  }
+              });
+          }
       });
       return Array.from(existingCats);
   }, [products]);
@@ -137,15 +144,22 @@ export default function Shop() {
      let matches = itemType === activeTab && item.name.toLowerCase().includes(searchTerm.toLowerCase());
      if (activeTab === 'art') {
          if (matches && selectedColor && item.primaryColor !== selectedColor) matches = false;
+         
+         const itemCategories = item.subcategory?.split(',').map(s => s.trim()) || [];
+         
          if (quitandaTab === 'bordados') {
-             if (item.subcategory !== 'Bordados') matches = false;
+             if (!itemCategories.includes('Bordados')) matches = false;
          } else if (quitandaTab === 'logos') {
-             if (item.subcategory !== 'Logos') matches = false;
+             if (!itemCategories.includes('Logos')) matches = false;
          } else if (quitandaTab === 'diversos') {
-             if (item.subcategory !== 'Diversos') matches = false;
+             if (!itemCategories.includes('Diversos')) matches = false;
          } else {
-             if (item.subcategory === 'Logos' || item.subcategory === 'Bordados' || item.subcategory === 'Diversos') matches = false;
-             if (matches && activeArtCategory !== 'Todos' && item.subcategory !== activeArtCategory) matches = false;
+             // Aba Estampas (Geral)
+             const isSpecial = itemCategories.some(c => ['Logos', 'Bordados', 'Diversos'].includes(c));
+             const hasGeneral = itemCategories.some(c => !['Logos', 'Bordados', 'Diversos'].includes(c));
+             
+             if (isSpecial && !hasGeneral) matches = false;
+             if (matches && activeArtCategory !== 'Todos' && !itemCategories.includes(activeArtCategory)) matches = false;
          }
      }
      return matches;
@@ -488,7 +502,18 @@ export default function Shop() {
                             </button>
                         </div>
                         <p className="text-zinc-500 text-xs mt-2 line-clamp-2 flex-1">{item.description || 'Clique para ver detalhes'}</p>
-{item.priceVariations && item.priceVariations.length > 0 && (<div className="mt-2 text-[10px] text-emerald-400 bg-emerald-900/20 px-2 py-1 rounded border border-emerald-500/20 inline-block w-fit"><Tag size={10} className="inline mr-1" /> Preços especiais p/ atacado</div>)}{isArt && (<div className="mt-3 flex flex-wrap gap-2"><div className="flex items-center gap-1 text-[10px] text-purple-400 font-bold uppercase tracking-wider"><CloudDownload size={12} /> Digital</div>{item.subcategory && (<span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">{item.subcategory}</span>)}</div>)}</div>
+{item.priceVariations && item.priceVariations.length > 0 && (<div className="mt-2 text-[10px] text-emerald-400 bg-emerald-900/20 px-2 py-1 rounded border border-emerald-500/20 inline-block w-fit"><Tag size={10} className="inline mr-1" /> Preços especiais p/ atacado</div>)}{isArt && (
+    <div className="mt-3 flex flex-wrap gap-2">
+        <div className="flex items-center gap-1 text-[10px] text-purple-400 font-bold uppercase tracking-wider">
+            <CloudDownload size={12} /> Digital
+        </div>
+        {item.subcategory && item.subcategory.split(',').map(s => s.trim()).filter(Boolean).map((cat, i) => (
+            <span key={i} className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">
+                {cat}
+            </span>
+        ))}
+    </div>
+)}</div>
                 </div>
             </div>
             )
@@ -505,7 +530,16 @@ export default function Shop() {
     const showFreeDownload = isSubscriber && isArt && viewingProduct?.downloadLink;
 
     return (
-    <div className="animate-fade-in max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10"><div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 aspect-square flex items-center justify-center relative">{viewingProduct?.imageUrl ? <img src={viewingProduct.imageUrl} className="w-full h-full object-cover" /> : (viewingProduct?.type as string) === 'art' ? <Palette size={120} className="text-purple-500/20" /> : <ShoppingBag size={120} className="text-zinc-800" />}{(viewingProduct?.type as string) === 'art' && (<div className="absolute top-4 right-4 bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1"><CloudDownload size={12} /> Digital</div>)}</div><div className="flex flex-col justify-center space-y-8"><div><span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase ${viewingProduct?.type === 'art' ? 'bg-purple-500/10 text-purple-400' : 'bg-primary/10 text-primary'}`}>{viewingProduct?.type === 'art' ? 'Arte Digital' : viewingProduct?.type === 'service' ? 'Serviço' : 'Produto'}</span><h2 className="text-4xl font-bold text-white mt-4">{viewingProduct?.name}</h2><div className="flex items-baseline gap-2 mt-2"><p className="text-3xl font-black text-emerald-400">{showFreeDownload ? 'GRÁTIS (Assinante)' : `R$ ${dynamicPrice.toFixed(2)}`}</p>{hasDiscount && !showFreeDownload && <p className="text-sm text-zinc-500 line-through">R$ {viewingProduct?.price.toFixed(2)}</p>}</div>{hasDiscount && !showFreeDownload && <p className="text-xs text-emerald-500 font-bold mt-1">Preço especial de atacado aplicado!</p>}{viewingProduct?.type === 'art' && viewingProduct?.subcategory && (<p className="text-zinc-500 text-sm mt-1">Categoria: {viewingProduct.subcategory}</p>)}</div>{viewingProduct?.priceVariations && viewingProduct.priceVariations.length > 0 && (<div className="bg-zinc-900/80 p-4 rounded-xl border border-zinc-800"><h4 className="text-xs font-bold text-zinc-500 uppercase mb-2">Tabela de Preços (Atacado)</h4><div className="flex flex-wrap gap-2"><div className={`px-3 py-2 rounded-lg border text-xs text-center ${Number(currentOrderQty) < Math.min(...viewingProduct.priceVariations.map(v=>v.minQuantity)) ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><span className="block font-bold">1 un</span>R$ {viewingProduct.price.toFixed(2)}</div>{viewingProduct.priceVariations.sort((a,b) => a.minQuantity - b.minQuantity).map((v, i) => (<div key={i} className={`px-3 py-2 rounded-lg border text-xs text-center ${Number(currentOrderQty) >= v.minQuantity && (i === viewingProduct!.priceVariations!.length - 1 || Number(currentOrderQty) < viewingProduct!.priceVariations![i+1].minQuantity) ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><span className="block font-bold">+{v.minQuantity} un</span>R$ {v.price.toFixed(2)}</div>))}</div></div>)}<div className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800"><h4 className="text-xs font-bold text-zinc-500 uppercase mb-3">Descrição</h4><p className="text-zinc-300 leading-relaxed mb-4">{viewingProduct?.description || 'Nenhum detalhe adicional.'}</p>{viewingProduct?.type === 'art' && (<div className="bg-purple-900/10 p-3 rounded-lg border border-purple-500/20 mb-4 text-xs text-purple-300">Este é um produto digital. Você receberá o link para download automaticamente após a confirmação do pagamento.</div>)}<div className="flex items-center gap-4"><div className="flex items-center gap-2 bg-black rounded-xl p-2 border border-zinc-800"><button onClick={() => setCurrentOrderQty(Math.max(1, Number(currentOrderQty) - 1))} className="p-2 text-zinc-500"><Minus size={16} /></button><input type="number" value={currentOrderQty} onChange={(e) => setCurrentOrderQty(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-12 bg-transparent text-white text-center font-bold outline-none" /><button onClick={() => setCurrentOrderQty(Number(currentOrderQty) + 1)} className="p-2 text-zinc-500"><PlusIcon size={16} /></button></div><input type="text" placeholder="Obs. (Cor, Tamanho...)" className="flex-1 bg-black rounded-xl px-4 py-3 border border-zinc-800 text-white outline-none text-sm" value={currentOrderDesc} onChange={(e) => setCurrentOrderDesc(e.target.value)} /></div></div>
+    <div className="animate-fade-in max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10"><div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 aspect-square flex items-center justify-center relative">{viewingProduct?.imageUrl ? <img src={viewingProduct.imageUrl} className="w-full h-full object-cover" /> : (viewingProduct?.type as string) === 'art' ? <Palette size={120} className="text-purple-500/20" /> : <ShoppingBag size={120} className="text-zinc-800" />}{(viewingProduct?.type as string) === 'art' && (<div className="absolute top-4 right-4 bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1"><CloudDownload size={12} /> Digital</div>)}</div><div className="flex flex-col justify-center space-y-8"><div><span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase ${viewingProduct?.type === 'art' ? 'bg-purple-500/10 text-purple-400' : 'bg-primary/10 text-primary'}`}>{viewingProduct?.type === 'art' ? 'Arte Digital' : viewingProduct?.type === 'service' ? 'Serviço' : 'Produto'}</span><h2 className="text-4xl font-bold text-white mt-4">{viewingProduct?.name}</h2><div className="flex items-baseline gap-2 mt-2"><p className="text-3xl font-black text-emerald-400">{showFreeDownload ? 'GRÁTIS (Assinante)' : `R$ ${dynamicPrice.toFixed(2)}`}</p>{hasDiscount && !showFreeDownload && <p className="text-sm text-zinc-500 line-through">R$ {viewingProduct?.price.toFixed(2)}</p>}</div>{hasDiscount && !showFreeDownload && <p className="text-xs text-emerald-500 font-bold mt-1">Preço especial de atacado aplicado!</p>}{viewingProduct?.type === 'art' && viewingProduct?.subcategory && (
+    <div className="flex flex-wrap gap-2 mt-1 items-center">
+        <span className="text-zinc-500 text-sm">Categorias:</span>
+        {viewingProduct.subcategory.split(',').map(s => s.trim()).filter(Boolean).map((cat, i) => (
+            <span key={i} className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">
+                {cat}
+            </span>
+        ))}
+    </div>
+)}</div>{viewingProduct?.priceVariations && viewingProduct.priceVariations.length > 0 && (<div className="bg-zinc-900/80 p-4 rounded-xl border border-zinc-800"><h4 className="text-xs font-bold text-zinc-500 uppercase mb-2">Tabela de Preços (Atacado)</h4><div className="flex flex-wrap gap-2"><div className={`px-3 py-2 rounded-lg border text-xs text-center ${Number(currentOrderQty) < Math.min(...viewingProduct.priceVariations.map(v=>v.minQuantity)) ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><span className="block font-bold">1 un</span>R$ {viewingProduct.price.toFixed(2)}</div>{viewingProduct.priceVariations.sort((a,b) => a.minQuantity - b.minQuantity).map((v, i) => (<div key={i} className={`px-3 py-2 rounded-lg border text-xs text-center ${Number(currentOrderQty) >= v.minQuantity && (i === viewingProduct!.priceVariations!.length - 1 || Number(currentOrderQty) < viewingProduct!.priceVariations![i+1].minQuantity) ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><span className="block font-bold">+{v.minQuantity} un</span>R$ {v.price.toFixed(2)}</div>))}</div></div>)}<div className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800"><h4 className="text-xs font-bold text-zinc-500 uppercase mb-3">Descrição</h4><p className="text-zinc-300 leading-relaxed mb-4">{viewingProduct?.description || 'Nenhum detalhe adicional.'}</p>{viewingProduct?.type === 'art' && (<div className="bg-purple-900/10 p-3 rounded-lg border border-purple-500/20 mb-4 text-xs text-purple-300">Este é um produto digital. Você receberá o link para download automaticamente após a confirmação do pagamento.</div>)}<div className="flex items-center gap-4"><div className="flex items-center gap-2 bg-black rounded-xl p-2 border border-zinc-800"><button onClick={() => setCurrentOrderQty(Math.max(1, Number(currentOrderQty) - 1))} className="p-2 text-zinc-500"><Minus size={16} /></button><input type="number" value={currentOrderQty} onChange={(e) => setCurrentOrderQty(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-12 bg-transparent text-white text-center font-bold outline-none" /><button onClick={() => setCurrentOrderQty(Number(currentOrderQty) + 1)} className="p-2 text-zinc-500"><PlusIcon size={16} /></button></div><input type="text" placeholder="Obs. (Cor, Tamanho...)" className="flex-1 bg-black rounded-xl px-4 py-3 border border-zinc-800 text-white outline-none text-sm" value={currentOrderDesc} onChange={(e) => setCurrentOrderDesc(e.target.value)} /></div></div>
     
     <div className="grid grid-cols-2 gap-4">
         {showFreeDownload ? (

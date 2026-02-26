@@ -486,19 +486,43 @@ export default function Products() {
                         <h4 className="text-xs font-bold text-purple-400 uppercase tracking-widest">Detalhes da Arte</h4>
                         
                         <div>
-                            <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1.5 ml-1">Subcategoria (Pasta)</label>
-                            <div className="relative">
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1.5 ml-1">Categorias (Selecione uma ou mais)</label>
+                            <div className="flex flex-wrap gap-2 p-3 bg-black/40 border border-zinc-700 rounded-xl">
+                                {DEFAULT_SUBCATEGORIES.map(cat => {
+                                    const isSelected = formData.subcategory.split(',').map(s => s.trim()).includes(cat);
+                                    return (
+                                        <button
+                                            key={cat}
+                                            type="button"
+                                            onClick={() => {
+                                                const currentCats = formData.subcategory.split(',').map(s => s.trim()).filter(Boolean);
+                                                let newCats;
+                                                if (isSelected) {
+                                                    newCats = currentCats.filter(c => c !== cat);
+                                                } else {
+                                                    newCats = [...currentCats, cat];
+                                                }
+                                                setFormData({ ...formData, subcategory: newCats.join(', ') });
+                                            }}
+                                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                                                isSelected 
+                                                ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' 
+                                                : 'bg-zinc-800 text-zinc-500 hover:text-white hover:bg-zinc-700'
+                                            }`}
+                                        >
+                                            {cat}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <div className="mt-2">
                                 <input
-                                list="categories"
-                                type="text"
-                                placeholder="Selecione ou digite..."
-                                className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-3 pr-4 py-3 text-white focus:border-purple-500 outline-none transition text-sm"
-                                value={formData.subcategory}
-                                onChange={e => setFormData({ ...formData, subcategory: e.target.value })}
+                                    type="text"
+                                    placeholder="Categorias personalizadas (separadas por vírgula)..."
+                                    className="w-full bg-black/20 border border-zinc-800 rounded-lg px-3 py-2 text-[10px] text-zinc-400 focus:border-purple-500 outline-none transition"
+                                    value={formData.subcategory}
+                                    onChange={e => setFormData({ ...formData, subcategory: e.target.value })}
                                 />
-                                <datalist id="categories">
-                                    {DEFAULT_SUBCATEGORIES.map(cat => <option key={cat} value={cat} />)}
-                                </datalist>
                             </div>
                         </div>
 
