@@ -7,11 +7,22 @@ export interface CartItem {
     quantity: number;
     description?: string;
     tempId: string;
+    sizeList?: any[];
+    layoutOption?: 'sim' | 'precisa' | null;
+    moldOption?: 'sim' | 'precisa' | null;
+    artLink?: string;
+    artExtrasDesc?: string;
+    wantsDigitalGrid?: boolean;
 }
 
 interface CartContextType {
     cart: CartItem[];
-    addToCart: (product: Product, quantity?: number, description?: string) => void;
+    addToCart: (
+        product: Product, 
+        quantity?: number, 
+        description?: string,
+        extraData?: Partial<Omit<CartItem, 'product' | 'quantity' | 'description' | 'tempId'>>
+    ) => void;
     removeFromCart: (tempId: string) => void;
     clearCart: () => void;
     cartCount: number;
@@ -22,12 +33,18 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export const CartProvider = ({ children }: { children: ReactNode }) => {
     const [cart, setCart] = useState<CartItem[]>([]);
 
-    const addToCart = (product: Product, quantity: number = 1, description: string = '') => {
+    const addToCart = (
+        product: Product, 
+        quantity: number = 1, 
+        description: string = '',
+        extraData: any = {}
+    ) => {
         setCart(prev => [...prev, {
             product,
             quantity,
             description,
-            tempId: crypto.randomUUID()
+            tempId: crypto.randomUUID(),
+            ...extraData
         }]);
     };
 

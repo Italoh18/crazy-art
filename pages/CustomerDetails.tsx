@@ -8,7 +8,7 @@ import {
   CheckCircle, AlertTriangle, Trash2, Edit, Plus, X, 
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
   Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal,
-  Coins, Lock, RotateCcw, CloudDownload, Sparkles, ChevronRight
+  Coins, Lock, RotateCcw, CloudDownload, Sparkles, ChevronRight, Upload
 } from 'lucide-react';
 import { api } from '../src/services/api';
 import { SizeListItem, Order } from '../types';
@@ -1177,22 +1177,60 @@ export default function CustomerDetails() {
                         {viewingOrder.items && viewingOrder.items.length > 0 && (
                             <div>
                                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><Layers size={14} /> Itens do Pedido</h3>
-                                <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                                <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar pr-1">
                                     {viewingOrder.items.map((item: any, idx: number) => (
-                                        <div key={idx} className="bg-zinc-900/30 p-2 rounded border border-white/5 flex justify-between items-center text-xs">
-                                            <span className="text-zinc-300 truncate flex-1">{item.name} (x{item.quantity})</span>
-                                            {/* Botão de Download para Artes Pagas */}
-                                            {item.type === 'art' && viewingOrder.status === 'paid' && item.downloadLink ? (
-                                                <a 
-                                                    href={item.downloadLink} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer"
-                                                    className="ml-2 px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded flex items-center gap-1 font-bold text-[10px] transition"
-                                                >
-                                                    <CloudDownload size={12} /> Baixar
-                                                </a>
-                                            ) : (
-                                                <span className="text-white font-mono ml-2">R$ {Number(item.total).toFixed(2)}</span>
+                                        <div key={idx} className="bg-zinc-900/30 p-3 rounded-xl border border-white/5 space-y-2">
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="text-zinc-300 font-bold truncate flex-1">{item.name} (x{item.quantity})</span>
+                                                {/* Botão de Download para Artes Pagas */}
+                                                {item.type === 'art' && viewingOrder.status === 'paid' && item.downloadLink ? (
+                                                    <a 
+                                                        href={item.downloadLink} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        className="ml-2 px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded flex items-center gap-1 font-bold text-[10px] transition"
+                                                    >
+                                                        <CloudDownload size={12} /> Baixar
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-white font-mono ml-2">R$ {Number(item.total).toFixed(2)}</span>
+                                                )}
+                                            </div>
+
+                                            {/* Production Details for this item */}
+                                            {(item.size_list || item.layout_option || item.mold_option || item.art_link || item.art_extras_desc || item.wants_digital_grid === 1) && (
+                                                <div className="pl-4 border-l-2 border-primary/30 space-y-1.5 mt-2">
+                                                    {item.wants_digital_grid === 1 && (
+                                                        <div className="text-[10px] text-purple-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                                                            <Layers size={10} /> Grade Digital Solicitada
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {item.size_list && (
+                                                        <div className="space-y-1">
+                                                            <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Lista de Produção:</p>
+                                                            {(typeof item.size_list === 'string' ? JSON.parse(item.size_list) : item.size_list).map((li: any, lidx: number) => (
+                                                                <div key={lidx} className="text-[10px] text-zinc-400 flex justify-between">
+                                                                    <span>{li.size} ({li.category}) {li.name ? `- ${li.name}` : ''} {li.number ? `#${li.number}` : ''}</span>
+                                                                    {li.quantity > 1 && <span className="text-zinc-500">x{li.quantity}</span>}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {item.layout_option && <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${item.layout_option === 'sim' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}>Layout: {item.layout_option === 'sim' ? 'OK' : 'Precisa'}</span>}
+                                                        {item.mold_option && <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${item.mold_option === 'sim' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}>Molde: {item.mold_option === 'sim' ? 'OK' : 'Precisa'}</span>}
+                                                    </div>
+                                                    
+                                                    {item.art_extras_desc && <p className="text-[10px] text-zinc-400 italic">"{item.art_extras_desc}"</p>}
+                                                    
+                                                    {item.art_link && (
+                                                        <a href={item.art_link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline flex items-center gap-1">
+                                                            <Upload size={10} /> Ver Arquivos
+                                                        </a>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     ))}

@@ -175,20 +175,47 @@ export default function Shop() {
     setViewingProduct(product);
     setCurrentOrderQty(1);
     setCurrentOrderDesc('');
+    
+    // Reset questionnaire states for the new product being viewed
+    setHasSizeList(false);
+    setSizeList([]);
+    setLayoutOption(null);
+    setMoldOption(null);
+    setArtLink('');
+    setArtExtrasDesc('');
+    setWantsDigitalGrid(false);
+    setIsGlobalSimple(false);
+    
     setStep('detail');
     window.scrollTo(0, 0);
   };
 
   const addToCart = () => {
       if (!viewingProduct) return;
-      addToCartGlobal(viewingProduct, Number(currentOrderQty) || 1, currentOrderDesc);
+      const extraData = {
+          sizeList: (hasSizeList || wantsDigitalGrid) ? sizeList : [],
+          layoutOption,
+          moldOption,
+          artLink,
+          artExtrasDesc,
+          wantsDigitalGrid
+      };
+      addToCartGlobal(viewingProduct, Number(currentOrderQty) || 1, currentOrderDesc, extraData);
       setViewingProduct(null);
       setStep('list');
   };
 
   const buyNow = () => {
       if (!viewingProduct) return;
-      addToCartGlobal(viewingProduct, Number(currentOrderQty) || 1, currentOrderDesc);
+      const extraData = {
+          sizeList: (hasSizeList || wantsDigitalGrid) ? sizeList : [],
+          layoutOption,
+          moldOption,
+          artLink,
+          artExtrasDesc,
+          wantsDigitalGrid
+      };
+      addToCartGlobal(viewingProduct, Number(currentOrderQty) || 1, currentOrderDesc, extraData);
       setViewingProduct(null);
       setStep('questionnaire');
   };
@@ -237,21 +264,26 @@ export default function Shop() {
   const calculateFinalOrder = () => {
       const itemsPayload: any[] = [];
       let totalValue = 0;
-      const totalListItems = calculateTotalItemsInList();
 
       cart.forEach(item => {
+          const totalListItems = (item.sizeList || []).reduce((acc, i) => acc + (i.quantity || 1), 0);
           let qty = item.quantity;
           const nameLower = item.product.name.toLowerCase();
-          if (sizeList.length > 0 && !wantsDigitalGrid) {
-              if (nameLower.includes('camisa')) qty = totalListItems;
-              else if (nameLower.includes('replica') || nameLower.includes('réplica')) qty = totalListItems;
+          
+          if (item.sizeList && item.sizeList.length > 0 && !item.wantsDigitalGrid) {
+              if (nameLower.includes('camisa') || nameLower.includes('replica') || nameLower.includes('réplica')) {
+                  qty = totalListItems;
+              }
           }
+          
           let unitPrice = getProductPriceForQuantity(item.product, qty);
-          if (sizeList.length > 0 && !wantsDigitalGrid && (nameLower.includes('replica') || nameLower.includes('réplica'))) {
+          if (item.sizeList && item.sizeList.length > 0 && !item.wantsDigitalGrid && (nameLower.includes('replica') || nameLower.includes('réplica'))) {
               unitPrice = 2.00;
           }
+          
           const subtotal = unitPrice * qty;
           totalValue += subtotal;
+          
           itemsPayload.push({ 
               productId: item.product.id, 
               productName: item.product.name, 
@@ -259,41 +291,48 @@ export default function Shop() {
               unitPrice: unitPrice, 
               total: subtotal, 
               type: item.product.type,
-              downloadLink: item.product.downloadLink 
+              downloadLink: item.product.downloadLink,
+              size_list: item.sizeList && item.sizeList.length > 0 ? JSON.stringify(item.sizeList) : null,
+              layout_option: item.layoutOption,
+              mold_option: item.moldOption,
+              art_link: item.artLink,
+              art_extras_desc: item.artExtrasDesc,
+              wants_digital_grid: item.wantsDigitalGrid ? 1 : 0
           });
+
+          const findServicePrice = (n: string, d: number) => {
+              const s = products.find(p => p.name.toLowerCase().includes(n.toLowerCase()));
+              return s ? s.price : d;
+          };
+
+          if (!item.wantsDigitalGrid) {
+              if (item.layoutOption === 'precisa') {
+                  const p = findServicePrice('layout simples', 30); totalValue += p;
+                  itemsPayload.push({ productId: 'service-layout', productName: `Serviço: Layout (${item.product.name})`, quantity: 1, unitPrice: p, total: p, type: 'service' });
+              }
+              if (item.moldOption === 'precisa') {
+                  const p = findServicePrice('molde', 50); totalValue += p;
+                  itemsPayload.push({ productId: 'service-mold', productName: `Serviço: Molde (${item.product.name})`, quantity: 1, unitPrice: p, total: p, type: 'service' });
+              }
+          }
+
+          if (item.wantsDigitalGrid && item.sizeList && item.sizeList.length > 0) {
+              const replicaService = products.find(p => p.name.toLowerCase().includes('replica') && p.name.toLowerCase().includes('molde')) 
+                                  || products.find(p => p.name.toLowerCase().includes('replica'));
+              const replicaPrice = replicaService ? replicaService.price : 10.00;
+              const gridCost = replicaPrice * totalListItems;
+              totalValue += gridCost;
+              itemsPayload.push({ 
+                  productId: replicaService ? replicaService.id : 'service-grid-digital', 
+                  productName: `Serviço: Grade Digital (${item.product.name})`, 
+                  quantity: totalListItems, 
+                  unitPrice: replicaPrice, 
+                  total: gridCost, 
+                  type: 'service' 
+              });
+          }
       });
 
-      const findServicePrice = (n: string, d: number) => {
-          const s = products.find(p => p.name.toLowerCase().includes(n.toLowerCase()));
-          return s ? s.price : d;
-      };
-
-      if (!wantsDigitalGrid) {
-          if (layoutOption === 'precisa') {
-              const p = findServicePrice('layout simples', 30); totalValue += p;
-              itemsPayload.push({ productId: 'service-layout', productName: 'Serviço: Criação de Layout', quantity: 1, unitPrice: p, total: p, type: 'service' });
-          }
-          if (moldOption === 'precisa') {
-              const p = findServicePrice('molde', 50); totalValue += p;
-              itemsPayload.push({ productId: 'service-mold', productName: 'Serviço: Criação de Molde', quantity: 1, unitPrice: p, total: p, type: 'service' });
-          }
-      }
-
-      if (wantsDigitalGrid && sizeList.length > 0) {
-          const replicaService = products.find(p => p.name.toLowerCase().includes('replica') && p.name.toLowerCase().includes('molde')) 
-                              || products.find(p => p.name.toLowerCase().includes('replica'));
-          const replicaPrice = replicaService ? replicaService.price : 10.00;
-          const gridCost = replicaPrice * totalListItems;
-          totalValue += gridCost;
-          itemsPayload.push({ 
-              productId: replicaService ? replicaService.id : 'service-grid-digital', 
-              productName: 'Serviço: Grade Digital (Réplica de Molde)', 
-              quantity: totalListItems, 
-              unitPrice: replicaPrice, 
-              total: gridCost, 
-              type: 'service' 
-          });
-      }
       return { items: itemsPayload, total: totalValue };
   };
 
@@ -329,13 +368,16 @@ export default function Shop() {
         const { items, total } = calculateFinalOrder();
         const orderData = {
             client_id: currentCustomer.id,
-            description: cart.map(i => `${i.product.name} (x${i.quantity})`).join('; ') + 
-                         (artExtrasDesc ? `\nDetalhes Logos: ${artExtrasDesc}` : '') +
-                         (artLink ? `\nLink Arquivos: ${artLink}` : '') + 
-                         (wantsDigitalGrid ? '\n[COM GRADE DIGITAL]' : ''),
+            description: cart.map(i => {
+                let desc = `${i.product.name} (x${i.quantity})`;
+                if (i.artExtrasDesc) desc += ` [Obs: ${i.artExtrasDesc}]`;
+                if (i.artLink) desc += ` [Link: ${i.artLink}]`;
+                if (i.wantsDigitalGrid) desc += ` [GRADE DIGITAL]`;
+                return desc;
+            }).join('; '),
             items: items,
             total: total,
-            size_list: sizeList.length > 0 ? JSON.stringify(sizeList) : null,
+            size_list: null, // Now stored per-item in order_items
             status: 'open', source: 'shop',
             order_date: new Date().toISOString().split('T')[0],
             due_date: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
@@ -530,43 +572,266 @@ export default function Shop() {
     const showFreeDownload = isSubscriber && isArt && viewingProduct?.downloadLink;
 
     return (
-    <div className="animate-fade-in max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10"><div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 aspect-square flex items-center justify-center relative">{viewingProduct?.imageUrl ? <img src={viewingProduct.imageUrl} className="w-full h-full object-cover" /> : (viewingProduct?.type as string) === 'art' ? <Palette size={120} className="text-purple-500/20" /> : <ShoppingBag size={120} className="text-zinc-800" />}{(viewingProduct?.type as string) === 'art' && (<div className="absolute top-4 right-4 bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1"><CloudDownload size={12} /> Digital</div>)}</div><div className="flex flex-col justify-center space-y-8"><div><span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase ${viewingProduct?.type === 'art' ? 'bg-purple-500/10 text-purple-400' : 'bg-primary/10 text-primary'}`}>{viewingProduct?.type === 'art' ? 'Arte Digital' : viewingProduct?.type === 'service' ? 'Serviço' : 'Produto'}</span><h2 className="text-4xl font-bold text-white mt-4">{viewingProduct?.name}</h2><div className="flex items-baseline gap-2 mt-2"><p className="text-3xl font-black text-emerald-400">{showFreeDownload ? 'GRÁTIS (Assinante)' : `R$ ${dynamicPrice.toFixed(2)}`}</p>{hasDiscount && !showFreeDownload && <p className="text-sm text-zinc-500 line-through">R$ {viewingProduct?.price.toFixed(2)}</p>}</div>{hasDiscount && !showFreeDownload && <p className="text-xs text-emerald-500 font-bold mt-1">Preço especial de atacado aplicado!</p>}{viewingProduct?.type === 'art' && viewingProduct?.subcategory && (
-    <div className="flex flex-wrap gap-2 mt-1 items-center">
-        <span className="text-zinc-500 text-sm">Categorias:</span>
-        {viewingProduct.subcategory.split(',').map(s => s.trim()).filter(Boolean).map((cat, i) => (
-            <span key={i} className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">
-                {cat}
-            </span>
-        ))}
+    <div className="animate-fade-in max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 aspect-square flex items-center justify-center relative">
+            {viewingProduct?.imageUrl ? <img src={viewingProduct.imageUrl} className="w-full h-full object-cover" /> : (viewingProduct?.type as string) === 'art' ? <Palette size={120} className="text-purple-500/20" /> : <ShoppingBag size={120} className="text-zinc-800" />}
+            {(viewingProduct?.type as string) === 'art' && (
+                <div className="absolute top-4 right-4 bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
+                    <CloudDownload size={12} /> Digital
+                </div>
+            )}
+        </div>
+        <div className="flex flex-col justify-center space-y-8">
+            <div>
+                <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase ${viewingProduct?.type === 'art' ? 'bg-purple-500/10 text-purple-400' : 'bg-primary/10 text-primary'}`}>
+                    {viewingProduct?.type === 'art' ? 'Arte Digital' : viewingProduct?.type === 'service' ? 'Serviço' : 'Produto'}
+                </span>
+                <h2 className="text-4xl font-bold text-white mt-4">{viewingProduct?.name}</h2>
+                <div className="flex items-baseline gap-2 mt-2">
+                    <p className="text-3xl font-black text-emerald-400">{showFreeDownload ? 'GRÁTIS (Assinante)' : `R$ ${dynamicPrice.toFixed(2)}`}</p>
+                    {hasDiscount && !showFreeDownload && <p className="text-sm text-zinc-500 line-through">R$ {viewingProduct?.price.toFixed(2)}</p>}
+                </div>
+                {hasDiscount && !showFreeDownload && <p className="text-xs text-emerald-500 font-bold mt-1">Preço especial de atacado aplicado!</p>}
+                {viewingProduct?.type === 'art' && viewingProduct?.subcategory && (
+                    <div className="flex flex-wrap gap-2 mt-1 items-center">
+                        <span className="text-zinc-500 text-sm">Categorias:</span>
+                        {viewingProduct.subcategory.split(',').map(s => s.trim()).filter(Boolean).map((cat, i) => (
+                            <span key={i} className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded border border-zinc-700">
+                                {cat}
+                            </span>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {viewingProduct?.priceVariations && viewingProduct.priceVariations.length > 0 && (
+                <div className="bg-zinc-900/80 p-4 rounded-xl border border-zinc-800">
+                    <h4 className="text-xs font-bold text-zinc-500 uppercase mb-2">Tabela de Preços (Atacado)</h4>
+                    <div className="flex flex-wrap gap-2">
+                        <div className={`px-3 py-2 rounded-lg border text-xs text-center ${Number(currentOrderQty) < Math.min(...viewingProduct.priceVariations.map(v=>v.minQuantity)) ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}>
+                            <span className="block font-bold">1 un</span>R$ {viewingProduct.price.toFixed(2)}
+                        </div>
+                        {viewingProduct.priceVariations.sort((a,b) => a.minQuantity - b.minQuantity).map((v, i) => (
+                            <div key={i} className={`px-3 py-2 rounded-lg border text-xs text-center ${Number(currentOrderQty) >= v.minQuantity && (i === viewingProduct!.priceVariations!.length - 1 || Number(currentOrderQty) < viewingProduct!.priceVariations![i+1].minQuantity) ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}>
+                                <span className="block font-bold">+{v.minQuantity} un</span>R$ {v.price.toFixed(2)}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800">
+                <h4 className="text-xs font-bold text-zinc-500 uppercase mb-3">Descrição</h4>
+                <p className="text-zinc-300 leading-relaxed mb-4">{viewingProduct?.description || 'Nenhum detalhe adicional.'}</p>
+                {viewingProduct?.type === 'art' && (
+                    <div className="bg-purple-900/10 p-3 rounded-lg border border-purple-500/20 mb-4 text-xs text-purple-300">
+                        Este é um produto digital. Você receberá o link para download automaticamente após a confirmação do pagamento.
+                    </div>
+                )}
+                
+                {/* Questionnaire integrated into Detail Step */}
+                <div className="space-y-6 mt-6 pt-6 border-t border-zinc-800">
+                    {isArt ? (
+                        <div className="flex items-center justify-between p-4 bg-purple-900/10 rounded-xl border border-purple-500/20">
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-lg ${wantsDigitalGrid ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+                                    <Layers size={20} />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-white text-sm">Montar grade digital?</h4>
+                                    <p className="text-[10px] text-zinc-500">Serviço com custo adicional por item.</p>
+                                </div>
+                            </div>
+                            <button onClick={() => { setWantsDigitalGrid(!wantsDigitalGrid); if (!wantsDigitalGrid && sizeList.length === 0) addListRow(); }} className={`w-12 h-7 rounded-full transition relative flex items-center px-1 ${wantsDigitalGrid ? 'bg-purple-600' : 'bg-zinc-800'}`}>
+                                <div className={`w-5 h-5 bg-white rounded-full transition ${wantsDigitalGrid ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                            </button>
+                        </div>
+                    ) : (viewingProduct?.type === 'product' && (
+                        <div className="flex items-center justify-between p-4 bg-zinc-950 rounded-xl border border-zinc-800">
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-lg ${hasSizeList ? 'bg-primary text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+                                    <Film size={20} />
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-white text-sm">Lista de Produção?</h4>
+                                    <p className="text-[10px] text-zinc-500">Nomes, números e tamanhos.</p>
+                                </div>
+                            </div>
+                            <button onClick={() => { setHasSizeList(!hasSizeList); if (!hasSizeList && sizeList.length === 0) addListRow(); }} className={`w-12 h-7 rounded-full transition relative flex items-center px-1 ${hasSizeList ? 'bg-primary' : 'bg-zinc-800'}`}>
+                                <div className={`w-5 h-5 bg-white rounded-full transition ${hasSizeList ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                            </button>
+                        </div>
+                    ))}
+
+                    {(hasSizeList || wantsDigitalGrid) && (
+                        <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 space-y-3 animate-fade-in">
+                            <div className="flex justify-between items-center mb-4 border-b border-zinc-800 pb-2">
+                                <span className="text-[10px] font-bold text-zinc-500 uppercase">Lista de Produção ({calculateTotalItemsInList()})</span>
+                                <button onClick={toggleGlobalSimpleMode} className={`flex items-center gap-2 px-2 py-1 rounded-lg border text-[9px] font-bold uppercase transition ${isGlobalSimple ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400'}`}>
+                                    <span>Sem nomes</span>
+                                    {isGlobalSimple ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                                </button>
+                            </div>
+                            {sizeList.map((item, idx) => (
+                                <div key={item.id} className="grid grid-cols-1 sm:grid-cols-12 gap-2 p-2 bg-zinc-900 rounded-lg border border-zinc-800 items-end">
+                                    <div className="sm:col-span-3">
+                                        <label className="block text-[8px] font-bold text-zinc-600 uppercase mb-1">Tipo</label>
+                                        <select value={item.category} onChange={(e) => updateListRow(item.id, 'category', e.target.value as any)} className="w-full bg-zinc-950 border border-zinc-700 rounded-md text-[10px] text-white p-1 outline-none">
+                                            <option value="unisex">Unisex</option>
+                                            <option value="feminina">Feminina</option>
+                                            <option value="infantil">Infantil</option>
+                                        </select>
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <label className="block text-[8px] font-bold text-zinc-600 uppercase mb-1">Tam</label>
+                                        <select value={item.size} onChange={(e) => updateListRow(item.id, 'size', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-md text-[10px] text-white p-1 outline-none">
+                                            {sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </div>
+                                    {item.isSimple ? (
+                                        <div className="sm:col-span-5">
+                                            <label className="block text-[8px] font-bold text-zinc-600 uppercase mb-1">Qtd</label>
+                                            <input type="number" min="1" value={item.quantity || 1} onChange={(e) => updateListRow(item.id, 'quantity', parseInt(e.target.value) || 1)} className="w-full bg-zinc-950 border border-zinc-700 rounded-md p-1 text-[10px] text-white font-mono text-center" />
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="sm:col-span-2">
+                                                <label className="block text-[8px] font-bold text-zinc-600 uppercase mb-1">Nº</label>
+                                                <input type="text" value={item.number} onChange={(e) => updateListRow(item.id, 'number', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-md p-1 text-[10px] text-white font-mono text-center" />
+                                            </div>
+                                            <div className="sm:col-span-3">
+                                                <label className="block text-[8px] font-bold text-zinc-600 uppercase mb-1">Nome</label>
+                                                <input type="text" value={item.name} onChange={(e) => updateListRow(item.id, 'name', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-md p-1 text-[10px] text-white uppercase" />
+                                            </div>
+                                        </>
+                                    )}
+                                    <div className="sm:col-span-1 flex items-end">
+                                        <button onClick={() => removeListRow(item.id)} className="w-full p-1 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded transition flex items-center justify-center">
+                                            <Trash2 size={12} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                            <button onClick={addListRow} className="w-full mt-2 py-2 border border-dashed border-zinc-800 rounded-lg text-zinc-500 hover:text-primary transition flex items-center justify-center gap-2 font-bold uppercase text-[9px]">
+                                <PlusIcon size={12} /> Adicionar Integrante
+                            </button>
+                        </div>
+                    )}
+
+                    {viewingProduct?.type !== 'art' && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800">
+                                <p className="text-[10px] font-bold text-zinc-500 uppercase mb-2">Tem Layout?</p>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setLayoutOption('sim')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition ${layoutOption === 'sim' ? 'bg-emerald-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Sim</button>
+                                    <button onClick={() => setLayoutOption('precisa')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition ${layoutOption === 'precisa' ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Precisa</button>
+                                </div>
+                            </div>
+                            {viewingProduct?.type === 'product' && (
+                                <div className="bg-zinc-950 p-4 rounded-xl border border-zinc-800">
+                                    <p className="text-[10px] font-bold text-zinc-500 uppercase mb-2">Tem Molde?</p>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setMoldOption('sim')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition ${moldOption === 'sim' ? 'bg-emerald-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Sim</button>
+                                        <button onClick={() => setMoldOption('precisa')} className={`flex-1 py-2 rounded-lg text-[10px] font-bold transition ${moldOption === 'precisa' ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Precisa</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {(layoutOption === 'sim' || moldOption === 'sim' || isArt) && (
+                        <div className="animate-fade-in space-y-4 pt-4 border-t border-zinc-800">
+                            <div>
+                                <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1 ml-1">Logos extras / Observações</label>
+                                <textarea className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white text-xs outline-none focus:border-primary transition min-h-[60px]" placeholder="Ex: Logo no peito esquerdo..." value={artExtrasDesc} onChange={(e) => setArtExtrasDesc(e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1 ml-1">Link dos Arquivos</label>
+                                <div className="relative">
+                                    <input type="text" placeholder="Cole o link aqui..." className="w-full bg-black/40 border border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-white text-xs outline-none focus:border-primary transition" value={artLink} onChange={(e) => setArtLink(e.target.value)} />
+                                    <Upload className="absolute left-3 top-2.5 text-zinc-600" size={14} />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-4 mt-8">
+                    <div className="flex items-center gap-2 bg-black rounded-xl p-2 border border-zinc-800">
+                        <button onClick={() => setCurrentOrderQty(Math.max(1, Number(currentOrderQty) - 1))} className="p-2 text-zinc-500"><Minus size={16} /></button>
+                        <input type="number" value={currentOrderQty} onChange={(e) => setCurrentOrderQty(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-12 bg-transparent text-white text-center font-bold outline-none" />
+                        <button onClick={() => setCurrentOrderQty(Number(currentOrderQty) + 1)} className="p-2 text-zinc-500"><PlusIcon size={16} /></button>
+                    </div>
+                    <input type="text" placeholder="Obs. (Cor, Tamanho...)" className="flex-1 bg-black rounded-xl px-4 py-3 border border-zinc-800 text-white outline-none text-sm" value={currentOrderDesc} onChange={(e) => setCurrentOrderDesc(e.target.value)} />
+                </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+                {showFreeDownload ? (
+                    <a 
+                        href={viewingProduct?.downloadLink} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="col-span-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-5 rounded-2xl font-bold text-lg hover:scale-105 transition shadow-lg flex items-center justify-center gap-3 animate-pulse"
+                    >
+                        <CloudDownload size={24} /> BAIXAR AGORA (ASSINANTE)
+                    </a>
+                ) : (
+                    <>
+                        <button onClick={addToCart} className="bg-zinc-800 hover:bg-zinc-700 text-white py-5 rounded-2xl font-bold text-sm hover:scale-105 transition shadow-lg flex items-center justify-center gap-3"><ShoppingCart size={20} /> ADICIONAR</button>
+                        <button onClick={buyNow} className="bg-crazy-gradient text-white py-5 rounded-2xl font-bold text-sm hover:scale-105 transition shadow-xl active:scale-95 flex items-center justify-center gap-3"><Zap size={20} /> COMPRAR AGORA</button>
+                    </>
+                )}
+            </div>
+        </div>
     </div>
-)}</div>{viewingProduct?.priceVariations && viewingProduct.priceVariations.length > 0 && (<div className="bg-zinc-900/80 p-4 rounded-xl border border-zinc-800"><h4 className="text-xs font-bold text-zinc-500 uppercase mb-2">Tabela de Preços (Atacado)</h4><div className="flex flex-wrap gap-2"><div className={`px-3 py-2 rounded-lg border text-xs text-center ${Number(currentOrderQty) < Math.min(...viewingProduct.priceVariations.map(v=>v.minQuantity)) ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><span className="block font-bold">1 un</span>R$ {viewingProduct.price.toFixed(2)}</div>{viewingProduct.priceVariations.sort((a,b) => a.minQuantity - b.minQuantity).map((v, i) => (<div key={i} className={`px-3 py-2 rounded-lg border text-xs text-center ${Number(currentOrderQty) >= v.minQuantity && (i === viewingProduct!.priceVariations!.length - 1 || Number(currentOrderQty) < viewingProduct!.priceVariations![i+1].minQuantity) ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><span className="block font-bold">+{v.minQuantity} un</span>R$ {v.price.toFixed(2)}</div>))}</div></div>)}<div className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800"><h4 className="text-xs font-bold text-zinc-500 uppercase mb-3">Descrição</h4><p className="text-zinc-300 leading-relaxed mb-4">{viewingProduct?.description || 'Nenhum detalhe adicional.'}</p>{viewingProduct?.type === 'art' && (<div className="bg-purple-900/10 p-3 rounded-lg border border-purple-500/20 mb-4 text-xs text-purple-300">Este é um produto digital. Você receberá o link para download automaticamente após a confirmação do pagamento.</div>)}<div className="flex items-center gap-4"><div className="flex items-center gap-2 bg-black rounded-xl p-2 border border-zinc-800"><button onClick={() => setCurrentOrderQty(Math.max(1, Number(currentOrderQty) - 1))} className="p-2 text-zinc-500"><Minus size={16} /></button><input type="number" value={currentOrderQty} onChange={(e) => setCurrentOrderQty(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-12 bg-transparent text-white text-center font-bold outline-none" /><button onClick={() => setCurrentOrderQty(Number(currentOrderQty) + 1)} className="p-2 text-zinc-500"><PlusIcon size={16} /></button></div><input type="text" placeholder="Obs. (Cor, Tamanho...)" className="flex-1 bg-black rounded-xl px-4 py-3 border border-zinc-800 text-white outline-none text-sm" value={currentOrderDesc} onChange={(e) => setCurrentOrderDesc(e.target.value)} /></div></div>
-    
-    <div className="grid grid-cols-2 gap-4">
-        {showFreeDownload ? (
-            <a 
-                href={viewingProduct?.downloadLink} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="col-span-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-5 rounded-2xl font-bold text-lg hover:scale-105 transition shadow-lg flex items-center justify-center gap-3 animate-pulse"
-            >
-                <CloudDownload size={24} /> BAIXAR AGORA (ASSINANTE)
-            </a>
-        ) : (
-            <>
-                <button onClick={addToCart} className="bg-zinc-800 hover:bg-zinc-700 text-white py-5 rounded-2xl font-bold text-sm hover:scale-105 transition shadow-lg flex items-center justify-center gap-3"><ShoppingCart size={20} /> ADICIONAR</button>
-                <button onClick={buyNow} className="bg-crazy-gradient text-white py-5 rounded-2xl font-bold text-sm hover:scale-105 transition shadow-xl active:scale-95 flex items-center justify-center gap-3"><Zap size={20} /> COMPRAR AGORA</button>
-            </>
-        )}
-    </div></div></div>
     );
   };
 
   const renderStepQuestionnaire = () => {
       const calc = calculateFinalOrder();
-      const hasPhysicalItems = calc.items.some(i => i.type === 'product');
-      const isArtOnlyOrder = cart.length > 0 && cart.every(i => (i.product.type as any) === 'art');
       return (
-        <div className="animate-fade-in max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 p-8 rounded-3xl shadow-2xl relative space-y-8"><h2 className="text-2xl font-bold text-white flex items-center gap-3"><ListChecks className="text-primary" /> Revisar Pedido</h2><div className="bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden divide-y divide-zinc-800">{calc.items.filter(i => i.productId !== 'service-layout' && i.productId !== 'service-mold' && i.productId !== 'service-grid-digital').map((item, idx) => (<div key={idx} className="p-4 flex justify-between items-center group"><div><p className="text-white font-bold text-sm">{item.productName} <span className="text-primary">x{item.quantity}</span></p>{(item.type as any) === 'art' && <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">Download Digital</span>}</div><div className="flex items-center gap-4"><div className="text-right"><span className="text-emerald-400 font-mono text-sm block">R$ {item.total.toFixed(2)}</span>{item.quantity > 1 && <span className="text-[10px] text-zinc-600 block">R$ {item.unitPrice.toFixed(2)}/un</span>}</div><button onClick={() => removeFromCart(cart[idx]?.tempId)} className="text-zinc-600 hover:text-red-500 transition"><Trash2 size={16} /></button></div></div>))}</div>{isArtOnlyOrder ? (<div className="flex items-center justify-between p-6 bg-purple-900/10 rounded-2xl border border-purple-500/20 transition"><div className="flex items-center gap-4"><div className={`p-3 rounded-xl ${wantsDigitalGrid ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-500'}`}><Layers size={24} /></div><div><h4 className="font-bold text-white">Gostaria que montasse a grade digital?</h4><p className="text-xs text-zinc-500">Serviço de montagem com custo adicional por item.</p></div></div><button onClick={() => { setWantsDigitalGrid(!wantsDigitalGrid); if (!wantsDigitalGrid && sizeList.length === 0) addListRow(); }} className={`w-14 h-8 rounded-full transition relative flex items-center px-1 ${wantsDigitalGrid ? 'bg-purple-600' : 'bg-zinc-800'}`}><div className={`w-6 h-6 bg-white rounded-full transition ${wantsDigitalGrid ? 'translate-x-6' : 'translate-x-0'}`}></div></button></div>) : (hasPhysicalItems && (<div className="flex items-center justify-between p-6 bg-zinc-950 rounded-2xl border border-zinc-800 transition"><div className="flex items-center gap-4"><div className={`p-3 rounded-xl ${hasSizeList ? 'bg-primary text-white' : 'bg-zinc-800 text-zinc-500'}`}><Film size={24} /></div><div><h4 className="font-bold text-white">Lista de Produção?</h4><p className="text-xs text-zinc-500">Nomes, números e tamanhos.</p></div></div><button onClick={() => { setHasSizeList(!hasSizeList); if (!hasSizeList && sizeList.length === 0) addListRow(); }} className={`w-14 h-8 rounded-full transition relative flex items-center px-1 ${hasSizeList ? 'bg-primary' : 'bg-zinc-800'}`}><div className={`w-6 h-6 bg-white rounded-full transition ${hasSizeList ? 'translate-x-6' : 'translate-x-0'}`}></div></button></div>))}{(hasSizeList || wantsDigitalGrid) && (<div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 space-y-3 animate-fade-in"><div className="flex justify-between items-center mb-4 border-b border-zinc-800 pb-2"><span className="text-xs font-bold text-zinc-500 uppercase">Detalhes da Lista ({calculateTotalItemsInList()})</span><button onClick={toggleGlobalSimpleMode} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase transition ${isGlobalSimple ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-400'}`}><span>Lista sem nomes</span>{isGlobalSimple ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}</button></div>{sizeList.map((item, idx) => (<div key={item.id} className="grid grid-cols-1 sm:grid-cols-12 gap-2 p-3 bg-zinc-900 rounded-xl border border-zinc-800 items-end"><div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tipo</label><select value={item.category} onChange={(e) => updateListRow(item.id, 'category', e.target.value as any)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none"><option value="unisex">Unisex</option><option value="feminina">Feminina</option><option value="infantil">Infantil</option></select></div><div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Tam</label><select value={item.size} onChange={(e) => updateListRow(item.id, 'size', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none">{sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}</select></div>{item.isSimple ? (<div className="sm:col-span-4"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Qtd</label><input type="number" min="1" value={item.quantity || 1} onChange={(e) => updateListRow(item.id, 'quantity', parseInt(e.target.value) || 1)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div>) : (<><div className="sm:col-span-1"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nº</label><input type="text" value={item.number} onChange={(e) => updateListRow(item.id, 'number', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div><div className="sm:col-span-3"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Nome</label><input type="text" value={item.name} onChange={(e) => updateListRow(item.id, 'name', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white uppercase" /></div></>)}<div className="sm:col-span-2"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">Short</label><select value={item.shortSize} onChange={(e) => updateListRow(item.id, 'shortSize', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg text-xs text-white p-1.5 outline-none"><option value="">-</option>{sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}</select></div><div className="sm:col-span-1"><label className="block text-[9px] font-bold text-zinc-600 uppercase mb-1">S.Nº</label><input type="text" value={item.shortNumber} onChange={(e) => updateListRow(item.id, 'shortNumber', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-1.5 text-xs text-white font-mono text-center" /></div><div className="sm:col-span-1 flex items-end pb-0.5"><button onClick={() => removeListRow(item.id)} className="w-full p-1.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition flex items-center justify-center"><Trash2 size={14} /></button></div></div>))} <button onClick={addListRow} className="w-full mt-4 py-3 border-2 border-dashed border-zinc-800 rounded-xl text-zinc-500 hover:text-primary transition flex items-center justify-center gap-2 font-bold uppercase text-[10px]"><PlusIcon size={14} /> Adicionar Integrante</button></div>)}{!isArtOnlyOrder && (<div className="space-y-4"><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800"><p className="text-xs font-bold text-zinc-500 uppercase mb-3">Tem Layout?</p><div className="flex gap-2"><button onClick={() => setLayoutOption('sim')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${layoutOption === 'sim' ? 'bg-emerald-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Sim</button><button onClick={() => setLayoutOption('precisa')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${layoutOption === 'precisa' ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Precisa Montar</button></div></div>{hasPhysicalItems && (<div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800"><p className="text-xs font-bold text-zinc-500 uppercase mb-3">Tem Molde?</p><div className="flex gap-2"><button onClick={() => setMoldOption('sim')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${moldOption === 'sim' ? 'bg-emerald-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Sim</button><button onClick={() => setMoldOption('precisa')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${moldOption === 'precisa' ? 'bg-blue-600 text-white' : 'bg-zinc-900 text-zinc-400'}`}>Precisa Montar</button></div></div>)}</div></div>)}{(layoutOption === 'sim' || moldOption === 'sim' || isArtOnlyOrder) && (<div className="animate-fade-in space-y-4 pt-4 border-t border-zinc-800"><div><label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Gostaria de inserir a própria logo ou logos extras?</label><p className="text-[10px] text-zinc-500 mb-2 ml-1">Especifique posicionamento e tamanhos e deixe o link dos arquivos abaixo.</p><textarea className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-primary transition min-h-[80px]" placeholder="Ex: Logo no peito esquerdo 10cm..." value={artExtrasDesc} onChange={(e) => setArtExtrasDesc(e.target.value)} /></div><div><label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">Link dos Arquivos</label><div className="relative"><input type="text" placeholder="Cole o link aqui..." className="w-full bg-black/40 border border-zinc-800 rounded-xl pl-10 pr-4 py-3 text-white outline-none focus:border-primary transition" value={artLink} onChange={(e) => setArtLink(e.target.value)} /><Upload className="absolute left-3 top-3.5 text-zinc-600" size={16} /></div></div></div>)}<div className="border-t border-zinc-800 pt-6 mt-6"><button onClick={() => setStep('list')} className="w-full mb-6 py-4 border-2 border-dashed border-zinc-800 rounded-2xl text-zinc-500 hover:text-primary transition flex items-center justify-center gap-3 font-bold uppercase text-xs"><PlusIcon size={18} /> Adicionar mais item</button><div className="flex justify-between items-end mb-6"><span className="text-zinc-500 text-sm font-bold uppercase">Total Estimado</span><span className="text-3xl font-black text-white">R$ {calc.total.toFixed(2)}</span></div><button onClick={handleCreateOrder} disabled={isProcessing} className="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg hover:bg-amber-600 transition shadow-xl disabled:opacity-50 flex items-center justify-center gap-3">{isProcessing ? <Loader2 className="animate-spin" /> : <ChevronRight />} PROSSEGUIR PARA PAGAMENTO</button></div></div>
+        <div className="animate-fade-in max-w-2xl mx-auto bg-zinc-900 border border-zinc-800 p-8 rounded-3xl shadow-2xl relative space-y-8">
+            <h2 className="text-2xl font-bold text-white flex items-center gap-3"><ListChecks className="text-primary" /> Revisar Pedido</h2>
+            
+            <div className="bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden divide-y divide-zinc-800">
+                {calc.items.map((item, idx) => (
+                    <div key={idx} className="p-4 flex justify-between items-center group">
+                        <div>
+                            <p className="text-white font-bold text-sm">{item.productName} <span className="text-primary">x{item.quantity}</span></p>
+                            {item.size_list && (
+                                <p className="text-[10px] text-zinc-500 mt-1">Lista de produção vinculada</p>
+                            )}
+                            {item.type === 'art' && <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider">Download Digital</span>}
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="text-right">
+                                <span className="text-emerald-400 font-mono text-sm block">R$ {item.total.toFixed(2)}</span>
+                                {item.quantity > 1 && <span className="text-[10px] text-zinc-600 block">R$ {item.unitPrice.toFixed(2)}/un</span>}
+                            </div>
+                            {item.productId && !item.productId.startsWith('service-') && (
+                                <button onClick={() => removeFromCart(cart.find(c => c.product.id === item.productId)?.tempId || '')} className="text-zinc-600 hover:text-red-500 transition">
+                                    <Trash2 size={16} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="border-t border-zinc-800 pt-6 mt-6">
+                <button onClick={() => setStep('list')} className="w-full mb-6 py-4 border-2 border-dashed border-zinc-800 rounded-2xl text-zinc-500 hover:text-primary transition flex items-center justify-center gap-3 font-bold uppercase text-xs">
+                    <PlusIcon size={18} /> Adicionar mais item
+                </button>
+                <div className="flex justify-between items-end mb-6">
+                    <span className="text-zinc-500 text-sm font-bold uppercase">Total Estimado</span>
+                    <span className="text-3xl font-black text-white">R$ {calc.total.toFixed(2)}</span>
+                </div>
+                <button onClick={handleCreateOrder} disabled={isProcessing} className="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg hover:bg-amber-600 transition shadow-xl disabled:opacity-50 flex items-center justify-center gap-3">
+                    {isProcessing ? <Loader2 className="animate-spin" /> : <ChevronRight />} PROSSEGUIR PARA PAGAMENTO
+                </button>
+            </div>
+        </div>
       );
   };
 

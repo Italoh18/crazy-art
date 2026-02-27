@@ -48,6 +48,12 @@ export interface OrderItem {
   cost_price?: number; 
   type?: ItemType;
   downloadLink?: string; 
+  size_list?: SizeListItem[] | string;
+  layout_option?: 'sim' | 'precisa' | null;
+  mold_option?: 'sim' | 'precisa' | null;
+  art_link?: string;
+  art_extras_desc?: string;
+  wants_digital_grid?: number | boolean;
 }
 
 export type OrderStatus = 'open' | 'paid' | 'production' | 'revision' | 'finished' | 'cancelled';

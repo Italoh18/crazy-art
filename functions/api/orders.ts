@@ -113,7 +113,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           calculatedCost += (c * q);
 
           await env.DB.prepare(
-            'INSERT INTO order_items (id, order_id, catalog_id, name, type, unit_price, cost_price, quantity, total, download_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO order_items (id, order_id, catalog_id, name, type, unit_price, cost_price, quantity, total, download_link, size_list, layout_option, mold_option, art_link, art_extras_desc, wants_digital_grid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
           ).bind(
             itemId,
             newId,
@@ -124,7 +124,13 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             c,
             q,
             subtotal,
-            dl ? String(dl) : null
+            dl ? String(dl) : null,
+            item.size_list ? String(item.size_list) : null,
+            item.layout_option ? String(item.layout_option) : null,
+            item.mold_option ? String(item.mold_option) : null,
+            item.art_link ? String(item.art_link) : null,
+            item.art_extras_desc ? String(item.art_extras_desc) : null,
+            item.wants_digital_grid ? 1 : 0
           ).run();
         }
 
@@ -284,7 +290,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
               calculatedCost += (c * q);
 
               await env.DB.prepare(
-                'INSERT INTO order_items (id, order_id, catalog_id, name, type, unit_price, cost_price, quantity, total, download_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO order_items (id, order_id, catalog_id, name, type, unit_price, cost_price, quantity, total, download_link, size_list, layout_option, mold_option, art_link, art_extras_desc, wants_digital_grid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
               ).bind(
                 itemId,
                 String(id),
@@ -295,7 +301,13 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                 c,
                 q,
                 subtotal,
-                dl
+                dl,
+                item.size_list ? String(item.size_list) : null,
+                item.layout_option ? String(item.layout_option) : null,
+                item.mold_option ? String(item.mold_option) : null,
+                item.art_link ? String(item.art_link) : null,
+                item.art_extras_desc ? String(item.art_extras_desc) : null,
+                item.wants_digital_grid ? 1 : 0
               ).run();
           }
 
