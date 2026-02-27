@@ -2,8 +2,21 @@
 import { VectorPath, ColorRGB } from './types';
 import * as martinez from 'martinez-polygon-clipping';
 
+/**
+ * Módulo de Topologia Defensiva
+ * Realiza operações de união de polígonos com validação rigorosa para evitar erros matemáticos.
+ */
+
+type MartinezPoint = [number, number];
+type MartinezRing = MartinezPoint[];
+type MartinezPolygon = MartinezRing[];
+
+const MAX_CONSECUTIVE_ERRORS = 5;
+
 export function mergeTopologies(paths: VectorPath[]): VectorPath[] {
-    // Group paths by color
+    if (paths.length === 0) return [];
+
+    // Agrupar caminhos por cor
     const colorGroups = new Map<string, VectorPath[]>();
     for (const path of paths) {
         const key = `${path.color.r},${path.color.g},${path.color.b}`;
@@ -12,63 +25,59 @@ export function mergeTopologies(paths: VectorPath[]): VectorPath[] {
     }
 
     const mergedPaths: VectorPath[] = [];
+    let consecutiveErrors = 0;
 
     for (const [colorStr, group] of colorGroups.entries()) {
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            console.error("[Topology] Interrompendo processamento devido a excesso de erros consecutivos.");
+            // Fallback para o restante das cores: adicionar sem merge
+            mergedPaths.push(...group);
+            continue;
+        }
+
         const [r, g, b] = colorStr.split(',').map(Number);
         const color: ColorRGB = { r, g, b };
 
-        // Convert paths to polygons for martinez
-        // Martinez expects [ [ [x,y], [x,y], ... ] ]
-        const polygons = group.map(path => {
-            const poly: [number, number][] = [];
-            for (const seg of path.segments) {
-                if (seg.type === 'line') {
-                    poly.push([seg.points[0].x, seg.points[0].y]);
-                } else {
-                    // Approximate bezier for clipping
-                    for (let t = 0; t <= 1; t += 0.2) {
-                        const p = getBezierPoint(seg.points, t);
-                        poly.push([p.x, p.y]);
-                    }
-                }
+        // 1. Converter e Validar Polígonos
+        const validPolygons: MartinezPolygon[] = [];
+        for (const path of group) {
+            const rawPoly = pathToMartinezPolygon(path);
+            const validated = validatePolygon(rawPoly);
+            if (validated) {
+                validPolygons.push(validated);
             }
-            // Close polygon if needed
-            if (poly.length > 0 && (poly[0][0] !== poly[poly.length-1][0] || poly[0][1] !== poly[poly.length-1][1])) {
-                poly.push(poly[0]);
-            }
-            return [poly];
-        });
+        }
 
-        if (polygons.length === 0) continue;
+        if (validPolygons.length === 0) continue;
 
         try {
-            let unionResult = polygons[0];
-            for (let i = 1; i < polygons.length; i++) {
-                // @ts-ignore
-                unionResult = martinez.union(unionResult, polygons[i]);
-            }
-
-            // Convert back to VectorPath
-            // unionResult can be a MultiPolygon
-            // @ts-ignore
-            const multiPoly = Array.isArray(unionResult[0][0][0]) ? unionResult : [unionResult];
+            // 2. Operação de União (Martinez)
+            let unionResult: any = validPolygons[0];
             
-            for (const poly of multiPoly) {
-                // @ts-ignore
-                for (const ring of poly) {
-                    const segments = [];
-                    for (let i = 0; i < ring.length - 1; i++) {
-                        segments.push({
-                            type: 'line' as const,
-                            points: [{ x: ring[i][0], y: ring[i][1] }, { x: ring[i+1][0], y: ring[i+1][1] }]
-                        });
+            for (let i = 1; i < validPolygons.length; i++) {
+                try {
+                    // @ts-ignore
+                    const nextUnion = martinez.union(unionResult, validPolygons[i]);
+                    if (nextUnion && nextUnion.length > 0) {
+                        unionResult = nextUnion;
                     }
-                    mergedPaths.push({ segments, color, isHole: false });
+                } catch (e) {
+                    console.warn(`[Topology] Erro ao unir polígono ${i}, descartando-o.`, e);
+                    // Descartar apenas este polígono e continuar
                 }
             }
+
+            // 3. Converter de volta para VectorPath
+            const pathsFromUnion = martinezToVectorPaths(unionResult, color);
+            mergedPaths.push(...pathsFromUnion);
+            
+            // Resetar erros se a operação foi bem sucedida
+            consecutiveErrors = 0;
+
         } catch (e) {
-            console.error("Topology merge error:", e);
-            // Fallback: just add original paths
+            consecutiveErrors++;
+            console.error(`[Topology] Erro crítico no merge da cor ${colorStr}:`, e);
+            // Fallback: adicionar caminhos originais desta cor
             mergedPaths.push(...group);
         }
     }
@@ -76,12 +85,148 @@ export function mergeTopologies(paths: VectorPath[]): VectorPath[] {
     return mergedPaths;
 }
 
+/**
+ * Valida um polígono Martinez: remove duplicatas, verifica área e número de pontos.
+ */
+function validatePolygon(polygon: MartinezPolygon): MartinezPolygon | null {
+    if (!polygon || polygon.length === 0) return null;
+
+    const validatedRings: MartinezRing[] = [];
+
+    for (let i = 0; i < polygon.length; i++) {
+        const ring = polygon[i];
+        let cleanRing: MartinezRing = [];
+
+        // Remover pontos duplicados consecutivos e segmentos de comprimento zero
+        for (let j = 0; j < ring.length; j++) {
+            const p = ring[j];
+            if (cleanRing.length === 0) {
+                cleanRing.push(p);
+            } else {
+                const last = cleanRing[cleanRing.length - 1];
+                const distSq = Math.pow(p[0] - last[0], 2) + Math.pow(p[1] - last[1], 2);
+                if (distSq > 0.000001) { // Tolerância para duplicatas
+                    cleanRing.push(p);
+                }
+            }
+        }
+
+        // Garantir que o anel esteja fechado
+        if (cleanRing.length > 1) {
+            const first = cleanRing[0];
+            const last = cleanRing[cleanRing.length - 1];
+            const distSq = Math.pow(first[0] - last[0], 2) + Math.pow(first[1] - last[1], 2);
+            if (distSq > 0.000001) {
+                cleanRing.push([first[0], first[1]]);
+            }
+        }
+
+        // Verificar se tem pelo menos 3 pontos únicos (4 total com o fechamento)
+        if (cleanRing.length < 4) continue;
+
+        // Calcular área (Fórmula de Shoelace)
+        let area = 0;
+        for (let j = 0; j < cleanRing.length - 1; j++) {
+            area += (cleanRing[j][0] * cleanRing[j + 1][1]) - (cleanRing[j + 1][0] * cleanRing[j][1]);
+        }
+        area = Math.abs(area) / 2;
+
+        if (area > 0.0001) {
+            validatedRings.push(cleanRing);
+        }
+    }
+
+    // O primeiro anel deve ser o anel externo e deve ser válido
+    if (validatedRings.length === 0) return null;
+    
+    return validatedRings;
+}
+
+/**
+ * Converte um VectorPath para o formato Martinez [ [ [x,y], ... ] ]
+ */
+function pathToMartinezPolygon(path: VectorPath): MartinezPolygon {
+    const ring: MartinezPoint[] = [];
+    for (const seg of path.segments) {
+        if (seg.type === 'line') {
+            ring.push([seg.points[0].x, seg.points[0].y]);
+        } else {
+            // Aproximação de Bézier para clipping
+            const steps = 10;
+            for (let t = 0; t < 1; t += 1/steps) {
+                const p = getBezierPoint(seg.points, t);
+                ring.push([p.x, p.y]);
+            }
+        }
+    }
+    
+    // Adicionar o último ponto do último segmento
+    const lastSeg = path.segments[path.segments.length - 1];
+    if (lastSeg) {
+        const lastPt = lastSeg.points[lastSeg.points.length - 1];
+        ring.push([lastPt.x, lastPt.y]);
+    }
+
+    return [ring];
+}
+
+/**
+ * Converte o resultado do Martinez de volta para VectorPath
+ */
+function martinezToVectorPaths(result: any, color: ColorRGB): VectorPath[] {
+    if (!result || !Array.isArray(result)) return [];
+
+    const paths: VectorPath[] = [];
+    
+    // Martinez pode retornar Polygon ou MultiPolygon
+    // Polygon: [ Ring, Ring, ... ]
+    // MultiPolygon: [ Polygon, Polygon, ... ]
+    
+    const isMultiPolygon = Array.isArray(result[0]) && Array.isArray(result[0][0]) && Array.isArray(result[0][0][0]);
+    const polygons = isMultiPolygon ? result : [result];
+
+    for (const poly of polygons) {
+        if (!Array.isArray(poly)) continue;
+        
+        for (let r = 0; r < poly.length; r++) {
+            const ring = poly[r];
+            if (!Array.isArray(ring) || ring.length < 2) continue;
+
+            const segments = [];
+            for (let i = 0; i < ring.length - 1; i++) {
+                const p1 = ring[i];
+                const p2 = ring[i + 1];
+                if (!p1 || !p2) continue;
+
+                segments.push({
+                    type: 'line' as const,
+                    points: [{ x: p1[0], y: p1[1] }, { x: p2[0], y: p2[1] }]
+                });
+            }
+
+            if (segments.length > 0) {
+                paths.push({
+                    segments,
+                    color,
+                    isHole: r > 0 // O primeiro anel é o externo, os outros são furos
+                });
+            }
+        }
+    }
+
+    return paths;
+}
+
 function getBezierPoint(pts: any[], t: number) {
     const [p0, p1, p2, p3] = pts;
     const invT = 1 - t;
+    const b0 = Math.pow(invT, 3);
+    const b1 = 3 * Math.pow(invT, 2) * t;
+    const b2 = 3 * invT * Math.pow(t, 2);
+    const b3 = Math.pow(t, 3);
+    
     return {
-        x: Math.pow(invT, 3) * p0.x + 3 * Math.pow(invT, 2) * t * p1.x + 3 * invT * Math.pow(t, 2) * p2.x + Math.pow(t, 3) * p3.x,
-        y: Math.pow(invT, 3) * p0.y + 3 * Math.pow(invT, 2) * t * p1.y + 3 * invT * Math.pow(t, 2) * p2.y + Math.pow(t, 3) * p3.y
+        x: b0 * p0.x + b1 * p1.x + b2 * p2.x + b3 * p3.x,
+        y: b0 * p0.y + b1 * p1.y + b2 * p2.y + b3 * p3.y
     };
 }
-// Fix typo in getBezierPoint
