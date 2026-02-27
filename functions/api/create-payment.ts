@@ -70,7 +70,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
         {
           id: "payment_transaction",
           title: String(title || 'Faturas Crazy Art').substring(0, 255),
-          description: "Pagamento de serviços/produtos Crazy Art Studio",
+          description: "Pagamento de serviços/produtos Crazy Art | Comunicação visual",
           category_id: "services",
           quantity: 1,
           currency_id: 'BRL',

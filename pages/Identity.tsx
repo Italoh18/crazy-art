@@ -100,7 +100,7 @@ export default function Identity() {
                       ) : (
                           <div className="w-4 h-4 bg-zinc-600 rounded-sm"></div>
                       )}
-                      <span className="text-xs text-zinc-300 font-medium">Crazy Art | Studio...</span>
+                      <span className="text-xs text-zinc-300 font-medium">Crazy Art | Comunicação...</span>
                       <div className="ml-auto text-zinc-500 text-[10px]">✕</div>
                   </div>
                   <div className="w-64 h-24 bg-white rounded-b-lg opacity-10"></div>

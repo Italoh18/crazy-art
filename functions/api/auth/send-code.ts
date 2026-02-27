@@ -31,7 +31,7 @@ export async function onRequestPost(context: any) {
         subject: `Código de Verificação: ${code}`,
         html: `
           <div style="font-family: sans-serif; padding: 20px; color: #333;">
-            <h2 style="color: #F59E0B;">Crazy Art Studio</h2>
+            <h2 style="color: #F59E0B;">Crazy Art | Comunicação visual</h2>
             <p>Você solicitou uma alteração de ${type === 'password' ? 'senha' : 'email'}.</p>
             <p>Seu código de verificação é:</p>
             <h1 style="font-size: 32px; letter-spacing: 5px; background: #f4f4f5; padding: 10px; display: inline-block; border-radius: 8px;">${code}</h1>

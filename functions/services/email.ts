@@ -87,7 +87,7 @@ const defaultTemplates = {
         </div>
         <p>Acesse sua área do cliente para acompanhar o status ou realizar o pagamento.</p>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-        <p style="font-size: 12px; color: #777;">Crazy Art Studio</p>
+        <p style="font-size: 12px; color: #777;">Crazy Art | Comunicação visual</p>
       </div>
     `
   }),
@@ -155,7 +155,7 @@ const defaultTemplates = {
         </div>
         <p>Acesse a loja e clique no botão de assinatura para renovar por apenas R$ 20,00.</p>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-        <p style="font-size: 12px; color: #777;">Crazy Art Studio</p>
+        <p style="font-size: 12px; color: #777;">Crazy Art | Comunicação visual</p>
       </div>
     `
   })
