@@ -28,6 +28,7 @@ import Identity from './pages/Identity';
 import ArtDrive from './pages/ArtDrive';
 import PrintCheck from './pages/PrintCheck';
 import TraceMagic from './pages/TraceMagic';
+import PowerTraceAlfa from './pages/PowerTraceAlfa';
 import CdrConverter from './pages/CdrConverter';
 import Feedbacks from './pages/Feedbacks';
 import PricingCalculator from './pages/PricingCalculator';
@@ -87,6 +88,7 @@ const AppRoutes = () => {
             <Route path="/pdf-to-word" element={<PdfToWord />} />
             <Route path="/print-check" element={<PrintCheck />} />
             <Route path="/trace-magic" element={<TraceMagic />} />
+            <Route path="/power-trace-alfa" element={<PowerTraceAlfa />} />
             <Route path="/cdr-converter" element={<CdrConverter />} />
             <Route path="/pricing-calculator" element={<PricingCalculator />} />
             <Route path="/smart-enlargement" element={<SmartEnlargement />} />

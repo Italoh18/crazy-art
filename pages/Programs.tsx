@@ -66,6 +66,21 @@ export default function Programs() {
       bgImage: 'radial-gradient(circle at 90% 10%, rgba(245, 158, 11, 0.15) 0%, transparent 50%)'
     },
     {
+      id: 'power-trace-alfa',
+      name: 'Power Trace',
+      sub: 'Alfa',
+      description: 'Vetorização profissional com algoritmos avançados (Bézier).',
+      icon: Sparkles,
+      path: '/power-trace-alfa',
+      external: false,
+      comingSoon: false,
+      gridClass: 'md:col-span-1 md:row-span-1',
+      gradient: 'from-purple-900/40 via-indigo-900/20 to-black',
+      flareColor: 'bg-purple-500',
+      iconColor: 'text-purple-300',
+      bgImage: 'radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.15) 0%, transparent 60%)'
+    },
+    {
       id: 'print-check',
       name: 'Print',
       sub: 'Check',

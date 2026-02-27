@@ -40,6 +40,7 @@
               'flare-gradient': 'conic-gradient(from 0deg at 50% 50%, #DC2626 0deg, #F59E0B 120deg, #7C3AED 240deg, #DC2626 360deg)',
             },
             animation: {
+              'progress-indefinite': 'progressIndefinite 1.5s linear infinite',
               'fade-in-up': 'fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               'fade-in': 'fadeIn 1s ease-out forwards',
               'fade-out': 'fadeOut 1s ease-in forwards',
@@ -106,6 +107,10 @@
               slideDownReveal: {
                 '0%': { transform: 'translateY(-80px)', opacity: '0' },
                 '100%': { transform: 'translateY(0)', opacity: '1' }
+              },
+              progressIndefinite: {
+                '0%': { transform: 'translateX(-100%)' },
+                '100%': { transform: 'translateX(100%)' }
               }
             },
             boxShadow: {
