@@ -301,7 +301,7 @@ export default function PowerTraceAlfa() {
                         <Zap className="text-primary" size={20} fill="currentColor" />
                         Power Trace <span className="text-primary ml-1">Alfa</span>
                     </h1>
-                    <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mt-1">Vetorização Profissional v2.0</span>
+                    <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mt-1">Vetorização Profissional v2.01</span>
                 </div>
             </div>
             

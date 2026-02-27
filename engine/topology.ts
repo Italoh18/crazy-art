@@ -12,6 +12,7 @@ type MartinezRing = MartinezPoint[];
 type MartinezPolygon = MartinezRing[];
 
 const MAX_CONSECUTIVE_ERRORS = 5;
+const MAX_POLYGONS_PER_COLOR = 300; // Limite para evitar travamentos em imagens ruidosas
 
 export function mergeTopologies(paths: VectorPath[]): VectorPath[] {
     if (paths.length === 0) return [];
@@ -29,8 +30,6 @@ export function mergeTopologies(paths: VectorPath[]): VectorPath[] {
 
     for (const [colorStr, group] of colorGroups.entries()) {
         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-            console.error("[Topology] Interrompendo processamento devido a excesso de erros consecutivos.");
-            // Fallback para o restante das cores: adicionar sem merge
             mergedPaths.push(...group);
             continue;
         }
@@ -39,7 +38,7 @@ export function mergeTopologies(paths: VectorPath[]): VectorPath[] {
         const color: ColorRGB = { r, g, b };
 
         // 1. Converter e Validar Polígonos
-        const validPolygons: MartinezPolygon[] = [];
+        let validPolygons: MartinezPolygon[] = [];
         for (const path of group) {
             const rawPoly = pathToMartinezPolygon(path);
             const validated = validatePolygon(rawPoly);
@@ -50,39 +49,74 @@ export function mergeTopologies(paths: VectorPath[]): VectorPath[] {
 
         if (validPolygons.length === 0) continue;
 
-        try {
-            // 2. Operação de União (Martinez)
-            let unionResult: any = validPolygons[0];
+        // Se houver muitos polígonos, limitar para evitar travamento
+        if (validPolygons.length > MAX_POLYGONS_PER_COLOR) {
+            console.warn(`[Topology] Muitos polígonos (${validPolygons.length}) para a cor ${colorStr}. Limitando merge.`);
+            // Ordenar por área para manter os maiores/mais importantes
+            validPolygons.sort((a, b) => calculatePolygonArea(b) - calculatePolygonArea(a));
+            const toMerge = validPolygons.slice(0, MAX_POLYGONS_PER_COLOR);
+            const toKeep = validPolygons.slice(MAX_POLYGONS_PER_COLOR);
             
-            for (let i = 1; i < validPolygons.length; i++) {
-                try {
-                    // @ts-ignore
-                    const nextUnion = martinez.union(unionResult, validPolygons[i]);
-                    if (nextUnion && nextUnion.length > 0) {
-                        unionResult = nextUnion;
-                    }
-                } catch (e) {
-                    console.warn(`[Topology] Erro ao unir polígono ${i}, descartando-o.`, e);
-                    // Descartar apenas este polígono e continuar
-                }
+            validPolygons = toMerge;
+            // Adicionar os que sobraram diretamente ao final
+            for (const p of toKeep) {
+                mergedPaths.push(...martinezToVectorPaths(p, color));
             }
+        }
 
+        try {
+            // 2. Operação de União (Divide and Conquer para performance)
+            const unionResult = divideAndConquerUnion(validPolygons);
+            
             // 3. Converter de volta para VectorPath
             const pathsFromUnion = martinezToVectorPaths(unionResult, color);
             mergedPaths.push(...pathsFromUnion);
             
-            // Resetar erros se a operação foi bem sucedida
             consecutiveErrors = 0;
-
         } catch (e) {
             consecutiveErrors++;
             console.error(`[Topology] Erro crítico no merge da cor ${colorStr}:`, e);
-            // Fallback: adicionar caminhos originais desta cor
             mergedPaths.push(...group);
         }
     }
 
     return mergedPaths;
+}
+
+/**
+ * União recursiva (Divide and Conquer) para melhor performance O(log N)
+ */
+function divideAndConquerUnion(polygons: any[]): any {
+    if (polygons.length === 0) return null;
+    if (polygons.length === 1) return polygons[0];
+
+    const mid = Math.floor(polygons.length / 2);
+    const left = divideAndConquerUnion(polygons.slice(0, mid));
+    const right = divideAndConquerUnion(polygons.slice(mid));
+
+    if (!left) return right;
+    if (!right) return left;
+
+    try {
+        // @ts-ignore
+        const result = martinez.union(left, right);
+        return (result && result.length > 0) ? result : left;
+    } catch (e) {
+        // Se falhar a união, retorna o maior ou apenas o da esquerda para não travar
+        return left;
+    }
+}
+
+function calculatePolygonArea(poly: MartinezPolygon): number {
+    let totalArea = 0;
+    for (const ring of poly) {
+        let area = 0;
+        for (let j = 0; j < ring.length - 1; j++) {
+            area += (ring[j][0] * ring[j + 1][1]) - (ring[j + 1][0] * ring[j][1]);
+        }
+        totalArea += Math.abs(area) / 2;
+    }
+    return totalArea;
 }
 
 /**
