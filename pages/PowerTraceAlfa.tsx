@@ -8,9 +8,7 @@ import {
   Type, Palette, Wand2, Info, ChevronRight, ChevronDown
 } from 'lucide-react';
 
-// ImageTracer is expected to be available via CDN in index.html
-// If not, we'll provide a fallback or instructions.
-declare const ImageTracer: any;
+import { TraceOptions, WorkerMessage, WorkerResponse } from '../engine/types';
 
 type TraceType = 'outline' | 'centerline';
 type ImageType = 'clipart' | 'logo' | 'photo';
@@ -72,22 +70,24 @@ export default function PowerTraceAlfa() {
   const [processedSvg, setProcessedSvg] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
   const [stats, setStats] = useState<TraceStats | null>(null);
 
   // --- Configuration States ---
   const [traceType, setTraceType] = useState<TraceType>('outline');
   const [imageType, setImageType] = useState<ImageType>('logo');
-  const [detail, setDetail] = useState(93);
-  const [smoothing, setSmoothing] = useState(25);
-  const [cornerSmoothness, setCornerSmoothness] = useState(50);
+  
+  // New Engine Parameters
+  const [blurSigma, setBlurSigma] = useState(1.0);
+  const [kMeansClusters, setKMeansClusters] = useState(16);
+  const [cornerThreshold, setCornerThreshold] = useState(1.0);
+  const [curvatureSensitivity, setCurvatureSensitivity] = useState(0.1);
+  const [bezierErrorTolerance, setBezierErrorTolerance] = useState(1.0);
+  const [simplificationLevel, setSimplificationLevel] = useState(1.0);
+  const [mergeTolerance, setMergeTolerance] = useState(1.0);
   
   // Advanced Options
   const [removeBackground, setRemoveBackground] = useState(true);
-  const [mergeAdjacent, setMergeAdjacent] = useState(true);
-  const [removeOverlap, setRemoveOverlap] = useState(true);
-  const [groupByColor, setGroupByColor] = useState(true);
-  const [deleteOriginal, setDeleteOriginal] = useState(false);
-  const [colors, setColors] = useState(16);
 
   // UI States
   const [viewMode, setViewMode] = useState<'split' | 'vector' | 'original'>('split');
@@ -103,6 +103,16 @@ export default function PowerTraceAlfa() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const workerRef = useRef<Worker | null>(null);
+
+  // --- Worker Management ---
+  useEffect(() => {
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.terminate();
+      }
+    };
+  }, []);
 
   // --- Zoom with Scroll ---
   useEffect(() => {
@@ -187,90 +197,81 @@ export default function PowerTraceAlfa() {
 
   const runTrace = () => {
     if (!originalImage || !imageRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const img = imageRef.current;
+    if (!canvas || !img) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    ctx.drawImage(img, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
     setIsProcessing(true);
-    setProcessingStep('Segmentação de Imagem...');
+    setProgress(0);
+    setProcessingStep('Iniciando Engine Alfa...');
 
-    setTimeout(() => {
-        try {
-            const startTime = performance.now();
-            
-            const canvas = canvasRef.current;
-            const img = imageRef.current;
-            if (!canvas || !img) return;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
+    const startTime = performance.now();
 
-            // Step 1: Pre-processing
-            setProcessingStep('Detecção de Bordas (Sobel)...');
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
-            
-            // Apply Gaussian Blur (simulated via filter)
-            ctx.filter = `blur(${smoothing / 10}px)`;
-            ctx.drawImage(img, 0, 0);
-            
-            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    // Initialize Worker
+    if (workerRef.current) workerRef.current.terminate();
+    workerRef.current = new Worker(new URL('../engine/worker.ts', import.meta.url), { type: 'module' });
 
-            // Step 2: Contour Extraction
-            setProcessingStep('Marching Squares (Contornos)...');
-            
-            const ltres = (100 - detail) / 10;
-            const qtres = (100 - detail) / 10;
-            const pathomit = (100 - detail) * 2;
+    workerRef.current.onmessage = (e: MessageEvent<WorkerResponse>) => {
+      const { type, progress: prog, svg, error } = e.data;
 
-            const options: any = {
-                ltres: ltres,
-                qtres: qtres,
-                pathomit: pathomit,
-                colorsampling: imageType === 'photo' ? 2 : 1,
-                numberofcolors: colors,
-                mincolorratio: removeBackground ? 0.01 : 0,
-                colorquantcycles: imageType === 'photo' ? 15 : 5,
-                scale: 1,
-                strokewidth: traceType === 'centerline' ? 1 : 0,
-                linefilter: traceType === 'centerline',
-                rightangleenhance: cornerSmoothness < 30,
-                viewbox: true,
-                desc: false,
-            };
+      if (type === 'progress' && prog) {
+        setProcessingStep(prog.step);
+        setProgress(prog.progress);
+      } else if (type === 'result' && svg) {
+        const endTime = performance.now();
+        setProcessedSvg(svg);
+        
+        // Calculate stats
+        const pathCount = (svg.match(/<path/g) || []).length;
+        const nodeCount = (svg.match(/[MmLlCcz]/g) || []).length;
+        const size = new Blob([svg]).size / 1024;
 
-            if (typeof ImageTracer === 'undefined') {
-                throw new Error("Biblioteca ImageTracer não carregada. Verifique sua conexão.");
-            }
+        setStats({
+          nodes: nodeCount,
+          layers: pathCount,
+          sizeKb: size,
+          durationMs: Math.round(endTime - startTime)
+        });
 
-            // Step 3: Simplification
-            setProcessingStep('Simplificação Ramer–Douglas–Peucker...');
-            
-            const svgStr = ImageTracer.imagedataToSVG(imgData, options);
-            
-            // Step 4: Bézier Adjustment
-            setProcessingStep('Ajuste de Curvas Bézier...');
-            
-            const endTime = performance.now();
-            
-            // Stats calculation
-            const pathCount = (svgStr.match(/<path/g) || []).length;
-            const nodeCount = (svgStr.match(/[MmLlCcz]/g) || []).length;
-            const size = new Blob([svgStr]).size / 1024;
+        setIsProcessing(false);
+        setProcessingStep(null);
+      } else if (type === 'error') {
+        alert("Erro na engine: " + error);
+        setIsProcessing(false);
+        setProcessingStep(null);
+      }
+    };
 
-            setStats({
-                nodes: nodeCount,
-                layers: pathCount,
-                sizeKb: size,
-                durationMs: Math.round(endTime - startTime)
-            });
+    const options: TraceOptions = {
+      blurSigma,
+      kMeansClusters,
+      cornerThreshold,
+      curvatureSensitivity,
+      bezierErrorTolerance,
+      simplificationLevel,
+      mergeTolerance,
+      removeBackground
+    };
 
-            setProcessedSvg(svgStr);
-            setProcessingStep(null);
+    workerRef.current.postMessage({ type: 'start', imageData, options });
+  };
 
-        } catch (e: any) {
-            console.error("Erro na vetorização:", e);
-            alert("Erro ao vetorizar imagem: " + e.message);
-            setProcessingStep(null);
-        } finally {
-            setIsProcessing(false);
-        }
-    }, 500); // Small delay to show steps
+  const cancelTrace = () => {
+    if (workerRef.current) {
+      workerRef.current.terminate();
+      workerRef.current = null;
+      setIsProcessing(false);
+      setProcessingStep(null);
+    }
   };
 
   const handleDownload = () => {
@@ -358,83 +359,59 @@ export default function PowerTraceAlfa() {
                         <div className="p-6 space-y-8 overflow-y-auto custom-scrollbar flex-1">
                             {activeTab === 'settings' ? (
                                 <>
-                                    <div className="space-y-4">
-                                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Tipo de Traço</label>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <button 
-                                                onClick={() => setTraceType('outline')}
-                                                className={`py-3 px-2 rounded-xl border text-[10px] font-bold flex flex-col items-center gap-2 transition ${traceType === 'outline' ? 'bg-primary/10 border-primary text-primary' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
-                                            >
-                                                <Maximize2 size={16} />
-                                                CONTORNO
-                                            </button>
-                                            <button 
-                                                onClick={() => setTraceType('centerline')}
-                                                className={`py-3 px-2 rounded-xl border text-[10px] font-bold flex flex-col items-center gap-2 transition ${traceType === 'centerline' ? 'bg-primary/10 border-primary text-primary' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
-                                            >
-                                                <Minimize2 size={16} />
-                                                CENTRO DA LINHA
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Tipo de Imagem</label>
-                                        <div className="space-y-2">
-                                            {(['clipart', 'logo', 'photo'] as ImageType[]).map(type => (
-                                                <button 
-                                                    key={type}
-                                                    onClick={() => setImageType(type)}
-                                                    className={`w-full py-3 px-4 rounded-xl border text-left text-xs font-bold flex items-center justify-between transition ${imageType === type ? 'bg-zinc-800 border-zinc-600 text-white' : 'bg-zinc-900/50 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}
-                                                >
-                                                    <span className="capitalize">{type === 'photo' ? 'Fotografia' : type === 'logo' ? 'Logotipo' : 'Clipart'}</span>
-                                                    {imageType === type && <Check size={14} className="text-primary" />}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-6 pt-4 border-t border-zinc-800">
+                                    <div className="space-y-6">
                                         <div className="space-y-3">
                                             <div className="flex justify-between items-center">
-                                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Detalhe</label>
-                                                <span className="text-xs font-mono text-primary">{detail}</span>
+                                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">K-Means Clusters (Cores)</label>
+                                                <span className="text-xs font-mono text-primary">{kMeansClusters}</span>
                                             </div>
                                             <input 
                                                 type="range" 
-                                                min="0" max="100" 
-                                                value={detail} 
-                                                onChange={(e) => setDetail(Number(e.target.value))} 
+                                                min="2" max="64" 
+                                                value={kMeansClusters} 
+                                                onChange={(e) => setKMeansClusters(Number(e.target.value))} 
                                                 className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary" 
                                             />
-                                            <p className="text-[9px] text-zinc-600 italic">Controla a tolerância de nós e fidelidade.</p>
                                         </div>
 
                                         <div className="space-y-3">
                                             <div className="flex justify-between items-center">
-                                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Suavização</label>
-                                                <span className="text-xs font-mono text-primary">{smoothing}</span>
+                                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Gaussian Blur (Sigma)</label>
+                                                <span className="text-xs font-mono text-primary">{blurSigma.toFixed(1)}</span>
                                             </div>
                                             <input 
                                                 type="range" 
-                                                min="0" max="50" 
-                                                value={smoothing} 
-                                                onChange={(e) => setSmoothing(Number(e.target.value))} 
+                                                min="0" max="5" step="0.1"
+                                                value={blurSigma} 
+                                                onChange={(e) => setBlurSigma(Number(e.target.value))} 
                                                 className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary" 
                                             />
-                                            <p className="text-[9px] text-zinc-600 italic">Reduz ruído e suaviza curvas Bézier.</p>
                                         </div>
 
                                         <div className="space-y-3">
                                             <div className="flex justify-between items-center">
-                                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Suavidade do Canto</label>
-                                                <span className="text-xs font-mono text-primary">{cornerSmoothness}</span>
+                                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Tolerância Bézier</label>
+                                                <span className="text-xs font-mono text-primary">{bezierErrorTolerance.toFixed(1)}</span>
                                             </div>
                                             <input 
                                                 type="range" 
-                                                min="0" max="100" 
-                                                value={cornerSmoothness} 
-                                                onChange={(e) => setCornerSmoothness(Number(e.target.value))} 
+                                                min="0.1" max="10" step="0.1"
+                                                value={bezierErrorTolerance} 
+                                                onChange={(e) => setBezierErrorTolerance(Number(e.target.value))} 
+                                                className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary" 
+                                            />
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Limite de Canto (Rad)</label>
+                                                <span className="text-xs font-mono text-primary">{cornerThreshold.toFixed(2)}</span>
+                                            </div>
+                                            <input 
+                                                type="range" 
+                                                min="0.1" max="3.14" step="0.05"
+                                                value={cornerThreshold} 
+                                                onChange={(e) => setCornerThreshold(Number(e.target.value))} 
                                                 className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary" 
                                             />
                                         </div>
@@ -442,7 +419,35 @@ export default function PowerTraceAlfa() {
                                 </>
                             ) : (
                                 <div className="space-y-6">
-                                    <div className="space-y-4">
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Sensibilidade de Curvatura</label>
+                                            <span className="text-xs font-mono text-primary">{curvatureSensitivity.toFixed(2)}</span>
+                                        </div>
+                                        <input 
+                                            type="range" 
+                                            min="0.01" max="1" step="0.01"
+                                            value={curvatureSensitivity} 
+                                            onChange={(e) => setCurvatureSensitivity(Number(e.target.value))} 
+                                            className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary" 
+                                        />
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Nível de Simplificação</label>
+                                            <span className="text-xs font-mono text-primary">{simplificationLevel.toFixed(1)}</span>
+                                        </div>
+                                        <input 
+                                            type="range" 
+                                            min="0.1" max="5" step="0.1"
+                                            value={simplificationLevel} 
+                                            onChange={(e) => setSimplificationLevel(Number(e.target.value))} 
+                                            className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary" 
+                                        />
+                                    </div>
+
+                                    <div className="space-y-4 pt-4 border-t border-zinc-800">
                                         <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Opções de Objeto</h3>
                                         <div className="space-y-3">
                                             <label className="flex items-center justify-between cursor-pointer group">
@@ -451,45 +456,7 @@ export default function PowerTraceAlfa() {
                                                     <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${removeBackground ? 'left-6' : 'left-1'}`}></div>
                                                 </div>
                                             </label>
-                                            <label className="flex items-center justify-between cursor-pointer group">
-                                                <span className="text-xs text-zinc-400 group-hover:text-zinc-200 transition">Mesclar adjacente</span>
-                                                <div onClick={() => setMergeAdjacent(!mergeAdjacent)} className={`w-10 h-5 rounded-full transition relative ${mergeAdjacent ? 'bg-primary' : 'bg-zinc-800'}`}>
-                                                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${mergeAdjacent ? 'left-6' : 'left-1'}`}></div>
-                                                </div>
-                                            </label>
-                                            <label className="flex items-center justify-between cursor-pointer group">
-                                                <span className="text-xs text-zinc-400 group-hover:text-zinc-200 transition">Remover sobreposição</span>
-                                                <div onClick={() => setRemoveOverlap(!removeOverlap)} className={`w-10 h-5 rounded-full transition relative ${removeOverlap ? 'bg-primary' : 'bg-zinc-800'}`}>
-                                                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${removeOverlap ? 'left-6' : 'left-1'}`}></div>
-                                                </div>
-                                            </label>
-                                            <label className="flex items-center justify-between cursor-pointer group">
-                                                <span className="text-xs text-zinc-400 group-hover:text-zinc-200 transition">Agrupar por cor</span>
-                                                <div onClick={() => setGroupByColor(!groupByColor)} className={`w-10 h-5 rounded-full transition relative ${groupByColor ? 'bg-primary' : 'bg-zinc-800'}`}>
-                                                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${groupByColor ? 'left-6' : 'left-1'}`}></div>
-                                                </div>
-                                            </label>
-                                            <label className="flex items-center justify-between cursor-pointer group">
-                                                <span className="text-xs text-zinc-400 group-hover:text-zinc-200 transition">Excluir original</span>
-                                                <div onClick={() => setDeleteOriginal(!deleteOriginal)} className={`w-10 h-5 rounded-full transition relative ${deleteOriginal ? 'bg-primary' : 'bg-zinc-800'}`}>
-                                                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${deleteOriginal ? 'left-6' : 'left-1'}`}></div>
-                                                </div>
-                                            </label>
                                         </div>
-                                    </div>
-
-                                    <div className="space-y-4 pt-4 border-t border-zinc-800">
-                                        <div className="flex justify-between items-center">
-                                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Limite de Cores</label>
-                                            <span className="text-xs font-mono text-primary">{colors}</span>
-                                        </div>
-                                        <input 
-                                            type="range" 
-                                            min="2" max="64" 
-                                            value={colors} 
-                                            onChange={(e) => setColors(Number(e.target.value))} 
-                                            className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary" 
-                                        />
                                     </div>
                                 </div>
                             )}
@@ -558,9 +525,15 @@ export default function PowerTraceAlfa() {
                                     <h3 className="text-sm font-bold text-white uppercase tracking-widest">Processando Alfa</h3>
                                     <p className="text-xs text-zinc-500 font-mono animate-pulse">{processingStep}</p>
                                 </div>
-                                <div className="w-full bg-zinc-800 h-1 rounded-full overflow-hidden">
-                                    <div className="h-full bg-primary animate-progress-indefinite"></div>
+                                <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                                    <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }}></div>
                                 </div>
+                                <button 
+                                    onClick={cancelTrace}
+                                    className="text-[10px] font-bold text-zinc-500 hover:text-white uppercase tracking-widest transition"
+                                >
+                                    Cancelar Processamento
+                                </button>
                             </div>
                         </div>
                     )}
