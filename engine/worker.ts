@@ -36,50 +36,70 @@ async function runPipeline(imageData: ImageData, options: TraceOptions): Promise
     sendProgress('Segmentação de Regiões...', 30);
     const regionMap = createRegionMap(quantized, palette);
 
-    const allPaths: VectorPath[] = [];
+    const allRawPaths: VectorPath[] = [];
 
     for (let i = 0; i < palette.length; i++) {
         const progress = 30 + (i / palette.length) * 40;
-        sendProgress(`Processando cor ${i + 1}/${palette.length}...`, progress);
+        sendProgress(`Extraindo contornos: cor ${i + 1}/${palette.length}...`, progress);
 
-        // Binary mask
         let mask = getBinaryMask(regionMap, i, width, height);
-        
-        // Morphological opening
         mask = morphologicalOpening(mask, width, height);
-
-        // 3. Contour Extraction
         const contours = extractContours(mask, width, height, palette[i]);
 
         for (const contour of contours) {
-            // 4. Corner Detection
-            const pointsWithCorners = detectCorners(contour.points, options.cornerThreshold);
-
-            // 5. Curvature Analysis
-            const segments = analyzeCurvature(pointsWithCorners, options.curvatureSensitivity);
-
-            // 6. Bezier Fitting
-            const vectorSegments = [];
-            for (const seg of segments) {
-                const fitted = fitBezier(seg.points, options.bezierErrorTolerance);
-                vectorSegments.push(...fitted);
+            // Criar caminhos brutos (apenas linhas) para o merge
+            const segments = [];
+            for (let j = 0; j < contour.points.length - 1; j++) {
+                segments.push({
+                    type: 'line' as const,
+                    points: [contour.points[j], contour.points[j+1]]
+                });
             }
-
-            allPaths.push({
-                segments: vectorSegments,
+            allRawPaths.push({
+                segments,
                 color: palette[i],
                 isHole: contour.isHole
             });
         }
     }
 
-    // 7. Topology Merging
-    sendProgress('Merging Topológico...', 85);
-    const mergedPaths = mergeTopologies(allPaths);
+    // 7. Topology Merging (Union) - Agora sobre os caminhos brutos
+    sendProgress('Merging Topológico (União de Formas)...', 75);
+    const mergedRawPaths = mergeTopologies(allRawPaths);
 
-    // 8. SVG Building
-    sendProgress('Gerando SVG...', 95);
-    const svg = buildSVG(mergedPaths, width, height);
+    // 8. Refitting: Corner Detection -> Curvature -> Bezier Fitting
+    sendProgress('Ajuste de Curvas Bézier (Fitting)...', 85);
+    const finalPaths: VectorPath[] = [];
+
+    for (let i = 0; i < mergedRawPaths.length; i++) {
+        const path = mergedRawPaths[i];
+        // Converter segmentos de volta para pontos para re-processar
+        const points = path.segments.map(s => s.points[0]);
+        if (path.segments.length > 0) {
+            points.push(path.segments[path.segments.length - 1].points[1]);
+        }
+
+        if (points.length < 2) continue;
+
+        const pointsWithCorners = detectCorners(points, options.cornerThreshold);
+        const segments = analyzeCurvature(pointsWithCorners, options.curvatureSensitivity);
+
+        const vectorSegments = [];
+        for (const seg of segments) {
+            const fitted = fitBezier(seg.points, options.bezierErrorTolerance);
+            vectorSegments.push(...fitted);
+        }
+
+        finalPaths.push({
+            segments: vectorSegments,
+            color: path.color,
+            isHole: path.isHole
+        });
+    }
+
+    // 9. SVG Building
+    sendProgress('Gerando SVG Final...', 95);
+    const svg = buildSVG(finalPaths, width, height);
 
     return svg;
 }

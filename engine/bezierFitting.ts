@@ -6,8 +6,8 @@ import { Point, VectorSegment } from './types';
  * Implementação 100% iterativa para evitar Stack Overflow.
  */
 
-const MAX_SUBDIVISION = 20; // 2️⃣ Limite máximo de subdivisão
-const DEBUG = false; // 6️⃣ Flag de debug
+const MAX_SUBDIVISION = 20;
+const DEBUG = true; // Ativado para logar estatísticas de curvas
 
 interface CubicBezier {
     p0: Point;
@@ -21,112 +21,86 @@ interface StackItem {
     depth: number;
 }
 
-/**
- * Converte uma sequência de pontos em segmentos vetoriais (linhas ou Bézier)
- * usando uma abordagem iterativa com pilha manual.
- */
 export function fitBezier(points: Point[], tolerance: number): VectorSegment[] {
     if (points.length < 2) return [];
     
     const result: VectorSegment[] = [];
-    // 1️⃣ Implementação iterativa usando uma pilha (stack)
     const stack: StackItem[] = [{ points, depth: 0 }];
     
     let totalSubdivisions = 0;
-    let maxDepthReached = 0;
+    let curvesAccepted = 0;
+    let linesAccepted = 0;
     let fallbacks = 0;
 
     while (stack.length > 0) {
         const item = stack.pop()!;
         const currentPoints = item.points;
         const depth = item.depth;
-        
-        if (depth > maxDepthReached) maxDepthReached = depth;
 
-        // 3️⃣ Garantir segurança de segmentos pequenos
-        if (currentPoints.length < 3) {
+        // Só permitir fallback linear se o segmento tiver menos de 5 pontos (ou for realmente linear)
+        if (currentPoints.length < 5) {
             result.push({ 
                 type: 'line', 
                 points: [currentPoints[0], currentPoints[currentPoints.length - 1]] 
             });
+            linesAccepted++;
             continue;
         }
 
-        // 2️⃣ Implementar limite máximo de subdivisão
         if (depth >= MAX_SUBDIVISION) {
-            if (DEBUG) console.warn(`[BezierFitting] Fallback: profundidade máxima atingida (${depth})`);
             fallbacks++;
             result.push({ 
                 type: 'line', 
                 points: [currentPoints[0], currentPoints[currentPoints.length - 1]] 
             });
+            linesAccepted++;
             continue;
         }
 
-        // Verificação rápida de linearidade
         if (checkLinearity(currentPoints, tolerance)) {
             result.push({ 
                 type: 'line', 
                 points: [currentPoints[0], currentPoints[currentPoints.length - 1]] 
             });
+            linesAccepted++;
             continue;
         }
 
-        // Tentar fitting de Bézier Cúbica
         const bezier = fitCubicBezier(currentPoints);
         const error = calculateError(currentPoints, bezier);
 
-        if (error > tolerance) {
-            // Subdividir o segmento ao meio
+        // Aumentar tolerância de erro conforme solicitado (usando o valor passado ou um base mais alto)
+        const adjustedTolerance = Math.max(tolerance, 2.5);
+
+        if (error > adjustedTolerance) {
             const mid = Math.floor(currentPoints.length / 2);
             const leftPoints = currentPoints.slice(0, mid + 1);
             const rightPoints = currentPoints.slice(mid);
 
-            // Segurança: não subdividir se os novos segmentos forem pequenos demais
             if (leftPoints.length < 3 || rightPoints.length < 3) {
                  result.push({ 
                      type: 'line', 
                      points: [currentPoints[0], currentPoints[currentPoints.length - 1]] 
                  });
+                 linesAccepted++;
                  continue;
             }
 
-            // 5️⃣ Verificar convergência real
-            // Calculamos o erro dos novos segmentos para ver se a subdivisão realmente ajuda
-            const leftBezier = fitCubicBezier(leftPoints);
-            const rightBezier = fitCubicBezier(rightPoints);
-            const leftError = calculateError(leftPoints, leftBezier);
-            const rightError = calculateError(rightPoints, rightBezier);
-            const combinedError = Math.max(leftError, rightError);
-
-            // Se o erro não diminuir significativamente (< 1% de melhoria), abortamos
-            if (combinedError >= error * 0.99) {
-                if (DEBUG) console.log(`[BezierFitting] Abortando subdivisão: convergência estagnada`);
-                result.push({ 
-                    type: 'line', 
-                    points: [currentPoints[0], currentPoints[currentPoints.length - 1]] 
-                });
-                continue;
-            }
-
-            // Empilhar subdivisões (Direita primeiro para processar Esquerda primeiro no pop)
+            // Removida a regra de melhoria mínima percentual (1%) para permitir mais subdivisões se necessário
             stack.push({ points: rightPoints, depth: depth + 1 });
             stack.push({ points: leftPoints, depth: depth + 1 });
             totalSubdivisions++;
         } else {
-            // Fitting bem sucedido
             result.push({ 
                 type: 'bezier', 
                 points: [bezier.p0, bezier.p1, bezier.p2, bezier.p3] 
             });
+            curvesAccepted++;
         }
     }
 
     if (DEBUG) {
-        console.log(`[BezierFitting] Relatório:`);
-        console.log(`- Profundidade Máxima: ${maxDepthReached}`);
-        console.log(`- Total Subdivisões: ${totalSubdivisions}`);
-        console.log(`- Fallbacks (Max Depth): ${fallbacks}`);
+        console.log(`[BezierFitting] Curvas: ${curvesAccepted}, Linhas: ${linesAccepted}, Subdivisões: ${totalSubdivisions}, Fallbacks: ${fallbacks}`);
     }
 
     return result;

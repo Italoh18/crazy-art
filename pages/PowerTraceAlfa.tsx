@@ -82,7 +82,7 @@ export default function PowerTraceAlfa() {
   const [kMeansClusters, setKMeansClusters] = useState(16);
   const [cornerThreshold, setCornerThreshold] = useState(1.0);
   const [curvatureSensitivity, setCurvatureSensitivity] = useState(0.1);
-  const [bezierErrorTolerance, setBezierErrorTolerance] = useState(1.0);
+  const [bezierErrorTolerance, setBezierErrorTolerance] = useState(2.5);
   const [simplificationLevel, setSimplificationLevel] = useState(1.0);
   const [mergeTolerance, setMergeTolerance] = useState(1.0);
   
