@@ -22,7 +22,7 @@ export function analyzeCurvature(points: PointWithMetadata[], sensitivity: numbe
         // 2. Significant change in curvature (angle)
         // 3. Change in sign of curvature (not easily done with just angle, but we can detect sharp turns)
         
-        const shouldSplit = p.isCorner || Math.abs(p.angle - prev.angle) > sensitivity;
+        const shouldSplit = p.isCorner;
 
         if (shouldSplit) {
             segments.push({ points: currentSegment, isCorner: prev.isCorner });

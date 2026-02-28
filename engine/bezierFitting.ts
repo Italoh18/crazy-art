@@ -6,8 +6,8 @@ import { Point, VectorSegment } from './types';
  * Implementação 100% iterativa para evitar Stack Overflow.
  */
 
-const MAX_SUBDIVISION = 20;
-const DEBUG = true; // Ativado para logar estatísticas de curvas
+const MAX_SUBDIVISION = 25; // Aumentado para permitir curvas mais complexas
+const DEBUG = true; 
 
 interface CubicBezier {
     p0: Point;
@@ -139,6 +139,14 @@ function fitCubicBezier(points: Point[]): CubicBezier {
     // Tangentes aproximadas nas extremidades
     const tanL = { x: points[1].x - points[0].x, y: points[1].y - points[0].y };
     const tanR = { x: points[n-1].x - points[n].x, y: points[n-1].y - points[n].y };
+    
+    // Heurística melhorada: se as tangentes forem muito curtas, olhar um pouco mais longe
+    if (points.length > 4) {
+        tanL.x = (points[1].x - points[0].x) * 0.5 + (points[2].x - points[1].x) * 0.5;
+        tanL.y = (points[1].y - points[0].y) * 0.5 + (points[2].y - points[1].y) * 0.5;
+        tanR.x = (points[n-1].x - points[n].x) * 0.5 + (points[n-2].x - points[n-1].x) * 0.5;
+        tanR.y = (points[n-1].y - points[n].y) * 0.5 + (points[n-2].y - points[n-1].y) * 0.5;
+    }
     
     const chord = Math.sqrt(Math.pow(p3.x - p0.x, 2) + Math.pow(p3.y - p0.y, 2));
     const dist = chord / 3;

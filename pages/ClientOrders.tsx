@@ -524,12 +524,6 @@ export default function ClientOrders() {
                                             >
                                                 <Eye size={16} /> Detalhes
                                             </button>
-                                            <button 
-                                                onClick={() => deleteOrder(order.id)} 
-                                                className="w-full p-2.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition border border-white/5 hover:border-red-500/20 flex items-center justify-center gap-2 text-xs font-bold active:scale-95"
-                                            >
-                                                <Trash2 size={16} /> Excluir
-                                            </button>
                                         </div>
                                     </div>
                                 </div>

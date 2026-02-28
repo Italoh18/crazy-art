@@ -8,6 +8,7 @@ import { analyzeCurvature } from './curvature';
 import { fitBezier } from './bezierFitting';
 import { mergeTopologies } from './topology';
 import { buildSVG } from './svgBuilder';
+import { simplifyPath } from './simplification';
 
 self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
     const { type, imageData, options } = e.data;
@@ -81,7 +82,13 @@ async function runPipeline(imageData: ImageData, options: TraceOptions): Promise
 
         if (points.length < 2) continue;
 
-        const pointsWithCorners = detectCorners(points, options.cornerThreshold);
+        // Simplificar pontos antes de detectar cantos e ajustar curvas
+        // Isso remove ruído e reduz drasticamente a complexidade do SVG
+        const simplifiedPoints = simplifyPath(points, options.simplificationLevel || 0.5);
+
+        if (simplifiedPoints.length < 2) continue;
+
+        const pointsWithCorners = detectCorners(simplifiedPoints, options.cornerThreshold);
         const segments = analyzeCurvature(pointsWithCorners, options.curvatureSensitivity);
 
         const vectorSegments = [];

@@ -13,11 +13,8 @@ export function buildSVG(paths: VectorPath[], width: number, height: number): st
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">\n`;
 
     for (const [color, group] of colorGroups.entries()) {
-        svg += `  <g fill="${color}">\n`;
-        for (const path of group) {
-            svg += `    <path d="${buildPathData(path)}" />\n`;
-        }
-        svg += `  </g>\n`;
+        const pathData = group.map(path => buildPathData(path)).join(' ');
+        svg += `  <path fill="${color}" d="${pathData}" />\n`;
     }
 
     svg += `</svg>`;
