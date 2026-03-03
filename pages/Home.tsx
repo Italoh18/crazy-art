@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers, MapPin, UserPlus, Menu, LogOut, Wrench, Grid, Palette, ChevronDown, ClipboardList, TrendingUp } from 'lucide-react';
+import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers, MapPin, UserPlus, Menu, LogOut, Wrench, Grid, Palette, ChevronDown, ClipboardList, TrendingUp, Eye, EyeOff } from 'lucide-react';
 import { GalaxyGame } from '../components/GalaxyGame';
 import { NotificationCenter } from '../components/NotificationCenter';
 
@@ -13,6 +13,8 @@ export default function Home() {
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showSeasonalEffect, setShowSeasonalEffect] = useState(true);
   const [error, setError] = useState('');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [gameMode, setGameMode] = useState(false);
@@ -197,10 +199,15 @@ export default function Home() {
   };
 
   const handleLoginInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      let value = e.target.value;
       if (loginMode === 'client') {
-          setInputValue(e.target.value);
+          // Se o primeiro caractere for maiúsculo, converte para minúsculo
+          if (value.length > 0 && value[0] !== value[0].toLowerCase()) {
+              value = value[0].toLowerCase() + value.slice(1);
+          }
+          setInputValue(value);
       } else {
-          setInputValue(e.target.value);
+          setInputValue(value);
       }
   };
 
@@ -221,7 +228,17 @@ export default function Home() {
   const headerFont = { fontFamily: '"Times New Roman", Times, serif' };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-text flex flex-col relative overflow-x-hidden">
+    <div className={`min-h-screen bg-zinc-950 text-text flex flex-col relative overflow-x-hidden ${!showSeasonalEffect ? 'no-seasonal' : ''}`}>
+      {showSeasonalEffect && (
+        <button 
+          onClick={() => setShowSeasonalEffect(false)}
+          className="fixed bottom-6 right-6 z-[100] p-3 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-zinc-500 hover:text-white transition-all hover:scale-110 active:scale-95 group flex items-center gap-2"
+          title="Desativar efeitos de estação"
+        >
+          <Sparkles size={16} className="text-primary group-hover:animate-spin" />
+          <span className="text-[10px] font-bold uppercase tracking-widest overflow-hidden w-0 group-hover:w-24 transition-all duration-300 whitespace-nowrap">Parar Efeito</span>
+        </button>
+      )}
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none transform-gpu">
         <div className="absolute top-[-10%] left-[10%] w-[300px] h-[300px] bg-yellow-500/5 rounded-full blur-[60px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-red-600/5 rounded-full blur-[80px]"></div>
@@ -350,7 +367,7 @@ export default function Home() {
 
       {/* NAV BAR DESKTOP (MENU HORIZONTAL) */}
       <nav className="fixed top-24 left-0 w-full z-[55] hidden md:flex justify-center items-start pt-2 pb-2 pointer-events-none">
-          <div className="flex gap-8 items-center pointer-events-auto bg-[#09090b]/80 backdrop-blur-xl border border-white/10 rounded-full px-10 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)] animate-slide-down-reveal transition-all duration-500 group relative seasonal-border">
+          <div className={`flex gap-8 items-center pointer-events-auto bg-[#09090b]/80 backdrop-blur-xl border border-white/10 rounded-full px-10 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)] animate-slide-down-reveal transition-all duration-500 group relative ${showSeasonalEffect ? 'seasonal-border' : ''}`}>
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
 
               {menuItems.map((item) => (
@@ -390,7 +407,7 @@ export default function Home() {
           <>
             <div className="fixed inset-0 z-[9990] bg-black/90 md:hidden transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
             <div className="fixed top-24 left-4 right-4 z-[9999] md:hidden animate-scale-in origin-top">
-                <div className="bg-[#121215] border border-white/10 rounded-3xl p-5 shadow-2xl flex flex-col gap-2 relative overflow-hidden ring-1 ring-white/5 seasonal-border">
+                <div className={`bg-[#121215] border border-white/10 rounded-3xl p-5 shadow-2xl flex flex-col gap-2 relative overflow-hidden ring-1 ring-white/5 ${showSeasonalEffect ? 'seasonal-border' : ''}`}>
                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1 bg-white/20 rounded-b-full shadow-[0_0_15px_rgba(255,255,255,0.2)]"></div>
                      
                      <div className="flex justify-between items-center mb-1 border-b border-white/5 pb-3">
@@ -607,13 +624,22 @@ export default function Home() {
                             autoFocus 
                         />
                         {loginMode === 'client' && (
-                            <input 
-                                type="password" 
-                                placeholder="Sua Senha" 
-                                className="w-full bg-black/50 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-wider" 
-                                value={loginPassword} 
-                                onChange={(e) => setLoginPassword(e.target.value)} 
-                            />
+                            <div className="relative">
+                                <input 
+                                    type={showPassword ? "text" : "password"} 
+                                    placeholder="Sua Senha" 
+                                    className="w-full bg-black/50 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-wider" 
+                                    value={loginPassword} 
+                                    onChange={(e) => setLoginPassword(e.target.value)} 
+                                />
+                                <button 
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                                >
+                                    {showPassword ? <Eye size={20} /> : <EyeOff size={20} />}
+                                </button>
+                            </div>
                         )}
                     </div>
                     {error && <div className="text-red-500 text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20 animate-pulse text-xs font-bold">{error}</div>}
