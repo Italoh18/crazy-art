@@ -232,7 +232,7 @@ export default function Home() {
       {showSeasonalEffect && (
         <button 
           onClick={() => setShowSeasonalEffect(false)}
-          className="fixed bottom-6 right-6 z-[100] p-3 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-zinc-500 hover:text-white transition-all hover:scale-110 active:scale-95 group flex items-center gap-2"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] p-3 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-zinc-500 hover:text-white transition-all hover:scale-110 active:scale-95 group flex items-center gap-2"
           title="Desativar efeitos de estação"
         >
           <Sparkles size={16} className="text-primary group-hover:animate-spin" />
