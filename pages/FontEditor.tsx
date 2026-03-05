@@ -678,7 +678,7 @@ export default function FontEditor() {
         <div className="shrink-0 border-b border-zinc-800 bg-[#121215]">
             <div className="flex flex-col md:flex-row items-center justify-between px-4 py-3 gap-4">
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                    <Link to="/programs" className="p-2 hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-white transition"><ArrowLeft size={20} /></Link>
+                    <Link to="/tools" className="p-2 hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-white transition"><ArrowLeft size={20} /></Link>
                     <div className="flex flex-col"><label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Nome da Fonte</label><input type="text" value={fontName} onChange={(e) => setFontName(e.target.value)} className="bg-transparent text-base font-bold text-white outline-none w-32 placeholder-zinc-600 focus:bg-zinc-800/50 rounded px-1" placeholder="MinhaFonte"/></div>
                     <div className="h-8 w-px bg-zinc-800 mx-2"></div>
                     <div className="flex flex-col"><label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider flex items-center gap-1"><MoveHorizontal size={10} /> Espaçamento</label><div className="flex items-center gap-2"><input type="range" min="0" max="150" value={spacing} onChange={(e) => setSpacing(Number(e.target.value))} className="w-24 h-1.5 bg-zinc-700 rounded-full accent-primary cursor-pointer" /><span className="text-xs font-mono text-primary">{spacing}</span></div></div>

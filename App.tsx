@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { DataProvider, useData } from './contexts/DataContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
@@ -79,7 +79,8 @@ const AppRoutes = () => {
         <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/shop" element={<Shop />} />
-            <Route path="/programs" element={<Programs />} />
+            <Route path="/quitanda_de_art" element={<Shop />} />
+            <Route path="/tools" element={<Programs />} />
             <Route path="/font-finder" element={<FontFinder />} />
             <Route path="/font-editor" element={<FontEditor />} /> {/* Nova Rota */}
             <Route path="/layout-builder" element={<LayoutBuilder />} />
@@ -92,7 +93,7 @@ const AppRoutes = () => {
             <Route path="/cdr-converter" element={<CdrConverter />} />
             <Route path="/pricing-calculator" element={<PricingCalculator />} />
             <Route path="/smart-enlargement" element={<SmartEnlargement />} />
-            <Route path="/my-area" element={<ClientRoute />} />
+            <Route path="/minha-area" element={<ClientRoute />} />
             <Route path="/my-orders" element={<ClientOrdersRoute />} />
             <Route path="/statement" element={<StatementRoute />} /> {/* Nova Rota */}
             <Route path="/pending-confirmations" element={<ProtectedRoute requiredRole="admin"><PendingOrders /></ProtectedRoute>} />

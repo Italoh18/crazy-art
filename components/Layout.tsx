@@ -203,7 +203,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                                         </div>
                                         <div className="p-2 bg-[#18181b]">
                                             <Link 
-                                                to="/my-area"
+                                                to="/minha-area"
                                                 onClick={() => setIsUserMenuOpen(false)}
                                                 className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
                                             >
@@ -262,7 +262,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                         <span className="text-xl font-bold text-white">{currentCustomer?.name}</span>
                     </div>
 
-                    <Link to="/my-area" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-primary uppercase tracking-widest">Minha Área</Link>
+                    <Link to="/minha-area" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-primary uppercase tracking-widest">Minha Área</Link>
                     <Link to="/my-orders" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-emerald-500 uppercase tracking-widest">Meus Pedidos</Link>
                     <Link to="/statement" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-blue-500 uppercase tracking-widest">Extrato</Link>
                     <Link to="/shop" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-white uppercase tracking-widest">Loja</Link>

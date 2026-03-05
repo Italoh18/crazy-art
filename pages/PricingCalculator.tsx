@@ -296,7 +296,7 @@ export default function PricingCalculator() {
       {/* Header */}
       <div className="max-w-5xl mx-auto flex items-center justify-between mb-8 animate-fade-in-up">
         <div className="flex items-center gap-4">
-            <Link to="/programs" className="p-3 bg-zinc-900 border border-zinc-800 rounded-2xl text-zinc-400 hover:text-white transition">
+            <Link to="/tools" className="p-3 bg-zinc-900 border border-zinc-800 rounded-2xl text-zinc-400 hover:text-white transition">
                 <ArrowLeft size={24} />
             </Link>
             <div>

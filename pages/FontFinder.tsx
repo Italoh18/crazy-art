@@ -185,7 +185,7 @@ export default function FontFinder() {
       <div className="bg-black border-b border-white/10 sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <Link to="/programs" className="p-2 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-full transition">
+            <Link to="/tools" className="p-2 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-full transition">
                 <ArrowLeft size={24} />
             </Link>
             <div className="flex flex-col items-start gap-1">

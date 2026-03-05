@@ -498,7 +498,7 @@ export default function BackgroundRemover() {
       {/* Header */}
       <div className="max-w-6xl mx-auto w-full mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center space-x-4">
-            <Link to="/programs" className="p-2 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-full transition">
+            <Link to="/tools" className="p-2 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-full transition">
                 <ArrowLeft size={24} />
             </Link>
             <div>

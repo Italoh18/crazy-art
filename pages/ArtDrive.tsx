@@ -68,7 +68,7 @@ export default function ArtDrive() {
       {/* Sidebar */}
       <aside className="w-full md:w-64 bg-[#121215] border-r border-zinc-800 flex flex-col shrink-0">
         <div className="p-6 border-b border-zinc-800 flex items-center gap-3">
-            <Link to="/programs" className="text-zinc-400 hover:text-white transition">
+            <Link to="/tools" className="text-zinc-400 hover:text-white transition">
                 <ArrowLeft size={20} />
             </Link>
             <h1 className="text-lg font-bold flex items-center gap-2 font-heading tracking-wide">

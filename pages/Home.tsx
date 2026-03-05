@@ -220,8 +220,8 @@ export default function Home() {
 
   const menuItems = [
     { name: 'Loja', icon: ShoppingBag, path: '/shop', color: 'text-emerald-400' },
-    { name: 'Quitanda', sub: 'de Artes', icon: Palette, path: '/shop?tab=art', color: 'text-purple-400' }, 
-    { name: 'Ferramentas', icon: Wrench, path: '/programs', color: 'text-blue-400' },
+    { name: 'Quitanda', sub: 'de Artes', icon: Palette, path: '/quitanda_de_art', color: 'text-purple-400' }, 
+    { name: 'Ferramentas', icon: Wrench, path: '/tools', color: 'text-blue-400' },
     { name: 'Blog', icon: BookOpen, path: '', color: 'text-zinc-400', disabled: true },
   ];
 
@@ -318,7 +318,7 @@ export default function Home() {
                                 </div>
                                 <div className="p-2 bg-[#18181b]">
                                     <Link 
-                                        to={role === 'admin' ? '/customers' : '/my-area'}
+                                        to={role === 'admin' ? '/customers' : '/minha-area'}
                                         onClick={() => setIsUserMenuOpen(false)}
                                         className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
                                     >
@@ -441,7 +441,7 @@ export default function Home() {
                                 </Link>
                             ) : (
                                 <>
-                                    <Link to="/my-area" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
+                                    <Link to="/minha-area" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
                                         <div className="bg-primary/10 p-2 rounded-lg text-primary group-hover:bg-primary group-hover:text-white transition"><User size={20} /></div>
                                         <span className="text-white font-bold text-sm uppercase tracking-wide">Minha Área</span>
                                     </Link>
@@ -477,7 +477,7 @@ export default function Home() {
                         <span className="text-white font-bold text-sm uppercase tracking-wide">Loja</span>
                      </Link>
 
-                     <Link to="/shop?tab=art" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
+                     <Link to="/quitanda_de_art" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
                         <div className="bg-purple-500/10 p-2 rounded-lg text-purple-500 group-hover:bg-purple-500 group-hover:text-white transition"><Palette size={20} /></div>
                         <div>
                             <span className="block text-white font-bold text-sm uppercase tracking-wide">Quitanda</span>
@@ -485,7 +485,7 @@ export default function Home() {
                         </div>
                      </Link>
                      
-                     <Link to="/programs" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
+                     <Link to="/tools" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 transition flex items-center gap-4 group">
                         <div className="bg-blue-500/10 p-2 rounded-lg text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition"><Wrench size={20} /></div>
                         <span className="text-white font-bold text-sm uppercase tracking-wide">Ferramentas</span>
                      </Link>

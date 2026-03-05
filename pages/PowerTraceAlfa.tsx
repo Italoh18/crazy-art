@@ -293,7 +293,7 @@ export default function PowerTraceAlfa() {
         {/* Header */}
         <div className="h-16 border-b border-zinc-800 bg-[#121215] flex items-center justify-between px-6 shrink-0 z-30">
             <div className="flex items-center gap-4">
-                <Link to="/programs" className="p-2 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-full transition">
+                <Link to="/tools" className="p-2 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-full transition">
                     <ArrowLeft size={20} />
                 </Link>
                 <div className="flex flex-col">

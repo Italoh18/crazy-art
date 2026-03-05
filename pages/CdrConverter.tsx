@@ -149,7 +149,7 @@ export default function CdrConverter() {
       <div className="max-w-4xl w-full relative z-10">
         {/* Header */}
         <div className="flex items-center gap-4 mb-10 animate-fade-in-up">
-            <Link to="/programs" className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-zinc-400 hover:text-white transition backdrop-blur-md">
+            <Link to="/tools" className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-zinc-400 hover:text-white transition backdrop-blur-md">
                 <ArrowLeft size={24} />
             </Link>
             <div>

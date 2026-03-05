@@ -61,9 +61,9 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     const notificationUrl = `${origin}/api/mp-webhook`;
 
     // URL de retorno customizada para cair direto no pedido ou área do cliente
-    const successUrl = `${origin}/#/my-area?status=success&orderId=${externalRef}`;
-    const failureUrl = `${origin}/#/my-area?status=failure`;
-    const pendingUrl = `${origin}/#/my-area?status=pending`;
+    const successUrl = `${origin}/minha-area?status=success&orderId=${externalRef}`;
+    const failureUrl = `${origin}/minha-area?status=failure`;
+    const pendingUrl = `${origin}/minha-area?status=pending`;
 
     const preferencePayload = {
       items: [

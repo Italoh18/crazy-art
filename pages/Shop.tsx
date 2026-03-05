@@ -92,7 +92,7 @@ export default function Shop() {
       const tab = params.get('tab');
       const action = params.get('action');
 
-      if (tab === 'art') {
+      if (tab === 'art' || location.pathname === '/quitanda_de_art') {
           setActiveTab('art');
       } else if (tab === 'service') {
           setActiveTab('service');
@@ -103,7 +103,7 @@ export default function Shop() {
       if (action === 'cart') {
           setStep('questionnaire');
       }
-  }, [location.search]);
+  }, [location.search, location.pathname]);
 
   // Derivar categorias dinâmicas com base nos produtos existentes (apenas para Estampas)
   const artCategories = useMemo(() => {
@@ -923,7 +923,7 @@ export default function Shop() {
         <h2 className="text-4xl font-bold text-white mb-4 font-heading">Pedido Confirmado!</h2>
         <p className="text-zinc-400 mb-10 leading-relaxed">Seu pedido <strong>#{lastCreatedOrder?.order_number}</strong> foi recebido e já está em nossa fila de processamento.</p>
         <div className="grid grid-cols-1 w-full gap-4">
-            <button onClick={() => navigate('/my-area')} className="w-full bg-white text-black py-4 rounded-2xl font-bold hover:bg-zinc-200 transition">Ver Meus Pedidos</button>
+            <button onClick={() => navigate('/minha-area')} className="w-full bg-white text-black py-4 rounded-2xl font-bold hover:bg-zinc-200 transition">Ver Meus Pedidos</button>
             <button onClick={() => window.open(`https://wa.me/5516994142665?text=Olá, acabei de fazer o pedido #${lastCreatedOrder?.order_number}`, '_blank')} className="w-full bg-[#25D366] text-white py-4 rounded-2xl font-bold hover:opacity-90 transition flex items-center justify-center gap-2"><MessageCircle size={20} /> Enviar no WhatsApp</button>
         </div>
     </div>

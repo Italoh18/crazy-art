@@ -81,7 +81,7 @@ export const NotificationCenter = () => {
     // 3. Navegação Inteligente baseada no conteúdo ou tipo
     if (role === 'client') {
         // Clientes sempre vão para sua área de detalhes
-        navigate('/my-area');
+        navigate('/minha-area');
     } else if (role === 'admin') {
         // Lógica para Admin
         const titleLower = notif.title.toLowerCase();
