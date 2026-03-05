@@ -13,6 +13,7 @@
     "@google/genai": "latest",
     "docx": "^8.5.0",
     "file-saver": "^2.0.5",
+    "framer-motion": "^12.35.0",
     "gifenc": "^1.0.3",
     "jspdf": "^2.5.1",
     "jszip": "^3.10.1",

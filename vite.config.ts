@@ -8,6 +8,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    resolve: {
+      dedupe: ['react', 'react-dom'],
+    },
     base: '/',
     define: {
       // Isso pega a variável do sistema (Cloudflare) e a injeta no código React

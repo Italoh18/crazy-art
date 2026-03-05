@@ -4,8 +4,10 @@ import { Link } from 'react-router-dom';
 import { 
   ArrowLeft, Upload, Scissors, Image as ImageIcon, Download, 
   Loader2, Sliders, Eraser, PenTool, Undo, Check, X, 
-  Clipboard, ZoomIn, ZoomOut, Move, Pipette, Feather, RefreshCcw
+  Clipboard, ZoomIn, ZoomOut, Move, Pipette, Feather, RefreshCcw,
+  FolderOpen, Tv, ShoppingBag, Sparkles, LayoutGrid, Layers, Palette
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Estrutura de Ponto atualizada para suportar Bezier
 type Point = { 
@@ -17,19 +19,46 @@ type Point = {
 };
 
 export default function BackgroundRemover() {
+  // --- SEO ---
+  useEffect(() => {
+    document.title = "Remove Background from Image Online | CrazyArt";
+    const metaDescription = document.querySelector('meta[name="description"]');
+    const content = "Remove image backgrounds instantly online. Upload your image and download a transparent PNG in seconds.";
+    if (metaDescription) {
+      metaDescription.setAttribute("content", content);
+    } else {
+      const meta = document.createElement('meta');
+      meta.name = "description";
+      meta.content = content;
+      document.head.appendChild(meta);
+    }
+  }, []);
+
   // --- Estados Principais ---
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [maskData, setMaskData] = useState<Uint8ClampedArray | null>(null);
 
   // --- Estados Magic Wand (Cor) ---
   const [tolerance, setTolerance] = useState(30); 
-  const [edgeSmoothing, setEdgeSmoothing] = useState(0); // Novo estado para suavização
+  const [edgeSmoothing, setEdgeSmoothing] = useState(2); 
   const [removeMode, setRemoveMode] = useState<'corner' | 'white' | 'green' | 'custom'>('corner');
+  const [useFloodFill, setUseFloodFill] = useState(true);
   const [customColor, setCustomColor] = useState<{r: number, g: number, b: number} | null>(null);
   const [isPickingColor, setIsPickingColor] = useState(false);
 
-  // --- Estados Editor Manual (Fullscreen) ---
+  // --- Estados Refinamento (Pincel) ---
+  const [isRefining, setIsRefining] = useState(false);
+  const [brushSize, setBrushSize] = useState(30);
+  const [brushMode, setBrushMode] = useState<'erase' | 'restore'>('erase');
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const refinementCanvasRef = useRef<HTMLCanvasElement>(null);
+  const maskCanvasRef = useRef<HTMLCanvasElement>(null);
+  const refinementImageRef = useRef<HTMLImageElement | null>(null);
+
+  // --- Estados Editor Manual (Bezier) ---
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [manualPoints, setManualPoints] = useState<Point[]>([]);
   const [editorZoom, setEditorZoom] = useState(1);
@@ -124,7 +153,7 @@ export default function BackgroundRemover() {
       setIsPickingColor(false); 
   };
 
-  // --- 3. Processamento Automático (Magic) ---
+  // --- 3. Processamento Automático (Advanced Algorithm) ---
   const processMagic = () => {
     if (!selectedImage) return;
     setIsProcessing(true);
@@ -135,29 +164,33 @@ export default function BackgroundRemover() {
         img.crossOrigin = "Anonymous";
 
         img.onload = () => {
+            const width = img.naturalWidth;
+            const height = img.naturalHeight;
+            
             const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             if (!ctx) return;
 
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
+            ctx.drawImage(img, 0, 0);
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const pixels = imageData.data;
 
-            // 1. Criar Canvas Temporário para a Máscara
-            const maskCanvas = document.createElement('canvas');
-            maskCanvas.width = canvas.width;
-            maskCanvas.height = canvas.height;
-            const maskCtx = maskCanvas.getContext('2d');
-            if (!maskCtx) return;
-
-            // Desenhar imagem original no canvas da máscara para ler os pixels
-            maskCtx.drawImage(img, 0, 0);
-            const imageData = maskCtx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
-
-            // Definir cor alvo
+            // 1. Detectar cor do fundo automaticamente (amostragem das bordas)
             let targetR = 0, targetG = 0, targetB = 0;
             if (removeMode === 'corner') {
-                targetR = data[0]; targetG = data[1]; targetB = data[2];
+                // Média dos 4 cantos
+                const corners = [
+                    [0, 0], [width - 1, 0], [0, height - 1], [width - 1, height - 1]
+                ];
+                corners.forEach(([x, y]) => {
+                    const idx = (y * width + x) * 4;
+                    targetR += pixels[idx];
+                    targetG += pixels[idx + 1];
+                    targetB += pixels[idx + 2];
+                });
+                targetR /= 4; targetG /= 4; targetB /= 4;
             } else if (removeMode === 'white') {
                 targetR = 255; targetG = 255; targetB = 255;
             } else if (removeMode === 'green') {
@@ -166,55 +199,219 @@ export default function BackgroundRemover() {
                 targetR = customColor.r; targetG = customColor.g; targetB = customColor.b;
             }
 
-            const threshold = (tolerance / 100) * 442; 
+            // 2. Criar Máscara de Alpha
+            const mask = new Uint8Array(width * height);
+            const threshold = (tolerance / 100) * 442; // Distância Euclidiana máxima é sqrt(255^2 * 3) ≈ 441.6
 
-            // Criar a Máscara (Alpha Channel)
-            // Se pixel for igual ao alvo (dentro da tolerancia) -> Transparente (0)
-            // Se pixel for diferente -> Opaco (255)
-            for (let i = 0; i < data.length; i += 4) {
-                const r = data[i];
-                const g = data[i + 1];
-                const b = data[i + 2];
+            if (useFloodFill) {
+                // Flood Fill Algorithm (Stack-based)
+                const visited = new Uint8Array(width * height);
+                const stack: [number, number][] = [];
+                
+                // Adicionar bordas à pilha
+                for (let x = 0; x < width; x++) { stack.push([x, 0]); stack.push([x, height - 1]); }
+                for (let y = 0; y < height; y++) { stack.push([0, y]); stack.push([width - 1, y]); }
 
-                const distance = Math.sqrt(
-                    Math.pow(r - targetR, 2) + Math.pow(g - targetG, 2) + Math.pow(b - targetB, 2)
-                );
+                while (stack.length > 0) {
+                    const [x, y] = stack.pop()!;
+                    const idx = y * width + x;
+                    if (visited[idx]) continue;
+                    visited[idx] = 1;
 
-                if (distance < threshold) {
-                    // É a cor de fundo -> Transparente
-                    data[i + 3] = 0; 
-                } else {
-                    // É o objeto -> Opaco
-                    // Podemos pintar de branco ou preto para a máscara, mas manter a imagem original facilita debugging se precisar
-                    // Mas para o composite funcionar bem com blur, o ideal é que a "máscara" tenha pixels sólidos onde queremos manter.
-                    // Vamos manter a opacidade e usar composite source-in depois.
-                    data[i + 3] = 255;
+                    const pIdx = idx * 4;
+                    const r = pixels[pIdx];
+                    const g = pixels[pIdx + 1];
+                    const b = pixels[pIdx + 2];
+
+                    const dist = Math.sqrt(
+                        Math.pow(r - targetR, 2) + Math.pow(g - targetG, 2) + Math.pow(b - targetB, 2)
+                    );
+
+                    if (dist < threshold) {
+                        mask[idx] = 0; // Fundo detectado
+                        // Adicionar vizinhos
+                        if (x > 0) stack.push([x - 1, y]);
+                        if (x < width - 1) stack.push([x + 1, y]);
+                        if (y > 0) stack.push([x, y - 1]);
+                        if (y < height - 1) stack.push([x, y + 1]);
+                    } else {
+                        mask[idx] = 255; // Objeto detectado
+                    }
+                }
+                // Preencher o que não foi visitado como objeto
+                for (let i = 0; i < mask.length; i++) {
+                    if (!visited[i]) mask[i] = 255;
+                }
+            } else {
+                // Comparação direta de todos os pixels
+                for (let i = 0; i < mask.length; i++) {
+                    const pIdx = i * 4;
+                    const dist = Math.sqrt(
+                        Math.pow(pixels[pIdx] - targetR, 2) + 
+                        Math.pow(pixels[pIdx + 1] - targetG, 2) + 
+                        Math.pow(pixels[pIdx + 2] - targetB, 2)
+                    );
+                    mask[i] = dist < threshold ? 0 : 255;
                 }
             }
 
-            // Colocar os dados da máscara de volta no canvas temporário
-            maskCtx.putImageData(imageData, 0, 0);
+            // 3. Detecção de Bordas (Sobel Simples) para proteção
+            const edges = new Uint8Array(width * height);
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    const idx = y * width + x;
+                    const val = pixels[idx * 4] * 0.3 + pixels[idx * 4 + 1] * 0.59 + pixels[idx * 4 + 2] * 0.11;
+                    const right = pixels[(idx + 1) * 4] * 0.3 + pixels[(idx + 1) * 4 + 1] * 0.59 + pixels[(idx + 1) * 4 + 2] * 0.11;
+                    const bottom = pixels[(idx + width) * 4] * 0.3 + pixels[(idx + width) * 4 + 1] * 0.59 + pixels[(idx + width) * 4 + 2] * 0.11;
+                    const grad = Math.abs(val - right) + Math.abs(val - bottom);
+                    edges[idx] = grad > 30 ? 255 : 0;
+                }
+            }
 
-            // 2. Composição Final no Canvas Principal
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Aplicar suavização na máscara
+            // 4. Aplicar Máscara ao Canvas (com proteção de bordas)
+            const maskCanvas = document.createElement('canvas');
+            maskCanvas.width = width;
+            maskCanvas.height = height;
+            const mCtx = maskCanvas.getContext('2d');
+            if (!mCtx) return;
+
+            const maskImageData = mCtx.createImageData(width, height);
+            for (let i = 0; i < mask.length; i++) {
+                let alpha = mask[i];
+                
+                // Se for borda detectada, reduzir a força da remoção para evitar "comer" o objeto
+                if (edges[i] > 0 && alpha === 0) {
+                    alpha = 50; // Mantém um pouco de opacidade em bordas complexas
+                }
+
+                maskImageData.data[i * 4] = 255;
+                maskImageData.data[i * 4 + 1] = 255;
+                maskImageData.data[i * 4 + 2] = 255;
+                maskImageData.data[i * 4 + 3] = alpha;
+            }
+            mCtx.putImageData(maskImageData, 0, 0);
+
+            // 5. Composição Final com Feathering
+            ctx.clearRect(0, 0, width, height);
             ctx.save();
             if (edgeSmoothing > 0) {
                 ctx.filter = `blur(${edgeSmoothing}px)`;
             }
-            // Desenhar a máscara (que agora tem transparência onde era fundo)
             ctx.drawImage(maskCanvas, 0, 0);
             ctx.restore();
 
-            // Usar 'source-in' para desenhar a imagem original APENAS onde a máscara existe (e está suavizada)
             ctx.globalCompositeOperation = 'source-in';
             ctx.drawImage(img, 0, 0);
 
             setProcessedImage(canvas.toDataURL('image/png'));
             setIsProcessing(false);
+            
+            // Salvar máscara para refinamento
+            const finalMaskCanvas = document.createElement('canvas');
+            finalMaskCanvas.width = width;
+            finalMaskCanvas.height = height;
+            const fmCtx = finalMaskCanvas.getContext('2d');
+            if (fmCtx) {
+                fmCtx.drawImage(maskCanvas, 0, 0);
+                maskCanvasRef.current = finalMaskCanvas;
+            }
         };
     }, 100);
+  };
+
+  // --- 4. Refinamento com Pincel ---
+  useEffect(() => {
+    if (isRefining && refinementCanvasRef.current && maskCanvasRef.current) {
+        renderRefinement();
+    }
+  }, [isRefining]);
+
+  const startRefining = () => {
+    if (!processedImage || !selectedImage) return;
+    
+    const img = new Image();
+    img.src = selectedImage;
+    img.onload = () => {
+        refinementImageRef.current = img;
+        setIsRefining(true);
+    };
+  };
+
+  const handleRefinementMouseDown = (e: React.MouseEvent) => {
+    setIsDrawing(true);
+    drawRefinement(e);
+  };
+
+  const handleRefinementMouseMove = (e: React.MouseEvent) => {
+    const canvas = refinementCanvasRef.current;
+    if (canvas) {
+        const rect = canvas.getBoundingClientRect();
+        setMousePos({
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        });
+    }
+    if (!isDrawing) return;
+    drawRefinement(e);
+  };
+
+  const handleRefinementMouseUp = () => {
+    setIsDrawing(false);
+    updateProcessedFromRefinement();
+  };
+
+  const drawRefinement = (e: React.MouseEvent) => {
+    const canvas = refinementCanvasRef.current;
+    const mCanvas = maskCanvasRef.current;
+    if (!canvas || !mCanvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+    const mCtx = mCanvas.getContext('2d');
+    if (!mCtx) return;
+
+    mCtx.globalCompositeOperation = brushMode === 'erase' ? 'destination-out' : 'source-over';
+    mCtx.fillStyle = '#ffffff';
+    mCtx.beginPath();
+    mCtx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
+    mCtx.fill();
+
+    renderRefinement();
+  };
+
+  const renderRefinement = () => {
+    const canvas = refinementCanvasRef.current;
+    const mCanvas = maskCanvasRef.current;
+    const img = refinementImageRef.current;
+    if (!canvas || !mCanvas || !img) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(mCanvas, 0, 0);
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.drawImage(img, 0, 0);
+    ctx.globalCompositeOperation = 'source-over';
+  };
+
+  const updateProcessedFromRefinement = () => {
+    const mCanvas = maskCanvasRef.current;
+    const img = refinementImageRef.current;
+    if (!mCanvas || !img) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = mCanvas.width;
+    canvas.height = mCanvas.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.drawImage(mCanvas, 0, 0);
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.drawImage(img, 0, 0);
+    setProcessedImage(canvas.toDataURL('image/png'));
   };
 
   // --- 4. Lógica do Editor Manual (Fullscreen) ---
@@ -494,226 +691,454 @@ export default function BackgroundRemover() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 flex flex-col">
-      {/* Header */}
-      <div className="max-w-6xl mx-auto w-full mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center space-x-4">
-            <Link to="/tools" className="p-2 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-full transition">
-                <ArrowLeft size={24} />
+      <div className="min-h-[calc(100vh-140px)] bg-black text-white p-1 flex flex-col overflow-hidden">
+      {/* Header - Mais impactante */}
+      <div className="max-w-6xl mx-auto w-full mb-1 flex flex-col items-center text-center gap-1 shrink-0">
+        <div className="flex items-center gap-4">
+            <Link to="/tools" className="p-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-xl transition border border-zinc-800">
+                <ArrowLeft size={18} />
             </Link>
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-                    <Scissors className="text-primary" /> Recorte Inteligente
-                </h1>
-                <p className="text-zinc-500 text-sm">Remova fundos automaticamente ou use a Caneta para precisão.</p>
+            <div className="w-9 h-9 bg-primary/20 rounded-xl flex items-center justify-center text-primary">
+                <Scissors size={22} />
             </div>
+            <h1 className="text-2xl md:text-4xl font-black tracking-tighter bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent font-heading">
+                Remover Fundo de Imagem
+            </h1>
         </div>
+        <p className="text-zinc-400 text-xs md:text-sm font-medium max-w-2xl mx-auto">
+            Remova o fundo de qualquer imagem instantaneamente e de graça.
+        </p>
       </div>
 
-      <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        
-        {/* Coluna 1: Upload e Preview Original */}
-        <div className="space-y-6 lg:col-span-1">
-            <div className={`border-2 border-dashed rounded-3xl h-80 flex flex-col items-center justify-center relative overflow-hidden transition-all group ${selectedImage ? 'border-zinc-700 bg-zinc-900' : 'border-zinc-800 hover:border-primary/50 hover:bg-zinc-900/50'}`}>
-                {selectedImage ? (
-                    <div 
-                        className={`relative w-full h-full flex items-center justify-center p-4 ${isPickingColor ? 'cursor-crosshair' : ''}`}
-                        onClick={handleMainImageClick}
-                        title={isPickingColor ? "Clique na cor que deseja remover" : ""}
-                    >
-                        <img 
-                            ref={displayImageRef}
-                            src={selectedImage} 
-                            alt="Original" 
-                            className="max-w-full max-h-full object-contain select-none" 
-                        />
-                        {/* Overlay para modo Picker */}
-                        {isPickingColor && (
-                            <div className="absolute inset-0 bg-black/10 pointer-events-none flex items-center justify-center">
-                                <div className="bg-black/80 text-white px-4 py-2 rounded-full text-xs font-bold shadow-xl animate-bounce">
-                                    Clique na imagem para selecionar a cor
-                                </div>
-                            </div>
-                        )}
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); setSelectedImage(null); setProcessedImage(null); setCustomColor(null); }}
-                            className="absolute top-2 right-2 p-2 bg-black/60 text-white rounded-full hover:bg-red-500/80 transition z-20"
-                            title="Remover imagem"
-                        >
-                            <X size={16} />
-                        </button>
-                    </div>
-                ) : (
-                    <div className="text-center p-6 pointer-events-none">
-                        <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-500 group-hover:scale-110 transition-transform">
-                            <Upload size={32} />
-                        </div>
-                        <p className="text-lg font-bold text-zinc-300">Carregar Imagem</p>
-                        <p className="text-zinc-500 text-sm mt-1">Cole com <span className="text-white font-mono bg-zinc-800 px-1 rounded">Ctrl+V</span> ou clique</p>
-                    </div>
-                )}
+      <div className="max-w-6xl mx-auto w-full flex-1 overflow-hidden flex flex-col">
+        <AnimatePresence mode="wait">
+          {!selectedImage ? (
+            <motion.div 
+              key="upload-screen"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="flex-1 flex flex-col gap-1 overflow-y-auto custom-scrollbar pb-1 items-center"
+            >
+              {/* Área de Upload Principal */}
+              <div className="w-full max-w-4xl flex flex-col items-center gap-2 mt-0">
                 
-                {!selectedImage && (
+                {/* O "Botão" Principal de Drop */}
+                <motion.div 
+                  className="relative w-full group"
+                  whileHover="hover"
+                >
+                  {/* Efeito de brilho no hover */}
+                  <div className="absolute -inset-4 bg-gradient-to-r from-orange-500/10 to-red-500/10 rounded-[3rem] blur-2xl opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                  
+                  <div className="relative flex items-center justify-center min-h-[150px] w-full bg-zinc-900/30 rounded-[2.5rem] overflow-hidden">
+                    {/* Borda Tracejada Gradiente (SVG) */}
+                    <div className="absolute inset-0 pointer-events-none">
+                      <svg className="w-full h-full" preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient id="borderGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#f97316" />
+                            <stop offset="100%" stopColor="#ef4444" />
+                          </linearGradient>
+                        </defs>
+                        <rect 
+                          x="2" y="2" width="calc(100% - 4px)" height="calc(100% - 4px)" 
+                          rx="40" 
+                          fill="none" 
+                          stroke="url(#borderGradient)" 
+                          strokeWidth="3" 
+                          strokeDasharray="12 8"
+                          className="group-hover:stroke-[4px] transition-all duration-300"
+                        />
+                      </svg>
+                    </div>
+
+                    {/* Conteúdo Interno do Botão */}
+                    <div className="flex items-center justify-between w-full px-12 md:px-20 py-1 gap-8">
+                      
+                      {/* JPG Card (Esquerda) */}
+                      <motion.div 
+                        variants={{
+                          hover: { y: -15, rotate: -15, scale: 1.1, x: -5 }
+                        }}
+                        className="hidden md:flex w-16 h-24 bg-zinc-800/80 border border-zinc-700 rounded-xl flex-col items-center justify-center shadow-xl transform -rotate-6 shrink-0 transition-all duration-500"
+                      >
+                        <span className="text-[10px] font-black text-zinc-500 uppercase mb-1">.jpg</span>
+                        <ImageIcon size={24} className="text-zinc-600" />
+                      </motion.div>
+
+                      {/* Texto Central */}
+                      <div className="flex flex-col items-center text-center gap-1 flex-1">
+                        <motion.div 
+                          variants={{
+                            hover: { scale: 1.1, rotate: 5, y: -5 }
+                          }}
+                          className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-orange-500/20 mb-0.5"
+                        >
+                          <Upload size={18} />
+                        </motion.div>
+                        <h2 className="text-base md:text-lg font-black text-white tracking-tight">
+                          Jogue sua imagem aqui
+                        </h2>
+                        <p className="text-zinc-500 text-[9px] font-medium">
+                          ou clique para selecionar um arquivo
+                        </p>
+                      </div>
+
+                      {/* PNG Card (Direita) */}
+                      <motion.div 
+                        variants={{
+                          hover: { y: -15, rotate: 15, scale: 1.1, x: 5 }
+                        }}
+                        className="hidden md:flex w-16 h-24 bg-zinc-800/80 border border-zinc-700 rounded-xl flex-col items-center justify-center shadow-xl transform rotate-6 shrink-0 transition-all duration-500"
+                      >
+                        <span className="text-[10px] font-black text-zinc-500 uppercase mb-1">.png</span>
+                        <ImageIcon size={24} className="text-zinc-600" />
+                      </motion.div>
+                    </div>
+
+                    {/* Input Invisível cobrindo tudo */}
                     <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      type="file" 
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="absolute inset-0 opacity-0 cursor-pointer z-10"
                     />
-                )}
-            </div>
+                  </div>
+                </motion.div>
 
-            {/* Controles Automáticos */}
-            {selectedImage && (
-                <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl space-y-6 animate-fade-in-up">
-                    <div className="flex justify-between items-center">
-                        <h3 className="text-white font-bold text-sm flex items-center gap-2">
-                            <Eraser size={16} className="text-primary" /> Recorte Automático
-                        </h3>
-                    </div>
-
-                    <div>
-                        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 block">Cor Alvo</label>
-                        <div className="grid grid-cols-4 gap-2 mb-3">
-                            <button onClick={() => {setRemoveMode('corner'); setIsPickingColor(false);}} className={`py-2 text-xs font-bold rounded-md transition ${removeMode === 'corner' ? 'bg-zinc-700 text-white' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}>Auto</button>
-                            <button onClick={() => {setRemoveMode('white'); setIsPickingColor(false);}} className={`py-2 text-xs font-bold rounded-md transition ${removeMode === 'white' ? 'bg-zinc-700 text-white' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}>Branco</button>
-                            <button onClick={() => {setRemoveMode('green'); setIsPickingColor(false);}} className={`py-2 text-xs font-bold rounded-md transition ${removeMode === 'green' ? 'bg-zinc-700 text-white' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}>Verde</button>
-                            
-                            <button 
-                                onClick={() => setIsPickingColor(!isPickingColor)}
-                                className={`py-2 flex items-center justify-center rounded-md transition relative overflow-hidden ${isPickingColor || removeMode === 'custom' ? 'bg-primary text-white ring-2 ring-primary ring-offset-2 ring-offset-zinc-900' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}
-                                title="Conta-Gotas: Selecionar cor na imagem"
-                            >
-                                <Pipette size={14} />
-                                {customColor && (
-                                    <div 
-                                        className="absolute bottom-0 right-0 w-3 h-3 rounded-tl-md border-l border-t border-black/20"
-                                        style={{ backgroundColor: `rgb(${customColor.r}, ${customColor.g}, ${customColor.b})` }}
-                                    ></div>
-                                )}
-                            </button>
-                        </div>
-                        {isPickingColor && <p className="text-[10px] text-primary animate-pulse text-center">Clique na imagem acima para pegar a cor.</p>}
-                    </div>
-
-                    <div className="space-y-4">
-                        <div>
-                            <div className="flex justify-between items-center mb-2">
-                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                                    <Sliders size={12} /> Tolerância
-                                </label>
-                                <span className="text-xs font-mono text-primary">{tolerance}%</span>
-                            </div>
-                            <input 
-                                type="range" 
-                                min="1" 
-                                max="80" 
-                                value={tolerance} 
-                                onChange={(e) => setTolerance(parseInt(e.target.value))}
-                                className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-primary"
-                            />
-                        </div>
-
-                        <div>
-                            <div className="flex justify-between items-center mb-2">
-                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                                    <Feather size={12} /> Suavidade
-                                </label>
-                                <span className="text-xs font-mono text-primary">{edgeSmoothing}px</span>
-                            </div>
-                            <input 
-                                type="range" 
-                                min="0" 
-                                max="20" 
-                                step="1"
-                                value={edgeSmoothing} 
-                                onChange={(e) => setEdgeSmoothing(parseInt(e.target.value))}
-                                className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-primary"
-                            />
-                        </div>
-                    </div>
-
-                    <button 
-                        onClick={processMagic}
-                        disabled={isProcessing}
-                        className="w-full bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-3.5 rounded-xl transition flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 shadow-md"
-                    >
-                        {isProcessing ? <Loader2 className="animate-spin" size={18} /> : <Eraser size={18} />}
-                        {isProcessing ? 'Processando...' : 'Aplicar Recorte Automático'}
-                    </button>
-
-                    <div className="relative flex py-2 items-center">
-                        <div className="flex-grow border-t border-zinc-700"></div>
-                        <span className="flex-shrink-0 mx-4 text-zinc-500 text-xs uppercase">OU</span>
-                        <div className="flex-grow border-t border-zinc-700"></div>
-                    </div>
-
-                    <button 
-                        onClick={() => openManualEditor(selectedImage)}
-                        className="w-full bg-primary hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-primary/20 transition flex items-center justify-center gap-2 active:scale-95 group"
-                    >
-                        <PenTool size={18} className="group-hover:-translate-y-1 transition-transform" />
-                        Abrir Editor Manual (Caneta)
-                    </button>
+                {/* Opções Secundárias */}
+                <div className="flex flex-col items-center gap-1">
+                  <div className="flex items-center gap-3 text-zinc-500 text-[10px] font-bold bg-zinc-900/50 px-4 py-1.5 rounded-full border border-zinc-800/50">
+                    <Clipboard size={12} className="text-zinc-600" />
+                    <span>Ou aperte <kbd className="px-1.5 py-0.5 bg-zinc-800 rounded text-[9px] font-mono text-orange-500 border border-zinc-700">Ctrl + V</kbd> para colar</span>
+                  </div>
                 </div>
-            )}
-        </div>
+              </div>
 
-        {/* Coluna 2: Resultado */}
-        <div className="lg:col-span-2 bg-[#18181b] border border-zinc-800 rounded-3xl min-h-[500px] lg:h-[700px] flex flex-col items-center justify-center text-center relative overflow-hidden">
-            {/* Background Checkerboard pattern */}
-            <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #27272a 25%, transparent 25%), linear-gradient(-45deg, #27272a 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #27272a 75%), linear-gradient(-45deg, transparent 75%, #27272a 75%)', backgroundSize: '24px 24px', backgroundPosition: '0 0, 0 12px, 12px -12px, -12px 0px' }}></div>
+              {/* Divisor Sutil */}
+              <div className="w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-zinc-800 to-transparent my-1 shrink-0" />
 
-            {processedImage ? (
-                <div className="relative z-10 w-full h-full flex flex-col p-6 animate-fade-in">
-                    <div className="flex-1 flex items-center justify-center relative w-full overflow-hidden min-h-0">
-                        <img src={processedImage} alt="Resultado" className="max-w-full max-h-full object-contain drop-shadow-2xl" />
-                        {/* Botão Flutuante de Backup */}
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); handleDownload(); }}
-                            className="absolute bottom-4 right-4 p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full shadow-lg shadow-black/50 transition transform hover:scale-110 z-20 md:hidden"
-                            title="Baixar Imagem"
-                        >
-                            <Download size={24} />
-                        </button>
+              {/* Seção Informativa Reduzida */}
+              <div className="w-full max-w-4xl text-center px-4 shrink-0">
+                <h3 className="text-base font-bold text-white mb-0.5 font-heading">Por que usar o removedor de fundo?</h3>
+                <p className="text-zinc-400 text-[11px] leading-relaxed max-w-2xl mx-auto mb-2">
+                  Nossa ferramenta utiliza processamento inteligente para identificar o objeto principal e remover o fundo com precisão cirúrgica, ideal para e-commerce, criadores de conteúdo e designers.
+                </p>
+
+                {/* Exemplos de Uso em Duas Linhas */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-w-3xl mx-auto">
+                  {[
+                    { label: "YouTube", icon: <Tv size={14} /> },
+                    { label: "Produtos", icon: <ShoppingBag size={14} /> },
+                    { label: "Logos", icon: <Sparkles size={14} /> },
+                    { label: "Social", icon: <LayoutGrid size={14} /> },
+                    { label: "Slides", icon: <Layers size={14} /> },
+                    { label: "Branding", icon: <Palette size={14} /> }
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center justify-center gap-2 py-1.5 px-3 bg-zinc-900/30 border border-zinc-800/50 rounded-xl text-zinc-400 text-[11px] font-bold hover:bg-zinc-800/50 hover:text-white transition-colors">
+                      {item.icon}
+                      <span>{item.label}</span>
                     </div>
-                    
-                    <div className="mt-6 flex flex-col sm:flex-row justify-center gap-4 shrink-0">
-                        <button 
-                            onClick={handleDownload}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-emerald-900/20 transition flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transform"
-                        >
-                            <Download size={20} /> <span className="whitespace-nowrap">BAIXAR PNG</span>
-                        </button>
-                        
-                        <button 
-                            onClick={() => openManualEditor(processedImage)}
-                            className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-4 rounded-xl font-bold transition flex items-center justify-center gap-2 border border-zinc-700"
-                        >
-                            <Scissors size={20} /> <span className="whitespace-nowrap">Refinar Manualmente</span>
-                        </button>
-                    </div>
+                  ))}
                 </div>
-            ) : (
-                <div className="relative z-10 text-zinc-600 flex flex-col items-center p-8">
-                    <div className="p-6 rounded-full bg-zinc-900 mb-4 border border-zinc-800">
-                        <ImageIcon size={48} className="opacity-50" />
-                    </div>
-                    <h3 className="text-xl font-bold text-zinc-500">Área de Resultado</h3>
-                    <p className="text-zinc-600 text-sm max-w-xs mt-2 mb-6">
-                        O recorte aparecerá aqui.
-                    </p>
-                    
-                    {!selectedImage && (
-                        <div className="flex items-center gap-2 px-4 py-2 bg-zinc-900/50 rounded-lg border border-zinc-800/50">
-                            <Clipboard size={14} />
-                            <span className="text-xs text-zinc-500">Dica: Use Ctrl+V para colar</span>
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="tool-screen"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start h-full overflow-hidden"
+            >
+              {/* Coluna 1: Upload e Preview Original */}
+              <div className="space-y-4 lg:col-span-1 h-full flex flex-col overflow-hidden">
+                  <div className="border-2 border-dashed rounded-2xl h-40 shrink-0 flex flex-col items-center justify-center relative overflow-hidden transition-all group border-zinc-700 bg-zinc-900">
+                      <div 
+                          className={`relative w-full h-full flex items-center justify-center p-3 ${isPickingColor ? 'cursor-crosshair' : ''}`}
+                          onClick={handleMainImageClick}
+                          title={isPickingColor ? "Clique na cor que deseja remover" : ""}
+                      >
+                          <img 
+                              ref={displayImageRef}
+                              src={selectedImage} 
+                              alt="Original" 
+                              className="max-w-full max-h-full object-contain select-none" 
+                          />
+                          {isPickingColor && (
+                              <div className="absolute inset-0 bg-black/10 pointer-events-none flex items-center justify-center">
+                                  <div className="bg-black/80 text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-xl animate-bounce">
+                                      Clique para selecionar a cor
+                                  </div>
+                              </div>
+                          )}
+                          <button 
+                              onClick={(e) => { e.stopPropagation(); setSelectedImage(null); setProcessedImage(null); setCustomColor(null); }}
+                              className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-lg hover:bg-red-500 transition z-20"
+                          >
+                              <X size={14} />
+                          </button>
+                      </div>
+                  </div>
+
+                  {/* Controles Automáticos - Compactos */}
+                  <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl space-y-3 flex-1 overflow-y-auto custom-scrollbar">
+                      <div className="flex justify-between items-center">
+                          <h3 className="text-white font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
+                              <Eraser size={12} className="text-primary" /> Configurações
+                          </h3>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-1">
+                          <button onClick={() => {setRemoveMode('corner'); setIsPickingColor(false);}} className={`py-1.5 text-[9px] font-bold rounded-md transition ${removeMode === 'corner' ? 'bg-zinc-700 text-white' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}>Auto</button>
+                          <button onClick={() => {setRemoveMode('white'); setIsPickingColor(false);}} className={`py-1.5 text-[9px] font-bold rounded-md transition ${removeMode === 'white' ? 'bg-zinc-700 text-white' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}>Branco</button>
+                          <button onClick={() => {setRemoveMode('green'); setIsPickingColor(false);}} className={`py-1.5 text-[9px] font-bold rounded-md transition ${removeMode === 'green' ? 'bg-zinc-700 text-white' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}>Verde</button>
+                          <button 
+                              onClick={() => setIsPickingColor(!isPickingColor)}
+                              className={`py-1.5 flex items-center justify-center rounded-md transition relative overflow-hidden ${isPickingColor || removeMode === 'custom' ? 'bg-primary text-white' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}
+                          >
+                              <Pipette size={12} />
+                              {customColor && (
+                                  <div className="absolute bottom-0 right-0 w-2 h-2" style={{ backgroundColor: `rgb(${customColor.r}, ${customColor.g}, ${customColor.b})` }}></div>
+                              )}
+                          </button>
+                      </div>
+
+                      <div className="space-y-3">
+                          <div className="flex items-center gap-2 p-2 bg-black/40 rounded-lg border border-zinc-800">
+                              <input 
+                                  type="checkbox" 
+                                  id="floodfill"
+                                  checked={useFloodFill}
+                                  onChange={(e) => setUseFloodFill(e.target.checked)}
+                                  className="w-3 h-3 rounded border-zinc-700 text-primary bg-zinc-900"
+                              />
+                              <label htmlFor="floodfill" className="text-[9px] font-bold text-zinc-400 cursor-pointer">
+                                  Apenas bordas conectadas
+                              </label>
+                          </div>
+
+                          <div className="space-y-3">
+                              <div>
+                                  <div className="flex justify-between items-center mb-1">
+                                      <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Sensibilidade</label>
+                                      <span className="text-[10px] font-mono text-primary">{tolerance}%</span>
+                                  </div>
+                                  <input 
+                                      type="range" 
+                                      min="1" max="80" 
+                                      value={tolerance} 
+                                      onChange={(e) => setTolerance(parseInt(e.target.value))}
+                                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-primary"
+                                  />
+                              </div>
+
+                              <div>
+                                  <div className="flex justify-between items-center mb-1">
+                                      <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Suavização</label>
+                                      <span className="text-[10px] font-mono text-primary">{edgeSmoothing}px</span>
+                                  </div>
+                                  <input 
+                                      type="range" 
+                                      min="0" max="10" step="0.5"
+                                      value={edgeSmoothing} 
+                                      onChange={(e) => setEdgeSmoothing(parseFloat(e.target.value))}
+                                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-primary"
+                                  />
+                              </div>
+                          </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-2">
+                          <button 
+                              onClick={processMagic}
+                              disabled={isProcessing}
+                              className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-2 rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 text-[10px]"
+                          >
+                              {isProcessing ? <Loader2 className="animate-spin" size={12} /> : <Eraser size={12} />}
+                              Recorte Auto
+                          </button>
+
+                          <button 
+                              onClick={() => openManualEditor(selectedImage)}
+                              className="bg-primary hover:bg-amber-600 text-white font-bold py-2 rounded-lg transition flex items-center justify-center gap-2 text-[10px]"
+                          >
+                              <PenTool size={12} />
+                              Manual
+                          </button>
+                      </div>
+                  </div>
+              </div>
+
+              {/* Coluna 2: Resultado - Dashboard Style */}
+              <div className="lg:col-span-2 flex flex-col gap-3 h-full overflow-hidden">
+                  <div className="flex items-center justify-between px-2 shrink-0">
+                      <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+                          <ImageIcon size={14} /> {processedImage ? 'Comparação' : 'Resultado'}
+                      </h3>
+                      {processedImage && (
+                          <span className="text-[9px] text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                              Fundo Removido!
+                          </span>
+                      )}
+                  </div>
+                  
+                  <div className="bg-[#18181b] border border-zinc-800 rounded-2xl flex-1 flex flex-col items-center justify-center text-center relative overflow-hidden group/result">
+                      {/* Checkerboard */}
+                      <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #27272a 25%, transparent 25%), linear-gradient(-45deg, #27272a 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #27272a 75%), linear-gradient(-45deg, transparent 75%, #27272a 75%)', backgroundSize: '20px 20px', backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px' }}></div>
+
+                      {processedImage ? (
+                          <div className="relative z-10 w-full h-full flex flex-col p-4 animate-fade-in overflow-hidden">
+                              <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 relative w-full overflow-hidden min-h-0">
+                                  <div className="relative flex flex-col">
+                                      <span className="absolute top-1.5 left-1.5 bg-black/60 text-[8px] font-bold px-1.5 py-0.5 rounded text-zinc-400 z-10 uppercase">Original</span>
+                                      <div className="flex-1 bg-black/40 rounded-xl border border-zinc-800/50 flex items-center justify-center overflow-hidden">
+                                          <img src={selectedImage!} alt="Original" className="max-w-full max-h-full object-contain" />
+                                      </div>
+                                  </div>
+                                  <div className="relative flex flex-col">
+                                      <span className="absolute top-1.5 left-1.5 bg-emerald-500/20 text-[8px] font-bold px-1.5 py-0.5 rounded text-emerald-400 z-10 uppercase">Removido</span>
+                                      <div className="flex-1 bg-black/40 rounded-xl border border-zinc-800/50 flex items-center justify-center overflow-hidden relative">
+                                          <img src={processedImage} alt="Resultado" className="max-w-full max-h-full object-contain drop-shadow-2xl" />
+                                      </div>
+                                  </div>
+                              </div>
+                              
+                              <div className="mt-4 flex flex-col sm:flex-row justify-center gap-2 shrink-0">
+                                  <button 
+                                      onClick={handleDownload}
+                                      className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold shadow-xl shadow-emerald-900/20 transition flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transform text-sm"
+                                  >
+                                      <Download size={18} /> <span className="whitespace-nowrap">Baixar PNG Transparente</span>
+                                  </button>
+                                  
+                                  <button 
+                                      onClick={startRefining}
+                                      className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 border border-zinc-700 text-sm"
+                                  >
+                                      <Eraser size={16} /> <span className="whitespace-nowrap">Refinar</span>
+                                  </button>
+                              </div>
+                          </div>
+                      ) : (
+                          <div className="relative z-10 text-zinc-600 flex flex-col items-center p-6">
+                              <div className="p-4 rounded-full bg-zinc-900 mb-3 border border-zinc-800">
+                                  <ImageIcon size={32} className="opacity-50" />
+                              </div>
+                              <h3 className="text-lg font-bold text-zinc-500">Área de Resultado</h3>
+                              <p className="text-zinc-600 text-xs max-w-xs mt-1 mb-4">
+                                  O recorte aparecerá aqui após o processamento.
+                              </p>
+                          </div>
+                      )}
+                  </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* --- REFINEMENT EDITOR (BRUSH) --- */}
+      {isRefining && selectedImage && (
+          <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col animate-fade-in overflow-hidden h-screen w-screen">
+              <div className="flex-shrink-0 min-h-16 border-b border-zinc-800 bg-[#121215] flex flex-wrap items-center justify-between px-4 py-3 gap-4 z-50 shadow-xl relative w-full">
+                  <div className="flex items-center gap-4 shrink-0 flex-wrap">
+                      <div className="flex items-center gap-2 text-white font-bold shrink-0">
+                          <Eraser className="text-primary" size={20} />
+                          <span>Refinamento com Pincel</span>
+                      </div>
+                      
+                      <div className="h-6 w-px bg-zinc-800 hidden sm:block"></div>
+                      
+                      <div className="flex bg-black/50 p-1 rounded-lg">
+                          <button 
+                            onClick={() => setBrushMode('erase')}
+                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-2 ${brushMode === 'erase' ? 'bg-red-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+                          >
+                              <Eraser size={14} /> Apagar Fundo
+                          </button>
+                          <button 
+                            onClick={() => setBrushMode('restore')}
+                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-2 ${brushMode === 'restore' ? 'bg-emerald-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
+                          >
+                              <RefreshCcw size={14} /> Restaurar Objeto
+                          </button>
+                      </div>
+
+                      <div className="h-6 w-px bg-zinc-800 hidden sm:block"></div>
+
+                      <div className="flex items-center gap-3 bg-black/50 px-3 py-1.5 rounded-lg border border-zinc-800 shrink-0">
+                          <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tamanho</label>
+                          <input 
+                                type="range" 
+                                min="5" 
+                                max="200" 
+                                value={brushSize} 
+                                onChange={(e) => setBrushSize(parseInt(e.target.value))}
+                                className="w-32 h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                            />
+                            <span className="text-[10px] font-mono text-primary w-8">{brushSize}px</span>
+                      </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 ml-auto flex-wrap justify-end">
+                      <button 
+                          onClick={() => setIsRefining(false)}
+                          className="p-2 hover:bg-red-500/10 text-zinc-400 hover:text-red-500 rounded-lg transition"
+                      >
+                          <X size={20} />
+                      </button>
+                      
+                      <div className="h-6 w-px bg-zinc-800 mx-1 hidden sm:block"></div>
+
+                      <button 
+                          onClick={() => setIsRefining(false)}
+                          className="flex items-center gap-2 px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-sm transition shadow-lg shadow-emerald-600/20"
+                      >
+                          <Check size={16} /> Concluir Refinamento
+                      </button>
+                  </div>
+              </div>
+
+              <div className="flex-1 overflow-hidden relative bg-[#18181b] cursor-crosshair w-full h-full flex items-center justify-center p-12">
+                  <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #333 25%, transparent 25%), linear-gradient(-45deg, #333 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #333 75%), linear-gradient(-45deg, transparent 75%, #333 75%)', backgroundSize: '40px 40px' }}></div>
+                  
+                  <div className="relative shadow-2xl max-w-full max-h-full">
+                      <img 
+                        src={selectedImage} 
+                        alt="Refinement Base" 
+                        className="max-w-full max-h-full object-contain opacity-30" 
+                        draggable={false}
+                      />
+                      <canvas 
+                        ref={refinementCanvasRef}
+                        width={maskCanvasRef.current?.width || 800}
+                        height={maskCanvasRef.current?.height || 600}
+                        onMouseDown={handleRefinementMouseDown}
+                        onMouseMove={handleRefinementMouseMove}
+                        onMouseUp={handleRefinementMouseUp}
+                        onMouseLeave={handleRefinementMouseUp}
+                        className="absolute inset-0 w-full h-full object-contain cursor-crosshair"
+                        style={{ imageRendering: 'pixelated' }}
+                      />
+                      {/* Brush Preview */}
+                      <div 
+                        className="pointer-events-none absolute border border-white/50 rounded-full bg-white/10 z-50"
+                        style={{
+                            width: `${brushSize}px`,
+                            height: `${brushSize}px`,
+                            left: `${mousePos.x}px`,
+                            top: `${mousePos.y}px`,
+                            transform: 'translate(-50%, -50%)',
+                            display: isDrawing ? 'none' : 'block'
+                        }}
+                      />
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Seção Informativa Compacta removida pois foi restaurada acima */}
 
       {/* --- EDITOR MANUAL (MODAL FULLSCREEN) --- */}
       {isEditorOpen && editorImageSrc && (
