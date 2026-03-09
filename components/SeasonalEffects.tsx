@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useData } from '../contexts/DataContext';
 
 type Season = 'winter' | 'spring' | 'summer' | 'autumn' | 'off';
 
 export const SeasonalEffects = () => {
+  const { showSeasonalEffect } = useData();
   const [season, setSeason] = useState<Season>('off');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number | null>(null);
@@ -14,8 +16,8 @@ export const SeasonalEffects = () => {
 
   // Detecta estação inicial
   useEffect(() => {
-    // Se estiver no editor de fontes, desliga efeitos
-    if (location.pathname.includes('/font-editor')) {
+    // Se estiver no editor de fontes ou se o efeito estiver desativado, desliga efeitos
+    if (location.pathname.includes('/font-editor') || !showSeasonalEffect) {
         setSeason('off');
         return;
     }
@@ -25,7 +27,7 @@ export const SeasonalEffects = () => {
     else if (month >= 2 && month <= 4) setSeason('autumn');
     else if (month >= 5 && month <= 7) setSeason('winter');
     else setSeason('spring');
-  }, [location.pathname]); // Reexecuta ao mudar de rota
+  }, [location.pathname, showSeasonalEffect]); // Reexecuta ao mudar de rota
 
   // Atualiza Variáveis CSS Globais
   useEffect(() => {

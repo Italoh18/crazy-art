@@ -80,6 +80,17 @@ export default function BackgroundRemover() {
   const editorImageRef = useRef<HTMLImageElement>(null);
   const displayImageRef = useRef<HTMLImageElement>(null); 
 
+  // --- Estados Edição Final ---
+  const [editMode, setEditMode] = useState<'none' | 'background' | 'text' | 'emoji'>('none');
+  const [bgType, setBgType] = useState<'color' | 'image'>('color');
+  const [bgColor, setBgColor] = useState('#ffffff');
+  const [bgImage, setBgImage] = useState<string | null>(null);
+  const [addedTexts, setAddedTexts] = useState<{id: string, text: string, x: number, y: number, size: number, color: string}[]>([]);
+  const [addedEmojis, setAddedEmojis] = useState<{id: string, emoji: string, x: number, y: number, size: number}[]>([]);
+  const [selectedElement, setSelectedElement] = useState<{type: 'text' | 'emoji', id: string} | null>(null);
+  const [isDraggingElement, setIsDraggingElement] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
   // --- 1. Lógica Global: Colar Imagem (Ctrl+V) ---
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
@@ -366,8 +377,13 @@ export default function BackgroundRemover() {
     if (!canvas || !mCanvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    
+    // Calcula a escala real entre o canvas exibido e o tamanho natural da máscara
+    const scaleX = mCanvas.width / rect.width;
+    const scaleY = mCanvas.height / rect.height;
+
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
     const mCtx = mCanvas.getContext('2d');
     if (!mCtx) return;
@@ -701,11 +717,11 @@ export default function BackgroundRemover() {
             <div className="w-9 h-9 bg-primary/20 rounded-xl flex items-center justify-center text-primary">
                 <Scissors size={22} />
             </div>
-            <h1 className="text-2xl md:text-4xl font-black tracking-tighter bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent font-heading">
+            <h1 className="text-4xl md:text-6xl font-black tracking-tighter bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent font-heading">
                 Remover Fundo de Imagem
             </h1>
         </div>
-        <p className="text-zinc-400 text-xs md:text-sm font-medium max-w-2xl mx-auto">
+        <p className="text-zinc-400 text-sm md:text-lg font-medium max-w-2xl mx-auto">
             Remova o fundo de qualquer imagem instantaneamente e de graça.
         </p>
       </div>
@@ -761,26 +777,26 @@ export default function BackgroundRemover() {
                         variants={{
                           hover: { y: -15, rotate: -15, scale: 1.1, x: -5 }
                         }}
-                        className="hidden md:flex w-16 h-24 bg-zinc-800/80 border border-zinc-700 rounded-xl flex-col items-center justify-center shadow-xl transform -rotate-6 shrink-0 transition-all duration-500"
+                        className="hidden md:flex w-24 h-32 bg-zinc-800/80 border border-zinc-700 rounded-xl flex-col items-center justify-center shadow-xl transform -rotate-6 shrink-0 transition-all duration-500"
                       >
-                        <span className="text-[10px] font-black text-zinc-500 uppercase mb-1">.jpg</span>
-                        <ImageIcon size={24} className="text-zinc-600" />
+                        <span className="text-[12px] font-black text-zinc-500 uppercase mb-2">.jpg</span>
+                        <ImageIcon size={32} className="text-zinc-600" />
                       </motion.div>
 
                       {/* Texto Central */}
-                      <div className="flex flex-col items-center text-center gap-1 flex-1">
+                      <div className="flex flex-col items-center text-center gap-2 flex-1">
                         <motion.div 
                           variants={{
                             hover: { scale: 1.1, rotate: 5, y: -5 }
                           }}
-                          className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-orange-500/20 mb-0.5"
+                          className="w-14 h-14 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-orange-500/20 mb-1"
                         >
-                          <Upload size={18} />
+                          <Upload size={24} />
                         </motion.div>
-                        <h2 className="text-base md:text-lg font-black text-white tracking-tight">
+                        <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">
                           Jogue sua imagem aqui
                         </h2>
-                        <p className="text-zinc-500 text-[9px] font-medium">
+                        <p className="text-zinc-500 text-xs font-medium">
                           ou clique para selecionar um arquivo
                         </p>
                       </div>
@@ -790,10 +806,10 @@ export default function BackgroundRemover() {
                         variants={{
                           hover: { y: -15, rotate: 15, scale: 1.1, x: 5 }
                         }}
-                        className="hidden md:flex w-16 h-24 bg-zinc-800/80 border border-zinc-700 rounded-xl flex-col items-center justify-center shadow-xl transform rotate-6 shrink-0 transition-all duration-500"
+                        className="hidden md:flex w-24 h-32 bg-zinc-800/80 border border-zinc-700 rounded-xl flex-col items-center justify-center shadow-xl transform rotate-6 shrink-0 transition-all duration-500"
                       >
-                        <span className="text-[10px] font-black text-zinc-500 uppercase mb-1">.png</span>
-                        <ImageIcon size={24} className="text-zinc-600" />
+                        <span className="text-[12px] font-black text-zinc-500 uppercase mb-2">.png</span>
+                        <ImageIcon size={32} className="text-zinc-600" />
                       </motion.div>
                     </div>
 
@@ -849,167 +865,216 @@ export default function BackgroundRemover() {
               key="tool-screen"
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start h-full overflow-hidden"
+              className="flex flex-col gap-4 h-full overflow-hidden"
             >
-              {/* Coluna 1: Upload e Preview Original */}
-              <div className="space-y-4 lg:col-span-1 h-full flex flex-col overflow-hidden">
-                  <div className="border-2 border-dashed rounded-2xl h-40 shrink-0 flex flex-col items-center justify-center relative overflow-hidden transition-all group border-zinc-700 bg-zinc-900">
-                      <div 
-                          className={`relative w-full h-full flex items-center justify-center p-3 ${isPickingColor ? 'cursor-crosshair' : ''}`}
-                          onClick={handleMainImageClick}
-                          title={isPickingColor ? "Clique na cor que deseja remover" : ""}
-                      >
-                          <img 
-                              ref={displayImageRef}
-                              src={selectedImage} 
-                              alt="Original" 
-                              className="max-w-full max-h-full object-contain select-none" 
-                          />
-                          {isPickingColor && (
-                              <div className="absolute inset-0 bg-black/10 pointer-events-none flex items-center justify-center">
-                                  <div className="bg-black/80 text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-xl animate-bounce">
-                                      Clique para selecionar a cor
-                                  </div>
-                              </div>
-                          )}
-                          <button 
-                              onClick={(e) => { e.stopPropagation(); setSelectedImage(null); setProcessedImage(null); setCustomColor(null); }}
-                              className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-lg hover:bg-red-500 transition z-20"
-                          >
-                              <X size={14} />
-                          </button>
-                      </div>
-                  </div>
+              {/* Top Section: Thumbnail and Settings Side-by-Side */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
+                {/* Thumbnail Original */}
+                <div className="border-2 border-dashed rounded-2xl h-48 flex flex-col items-center justify-center relative overflow-hidden transition-all group border-zinc-700 bg-zinc-900">
+                    <div 
+                        className={`relative w-full h-full flex items-center justify-center p-3 ${isPickingColor ? 'cursor-crosshair' : ''}`}
+                        onClick={handleMainImageClick}
+                        title={isPickingColor ? "Clique na cor que deseja remover" : ""}
+                    >
+                        <img 
+                            ref={displayImageRef}
+                            src={selectedImage} 
+                            alt="Original" 
+                            className="max-w-full max-h-full object-contain select-none" 
+                        />
+                        {isPickingColor && (
+                            <div className="absolute inset-0 bg-black/10 pointer-events-none flex items-center justify-center">
+                                <div className="bg-black/80 text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-xl animate-bounce">
+                                    Clique para selecionar a cor
+                                </div>
+                            </div>
+                        )}
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); setSelectedImage(null); setProcessedImage(null); setCustomColor(null); }}
+                            className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-lg hover:bg-red-500 transition z-20"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                </div>
 
-                  {/* Controles Automáticos - Compactos */}
-                  <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl space-y-3 flex-1 overflow-y-auto custom-scrollbar">
-                      <div className="flex justify-between items-center">
-                          <h3 className="text-white font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
-                              <Eraser size={12} className="text-primary" /> Configurações
-                          </h3>
-                      </div>
+                {/* Configurações */}
+                <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl space-y-3 flex flex-col justify-center">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-white font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
+                            <Eraser size={12} className="text-primary" /> Configurações de Remoção
+                        </h3>
+                    </div>
 
-                      <div className="grid grid-cols-4 gap-1">
-                          <button onClick={() => {setRemoveMode('corner'); setIsPickingColor(false);}} className={`py-1.5 text-[9px] font-bold rounded-md transition ${removeMode === 'corner' ? 'bg-zinc-700 text-white' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}>Auto</button>
-                          <button onClick={() => {setRemoveMode('white'); setIsPickingColor(false);}} className={`py-1.5 text-[9px] font-bold rounded-md transition ${removeMode === 'white' ? 'bg-zinc-700 text-white' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}>Branco</button>
-                          <button onClick={() => {setRemoveMode('green'); setIsPickingColor(false);}} className={`py-1.5 text-[9px] font-bold rounded-md transition ${removeMode === 'green' ? 'bg-zinc-700 text-white' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}>Verde</button>
-                          <button 
-                              onClick={() => setIsPickingColor(!isPickingColor)}
-                              className={`py-1.5 flex items-center justify-center rounded-md transition relative overflow-hidden ${isPickingColor || removeMode === 'custom' ? 'bg-primary text-white' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}
-                          >
-                              <Pipette size={12} />
-                              {customColor && (
-                                  <div className="absolute bottom-0 right-0 w-2 h-2" style={{ backgroundColor: `rgb(${customColor.r}, ${customColor.g}, ${customColor.b})` }}></div>
-                              )}
-                          </button>
-                      </div>
+                    <div className="grid grid-cols-4 gap-1">
+                        <button onClick={() => {setRemoveMode('corner'); setIsPickingColor(false);}} className={`py-1.5 text-[9px] font-bold rounded-md transition ${removeMode === 'corner' ? 'bg-zinc-700 text-white' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}>Auto</button>
+                        <button onClick={() => {setRemoveMode('white'); setIsPickingColor(false);}} className={`py-1.5 text-[9px] font-bold rounded-md transition ${removeMode === 'white' ? 'bg-zinc-700 text-white' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}>Branco</button>
+                        <button onClick={() => {setRemoveMode('green'); setIsPickingColor(false);}} className={`py-1.5 text-[9px] font-bold rounded-md transition ${removeMode === 'green' ? 'bg-zinc-700 text-white' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}>Verde</button>
+                        <button 
+                            onClick={() => setIsPickingColor(!isPickingColor)}
+                            className={`py-1.5 flex items-center justify-center rounded-md transition relative overflow-hidden ${isPickingColor || removeMode === 'custom' ? 'bg-primary text-white' : 'bg-zinc-950 text-zinc-500 hover:text-white'}`}
+                        >
+                            <Pipette size={12} />
+                            {customColor && (
+                                <div className="absolute bottom-0 right-0 w-2 h-2" style={{ backgroundColor: `rgb(${customColor.r}, ${customColor.g}, ${customColor.b})` }}></div>
+                            )}
+                        </button>
+                    </div>
 
-                      <div className="space-y-3">
-                          <div className="flex items-center gap-2 p-2 bg-black/40 rounded-lg border border-zinc-800">
-                              <input 
-                                  type="checkbox" 
-                                  id="floodfill"
-                                  checked={useFloodFill}
-                                  onChange={(e) => setUseFloodFill(e.target.checked)}
-                                  className="w-3 h-3 rounded border-zinc-700 text-primary bg-zinc-900"
-                              />
-                              <label htmlFor="floodfill" className="text-[9px] font-bold text-zinc-400 cursor-pointer">
-                                  Apenas bordas conectadas
-                              </label>
-                          </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Sensibilidade</label>
+                                <span className="text-[10px] font-mono text-primary">{tolerance}%</span>
+                            </div>
+                            <input 
+                                type="range" 
+                                min="1" max="80" 
+                                value={tolerance} 
+                                onChange={(e) => setTolerance(parseInt(e.target.value))}
+                                className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-primary"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Suavização</label>
+                                <span className="text-[10px] font-mono text-primary">{edgeSmoothing}px</span>
+                            </div>
+                            <input 
+                                type="range" 
+                                min="0" max="10" step="0.5"
+                                value={edgeSmoothing} 
+                                onChange={(e) => setEdgeSmoothing(parseFloat(e.target.value))}
+                                className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-primary"
+                            />
+                        </div>
+                    </div>
 
-                          <div className="space-y-3">
-                              <div>
-                                  <div className="flex justify-between items-center mb-1">
-                                      <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Sensibilidade</label>
-                                      <span className="text-[10px] font-mono text-primary">{tolerance}%</span>
-                                  </div>
-                                  <input 
-                                      type="range" 
-                                      min="1" max="80" 
-                                      value={tolerance} 
-                                      onChange={(e) => setTolerance(parseInt(e.target.value))}
-                                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-primary"
-                                  />
-                              </div>
+                    <div className="grid grid-cols-2 gap-2 pt-2">
+                        <button 
+                            onClick={processMagic}
+                            disabled={isProcessing}
+                            className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-2 rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 text-[10px]"
+                        >
+                            {isProcessing ? <Loader2 className="animate-spin" size={12} /> : <Eraser size={12} />}
+                            Recorte Auto
+                        </button>
 
-                              <div>
-                                  <div className="flex justify-between items-center mb-1">
-                                      <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Suavização</label>
-                                      <span className="text-[10px] font-mono text-primary">{edgeSmoothing}px</span>
-                                  </div>
-                                  <input 
-                                      type="range" 
-                                      min="0" max="10" step="0.5"
-                                      value={edgeSmoothing} 
-                                      onChange={(e) => setEdgeSmoothing(parseFloat(e.target.value))}
-                                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-primary"
-                                  />
-                              </div>
-                          </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 pt-2">
-                          <button 
-                              onClick={processMagic}
-                              disabled={isProcessing}
-                              className="bg-zinc-700 hover:bg-zinc-600 text-white font-bold py-2 rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 text-[10px]"
-                          >
-                              {isProcessing ? <Loader2 className="animate-spin" size={12} /> : <Eraser size={12} />}
-                              Recorte Auto
-                          </button>
-
-                          <button 
-                              onClick={() => openManualEditor(selectedImage)}
-                              className="bg-primary hover:bg-amber-600 text-white font-bold py-2 rounded-lg transition flex items-center justify-center gap-2 text-[10px]"
-                          >
-                              <PenTool size={12} />
-                              Manual
-                          </button>
-                      </div>
-                  </div>
+                        <button 
+                            onClick={() => openManualEditor(selectedImage!)}
+                            className="bg-primary hover:bg-amber-600 text-white font-bold py-2 rounded-lg transition flex items-center justify-center gap-2 text-[10px]"
+                        >
+                            <PenTool size={12} />
+                            Manual
+                        </button>
+                    </div>
+                </div>
               </div>
 
-              {/* Coluna 2: Resultado - Dashboard Style */}
-              <div className="lg:col-span-2 flex flex-col gap-3 h-full overflow-hidden">
+              {/* Bottom Section: Visualization and Editing */}
+              <div className="flex-1 flex flex-col gap-3 overflow-hidden">
                   <div className="flex items-center justify-between px-2 shrink-0">
                       <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-                          <ImageIcon size={14} /> {processedImage ? 'Comparação' : 'Resultado'}
+                          <ImageIcon size={14} /> Visualização do Recorte
                       </h3>
-                      {processedImage && (
-                          <span className="text-[9px] text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                              Fundo Removido!
-                          </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => setEditMode(editMode === 'background' ? 'none' : 'background')}
+                            className={`px-3 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-2 ${editMode === 'background' ? 'bg-primary text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+                          >
+                            <Palette size={12} /> Fundo
+                          </button>
+                          <button 
+                            onClick={() => setEditMode(editMode === 'text' ? 'none' : 'text')}
+                            className={`px-3 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-2 ${editMode === 'text' ? 'bg-primary text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+                          >
+                            <span className="font-serif">T</span> Texto
+                          </button>
+                          <button 
+                            onClick={() => setEditMode(editMode === 'emoji' ? 'none' : 'emoji')}
+                            className={`px-3 py-1 rounded-full text-[10px] font-bold transition flex items-center gap-2 ${editMode === 'emoji' ? 'bg-primary text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+                          >
+                            <span>😊</span> Emoji
+                          </button>
+                      </div>
                   </div>
                   
                   <div className="bg-[#18181b] border border-zinc-800 rounded-2xl flex-1 flex flex-col items-center justify-center text-center relative overflow-hidden group/result">
-                      {/* Checkerboard */}
-                      <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #27272a 25%, transparent 25%), linear-gradient(-45deg, #27272a 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #27272a 75%), linear-gradient(-45deg, transparent 75%, #27272a 75%)', backgroundSize: '20px 20px', backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px' }}></div>
+                      {/* Checkerboard (Only if no background is set) */}
+                      {!bgImage && bgType !== 'color' && (
+                        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #27272a 25%, transparent 25%), linear-gradient(-45deg, #27272a 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #27272a 75%), linear-gradient(-45deg, transparent 75%, #27272a 75%)', backgroundSize: '20px 20px', backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px' }}></div>
+                      )}
+
+                      {/* Custom Background */}
+                      {bgType === 'color' && (
+                        <div className="absolute inset-0" style={{ backgroundColor: bgColor }}></div>
+                      )}
+                      {bgType === 'image' && bgImage && (
+                        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${bgImage})` }}></div>
+                      )}
 
                       {processedImage ? (
-                          <div className="relative z-10 w-full h-full flex flex-col p-4 animate-fade-in overflow-hidden">
-                              <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 relative w-full overflow-hidden min-h-0">
-                                  <div className="relative flex flex-col">
-                                      <span className="absolute top-1.5 left-1.5 bg-black/60 text-[8px] font-bold px-1.5 py-0.5 rounded text-zinc-400 z-10 uppercase">Original</span>
-                                      <div className="flex-1 bg-black/40 rounded-xl border border-zinc-800/50 flex items-center justify-center overflow-hidden">
-                                          <img src={selectedImage!} alt="Original" className="max-w-full max-h-full object-contain" />
-                                      </div>
-                                  </div>
-                                  <div className="relative flex flex-col">
-                                      <span className="absolute top-1.5 left-1.5 bg-emerald-500/20 text-[8px] font-bold px-1.5 py-0.5 rounded text-emerald-400 z-10 uppercase">Removido</span>
-                                      <div className="flex-1 bg-black/40 rounded-xl border border-zinc-800/50 flex items-center justify-center overflow-hidden relative">
-                                          <img src={processedImage} alt="Resultado" className="max-w-full max-h-full object-contain drop-shadow-2xl" />
-                                      </div>
-                                  </div>
+                          <div 
+                            className="relative z-10 w-full h-full flex flex-col p-4 animate-fade-in overflow-hidden"
+                            onMouseMove={(e) => {
+                                if (isDraggingElement && selectedElement) {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const x = e.clientX - rect.left - dragOffset.x;
+                                    const y = e.clientY - rect.top - dragOffset.y;
+                                    
+                                    if (selectedElement.type === 'text') {
+                                        setAddedTexts(prev => prev.map(t => t.id === selectedElement.id ? { ...t, x, y } : t));
+                                    } else {
+                                        setAddedEmojis(prev => prev.map(em => em.id === selectedElement.id ? { ...em, x, y } : em));
+                                    }
+                                }
+                            }}
+                            onMouseUp={() => setIsDraggingElement(false)}
+                          >
+                              <div className="flex-1 relative w-full overflow-hidden min-h-0 flex items-center justify-center">
+                                  <img src={processedImage} alt="Resultado" className="max-w-full max-h-full object-contain drop-shadow-2xl relative z-10" />
+                                  
+                                  {/* Added Texts */}
+                                  {addedTexts.map(t => (
+                                    <div 
+                                        key={t.id}
+                                        style={{ left: t.x, top: t.y, fontSize: `${t.size}px`, color: t.color, position: 'absolute', cursor: 'move', zIndex: 20 }}
+                                        onMouseDown={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedElement({ type: 'text', id: t.id });
+                                            setIsDraggingElement(true);
+                                            setDragOffset({ x: e.clientX - e.currentTarget.getBoundingClientRect().left, y: e.clientY - e.currentTarget.getBoundingClientRect().top });
+                                        }}
+                                        className={`select-none ${selectedElement?.id === t.id ? 'ring-2 ring-primary ring-offset-2 ring-offset-black' : ''}`}
+                                    >
+                                        {t.text}
+                                    </div>
+                                  ))}
+
+                                  {/* Added Emojis */}
+                                  {addedEmojis.map(em => (
+                                    <div 
+                                        key={em.id}
+                                        style={{ left: em.x, top: em.y, fontSize: `${em.size}px`, position: 'absolute', cursor: 'move', zIndex: 20 }}
+                                        onMouseDown={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedElement({ type: 'emoji', id: em.id });
+                                            setIsDraggingElement(true);
+                                            setDragOffset({ x: e.clientX - e.currentTarget.getBoundingClientRect().left, y: e.clientY - e.currentTarget.getBoundingClientRect().top });
+                                        }}
+                                        className={`select-none ${selectedElement?.id === em.id ? 'ring-2 ring-primary ring-offset-2 ring-offset-black' : ''}`}
+                                    >
+                                        {em.emoji}
+                                    </div>
+                                  ))}
                               </div>
                               
-                              <div className="mt-4 flex flex-col sm:flex-row justify-center gap-2 shrink-0">
+                              <div className="mt-4 flex flex-col sm:flex-row justify-center gap-2 shrink-0 z-30">
                                   <button 
                                       onClick={handleDownload}
                                       className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold shadow-xl shadow-emerald-900/20 transition flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transform text-sm"
                                   >
-                                      <Download size={18} /> <span className="whitespace-nowrap">Baixar PNG Transparente</span>
+                                      <Download size={18} /> <span className="whitespace-nowrap">Baixar PNG</span>
                                   </button>
                                   
                                   <button 
@@ -1019,6 +1084,93 @@ export default function BackgroundRemover() {
                                       <Eraser size={16} /> <span className="whitespace-nowrap">Refinar</span>
                                   </button>
                               </div>
+
+                              {/* Edit Panels */}
+                              <AnimatePresence>
+                                {editMode === 'background' && (
+                                    <motion.div 
+                                        initial={{ y: 50, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        exit={{ y: 50, opacity: 0 }}
+                                        className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-800 p-4 rounded-2xl shadow-2xl z-40 flex flex-col gap-3 w-80"
+                                    >
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[10px] font-bold text-zinc-500 uppercase">Fundo</span>
+                                            <button onClick={() => setEditMode('none')}><X size={14} /></button>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => setBgType('color')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold ${bgType === 'color' ? 'bg-primary text-white' : 'bg-zinc-800 text-zinc-400'}`}>Cor</button>
+                                            <button onClick={() => setBgType('image')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold ${bgType === 'image' ? 'bg-primary text-white' : 'bg-zinc-800 text-zinc-400'}`}>Imagem</button>
+                                        </div>
+                                        {bgType === 'color' ? (
+                                            <input type="color" value={bgColor} onChange={(e) => setBgColor(e.target.value)} className="w-full h-10 bg-transparent cursor-pointer" />
+                                        ) : (
+                                            <input type="file" accept="image/*" onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onload = (ev) => setBgImage(ev.target?.result as string);
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            }} className="text-xs text-zinc-500" />
+                                        )}
+                                    </motion.div>
+                                )}
+
+                                {editMode === 'text' && (
+                                    <motion.div 
+                                        initial={{ y: 50, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        exit={{ y: 50, opacity: 0 }}
+                                        className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-800 p-4 rounded-2xl shadow-2xl z-40 flex flex-col gap-3 w-80"
+                                    >
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[10px] font-bold text-zinc-500 uppercase">Adicionar Texto</span>
+                                            <button onClick={() => setEditMode('none')}><X size={14} /></button>
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            placeholder="Digite aqui..." 
+                                            className="bg-black border border-zinc-800 rounded-lg p-2 text-sm text-white"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    const val = (e.target as HTMLInputElement).value;
+                                                    if (val) {
+                                                        setAddedTexts(prev => [...prev, { id: Math.random().toString(), text: val, x: 50, y: 50, size: 32, color: '#ffffff' }]);
+                                                        (e.target as HTMLInputElement).value = '';
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                        <p className="text-[9px] text-zinc-500">Pressione Enter para adicionar</p>
+                                    </motion.div>
+                                )}
+
+                                {editMode === 'emoji' && (
+                                    <motion.div 
+                                        initial={{ y: 50, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        exit={{ y: 50, opacity: 0 }}
+                                        className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-800 p-4 rounded-2xl shadow-2xl z-40 flex flex-col gap-3 w-80"
+                                    >
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[10px] font-bold text-zinc-500 uppercase">Emoji</span>
+                                            <button onClick={() => setEditMode('none')}><X size={14} /></button>
+                                        </div>
+                                        <div className="grid grid-cols-6 gap-2">
+                                            {['😊', '🔥', '✨', '🚀', '❤️', '👍', '🎨', '📸', '🌟', '💎', '🌈', '⚡'].map(emoji => (
+                                                <button 
+                                                    key={emoji} 
+                                                    onClick={() => setAddedEmojis(prev => [...prev, { id: Math.random().toString(), emoji, x: 50, y: 50, size: 48 }])}
+                                                    className="text-2xl hover:scale-125 transition-transform"
+                                                >
+                                                    {emoji}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </motion.div>
+                                )}
+                              </AnimatePresence>
                           </div>
                       ) : (
                           <div className="relative z-10 text-zinc-600 flex flex-col items-center p-6">

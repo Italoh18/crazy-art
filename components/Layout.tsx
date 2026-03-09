@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid, TrendingUp, ShoppingCart } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
+import { useData } from '../contexts/DataContext';
 import { SeasonalEffects } from './SeasonalEffects';
 import { StickManCleaner } from './StickManCleaner';
 import { CosmicPulseSystem } from './CosmicPulseSystem';
@@ -20,6 +21,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const navigate = useNavigate();
   const { role, logout, currentCustomer } = useAuth();
   const { cartCount } = useCart();
+  const { showSeasonalEffect, setShowSeasonalEffect } = useData();
   const userMenuRef = useRef<HTMLDivElement>(null);
   
   const CartButton = () => {
@@ -120,6 +122,16 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
         <main key={location.pathname} className="flex-1 animate-page-enter">
             {children}
         </main>
+        {location.pathname === '/' && (
+          <button 
+            onClick={() => setShowSeasonalEffect(!showSeasonalEffect)}
+            className="fixed bottom-6 right-[92px] z-[9999] w-14 h-14 flex items-center justify-center bg-zinc-800 backdrop-blur-md border border-white/10 rounded-full text-zinc-400 hover:text-white transition-all hover:scale-110 active:scale-95 group shadow-2xl"
+            style={{ position: 'fixed', bottom: '24px', right: '92px' }}
+            title={showSeasonalEffect ? "Desativar efeitos de estação" : "Ativar efeitos de estação"}
+          >
+            <Sparkles size={24} className={`${showSeasonalEffect ? 'text-primary animate-spin' : 'text-zinc-600'}`} />
+          </button>
+        )}
         <VirtualAssistant />
         <Footer />
       </div>
@@ -276,6 +288,16 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             <main key={location.pathname} className={`flex-1 ${!isHomePage ? 'pt-24 p-6 max-w-7xl mx-auto w-full' : ''} animate-page-enter`}>
                 {children}
             </main>
+            {isHomePage && (
+              <button 
+                onClick={() => setShowSeasonalEffect(!showSeasonalEffect)}
+                className="fixed bottom-6 right-[92px] z-[9999] w-14 h-14 flex items-center justify-center bg-zinc-800 backdrop-blur-md border border-white/10 rounded-full text-zinc-400 hover:text-white transition-all hover:scale-110 active:scale-95 group shadow-2xl"
+                style={{ position: 'fixed', bottom: '24px', right: '92px' }}
+                title={showSeasonalEffect ? "Desativar efeitos de estação" : "Ativar efeitos de estação"}
+              >
+                <Sparkles size={24} className={`${showSeasonalEffect ? 'text-primary animate-spin' : 'text-zinc-600'}`} />
+              </button>
+            )}
             <VirtualAssistant />
             <Footer />
         </div>
@@ -389,6 +411,16 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
           <div className="max-w-7xl mx-auto">
             {children}
           </div>
+          {location.pathname === '/' && (
+            <button 
+              onClick={() => setShowSeasonalEffect(!showSeasonalEffect)}
+              className="fixed bottom-6 right-[92px] z-[9999] w-14 h-14 flex items-center justify-center bg-zinc-800 backdrop-blur-md border border-white/10 rounded-full text-zinc-400 hover:text-white transition-all hover:scale-110 active:scale-95 group shadow-2xl"
+              style={{ position: 'fixed', bottom: '24px', right: '92px' }}
+              title={showSeasonalEffect ? "Desativar efeitos de estação" : "Ativar efeitos de estação"}
+            >
+              <Sparkles size={24} className={`${showSeasonalEffect ? 'text-primary animate-spin' : 'text-zinc-600'}`} />
+            </button>
+          )}
           <div className="max-w-7xl mx-auto mt-10">
               <Footer />
           </div>

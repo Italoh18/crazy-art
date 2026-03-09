@@ -14,7 +14,6 @@ export default function Home() {
   const [inputValue, setInputValue] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showSeasonalEffect, setShowSeasonalEffect] = useState(true);
   const [error, setError] = useState('');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [gameMode, setGameMode] = useState(false);
@@ -29,7 +28,7 @@ export default function Home() {
   });
   
   const { loginAdmin, loginClient, role, logout, currentCustomer } = useAuth();
-  const { carouselImages, addCustomer, trustedCompanies, faviconUrl } = useData();
+  const { carouselImages, addCustomer, trustedCompanies, faviconUrl, showSeasonalEffect } = useData();
   const navigate = useNavigate();
   const location = useLocation();
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -228,17 +227,7 @@ export default function Home() {
   const headerFont = { fontFamily: '"Times New Roman", Times, serif' };
 
   return (
-    <div className={`min-h-screen bg-zinc-950 text-text flex flex-col relative overflow-x-hidden ${!showSeasonalEffect ? 'no-seasonal' : ''}`}>
-      {showSeasonalEffect && (
-        <button 
-          onClick={() => setShowSeasonalEffect(false)}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] p-3 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-zinc-500 hover:text-white transition-all hover:scale-110 active:scale-95 group flex items-center gap-2"
-          title="Desativar efeitos de estação"
-        >
-          <Sparkles size={16} className="text-primary group-hover:animate-spin" />
-          <span className="text-[10px] font-bold uppercase tracking-widest overflow-hidden w-0 group-hover:w-24 transition-all duration-300 whitespace-nowrap">Parar Efeito</span>
-        </button>
-      )}
+    <div className="min-h-screen bg-zinc-950 text-text flex flex-col relative overflow-x-hidden">
       <div className="fixed top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none transform-gpu">
         <div className="absolute top-[-10%] left-[10%] w-[300px] h-[300px] bg-yellow-500/5 rounded-full blur-[60px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-red-600/5 rounded-full blur-[80px]"></div>

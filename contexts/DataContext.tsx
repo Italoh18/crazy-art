@@ -37,6 +37,8 @@ interface DataContextType {
   driveFiles: any[];
   addDriveFile: (data: any) => Promise<void>;
   deleteDriveFile: (id: string) => Promise<void>;
+  showSeasonalEffect: boolean;
+  setShowSeasonalEffect: (show: boolean) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -65,6 +67,14 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
   const [driveFiles, setDriveFiles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showSeasonalEffect, setShowSeasonalEffect] = useState(() => {
+    const saved = localStorage.getItem('show_seasonal_effect');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('show_seasonal_effect', JSON.stringify(showSeasonalEffect));
+  }, [showSeasonalEffect]);
 
   const loadData = async (silent = false) => {
     const token = localStorage.getItem('auth_token');
@@ -343,7 +353,8 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       addTrustedCompany, deleteTrustedCompany,
       addCoupon, deleteCoupon, validateCoupon, loadCoupons,
       updateFavicon, loadData,
-      driveFiles, loadDriveFiles, addDriveFile, deleteDriveFile
+      driveFiles, loadDriveFiles, addDriveFile, deleteDriveFile,
+      showSeasonalEffect, setShowSeasonalEffect
     }}>
       {children}
     </DataContext.Provider>
