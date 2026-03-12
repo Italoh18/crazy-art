@@ -343,13 +343,16 @@ export default function CustomerDetails() {
   const handleWhatsAppOverdue = () => {
     if (!customer || _overdueOrders.length === 0) return;
 
-    let message = `Olá, ${customer.name},\nnotamos que existem pendencias vencidas em seu cadastro.\n`;
+    const firstName = customer.name.split(' ')[0];
+    let message = "```";
+    message += `Olá, ${firstName},\nnotamos que existem pendencias vencidas em seu cadastro.\n`;
     
     _overdueOrders.forEach(order => {
         message += `Pedido #${order.formattedOrderNumber || order.order_number} valor = R$ ${Number(order.total || 0).toFixed(2)}\n`;
     });
 
     message += `\nPara regularizar so acessar seu cadastro no site crazyart.com.br e ir até a area de meus pedidos.\nQualquer duvida so perguntar a nossa assistente virtual.\nObrigado pela compreensão.`;
+    message += "```";
 
     const encodedMessage = encodeURIComponent(message);
     const phoneNumber = customer.phone.replace(/\D/g, '');
