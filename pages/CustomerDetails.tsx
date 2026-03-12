@@ -8,7 +8,7 @@ import {
   CheckCircle, AlertTriangle, Trash2, Edit, Plus, X, 
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
   Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal,
-  Coins, Lock, RotateCcw, CloudDownload, Sparkles, ChevronRight, Upload
+  Coins, Lock, RotateCcw, CloudDownload, Sparkles, ChevronRight, Upload, MessageCircle
 } from 'lucide-react';
 import { api } from '../src/services/api';
 import { SizeListItem, Order } from '../types';
@@ -338,6 +338,22 @@ export default function CustomerDetails() {
       }
 
       executePayment(pendingPaymentData.ids, finalAmount, pendingPaymentData.title);
+  };
+
+  const handleWhatsAppOverdue = () => {
+    if (!customer || _overdueOrders.length === 0) return;
+
+    let message = `Olá, ${customer.name},\nnotamos que existem pendencias vencidas em seu cadastro.\n`;
+    
+    _overdueOrders.forEach(order => {
+        message += `Pedido #${order.formattedOrderNumber || order.order_number} valor = R$ ${Number(order.total || 0).toFixed(2)}\n`;
+    });
+
+    message += `\nPara regularizar so acessar seu cadastro no site crazyart.com.br e ir até a area de meus pedidos.\nQualquer duvida so perguntar a nossa assistente virtual.\nObrigado pela compreensão.`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const phoneNumber = customer.phone.replace(/\D/g, '');
+    window.open(`https://wa.me/55${phoneNumber}?text=${encodedMessage}`, '_blank');
   };
 
   const handleManualPayment = async (orderId: string) => {
@@ -934,6 +950,14 @@ export default function CustomerDetails() {
                     <span className="text-zinc-600 text-lg font-medium mr-1">R$</span>
                     <span className={`text-4xl font-black tracking-tight ${totalOverdueValue > 0 ? 'text-zinc-300' : 'text-zinc-700'}`}>{Number(totalOverdueValue).toFixed(2)}</span>
                 </div>
+                {role === 'admin' && totalOverdueValue > 0 && (
+                    <button 
+                        onClick={handleWhatsAppOverdue}
+                        className="mt-4 w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 active:scale-95 transition"
+                    >
+                        <MessageCircle size={14} /> COBRAR VIA WHATSAPP
+                    </button>
+                )}
             </div>
 
             <div className="bg-[#0c0c0e] border border-white/5 p-6 rounded-2xl relative overflow-hidden group">
