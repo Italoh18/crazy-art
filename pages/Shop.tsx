@@ -362,6 +362,10 @@ export default function Shop() {
   };
 
   const handleCreateOrder = async () => {
+    if (role === 'guest') {
+        setStep('checkout');
+        return;
+    }
     if (role !== 'client' || !currentCustomer) return;
     setIsProcessing(true);
     try {
@@ -954,16 +958,30 @@ export default function Shop() {
         </div>
       </div>
       <div className="max-w-7xl mx-auto">
-          {role === 'guest' ? (
-              <div className="flex flex-col items-center justify-center py-16 animate-fade-in-up"><div className="bg-zinc-900/50 border border-zinc-800 p-10 rounded-3xl max-w-lg text-center relative overflow-hidden shadow-2xl"><div className="relative z-10 flex flex-col items-center"><div className="w-20 h-20 bg-zinc-800 rounded-full flex items-center justify-center mb-6 ring-4 ring-zinc-900 shadow-xl"><Lock className="text-primary" size={40} /></div><p className="text-zinc-300 mb-8 leading-relaxed text-lg font-medium">Faça login para realizar seus pedidos.</p><Link to="/?action=login" className="bg-crazy-gradient text-white px-8 py-4 rounded-xl font-bold text-lg hover:scale-105 transition shadow-lg w-full flex items-center justify-center gap-3"><UserPlus size={20} /> Acessar ou Cadastrar</Link></div></div></div>
-          ) : (
-              <>
-                  {step === 'list' && renderStepList()}
-                  {step === 'detail' && renderStepDetail()}
-                  {step === 'questionnaire' && renderStepQuestionnaire()}
-                  {step === 'checkout' && renderStepCheckout()}
-                  {step === 'success' && renderStepSuccess()}
-              </>
+          {step === 'list' && renderStepList()}
+          {step === 'detail' && renderStepDetail()}
+          {step === 'questionnaire' && renderStepQuestionnaire()}
+          {(step === 'checkout' || step === 'success') && (
+              role === 'guest' ? (
+                  <div className="flex flex-col items-center justify-center py-16 animate-fade-in-up">
+                      <div className="bg-zinc-900/50 border border-zinc-800 p-10 rounded-3xl max-w-lg text-center relative overflow-hidden shadow-2xl">
+                          <div className="relative z-10 flex flex-col items-center">
+                              <div className="w-20 h-20 bg-zinc-800 rounded-full flex items-center justify-center mb-6 ring-4 ring-zinc-900 shadow-xl">
+                                  <Lock className="text-primary" size={40} />
+                              </div>
+                              <p className="text-zinc-300 mb-8 leading-relaxed text-lg font-medium">Faça login para realizar seus pedidos e prosseguir para o pagamento.</p>
+                              <Link to="/?action=login" className="bg-crazy-gradient text-white px-8 py-4 rounded-xl font-bold text-lg hover:scale-105 transition shadow-lg w-full flex items-center justify-center gap-3">
+                                  <UserPlus size={20} /> Acessar ou Cadastrar
+                              </Link>
+                          </div>
+                      </div>
+                  </div>
+              ) : (
+                  <>
+                      {step === 'checkout' && renderStepCheckout()}
+                      {step === 'success' && renderStepSuccess()}
+                  </>
+              )
           )}
       </div>
     </div>
