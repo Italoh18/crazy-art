@@ -62,6 +62,9 @@ export default function CustomerDetails() {
   // State para Visualização de Detalhes do Pedido
   const [viewingOrder, setViewingOrder] = useState<any | null>(null);
 
+  // State para Modal de Política de Fidelidade
+  const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
+
   // Verification & Security States
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
@@ -356,6 +359,26 @@ export default function CustomerDetails() {
 
     const encodedMessage = encodeURIComponent(message);
     const phoneNumber = customer.phone.replace(/\D/g, '');
+    window.open(`https://wa.me/55${phoneNumber}?text=${encodedMessage}`, '_blank');
+  };
+
+  const handleNoLimitWhatsApp = () => {
+    if (!customer) return;
+
+    const firstName = customer.name.split(' ')[0];
+    const payableOrders = allCustomerOrders.filter(o => ['open', 'production', 'revision'].includes(o.status));
+
+    let message = "```";
+    message += `Olá, ${firstName},\ncredito insuficiente para registro de novo pedido, favor conferir na aba de meus pedidos em seu cadastro.\n\npedidos encontrados:\n`;
+    
+    payableOrders.forEach((order, index) => {
+        message += `pedido${index + 1}:\nnome= "${order.description || 'Sem descrição'}" / valor="R$ ${Number(order.total || 0).toFixed(2)}" / data criação= "${new Date(order.order_date).toLocaleDateString()}" / data vencimento= "${new Date(order.due_date).toLocaleDateString()}"\n`;
+    });
+
+    message += "```";
+
+    const encodedMessage = encodeURIComponent(message);
+    const phoneNumber = (customer.phone || '').replace(/\D/g, '');
     window.open(`https://wa.me/55${phoneNumber}?text=${encodedMessage}`, '_blank');
   };
 
@@ -998,13 +1021,29 @@ export default function CustomerDetails() {
                 <div className="relative z-10 flex justify-between items-start">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
-                            <CreditCard className="text-primary" size={24} /><h2 className="text-xl font-bold text-white">Limite de Crédito</h2>
+                            <CreditCard className="text-primary" size={24} /><h2 className="text-xl font-bold text-white">Crédito Fidelidade</h2>
                         </div>
-                        <p className="text-zinc-500 text-sm">Status da conta</p>
+                        <p className="text-zinc-500 text-sm mb-4">Status da conta</p>
+                        <button 
+                            onClick={() => setIsPolicyModalOpen(true)}
+                            className="bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 group"
+                        >
+                            <AlertTriangle size={14} className="group-hover:text-primary transition-colors" />
+                            POLÍTICA DE FIDELIDADE
+                        </button>
                     </div>
                     <div className="text-right">
                         <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Disponível</p>
                         <p className="text-3xl font-bold text-emerald-500 font-mono">R$ {Number(availableCredit).toFixed(2)}</p>
+                        {role === 'admin' && (
+                            <button 
+                                onClick={handleNoLimitWhatsApp}
+                                className="mt-3 px-4 py-2 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/20 rounded-xl text-[10px] font-bold transition-all uppercase tracking-widest flex items-center gap-2 group"
+                            >
+                                <MessageCircle size={14} className="group-hover:animate-bounce" />
+                                SEM LIMITE
+                            </button>
+                        )}
                     </div>
                 </div>
                 <div className="relative z-10 mt-auto">
@@ -1495,6 +1534,148 @@ export default function CustomerDetails() {
                     </form>
                 </div>
              </div>
+        )}
+
+        {/* MODAL POLÍTICA DE FIDELIDADE */}
+        {isPolicyModalOpen && (
+            <div className="fixed inset-0 z-[200] flex justify-center items-start pt-12 md:pt-24 bg-black/90 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
+                <div className="bg-[#121215] border border-white/10 rounded-3xl w-full max-w-2xl shadow-2xl relative flex flex-col animate-scale-in">
+                    <div className="p-8 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] rounded-t-3xl sticky top-0 z-10">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                                <CreditCard size={24} />
+                            </div>
+                            <h2 className="text-2xl font-black text-white tracking-tighter uppercase">Termos de Crédito – CrazyArt</h2>
+                        </div>
+                        <button onClick={() => setIsPolicyModalOpen(false)} className="p-2 bg-zinc-900 rounded-xl text-zinc-500 hover:text-white hover:rotate-90 transition-all border border-white/5"><X size={24} /></button>
+                    </div>
+
+                    <div className="p-8 space-y-8 text-zinc-300 leading-relaxed overflow-y-auto custom-scrollbar">
+                        <section className="space-y-4">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+                                1. Sobre o Crédito
+                            </h3>
+                            <p className="pl-4">O crédito da plataforma CrazyArt é um benefício exclusivo para pedidos de artes digitais. Ele funciona como um limite adicional que pode ser usado em novos pedidos dentro do site.</p>
+                            <p className="pl-4 text-amber-500/80 font-medium italic">Os créditos não se aplicam a produtos físicos e não podem ser convertidos em dinheiro.</p>
+                        </section>
+
+                        <section className="space-y-4">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+                                2. Quando o Crédito Começa
+                            </h3>
+                            <p className="pl-4">O sistema de crédito é ativado após o pagamento do primeiro pedido realizado pelo cliente.</p>
+                        </section>
+
+                        <section className="space-y-4">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+                                3. Como Ganhar Crédito (Bônus)
+                            </h3>
+                            <div className="pl-4 space-y-3">
+                                <p>Clientes que pagam seus pedidos em dia ou antecipadamente são recompensados.</p>
+                                <ul className="space-y-2">
+                                    <li className="flex items-center gap-2 bg-emerald-500/5 border border-emerald-500/10 p-3 rounded-xl">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                                        <span><strong className="text-emerald-400">Condição:</strong> pagamento realizado até a data de vencimento</span>
+                                    </li>
+                                    <li className="flex items-center gap-2 bg-emerald-500/5 border border-emerald-500/10 p-3 rounded-xl">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                                        <span><strong className="text-emerald-400">Benefício:</strong> aumento de 50% do valor pago no limite de crédito</span>
+                                    </li>
+                                </ul>
+                                <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5 mt-4">
+                                    <p className="text-sm font-bold text-white mb-1 uppercase tracking-widest opacity-50">Exemplo:</p>
+                                    <p>Se um pedido de <span className="font-mono text-emerald-400">R$ 250,00</span> for pago em dia, o cliente recebe <span className="font-mono text-emerald-400">R$ 125,00</span> de crédito adicional.</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="space-y-4">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+                                4. Perda de Crédito (Penalidade)
+                            </h3>
+                            <p className="pl-4">O atraso no pagamento impacta negativamente o limite de crédito.</p>
+                            <ul className="pl-4 space-y-2">
+                                <li className="flex items-start gap-2 bg-red-500/5 border border-red-500/10 p-3 rounded-xl">
+                                    <X className="text-red-500 shrink-0 mt-1" size={14} />
+                                    <span><strong className="text-red-400">Condição:</strong> pedido pago após a data de vencimento</span>
+                                </li>
+                                <li className="flex items-start gap-2 bg-red-500/5 border border-red-500/10 p-3 rounded-xl">
+                                    <X className="text-red-500 shrink-0 mt-1" size={14} />
+                                    <span><strong className="text-red-400">Penalidade:</strong> redução de 50% do valor do pedido no limite de crédito atual</span>
+                                </li>
+                            </ul>
+                        </section>
+
+                        <section className="space-y-4">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+                                5. Bloqueio Automático
+                            </h3>
+                            <div className="pl-4 p-4 bg-red-900/20 border border-red-500/30 rounded-2xl flex items-start gap-4">
+                                <AlertTriangle className="text-red-500 shrink-0" size={24} />
+                                <p className="text-sm">Se o cliente possuir qualquer pedido com mais de <span className="font-bold text-white underline">1 dia de atraso</span>, todo o seu limite de crédito é temporariamente zerado e o acesso à nuvem de arquivos é bloqueado até a regularização.</p>
+                            </div>
+                        </section>
+
+                        <section className="space-y-4">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+                                6. Inatividade da Conta
+                            </h3>
+                            <p className="pl-4">Clientes que ficarem mais de <span className="font-bold text-white">30 dias</span> sem realizar novos pedidos terão seu limite de crédito zerado automaticamente por inatividade.</p>
+                        </section>
+
+                        <section className="space-y-4">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+                                7. Novos Pedidos e Limite
+                            </h3>
+                            <p className="pl-4">O sistema só permitirá a gravação de novos pedidos se o cliente possuir limite de crédito disponível e <span className="font-bold text-white">zero faturas atrasadas</span>.</p>
+                        </section>
+
+                        <section className="space-y-4">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+                                8. Pedidos em Reunião/Abertos
+                            </h3>
+                            <ul className="pl-4 space-y-2">
+                                <li className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
+                                    <p>Pedidos com status <span className="text-amber-400 font-bold">"Aberto"</span> ou <span className="text-blue-400 font-bold">"Em Produção"</span> consomem o limite de crédito.</p>
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
+                                    <p>O limite é liberado proporcionalmente conforme os pagamentos são realizados.</p>
+                                </li>
+                            </ul>
+                        </section>
+
+                        <section className="space-y-4">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+                                9. Casos Especiais
+                            </h3>
+                            <div className="pl-4 bg-zinc-900 border border-white/5 p-4 rounded-xl">
+                                <p className="text-sm italic text-zinc-400 block mb-2">Exceções e revisões de limite:</p>
+                                <p>Qualquer situação não prevista nestes termos ou solicitações de aumento de limite manual devem ser tratadas diretamente com o suporte administrativo da CrazyArt.</p>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div className="p-8 border-t border-white/5 bg-[#0c0c0e] rounded-b-3xl shrink-0">
+                        <button 
+                            onClick={() => setIsPolicyModalOpen(false)}
+                            className="w-full py-4 bg-primary hover:bg-amber-600 text-white rounded-2xl font-black transition shadow-lg shadow-primary/20 active:scale-95 uppercase tracking-widest"
+                        >
+                            CONCORDO E ENTENDI
+                        </button>
+                    </div>
+                </div>
+            </div>
         )}
     </div>
   );
