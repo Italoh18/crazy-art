@@ -2,7 +2,7 @@ import { Env, createJWT, hashPassword } from './_auth';
 
 export const onRequestPost: any = async ({ request, env }: { request: Request, env: Env }) => {
   const body = await request.json() as any;
-  const { code, cpf, email, password } = body;
+  const { code, email, password } = body;
 
   // Verifica acesso administrativo via código secreto no banco de dados
   if (code) {

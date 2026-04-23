@@ -11,7 +11,6 @@ import CustomerDetails from './pages/CustomerDetails';
 import Products from './pages/Products';
 import DRE from './pages/DRE';
 import Orders from './pages/Orders';
-import FontFinder from './pages/FontFinder';
 import FontEditor from './pages/FontEditor'; // Nova Importação
 import Programs from './pages/Programs';
 import Shop from './pages/Shop';
@@ -81,7 +80,6 @@ const AppRoutes = () => {
             <Route path="/shop" element={<Shop />} />
             <Route path="/quitanda_de_art" element={<Shop />} />
             <Route path="/tools" element={<Programs />} />
-            <Route path="/font-finder" element={<FontFinder />} />
             <Route path="/font-editor" element={<FontEditor />} /> {/* Nova Rota */}
             <Route path="/layout-builder" element={<LayoutBuilder />} />
             <Route path="/remove-bg" element={<BackgroundRemover />} />

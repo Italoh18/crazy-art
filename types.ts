@@ -151,50 +151,6 @@ export interface DriveFile {
   created_at: string;
 }
 
-export interface FontAnalysis {
-  fontName: string;
-  category: string; 
-  visualStyle: string; 
-  matchConfidence: 'Alta' | 'Média' | 'Baixa';
-  description: string;
-  similarFonts: string[]; 
-  detectedText?: string; 
-  source?: 'Local' | 'Web'; 
-}
-
-export interface HistoryItem extends FontAnalysis {
-  id: string;
-  timestamp: number;
-  thumbnailUrl: string; 
-  isUploaded?: boolean; 
-  fileContent?: string; 
-  fileName?: string; 
-}
-
-export interface ImageUploadProps {
-  onImageSelected: (base64: string) => void;
-  isLoading: boolean;
-}
-
-export interface FontResultProps {
-  analysis: FontAnalysis | null;
-  currentImage: string | null;
-  onSave: () => void;
-  isSaved: boolean;
-  downloadData?: {
-    fileName: string;
-    fileContent: string;
-  };
-}
-
-export interface HistoryListProps {
-  history: HistoryItem[];
-  onDelete: (id: string) => void;
-  onSelect: (item: HistoryItem) => void;
-  onUpdate: (id: string, newName: string) => void;
-  onUploadFonts: (files: FileList) => void; 
-}
-
 // --- NEW VECTOR ENGINE TYPES (Professional Grade) ---
 
 export type NodeType = 'cusp' | 'smooth' | 'symmetric';

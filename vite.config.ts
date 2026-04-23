@@ -13,8 +13,7 @@ export default defineConfig(({ mode }) => {
     },
     base: '/',
     define: {
-      // Isso pega a variável do sistema (Cloudflare) e a injeta no código React
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || process.env.API_KEY),
+      // Outras definições se necessário
     },
     build: {
       outDir: 'dist',
