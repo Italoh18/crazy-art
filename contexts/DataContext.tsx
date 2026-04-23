@@ -83,7 +83,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     try {
       const promises = [
         token ? api.getClients() : Promise.resolve([]),
-        token ? api.getProducts() : Promise.resolve([]),
+        api.getProducts(),
         token ? api.getOrders() : Promise.resolve([]),
         api.getCarousel().catch(() => []),
         api.getTrustedCompanies().catch(() => []),
