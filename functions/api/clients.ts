@@ -7,20 +7,20 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
 
+    const mapClient = (c: any) => {
+      if (!c) return null;
+      const { password_hash, ...clientData } = c;
+      return {
+        ...clientData,
+        cloudLink: c.cloudLink || c.cloud_link,
+        isSubscriber: c.isSubscriber !== undefined ? c.isSubscriber : (c.is_subscriber === 1),
+        subscriptionExpiresAt: c.subscriptionExpiresAt || c.subscription_expires_at
+      };
+    };
+
     if (request.method === 'GET') {
       if (!user) return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
       
-      const mapClient = (c: any) => {
-        if (!c) return null;
-        const { password_hash, ...clientData } = c;
-        return {
-          ...clientData,
-          cloudLink: c.cloudLink || c.cloud_link,
-          isSubscriber: c.isSubscriber !== undefined ? c.isSubscriber : (c.is_subscriber === 1),
-          subscriptionExpiresAt: c.subscriptionExpiresAt || c.subscription_expires_at
-        };
-      };
-
       // Se for admin, pode ver qualquer um ou listar todos
       if (user.role === 'admin') {
         if (id) {
