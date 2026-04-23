@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+Disallow: /minha-area
+Disallow: /my-orders
+Disallow: /statement
+Disallow: /pending-confirmations
+Disallow: /orders
+Disallow: /customers
+Disallow: /products
+Disallow: /coupons
+Disallow: /dre
+Disallow: /carousel-manager
+Disallow: /trusted-companies
+Disallow: /email-templates
+Disallow: /identity
+Disallow: /feedbacks
+
+Sitemap: https://crazyart.com.br/sitemap.xml
