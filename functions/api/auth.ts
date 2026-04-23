@@ -18,8 +18,9 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
 
   const mapClient = (c: any) => {
     if (!c) return null;
+    const { password_hash, ...clientData } = c;
     return {
-      ...c,
+      ...clientData,
       cloudLink: c.cloudLink || c.cloud_link,
       isSubscriber: c.isSubscriber !== undefined ? c.isSubscriber : (c.is_subscriber === 1),
       subscriptionExpiresAt: c.subscriptionExpiresAt || c.subscription_expires_at

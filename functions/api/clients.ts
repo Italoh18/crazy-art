@@ -12,8 +12,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       
       const mapClient = (c: any) => {
         if (!c) return null;
+        const { password_hash, ...clientData } = c;
         return {
-          ...c,
+          ...clientData,
           cloudLink: c.cloudLink || c.cloud_link,
           isSubscriber: c.isSubscriber !== undefined ? c.isSubscriber : (c.is_subscriber === 1),
           subscriptionExpiresAt: c.subscriptionExpiresAt || c.subscription_expires_at
@@ -140,7 +141,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       }
       
       const updatedClient = await env.DB.prepare('SELECT * FROM clients WHERE id = ?').bind(String(id)).first();
-      return Response.json({ success: true, client: updatedClient });
+      return Response.json({ success: true, client: mapClient(updatedClient) });
     }
 
     if (request.method === 'DELETE' && id) {
