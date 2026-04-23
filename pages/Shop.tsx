@@ -362,7 +362,11 @@ export default function Shop() {
   };
 
   const handleCreateOrder = async () => {
-    if (role !== 'client' || !currentCustomer) return;
+    if (role === 'guest' || !currentCustomer) {
+        setStep('list'); // Reset step to list or stay in questionnaire but show message
+        navigate('/?action=login');
+        return;
+    }
     setIsProcessing(true);
     try {
         const { items, total } = calculateFinalOrder();
@@ -828,7 +832,8 @@ export default function Shop() {
                     <span className="text-3xl font-black text-white">R$ {calc.total.toFixed(2)}</span>
                 </div>
                 <button onClick={handleCreateOrder} disabled={isProcessing} className="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg hover:bg-amber-600 transition shadow-xl disabled:opacity-50 flex items-center justify-center gap-3">
-                    {isProcessing ? <Loader2 className="animate-spin" /> : <ChevronRight />} PROSSEGUIR PARA PAGAMENTO
+                    {isProcessing ? <Loader2 className="animate-spin" /> : role === 'guest' ? <Lock size={20} /> : <ChevronRight />} 
+                    {role === 'guest' ? 'FAÇA LOGIN PARA FINALIZAR' : 'PROSSEGUIR PARA PAGAMENTO'}
                 </button>
             </div>
         </div>
@@ -954,17 +959,11 @@ export default function Shop() {
         </div>
       </div>
       <div className="max-w-7xl mx-auto">
-          {role === 'guest' ? (
-              <div className="flex flex-col items-center justify-center py-16 animate-fade-in-up"><div className="bg-zinc-900/50 border border-zinc-800 p-10 rounded-3xl max-w-lg text-center relative overflow-hidden shadow-2xl"><div className="relative z-10 flex flex-col items-center"><div className="w-20 h-20 bg-zinc-800 rounded-full flex items-center justify-center mb-6 ring-4 ring-zinc-900 shadow-xl"><Lock className="text-primary" size={40} /></div><p className="text-zinc-300 mb-8 leading-relaxed text-lg font-medium">Faça login para realizar seus pedidos.</p><Link to="/?action=login" className="bg-crazy-gradient text-white px-8 py-4 rounded-xl font-bold text-lg hover:scale-105 transition shadow-lg w-full flex items-center justify-center gap-3"><UserPlus size={20} /> Acessar ou Cadastrar</Link></div></div></div>
-          ) : (
-              <>
-                  {step === 'list' && renderStepList()}
-                  {step === 'detail' && renderStepDetail()}
-                  {step === 'questionnaire' && renderStepQuestionnaire()}
-                  {step === 'checkout' && renderStepCheckout()}
-                  {step === 'success' && renderStepSuccess()}
-              </>
-          )}
+          {step === 'list' && renderStepList()}
+          {step === 'detail' && renderStepDetail()}
+          {step === 'questionnaire' && renderStepQuestionnaire()}
+          {step === 'checkout' && renderStepCheckout()}
+          {step === 'success' && renderStepSuccess()}
       </div>
     </div>
   );
