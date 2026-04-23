@@ -14,18 +14,19 @@ export async function onRequestPost(context: any) {
       .bind(userId)
       .first();
 
-    if (!user || user.verification_code !== code) {
+    if (!user || !user.verification_code || user.verification_code !== code) {
       return new Response(JSON.stringify({ error: 'Código inválido' }), { status: 400 });
     }
 
-    // Mark as verified
-    await db.prepare('UPDATE clients SET is_verified = 1 WHERE id = ?')
+    // Mark as verified and CLEAR the code to prevent reuse
+    await db.prepare('UPDATE clients SET is_verified = 1, verification_code = NULL WHERE id = ?')
       .bind(userId)
       .run();
 
     return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
 
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message || 'Erro interno' }), { status: 500 });
+    console.error("Auth verify-code error:", e.message);
+    return new Response(JSON.stringify({ error: 'Erro ao verificar código. Tente novamente.' }), { status: 500 });
   }
 }

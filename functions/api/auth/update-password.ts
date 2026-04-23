@@ -31,6 +31,7 @@ export async function onRequestPost(context: any) {
     return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
 
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message || 'Erro interno' }), { status: 500 });
+    console.error("Auth update-password error:", e.message);
+    return new Response(JSON.stringify({ error: 'Erro ao atualizar senha.' }), { status: 500 });
   }
 }

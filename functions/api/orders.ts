@@ -354,6 +354,6 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     return new Response(JSON.stringify({ error: 'Método não permitido' }), { status: 405 });
   } catch (e: any) {
     console.error("Erro na API de Pedidos:", e.message);
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: 'Erro interno ao processar pedidos.' }), { status: 500 });
   }
 };
