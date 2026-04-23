@@ -9,6 +9,9 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
       return new Response(JSON.stringify({ error: 'Nota obrigatória.' }), { status: 400 });
     }
 
+    // Sanitização básica contra XSS
+    const sanitize = (str: string) => str.replace(/<[^>]*>/g, '').trim();
+
     const newId = crypto.randomUUID();
     const now = new Date().toISOString();
 
@@ -16,13 +19,14 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
       'INSERT INTO ratings (id, user_name, rating, created_at) VALUES (?, ?, ?, ?)'
     ).bind(
       newId,
-      String(body.userName || 'Anônimo'),
+      sanitize(String(body.userName || 'Anônimo')),
       Number(body.rating),
       now
     ).run();
 
     return Response.json({ success: true });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    console.error("Erro na API de Avaliações:", e.message);
+    return new Response(JSON.stringify({ error: 'Erro ao processar avaliação.' }), { status: 500 });
   }
 };

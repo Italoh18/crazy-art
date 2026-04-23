@@ -14,6 +14,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         return new Response(JSON.stringify({ error: 'Dados incompletos.' }), { status: 400 });
       }
 
+      // Sanitização básica contra XSS
+      const sanitize = (str: string) => str.replace(/<[^>]*>/g, '').trim();
+
       const newId = crypto.randomUUID();
       const now = new Date().toISOString();
 
@@ -21,9 +24,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         'INSERT INTO feedbacks (id, type, content, user_name, created_at, is_read) VALUES (?, ?, ?, ?, ?, 0)'
       ).bind(
         newId,
-        String(body.type),
-        String(body.content),
-        String(body.userName || 'Anônimo'),
+        sanitize(String(body.type)),
+        sanitize(String(body.content)),
+        sanitize(String(body.userName || 'Anônimo')),
         now
       ).run();
 
@@ -56,6 +59,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     return new Response(JSON.stringify({ error: 'Método não permitido' }), { status: 405 });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    console.error("Erro na API de Feedbacks:", e.message);
+    return new Response(JSON.stringify({ error: 'Erro ao processar feedbacks.' }), { status: 500 });
   }
 };

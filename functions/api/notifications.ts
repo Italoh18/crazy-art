@@ -204,7 +204,12 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
              }
              await env.DB.prepare(updateQuery).bind(...updateParams).run();
           } else {
-             await env.DB.prepare("UPDATE notifications SET is_read = 1 WHERE id = ?").bind(id).run();
+             // Verificação de Segurança: Garante que só altera se for dono da notificação
+             if (user.role === 'admin') {
+                await env.DB.prepare("UPDATE notifications SET is_read = 1 WHERE id = ? AND target_role = 'admin'").bind(id).run();
+             } else {
+                await env.DB.prepare("UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?").bind(id, user.clientId || user.userId).run();
+             }
           }
           return Response.json({ success: true });
       } catch (dbError: any) {
@@ -215,6 +220,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     return new Response(JSON.stringify({ error: 'Método não permitido' }), { status: 405 });
 
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    console.error("Erro na API de Notificações:", e.message);
+    return new Response(JSON.stringify({ error: 'Erro ao processar notificações.' }), { status: 500 });
   }
 };
