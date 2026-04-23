@@ -38,13 +38,5 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     }
   }
 
-  if (cpf) {
-    const client: any = await env.DB.prepare('SELECT * FROM clients WHERE cpf = ?').bind(cpf).first();
-    if (client) {
-      const token = await createJWT({ role: 'client', clientId: client.id }, env.JWT_SECRET);
-      return Response.json({ token, role: 'client', customer: mapClient(client) });
-    }
-  }
-
   return new Response(JSON.stringify({ error: 'Credenciais inválidas' }), { status: 401 });
 };
