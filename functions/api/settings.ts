@@ -10,9 +10,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const { results } = await env.DB.prepare('SELECT * FROM site_settings').all();
       
       const settings: any = {};
+      const SENSITIVE_KEYS = ['admin_access_code']; // Adicione outras chaves sensíveis aqui se surgirem
+
       if (results) {
           results.forEach((row: any) => {
-              settings[row.key] = row.value;
+              // Só adiciona se não for uma chave sensível
+              if (!SENSITIVE_KEYS.includes(row.key)) {
+                  settings[row.key] = row.value;
+              }
           });
       }
       return Response.json(settings);

@@ -11,7 +11,16 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     if (request.method === 'GET') {
       const { results } = await env.DB.prepare('SELECT * FROM products').all();
-      return Response.json(results || []);
+      
+      const filteredResults = (results || []).map((p: any) => {
+        if (user.role === 'admin') return p;
+        
+        // Remove custo para quem não é admin
+        const { cost_price, ...publicData } = p;
+        return publicData;
+      });
+
+      return Response.json(filteredResults);
     }
 
     if (request.method === 'POST') {

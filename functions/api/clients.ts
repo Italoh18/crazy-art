@@ -21,13 +21,31 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         };
       };
 
-      if (id) {
-        const client: any = await env.DB.prepare('SELECT * FROM clients WHERE id = ?').bind(String(id)).first();
+      // Se for admin, pode ver qualquer um ou listar todos
+      if (user.role === 'admin') {
+        if (id) {
+          const client: any = await env.DB.prepare('SELECT * FROM clients WHERE id = ?').bind(String(id)).first();
+          return Response.json(mapClient(client));
+        }
+        
+        const { results } = await env.DB.prepare('SELECT * FROM clients ORDER BY created_at DESC').all();
+        return Response.json((results || []).map(mapClient));
+      } 
+      
+      // Se for cliente comum, só pode ver a SI MESMO
+      if (user.role === 'client') {
+        const targetId = id || user.clientId; // Se não passar ID, assume o próprio
+        
+        // Se tentar ver um ID diferente do seu, bloqueia
+        if (id && id !== user.clientId) {
+          return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
+        }
+
+        const client: any = await env.DB.prepare('SELECT * FROM clients WHERE id = ?').bind(String(targetId)).first();
         return Response.json(mapClient(client));
       }
-      
-      const { results } = await env.DB.prepare('SELECT * FROM clients ORDER BY created_at DESC').all();
-      return Response.json((results || []).map(mapClient));
+
+      return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
     }
 
     if (request.method === 'POST') {

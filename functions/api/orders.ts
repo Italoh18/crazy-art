@@ -17,6 +17,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         const order: any = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
         if (!order) return new Response(JSON.stringify({ error: 'Pedido não encontrado' }), { status: 404 });
         
+        // Verificação de Segurança: Cliente só vê o próprio pedido
+        if (user.role === 'client' && order.client_id !== user.clientId) {
+          return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
+        }
+
         const { results: items } = await env.DB.prepare(`
             SELECT id, order_id, catalog_id, name, type, unit_price, quantity, total, download_link as downloadLink 
             FROM order_items WHERE order_id = ?
@@ -35,10 +40,20 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         LEFT JOIN clients c ON o.client_id = c.id
       `;
       let params: any[] = [];
+      let whereClauses: string[] = [];
       
-      if (clientIdParam && clientIdParam !== 'undefined') {
-        query += ' WHERE o.client_id = ?';
+      // Se for cliente, FORÇA o filtro pelo ID dele
+      if (user.role === 'client') {
+        whereClauses.push('o.client_id = ?');
+        params.push(user.clientId);
+      } else if (clientIdParam && clientIdParam !== 'undefined') {
+        // Se for admin e passou clientIdParam, filtra por ele
+        whereClauses.push('o.client_id = ?');
         params.push(String(clientIdParam));
+      }
+
+      if (whereClauses.length > 0) {
+        query += ' WHERE ' + whereClauses.join(' AND ');
       }
       
       query += ' ORDER BY o.created_at DESC';
@@ -65,7 +80,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const nextOrderNumber = (Number(lastNum) || 0) + 1;
       const formattedOrder = String(nextOrderNumber).padStart(5, '0');
 
-      const client_id = String(body.client_id || '').trim();
+      const client_idRaw = String(body.client_id || '').trim();
+      // Verificação de Segurança: Cliente só cria pedido para SI MESMO
+      const client_id = user.role === 'admin' ? client_idRaw : user.clientId;
+      
       const description = String(body.description || '').trim();
       const order_date = String(body.order_date || body.orderDate || now.split('T')[0]);
       const due_date = String(body.due_date || body.dueDate || order_date);
@@ -150,6 +168,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     // PUT /api/orders?id=...
     if (request.method === 'PUT' && id) {
       const body = await request.json() as any;
+
+      // Verificação de Segurança: Verificar se o pedido existe e pertence ao usuário (ou se é admin)
+      const existingOrder: any = await env.DB.prepare('SELECT client_id FROM orders WHERE id = ?').bind(id).first();
+      if (!existingOrder) return new Response(JSON.stringify({ error: 'Pedido não encontrado' }), { status: 404 });
+      
+      if (user.role !== 'admin' && existingOrder.client_id !== user.clientId) {
+        return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
+      }
 
       // Atalho para confirmação rápida ou status
       if (body.hasOwnProperty('is_confirmed')) {

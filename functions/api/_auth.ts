@@ -17,8 +17,9 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 export async function createJWT(payload: any, secret: string) {
-  // Fallback secret se a env var não estiver definida
-  const keySecret = secret || "crazy-art-fallback-secret-key";
+  // Se a env var não estiver definida, lança erro para evitar uso de segredo fraco
+  if (!secret) throw new Error("JWT_SECRET not configured");
+  const keySecret = secret;
   
   const header = { alg: 'HS256', typ: 'JWT' };
   const encodedHeader = base64UrlEncode(JSON.stringify(header));
@@ -33,8 +34,9 @@ export async function createJWT(payload: any, secret: string) {
 
 export async function verifyJWT(token: string, secret: string) {
   try {
-    // Fallback secret se a env var não estiver definida
-    const keySecret = secret || "crazy-art-fallback-secret-key";
+    // Se a env var não estiver definida, lança erro
+    if (!secret) throw new Error("JWT_SECRET not configured");
+    const keySecret = secret;
 
     const [header, payload, signature] = token.split('.');
     const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(keySecret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);

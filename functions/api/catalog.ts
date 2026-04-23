@@ -46,22 +46,31 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         const stmt = env.DB.prepare(query);
         const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
         
-        const mappedResults = (results || []).map((row: any) => ({
-          id: String(row.id),
-          type: row.type || 'product',
-          name: row.name,
-          price: Number(row.price),
-          costPrice: Number(row.cost_price || row.cost || 0),
-          imageUrl: row.image_url || row.imageUrl || null,
-          downloadLink: row.download_link || null, 
-          subcategory: row.subcategory || null,
-          primaryColor: row.primary_color || null,
-          description: row.description || null,
-          priceVariations: row.price_variations ? JSON.parse(row.price_variations) : [],
-          supplierLink: row.supplier_link || null,
-          active: row.active === 1,
-          created_at: row.created_at
-        }));
+        const mappedResults = (results || []).map((row: any) => {
+          const base = {
+            id: String(row.id),
+            type: row.type || 'product',
+            name: row.name,
+            price: Number(row.price),
+            imageUrl: row.image_url || row.imageUrl || null,
+            subcategory: row.subcategory || null,
+            primaryColor: row.primary_color || null,
+            description: row.description || null,
+            priceVariations: row.price_variations ? JSON.parse(row.price_variations) : [],
+            active: row.active === 1,
+            created_at: row.created_at
+          };
+          
+          if (user?.role === 'admin') {
+            return {
+              ...base,
+              costPrice: Number(row.cost_price || row.cost || 0),
+              downloadLink: row.download_link || null,
+              supplierLink: row.supplier_link || null
+            };
+          }
+          return base;
+        });
         
         return Response.json(mappedResults);
       } catch (sqlError: any) {
