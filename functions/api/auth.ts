@@ -4,9 +4,16 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
   const body = await request.json() as any;
   const { code, cpf, email, password } = body;
 
-  if (code === '79913061') {
-    const token = await createJWT({ role: 'admin' }, env.JWT_SECRET);
-    return Response.json({ token, role: 'admin' });
+  // Verifica acesso administrativo via código secreto no banco de dados
+  if (code) {
+    const adminSetting: any = await env.DB.prepare('SELECT value FROM site_settings WHERE key = ?')
+      .bind('admin_access_code')
+      .first();
+    
+    if (adminSetting && code === adminSetting.value) {
+      const token = await createJWT({ role: 'admin' }, env.JWT_SECRET);
+      return Response.json({ token, role: 'admin' });
+    }
   }
 
   const mapClient = (c: any) => {
