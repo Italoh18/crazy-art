@@ -8,6 +8,7 @@ import {
   ListChecks, Eye, Coins, Lock, Package, X, Check, CloudDownload, Sparkles, CreditCard, Trash2
 } from 'lucide-react';
 import { ProductionPath } from '../components/ProductionPath';
+import { ImageUploadInput } from '../components/ImageUploadInput';
 import { api } from '../src/services/api';
 import { SizeListItem } from '../types';
 
@@ -541,46 +542,66 @@ export default function ClientOrders() {
                             return (
                                 <div 
                                     key={order.id} 
-                                    className={`bg-[#0c0c0e] border-2 rounded-2xl p-6 relative overflow-hidden group transition-all hover:shadow-2xl hover:shadow-black/50 ${borderColor} ${isSelected ? 'ring-2 ring-primary/20' : ''}`}
+                                    className={`bg-[#0c0c0e] border-2 rounded-2xl p-4 sm:p-6 relative overflow-hidden group transition-all hover:shadow-2xl hover:shadow-black/50 ${borderColor} ${isSelected ? 'ring-2 ring-primary/20' : ''}`}
                                 >
                                     {/* Canto superior esquerdo: numero do pedido e checkbox */}
-                                    <div className="flex items-center justify-between mb-6">
-                                        <div className="flex items-center gap-3">
-                                            {['open', 'production', 'revision'].includes(order.status) && (
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={isSelected} 
-                                                    onChange={() => {}} 
-                                                    onClick={(e) => toggleSelectOrder(order.id, e)} 
-                                                    className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-5 h-5 cursor-pointer accent-primary" 
-                                                />
-                                            )}
-                                            <span className="font-mono text-zinc-300 font-bold text-lg">#{order.formattedOrderNumber || order.order_number}</span>
-                                        </div>
-                                        <ProductionPath 
-                                            order={order}
-                                            isCompact 
-                                        />
-                                        {(order.production_step === 'approval') && (
-                                            <div className="flex flex-col items-end gap-1">
-                                                <span className="text-[10px] font-black text-amber-500 animate-pulse uppercase tracking-wider">Aguardando Aprovação</span>
-                                                <button 
-                                                    onClick={() => fetchAndSetViewingOrder(order)}
-                                                    className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg text-[10px] font-bold hover:bg-amber-500/20 transition active:scale-95 flex items-center gap-1 shadow-sm"
-                                                >
-                                                    <Eye size={12} /> Visualizar
-                                                </button>
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 sm:mb-6">
+                                        <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
+                                            <div className="flex items-center gap-3">
+                                                {['open', 'production', 'revision'].includes(order.status) && (
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={isSelected} 
+                                                        onChange={() => {}} 
+                                                        onClick={(e) => toggleSelectOrder(order.id, e)} 
+                                                        className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-5 h-5 cursor-pointer accent-primary" 
+                                                    />
+                                                )}
+                                                <span className="font-mono text-zinc-300 font-bold text-base sm:text-lg">#{order.formattedOrderNumber || order.order_number}</span>
                                             </div>
-                                        )}
+                                            
+                                            {/* Badge Mobile Only for Approval */}
+                                            {(order.production_step === 'approval') && (
+                                                <div className="sm:hidden flex flex-col items-end gap-1">
+                                                    <span className="text-[9px] font-black text-amber-500 animate-pulse uppercase tracking-wider">Aprovação</span>
+                                                    <button 
+                                                        onClick={() => fetchAndSetViewingOrder(order)}
+                                                        className="px-2 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded text-[8px] font-bold"
+                                                    >
+                                                        Visualizar
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                                            <ProductionPath 
+                                                order={order}
+                                                isCompact 
+                                            />
+                                            
+                                            {/* Approval Desktop only or when compact fits better */}
+                                            {(order.production_step === 'approval') && (
+                                                <div className="hidden sm:flex flex-col items-end gap-1">
+                                                    <span className="text-[10px] font-black text-amber-500 animate-pulse uppercase tracking-wider">Aguardando Aprovação</span>
+                                                    <button 
+                                                        onClick={() => fetchAndSetViewingOrder(order)}
+                                                        className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg text-[10px] font-bold hover:bg-amber-500/20 transition active:scale-95 flex items-center gap-1 shadow-sm"
+                                                    >
+                                                        <Eye size={12} /> Visualizar
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
 
-                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 sm:gap-6">
                                         {/* A esquerda do bloco */}
-                                        <div className="space-y-3 flex-1 min-w-0">
-                                            <h3 className="text-white font-bold text-xl truncate pr-4" title={order.description || "Sem descrição"}>
+                                        <div className="space-y-2 sm:space-y-3 flex-1 min-w-0">
+                                            <h3 className="text-white font-bold text-lg sm:text-xl truncate pr-4" title={order.description || "Sem descrição"}>
                                                 {order.description || "Sem descrição"}
                                             </h3>
-                                            <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-zinc-500 font-medium">
+                                            <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[10px] sm:text-xs text-zinc-500 font-medium">
                                                 <div className="flex items-center gap-1">
                                                     <span>Data:</span>
                                                     <span className="text-zinc-300">{new Date(order.order_date).toLocaleDateString()}</span>
@@ -592,33 +613,33 @@ export default function ClientOrders() {
                                                     </span>
                                                 </div>
                                             </div>
-                                            <div className="pt-2 flex items-baseline gap-1">
-                                                <span className="text-zinc-500 text-sm font-bold uppercase tracking-wider">Valor:</span>
-                                                <span className="text-3xl font-black text-white tracking-tight font-mono">
+                                            <div className="pt-1 sm:pt-2 flex items-baseline gap-1">
+                                                <span className="text-zinc-500 text-[10px] sm:text-sm font-bold uppercase tracking-wider">Valor:</span>
+                                                <span className="text-2xl sm:text-3xl font-black text-white tracking-tight font-mono">
                                                     R$ {Number(order.total || 0).toFixed(2)}
                                                 </span>
                                             </div>
                                         </div>
 
                                         {/* A direita do bloco: ações */}
-                                        <div className="flex flex-col gap-2 w-full sm:w-auto sm:min-w-[120px]">
+                                        <div className="flex flex-row sm:flex-col gap-2 w-full sm:w-auto">
                                             {['open', 'production', 'revision'].includes(order.status) ? (
                                                 <button 
                                                     onClick={() => initiatePaymentFlow([order.id])} 
-                                                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl transition font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 text-xs active:scale-95"
+                                                    className="flex-1 sm:w-full bg-emerald-600 hover:bg-emerald-500 text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl transition font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 text-xs active:scale-95"
                                                 >
-                                                    <DollarSign size={14} /> Pagar
+                                                    <DollarSign size={14} className="hidden xs:block" /> Pagar
                                                 </button>
                                             ) : (
-                                                <div className="w-full px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-[10px] font-bold uppercase tracking-widest text-center">
-                                                    Pagamento Concluído
+                                                <div className="flex-1 sm:w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-center flex items-center justify-center">
+                                                    Concluído
                                                 </div>
                                             )}
                                             <button 
                                                 onClick={() => fetchAndSetViewingOrder(order)} 
-                                                className="w-full p-2.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition border border-white/5 hover:border-zinc-700 flex items-center justify-center gap-2 text-xs font-bold active:scale-95"
+                                                className="flex-1 sm:w-full p-2 sm:p-2.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition border border-white/5 hover:border-zinc-700 flex items-center justify-center gap-2 text-xs font-bold active:scale-95"
                                             >
-                                                <Eye size={16} /> Detalhes
+                                                <Eye size={16} className="hidden xs:block" /> Detalhes
                                             </button>
                                         </div>
                                     </div>
@@ -1031,16 +1052,18 @@ export default function ClientOrders() {
                             />
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Anexo de Referência (Opcional)</label>
-                            <input 
-                                type="text"
-                                className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition text-sm font-mono"
-                                placeholder="Link da imagem de referência..."
-                                value={changeRequestImageUrl}
-                                onChange={(e) => setChangeRequestImageUrl(e.target.value)}
-                            />
-                        </div>
+                        <ImageUploadInput 
+                            label="Anexo de Referência (Opcional)"
+                            value={changeRequestImageUrl}
+                            onChange={setChangeRequestImageUrl}
+                            placeholder="Link da imagem ou faça o upload..."
+                        />
+
+                        {changeRequestImageUrl && (
+                            <div className="aspect-video w-full rounded-xl overflow-hidden border border-zinc-800 bg-black">
+                                <img src={changeRequestImageUrl} alt="Referência" className="w-full h-full object-contain" />
+                            </div>
+                        )}
                     </div>
 
                     <button 
