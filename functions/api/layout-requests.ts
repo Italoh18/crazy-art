@@ -16,7 +16,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     if (request.method === 'POST') {
       const body = await request.json() as any;
-      const { serviceId, description, exampleUrl, logoUrl, paymentMethod, value, type = 'layout_simples' } = body;
+      const { serviceId, description, exampleUrl, logoUrl, paymentMethod, value, type = 'layout_simples', quantity = 1 } = body;
 
       const isMolde = type === 'montagem_molde';
       const label = isMolde ? 'Montagem de Molde' : 'Layout Simples';
@@ -73,7 +73,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         paymentMethod === 'credit' ? 'open' : 'draft',
         type,
         now.split('T')[0],
-        now.split('T')[0],
+        paymentMethod === 'credit' 
+          ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          : now.split('T')[0],
         now,
         'production'
       ).run();
@@ -82,13 +84,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const itemId = crypto.randomUUID();
       await env.DB.prepare(`
           INSERT INTO order_items (id, order_id, catalog_id, name, type, unit_price, quantity, total, art_link, art_extras_desc)
-          VALUES (?, ?, ?, ?, 'service', ?, 1, ?, ?, ?)
+          VALUES (?, ?, ?, ?, 'service', ?, ?, ?, ?, ?)
       `).bind(
           itemId,
           requestId,
           serviceId,
           label,
-          value,
+          Number(value) / Number(quantity),
+          quantity,
           value,
           exampleUrl || null,
           description

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 import { ImageUploadInput } from '../components/ImageUploadInput';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -23,6 +24,7 @@ type LayoutStep = 'briefing' | 'summary' | 'completed';
 export default function LayoutSimples() {
   const navigate = useNavigate();
   const { currentCustomer, role } = useAuth();
+  const { orders } = useData();
   const isAuthenticated = role !== 'guest';
   
   const [step, setStep] = useState<LayoutStep>('briefing');
@@ -37,6 +39,15 @@ export default function LayoutSimples() {
   
   const [showIncompleteError, setShowIncompleteError] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'online' | null>(null);
+
+  // Cálculo do Limite Disponível Real (Crédito - Pedidos Abertos)
+  const availableCredit = React.useMemo(() => {
+    if (!currentCustomer) return 0;
+    const openOrdersTotal = orders
+      .filter(o => o.client_id === currentCustomer.id && o.status === 'open')
+      .reduce((a, o) => a + Number(o.total || 0), 0);
+    return Math.max(0, (currentCustomer.creditLimit || 0) - openOrdersTotal);
+  }, [currentCustomer, orders]);
 
   useEffect(() => {
     fetchService();
@@ -319,17 +330,17 @@ export default function LayoutSimples() {
                       {/* Crédito Fidelidade */}
                       <div className="space-y-2">
                         <button 
-                            disabled={isSubmitting || !currentCustomer || (currentCustomer.creditLimit || 0) < service.price}
+                            disabled={isSubmitting || !currentCustomer || availableCredit < service.price}
                             onClick={() => handleSubmitRequest('credit')}
                             className="w-full py-5 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center gap-4 group transition-all hover:bg-zinc-800 hover:border-primary disabled:opacity-50 disabled:grayscale"
                         >
                             <Wallet className="text-primary" size={24} />
                             <div className="text-left">
                                 <span className="block text-white font-black text-xs uppercase tracking-widest">Adicionar ao Crédito Fidelidade</span>
-                                <span className="text-[9px] text-zinc-500 font-bold uppercase">Limite disponível: R$ {currentCustomer?.creditLimit?.toFixed(2) || '0.00'}</span>
+                                <span className="text-[9px] text-zinc-500 font-bold uppercase">Limite disponível: R$ {availableCredit.toFixed(2)}</span>
                             </div>
                         </button>
-                        {currentCustomer && (currentCustomer.creditLimit || 0) < service.price && (
+                        {currentCustomer && availableCredit < service.price && (
                             <p className="text-red-500 text-[10px] font-black uppercase text-center animate-pulse tracking-widest">Não há limite disponível</p>
                         )}
                       </div>

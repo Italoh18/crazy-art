@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 import { ImageUploadInput } from '../components/ImageUploadInput';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -31,6 +32,7 @@ interface RepliaItem {
 export default function MontagemMolde() {
   const navigate = useNavigate();
   const { currentCustomer, role } = useAuth();
+  const { orders } = useData();
   const isAuthenticated = role !== 'guest';
   
   const [isLoading, setIsLoading] = useState(true);
@@ -48,6 +50,15 @@ export default function MontagemMolde() {
   // Replicas State
   const [hasReplicas, setHasReplicas] = useState(false);
   const [replicas, setReplicas] = useState<RepliaItem[]>([{ id: crypto.randomUUID(), size: '', name: '', number: '', isConjunto: false, shortSize: '', shortNumber: '' }]);
+
+  // Cálculo do Limite Disponível Real (Crédito - Pedidos Abertos)
+  const availableCredit = React.useMemo(() => {
+    if (!currentCustomer) return 0;
+    const openOrdersTotal = orders
+      .filter(o => o.client_id === currentCustomer.id && o.status === 'open')
+      .reduce((a, o) => a + Number(o.total || 0), 0);
+    return Math.max(0, (currentCustomer.creditLimit || 0) - openOrdersTotal);
+  }, [currentCustomer, orders]);
 
   useEffect(() => {
     fetchServices();
@@ -104,12 +115,13 @@ export default function MontagemMolde() {
   const calculateTotal = () => {
     const basePrice = mainService?.price || 0;
     const replicaPrice = replicaService?.price || 0;
-    const replicasCount = hasReplicas ? replicas.length : 0;
     
-    // Simplificado: se tem replicas, cada uma custa o valor de replica, e o primeiro custa o base?
-    // User: "cada linha adiciona o valor de uma unidade do item cadastrado no serviço replica de molde para impressão"
-    // Geralmente o primeiro é o "Montagem", os outros são "Replicas".
-    return basePrice + (replicasCount * replicaPrice);
+    // Cada replica marcada como conjunto vale por 2 unidades
+    const totalReplicaUnits = hasReplicas 
+      ? replicas.reduce((acc, r) => acc + (r.isConjunto ? 2 : 1), 0) 
+      : 0;
+
+    return basePrice + (totalReplicaUnits * replicaPrice);
   };
 
   const handleNextToSummary = () => {
@@ -132,6 +144,11 @@ export default function MontagemMolde() {
 
     try {
         const total = calculateTotal();
+        const totalReplicaUnits = hasReplicas 
+          ? replicas.reduce((acc, r) => acc + (r.isConjunto ? 2 : 1), 0) 
+          : 0;
+        const totalQuantity = 1 + totalReplicaUnits;
+
         const response = await fetch('/api/layout-requests', {
             method: 'POST',
             headers: {
@@ -144,6 +161,7 @@ export default function MontagemMolde() {
                 logoUrl: layoutFileUrl, // Reutilizando campo logo_url para o arquivo de layout
                 paymentMethod: method,
                 value: total,
+                quantity: totalQuantity,
                 type: 'montagem_molde'
             })
         });
@@ -471,7 +489,7 @@ export default function MontagemMolde() {
                         {/* Crédito Fidelidade */}
                         <div className="space-y-2">
                             <button 
-                                disabled={isSubmitting || !currentCustomer || (currentCustomer.creditLimit || 0) < calculateTotal()}
+                                disabled={isSubmitting || !currentCustomer || availableCredit < calculateTotal()}
                                 onClick={() => handleSubmitRequest('credit')}
                                 className="w-full py-5 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center gap-4 group transition-all hover:bg-zinc-800 hover:border-primary disabled:opacity-50 disabled:grayscale"
                             >
@@ -480,10 +498,10 @@ export default function MontagemMolde() {
                                 </div>
                                 <div className="text-left">
                                     <span className="block text-white font-black text-xs uppercase tracking-widest">Usar Crédito Fidelidade</span>
-                                    <span className="text-[9px] text-zinc-500 font-bold uppercase">Limite disponível: R$ {currentCustomer?.creditLimit?.toFixed(2) || '0.00'}</span>
+                                    <span className="text-[9px] text-zinc-500 font-bold uppercase">Limite disponível: R$ {availableCredit.toFixed(2)}</span>
                                 </div>
                             </button>
-                            {currentCustomer && (currentCustomer.creditLimit || 0) < calculateTotal() && (
+                            {currentCustomer && availableCredit < calculateTotal() && (
                                 <p className="text-red-500 text-[10px] font-black uppercase text-center animate-pulse tracking-widest">Não há limite disponível</p>
                             )}
                         </div>

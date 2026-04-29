@@ -446,13 +446,21 @@ export default function Shop() {
     }
   };
 
+  // Cálculo do Limite Disponível Real (Crédito - Pedidos Abertos)
+  const availableCredit = useMemo(() => {
+    if (!currentCustomer) return 0;
+    const openOrdersTotal = orders
+      .filter(o => o.client_id === currentCustomer.id && o.status === 'open')
+      .reduce((a, o) => a + Number(o.total || 0), 0);
+    return Math.max(0, (currentCustomer.creditLimit || 0) - openOrdersTotal);
+  }, [currentCustomer, orders]);
+
   const canAddToAccount = useMemo(() => {
     if (!currentCustomer || !lastCreatedOrder) return false;
     const { items } = calculateFinalOrder();
     const allServices = items.every(i => i.type === 'service');
-    const openOrdersTotal = orders.filter(o => o.client_id === currentCustomer.id && o.status === 'open').reduce((a, o) => a + Number(o.total || 0), 0);
-    return allServices && (currentCustomer.creditLimit || 0) >= (openOrdersTotal + calculateDiscountedTotal());
-  }, [currentCustomer, lastCreatedOrder, orders, appliedCoupon]);
+    return allServices && availableCredit >= calculateDiscountedTotal();
+  }, [currentCustomer, lastCreatedOrder, availableCredit, appliedCoupon]);
 
   const getHeaderTitle = () => {
       if (step === 'list') return activeTab === 'art' ? 'Quitanda de Artes' : 'Loja Crazy Art';
@@ -1107,7 +1115,12 @@ export default function Shop() {
                     <div className="pt-6 space-y-4">
                         <div className={canAddToAccount ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-4"}>
                             {canAddToAccount && (
-                                <button onClick={() => { clearCart(); setStep('success'); }} className="w-full bg-zinc-100 text-black py-4 rounded-2xl font-bold hover:bg-white transition flex items-center justify-center gap-3 shadow-xl uppercase tracking-wider text-xs sm:text-sm"><Wallet size={18} /> Adicionar à Conta</button>
+                                <button onClick={() => { clearCart(); setStep('success'); }} className="w-full bg-zinc-100 text-black py-4 rounded-2xl font-bold hover:bg-white transition flex flex-col items-center justify-center shadow-xl uppercase tracking-wider text-xs sm:text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <Wallet size={18} /> Adicionar à Conta
+                                    </div>
+                                    <span className="text-[9px] text-zinc-500 font-bold">Disponível: R$ {availableCredit.toFixed(2)}</span>
+                                </button>
                             )}
                             <button 
                                 onClick={handlePayMercadoPago} 
