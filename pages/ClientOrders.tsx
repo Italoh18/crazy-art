@@ -14,7 +14,7 @@ import { SizeListItem } from '../types';
 export default function ClientOrders() {
   const navigate = useNavigate();
   const { 
-      customers, orders, updateOrderStatus, isLoading, deleteOrder, loadData
+      customers, orders, updateOrderStatus, updateOrder, isLoading, deleteOrder, loadData
   } = useData();
   const { role, currentCustomer } = useAuth();
   
@@ -204,6 +204,76 @@ export default function ClientOrders() {
       }
 
       executePayment(pendingPaymentData.ids, finalAmount, pendingPaymentData.title);
+  };
+
+  // States para Fluxo de Aprovação
+  const [isApproving, setIsApproving] = useState(false);
+  const [showChangeRequestModal, setShowChangeRequestModal] = useState(false);
+  const [changeRequestDesc, setChangeRequestDesc] = useState('');
+  const [changeRequestImageUrl, setChangeRequestImageUrl] = useState('');
+
+  const handleApprove = async () => {
+    if (!viewingOrder) return;
+    setIsApproving(true);
+    try {
+      await updateOrder(viewingOrder.id, {
+        production_step: 'finishing',
+        approval_date: new Date().toISOString()
+      });
+      setViewingOrder(null);
+      await loadData(true);
+      alert('Pedido aprovado com sucesso!');
+    } catch (err) {
+      alert('Erro ao aprovar pedido');
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleSendChangeRequest = async () => {
+    if (!viewingOrder) return;
+    if (!changeRequestDesc) {
+      alert('Por favor, descreva a alteração solicitada.');
+      return;
+    }
+    setIsApproving(true);
+    try {
+      await updateOrder(viewingOrder.id, {
+        production_step: 'finishing',
+        change_request_desc: changeRequestDesc,
+        change_request_image_url: changeRequestImageUrl
+      });
+      setShowChangeRequestModal(false);
+      setViewingOrder(null);
+      await loadData(true);
+      alert('Solicitação de alteração enviada com sucesso!');
+    } catch (err) {
+      alert('Erro ao enviar solicitação');
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleShare = (imageUrl: string) => {
+    if (navigator.share) {
+      navigator.share({
+        title: 'Visualizar Pedido - Crazy Art',
+        text: 'Confira a arte para o meu pedido na Crazy Art',
+        url: imageUrl,
+      }).catch(console.error);
+    } else {
+      navigator.clipboard.writeText(imageUrl);
+      alert('Link da imagem copiado para a área de transferência!');
+    }
+  };
+
+  const handleSave = (imageUrl: string) => {
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = `aprovacao_pedido_${viewingOrder?.order_number}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Carrega detalhes completos do pedido quando clica em visualizar
@@ -488,11 +558,20 @@ export default function ClientOrders() {
                                             <span className="font-mono text-zinc-300 font-bold text-lg">#{order.formattedOrderNumber || order.order_number}</span>
                                         </div>
                                         <ProductionPath 
-                                            orderId={order.id} 
-                                            currentStep={order.production_step || 'production'} 
-                                            orderSource={order.source}
+                                            order={order}
                                             isCompact 
                                         />
+                                        {(order.production_step === 'approval') && (
+                                            <div className="flex flex-col items-end gap-1">
+                                                <span className="text-[10px] font-black text-amber-500 animate-pulse uppercase tracking-wider">Aguardando Aprovação</span>
+                                                <button 
+                                                    onClick={() => fetchAndSetViewingOrder(order)}
+                                                    className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg text-[10px] font-bold hover:bg-amber-500/20 transition active:scale-95 flex items-center gap-1 shadow-sm"
+                                                >
+                                                    <Eye size={12} /> Visualizar
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
@@ -659,20 +738,58 @@ export default function ClientOrders() {
                     <div className="p-8 overflow-y-auto custom-scrollbar space-y-8">
                         {/* Stepper de Progresso */}
                         <div className="bg-zinc-950/50 border border-white/5 rounded-2xl p-4 space-y-4">
-                            <div>
-                                <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Caminho de Produção</h3>
-                                <div className="bg-black/20 p-4 rounded-xl border border-white/5">
-                                    <ProductionPath 
-                                        orderId={viewingOrder.id} 
-                                        currentStep={viewingOrder.production_step || 'production'} 
-                                        orderSource={viewingOrder.source}
-                                    />
+                            {viewingOrder.production_step === 'approval' && viewingOrder.approval_image_url ? (
+                                <div className="space-y-6">
+                                    <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl text-center">
+                                        <h4 className="text-amber-500 font-black uppercase tracking-widest text-xs mb-1 animate-pulse">Aguardando sua Aprovação</h4>
+                                        <p className="text-zinc-400 text-[10px]">Analise a imagem abaixo e clique em aprovar para seguir para a finalização.</p>
+                                    </div>
+                                    
+                                    <div className="aspect-square w-full max-w-md mx-auto bg-black rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl relative group">
+                                        <img src={viewingOrder.approval_image_url} alt="Aprovação" className="w-full h-full object-contain" />
+                                        <div className="absolute top-4 right-4 flex gap-2">
+                                            <button onClick={() => handleShare(viewingOrder.approval_image_url!)} className="p-3 bg-zinc-900/80 backdrop-blur-md rounded-xl text-white hover:bg-zinc-800 transition shadow-xl"><CloudDownload size={20} className="rotate-180" /></button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button 
+                                            onClick={() => setShowChangeRequestModal(true)}
+                                            className="px-4 py-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl font-bold transition flex items-center justify-center gap-2 text-xs uppercase tracking-widest shadow-lg"
+                                        >
+                                            <AlertTriangle size={16} /> Solicitar Alteração
+                                        </button>
+                                        <button 
+                                            onClick={handleApprove}
+                                            disabled={isApproving}
+                                            className="px-4 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black transition flex items-center justify-center gap-2 text-xs uppercase tracking-widest shadow-lg shadow-emerald-900/20 active:scale-95 disabled:opacity-50"
+                                        >
+                                            {isApproving ? <Loader2 className="animate-spin" /> : <Check size={18} />}
+                                            Aprovar Pedido
+                                        </button>
+                                    </div>
+
+                                    <div className="flex justify-center gap-4 text-zinc-500">
+                                        <button onClick={() => handleShare(viewingOrder.approval_image_url!)} className="flex items-center gap-1 text-[10px] font-bold uppercase hover:text-white transition"><CloudDownload size={14} className="rotate-180" /> Compartilhar</button>
+                                        <button onClick={() => handleSave(viewingOrder.approval_image_url!)} className="flex items-center gap-1 text-[10px] font-bold uppercase hover:text-white transition"><Eye size={14} /> Salvar Imagem</button>
+                                    </div>
                                 </div>
-                            </div>
-                            <div>
-                                <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Status de Pagamento</h3>
-                                <OrderProgress status={viewingOrder.status} items={viewingOrder.items} paidAt={viewingOrder.paid_at} />
-                            </div>
+                            ) : (
+                                <>
+                                    <div>
+                                        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Caminho de Produção</h3>
+                                        <div className="bg-black/20 p-4 rounded-xl border border-white/5">
+                                            <ProductionPath 
+                                                order={viewingOrder}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Status de Pagamento</h3>
+                                        <OrderProgress status={viewingOrder.status} items={viewingOrder.items} paidAt={viewingOrder.paid_at} />
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -890,6 +1007,50 @@ export default function ClientOrders() {
                     <div className="p-8 bg-[#0c0c0e] border-t border-white/5 rounded-b-3xl">
                         <button onClick={() => setIsPolicyModalOpen(false)} className="w-full py-4 bg-white/5 hover:bg-white/10 text-white font-bold rounded-2xl transition-all border border-white/10">CONCORDO E ENTENDI</button>
                     </div>
+                </div>
+            </div>
+        )}
+
+        {/* Modal de Solicitação de Alteração */}
+        {showChangeRequestModal && (
+            <div className="fixed inset-0 z-[150] flex justify-center items-center bg-black/90 backdrop-blur-md p-4 animate-fade-in">
+                <div className="bg-[#121215] border border-white/10 rounded-3xl w-full max-w-md shadow-2xl p-8 space-y-6 animate-scale-in">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-xl font-bold text-white tracking-tight uppercase">Solicitar Alteração</h2>
+                        <button onClick={() => setShowChangeRequestModal(false)} className="text-zinc-500 hover:text-white"><X size={24} /></button>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">O que deseja alterar?</label>
+                            <textarea 
+                                className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition text-sm min-h-[120px]"
+                                placeholder="Descreva detalhadamente o que precisa ser mudado..."
+                                value={changeRequestDesc}
+                                onChange={(e) => setChangeRequestDesc(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-1">Anexo de Referência (Opcional)</label>
+                            <input 
+                                type="text"
+                                className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition text-sm font-mono"
+                                placeholder="Link da imagem de referência..."
+                                value={changeRequestImageUrl}
+                                onChange={(e) => setChangeRequestImageUrl(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={handleSendChangeRequest}
+                        disabled={isApproving}
+                        className="w-full bg-primary hover:bg-amber-600 text-white py-4 rounded-xl font-black shadow-lg shadow-amber-900/20 transition active:scale-95 flex items-center justify-center gap-2 uppercase tracking-widest text-xs"
+                    >
+                        {isApproving ? <Loader2 className="animate-spin" /> : <Check size={18} />}
+                        Confirmar e Enviar
+                    </button>
                 </div>
             </div>
         )}

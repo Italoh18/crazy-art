@@ -35,7 +35,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       }
 
       let query = `
-        SELECT o.*, c.name as client_name, c.creditLimit as client_credit_limit
+        SELECT o.*, c.name as client_name, c.creditLimit as client_credit_limit,
+               (SELECT art_link FROM order_items WHERE order_id = o.id AND art_link IS NOT NULL LIMIT 1) as first_art_link
         FROM orders o 
         LEFT JOIN clients c ON o.client_id = c.id
       `;
@@ -185,7 +186,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           return Response.json({ success: true });
       }
 
-      if (Object.keys(body).length === 1 && (body.status || body.production_step)) {
+      if (Object.keys(body).length <= 6 && (body.status || body.production_step || body.approval_image_url || body.change_request_desc || body.change_request_image_url || body.approval_date)) {
         let updateQuery = 'UPDATE orders SET ';
         let updateParams: any[] = [];
         let clauses: string[] = [];
@@ -198,7 +199,6 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                 clauses.push('paid_at = ?', 'payment_method = ?');
                 updateParams.push(new Date().toISOString(), 'admin');
 
-                // Lógica de Crédito para Pagamento Manual
                 const orderInfo: any = await env.DB.prepare(`
                     SELECT o.total, o.due_date, o.client_id, o.credit_bonus_applied, o.credit_penalty_applied,
                            c.creditLimit
@@ -261,6 +261,23 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                     ).run();
                 }
             }
+        }
+
+        if (body.approval_image_url !== undefined) {
+            clauses.push('approval_image_url = ?');
+            updateParams.push(body.approval_image_url);
+        }
+        if (body.change_request_desc !== undefined) {
+            clauses.push('change_request_desc = ?');
+            updateParams.push(body.change_request_desc);
+        }
+        if (body.change_request_image_url !== undefined) {
+            clauses.push('change_request_image_url = ?');
+            updateParams.push(body.change_request_image_url);
+        }
+        if (body.approval_date !== undefined) {
+            clauses.push('approval_date = ?');
+            updateParams.push(body.approval_date);
         }
         
         updateQuery += clauses.join(', ') + ' WHERE id = ?';

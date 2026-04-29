@@ -1,15 +1,15 @@
 
 import React from 'react';
 import { Hourglass, RotateCw, CheckCircle2, Circle } from 'lucide-react';
-import { ProductionStep } from '../types';
+import { Order, ProductionStep } from '../types';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ProductionPathProps {
-  orderId: string;
-  currentStep: ProductionStep;
+  order: Order;
   isCompact?: boolean;
-  orderSource?: string;
+  onStepClick?: (order: Order, stepId: ProductionStep) => void;
 }
 
 const STEPS: { id: ProductionStep; label: string }[] = [
@@ -19,22 +19,59 @@ const STEPS: { id: ProductionStep; label: string }[] = [
   { id: 'completed', label: 'Concluído' }
 ];
 
-export const ProductionPath: React.FC<ProductionPathProps> = ({ orderId, currentStep, isCompact = false, orderSource }) => {
-  const { updateProductionStep } = useData();
+export const ProductionPath: React.FC<ProductionPathProps> = ({ order, isCompact = false, onStepClick }) => {
+  const { updateProductionStep, updateOrder } = useData();
   const { role } = useAuth();
+  const [hoveredStep, setHoveredStep] = React.useState<ProductionStep | null>(null);
+
+  const currentStep = order.production_step || 'production';
+  const orderId = order.id;
+  const orderSource = order.source;
 
   const getStepIndex = (step: ProductionStep) => STEPS.findIndex(s => s.id === step);
   const currentIndex = getStepIndex(currentStep);
 
   const handleStepClick = async (stepId: ProductionStep, index: number) => {
-    if (role === 'admin') {
-      // Admin can set any step
-      await updateProductionStep(orderId, stepId);
-    } else if (role === 'client' && currentStep === 'approval' && stepId === 'approval') {
-      // Client can approve when in approval stage
-      // Clicking the approval step when it's active moves it to finishing
-      await updateProductionStep(orderId, 'finishing');
+    if (onStepClick) {
+      onStepClick(order, stepId);
+      return;
     }
+
+    if (role === 'admin') {
+      await updateProductionStep(orderId, stepId);
+    }
+  };
+
+  const renderTooltip = (stepId: ProductionStep) => {
+    if (stepId === 'production') {
+      const displayImage = (order as any).first_art_link || order.items?.find(it => it.art_link)?.art_link || (order as any).logo_url;
+      
+      return (
+        <div className="p-3 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-50">
+          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Arte do Pedido</div>
+          {displayImage ? (
+            <img src={displayImage} alt="Arte" className="w-full aspect-square object-cover rounded-lg mb-2" />
+          ) : (
+            <div className="w-full aspect-square bg-black rounded-lg mb-2 flex items-center justify-center text-zinc-700 text-[10px]">Sem imagem</div>
+          )}
+          <p className="text-[10px] text-zinc-400 line-clamp-3 leading-relaxed">{order.description || 'Sem descrição'}</p>
+        </div>
+      );
+    }
+    
+    if (stepId === 'finishing' && order.change_request_desc) {
+      return (
+        <div className="p-3 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl z-50">
+          <div className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-2">Alteração Solicitada</div>
+          {order.change_request_image_url && (
+            <img src={order.change_request_image_url} alt="Referência" className="w-full aspect-square object-cover rounded-lg mb-2" />
+          )}
+          <p className="text-[10px] text-zinc-400 leading-relaxed italic">"{order.change_request_desc}"</p>
+        </div>
+      );
+    }
+    
+    return null;
   };
 
   return (
@@ -69,23 +106,41 @@ export const ProductionPath: React.FC<ProductionPathProps> = ({ orderId, current
           }
         }
 
-        const canClick = (role === 'admin') || (role === 'client' && currentStep === 'approval' && step.id === 'approval');
+        const canClick = (role === 'admin');
 
         return (
           <React.Fragment key={step.id}>
             <div 
-              className={`flex flex-col items-center gap-1 group ${canClick ? 'cursor-pointer' : ''}`}
-              onClick={() => canClick && handleStepClick(step.id, index)}
-              title={step.label}
+              className="relative"
+              onMouseEnter={() => setHoveredStep(step.id)}
+              onMouseLeave={() => setHoveredStep(null)}
             >
-              <div className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all ${containerClass} ${canClick ? 'hover:scale-110 active:scale-95' : ''}`}>
-                <span className={iconClass}>{icon}</span>
+              <div 
+                className={`flex flex-col items-center gap-1 group ${canClick ? 'cursor-pointer' : ''}`}
+                onClick={() => canClick && handleStepClick(step.id, index)}
+              >
+                <div className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all ${containerClass} ${canClick ? 'hover:scale-110 active:scale-95' : ''}`}>
+                  <span className={iconClass}>{icon}</span>
+                </div>
+                {!isCompact && (
+                  <span className={`text-[8px] uppercase font-bold tracking-tighter transition-colors ${isCurrent ? 'text-blue-400' : isPast ? 'text-emerald-500' : 'text-zinc-600'}`}>
+                    {step.label}
+                  </span>
+                )}
               </div>
-              {!isCompact && (
-                <span className={`text-[8px] uppercase font-bold tracking-tighter transition-colors ${isCurrent ? 'text-blue-400' : isPast ? 'text-emerald-500' : 'text-zinc-600'}`}>
-                  {step.label}
-                </span>
-              )}
+
+              <AnimatePresence>
+                {hoveredStep === step.id && renderTooltip(step.id) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-[60]"
+                  >
+                    {renderTooltip(step.id)}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
             {index < STEPS.length - 1 && (
               <div className={`h-[1px] ${isCompact ? 'w-2' : 'w-4'} ${isPast ? 'bg-emerald-500/30' : 'bg-zinc-800'}`} />

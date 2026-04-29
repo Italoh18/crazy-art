@@ -5,15 +5,46 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, Calendar, Filter, Eye, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 import { Order, ProductionStep } from '../types';
 import { ProductionPath } from '../components/ProductionPath';
+import { X, Upload, Loader2, Check } from 'lucide-react';
 
 export default function Orders() {
-  const { orders, loadData } = useData();
+  const { orders, loadData, updateProductionStep, updateOrder } = useData();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const [approvalModalOrder, setApprovalModalOrder] = useState<Order | null>(null);
+  const [approvalImageUrl, setApprovalImageUrl] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   React.useEffect(() => {
     loadData(true);
   }, [loadData]);
+
+  const handleStepClick = async (order: Order, stepId: ProductionStep) => {
+    if (stepId === 'approval') {
+      setApprovalModalOrder(order);
+      setApprovalImageUrl(order.approval_image_url || '');
+      return;
+    }
+    await updateProductionStep(order.id, stepId);
+  };
+
+  const handleUploadApproval = async () => {
+    if (!approvalModalOrder) return;
+    setIsUploading(true);
+    try {
+      await updateOrder(approvalModalOrder.id, {
+        production_step: 'approval',
+        approval_image_url: approvalImageUrl
+      });
+      setApprovalModalOrder(null);
+      await loadData(true);
+    } catch (err) {
+      alert('Erro ao atualizar aprovação');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   // Estados dos Filtros
   // Recupera filtro inicial via location state (vindo do gráfico DRE)
@@ -206,10 +237,9 @@ export default function Orders() {
                                       </td>
                                       <td className="px-6 py-4">
                                           <ProductionPath 
-                                              orderId={order.id} 
-                                              currentStep={order.production_step || 'production'} 
-                                              orderSource={order.source}
+                                              order={order}
                                               isCompact 
+                                              onStepClick={handleStepClick}
                                            />
                                       </td>
                                       <td className="px-6 py-4 text-right">
@@ -235,6 +265,47 @@ export default function Orders() {
               </table>
           </div>
       </div>
+
+      {/* Modal de Upload de Aprovação */}
+      {approvalModalOrder && (
+        <div className="fixed inset-0 z-[100] flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-6 animate-scale-in">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold text-white tracking-tight">Enviar para Aprovação</h2>
+              <button onClick={() => setApprovalModalOrder(null)} className="text-zinc-500 hover:text-white"><X size={20} /></button>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Link da Imagem de Aprovação</label>
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={approvalImageUrl}
+                  onChange={(e) => setApprovalImageUrl(e.target.value)}
+                  placeholder="https://link-da-imagem.com"
+                  className="w-full bg-black/40 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition font-mono text-sm"
+                />
+                <Upload className="absolute right-4 top-3.5 text-zinc-600" size={18} />
+              </div>
+            </div>
+
+            {approvalImageUrl && (
+              <div className="aspect-video w-full rounded-xl overflow-hidden border border-zinc-800 bg-black">
+                <img src={approvalImageUrl} alt="Preview" className="w-full h-full object-contain" />
+              </div>
+            )}
+
+            <button 
+              onClick={handleUploadApproval}
+              disabled={isUploading || !approvalImageUrl}
+              className="w-full bg-primary hover:bg-amber-600 disabled:opacity-50 text-white py-4 rounded-xl font-black shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
+            >
+              {isUploading ? <Loader2 className="animate-spin" /> : <Check size={20} />}
+              ENVIAR PARA O CLIENTE
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

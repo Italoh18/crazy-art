@@ -87,7 +87,7 @@ export interface Order {
   formattedOrderNumber?: string;
   client_name?: string;
   client_credit_limit?: number; 
-  source?: 'shop' | 'admin'; 
+  source?: 'shop' | 'admin' | 'layout_simples' | 'montagem_molde'; 
   size_list?: SizeListItem[] | string; 
   is_confirmed?: number; 
   has_files?: number;
@@ -95,6 +95,10 @@ export interface Order {
   finished_by_admin?: number;
   finished_at?: string;
   production_step?: ProductionStep;
+  approval_image_url?: string;
+  change_request_desc?: string;
+  change_request_image_url?: string;
+  approval_date?: string;
   credit_bonus_applied?: number;
   credit_penalty_applied?: number;
   discount?: number;

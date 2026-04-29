@@ -1330,9 +1330,7 @@ export default function CustomerDetails() {
                                 <Clock size={14} /> Progresso da Produção
                             </h3>
                             <ProductionPath 
-                                orderId={viewingOrder.id} 
-                                currentStep={viewingOrder.production_step || 'production'} 
-                                orderSource={viewingOrder.source}
+                                order={viewingOrder}
                             />
                         </div>
                     </div>
