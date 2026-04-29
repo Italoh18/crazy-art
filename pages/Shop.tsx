@@ -464,11 +464,13 @@ export default function Shop() {
     <div className="animate-fade-in relative pb-24">
         {activeTab === 'art' ? (
             <div className="flex flex-col items-center mb-10 space-y-4">
-                <div className="flex justify-end w-full items-center mb-2">
-                    <button onClick={() => setActiveTab('product')} className="text-[10px] text-zinc-400 hover:text-white uppercase tracking-widest flex items-center gap-1 transition group bg-zinc-900 px-4 py-2 rounded-full border border-zinc-800">
-                        Ir para Loja Geral <ArrowUpRight size={12} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                    </button>
-                </div>
+                {role === 'admin' && (
+                    <div className="flex justify-end w-full items-center mb-2">
+                        <button onClick={() => setActiveTab('product')} className="text-[10px] text-zinc-400 hover:text-white uppercase tracking-widest flex items-center gap-1 transition group bg-zinc-900 px-4 py-2 rounded-full border border-zinc-800">
+                            Ir para Loja Geral <ArrowUpRight size={12} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                        </button>
+                    </div>
+                )}
 
                 {!isSubscriber && (
                     <button 
@@ -517,7 +519,13 @@ export default function Shop() {
             </div>
         ) : (
             <div className="flex flex-col items-center mb-10 space-y-6">
-                <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-full max-w-md border border-zinc-800 shadow-xl overflow-x-auto"><button onClick={() => setActiveTab('product')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'product' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>PRODUTOS</button><button onClick={() => setActiveTab('service')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'service' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>SERVIÇOS</button><button onClick={() => { setActiveTab('art'); setQuitandaTab('estampas'); }} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap flex items-center justify-center gap-1 text-zinc-500 hover:text-purple-400`}><Palette size={12} /> QUITANDA</button></div>
+                {role === 'admin' && (
+                    <div className="bg-zinc-900 p-1.5 rounded-full flex items-center w-full max-w-md border border-zinc-800 shadow-xl overflow-x-auto">
+                        <button onClick={() => setActiveTab('product')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'product' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>PRODUTOS</button>
+                        <button onClick={() => setActiveTab('service')} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap ${activeTab === 'service' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}>SERVIÇOS</button>
+                        <button onClick={() => { setActiveTab('art'); setQuitandaTab('estampas'); }} className={`flex-1 px-4 py-2.5 rounded-full text-xs font-bold tracking-widest transition whitespace-nowrap flex items-center justify-center gap-1 text-zinc-500 hover:text-purple-400`}><Palette size={12} /> QUITANDA</button>
+                    </div>
+                )}
                 <div className="w-full max-w-md relative"><input type="text" placeholder="Buscar na loja..." className="w-full bg-black/50 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-xl focus:border-primary outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /><Search className="absolute left-3 top-3.5 text-zinc-600" size={20} /></div>
             </div>
         )}
