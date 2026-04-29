@@ -542,31 +542,31 @@ export default function ClientOrders() {
                             return (
                                 <div 
                                     key={order.id} 
-                                    className={`bg-[#0c0c0e] border-2 rounded-2xl p-4 sm:p-6 relative overflow-hidden group transition-all hover:shadow-2xl hover:shadow-black/50 ${borderColor} ${isSelected ? 'ring-2 ring-primary/20' : ''}`}
+                                    className={`bg-[#0c0c0e] border-2 rounded-2xl p-3 sm:p-6 relative overflow-hidden group transition-all hover:shadow-2xl hover:shadow-black/50 ${borderColor} ${isSelected ? 'ring-2 ring-primary/20' : ''}`}
                                 >
                                     {/* Canto superior esquerdo: numero do pedido e checkbox */}
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 sm:mb-6">
-                                        <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
-                                            <div className="flex items-center gap-3">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6 text-zinc-300">
+                                        <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
+                                            <div className="flex items-center gap-2">
                                                 {['open', 'production', 'revision'].includes(order.status) && (
                                                     <input 
                                                         type="checkbox" 
                                                         checked={isSelected} 
                                                         onChange={() => {}} 
                                                         onClick={(e) => toggleSelectOrder(order.id, e)} 
-                                                        className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-5 h-5 cursor-pointer accent-primary" 
+                                                        className="rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary/50 w-4 h-4 cursor-pointer accent-primary" 
                                                     />
                                                 )}
-                                                <span className="font-mono text-zinc-300 font-bold text-base sm:text-lg">#{order.formattedOrderNumber || order.order_number}</span>
+                                                <span className="font-mono font-bold text-sm sm:text-lg">#{order.formattedOrderNumber || order.order_number}</span>
                                             </div>
                                             
                                             {/* Badge Mobile Only for Approval */}
                                             {(order.production_step === 'approval') && (
-                                                <div className="sm:hidden flex flex-col items-end gap-1">
-                                                    <span className="text-[9px] font-black text-amber-500 animate-pulse uppercase tracking-wider">Aprovação</span>
+                                                <div className="sm:hidden flex flex-col items-end gap-0.5">
+                                                    <span className="text-[8px] font-black text-amber-500 animate-pulse uppercase tracking-wider">Aprovação</span>
                                                     <button 
                                                         onClick={() => fetchAndSetViewingOrder(order)}
-                                                        className="px-2 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded text-[8px] font-bold"
+                                                        className="px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded text-[7px] font-bold"
                                                     >
                                                         Visualizar
                                                     </button>
@@ -574,11 +574,13 @@ export default function ClientOrders() {
                                             )}
                                         </div>
 
-                                        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-                                            <ProductionPath 
-                                                order={order}
-                                                isCompact 
-                                            />
+                                        <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto overflow-x-auto no-scrollbar">
+                                            <div className="flex-shrink-0">
+                                                <ProductionPath 
+                                                    order={order}
+                                                    isCompact 
+                                                />
+                                            </div>
                                             
                                             {/* Approval Desktop only or when compact fits better */}
                                             {(order.production_step === 'approval') && (
@@ -597,25 +599,25 @@ export default function ClientOrders() {
 
                                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 sm:gap-6">
                                         {/* A esquerda do bloco */}
-                                        <div className="space-y-2 sm:space-y-3 flex-1 min-w-0">
-                                            <h3 className="text-white font-bold text-lg sm:text-xl truncate pr-4" title={order.description || "Sem descrição"}>
+                                        <div className="space-y-1.5 sm:space-y-3 flex-1 min-w-0">
+                                            <h3 className="text-white font-bold text-base sm:text-xl truncate pr-4" title={order.description || "Sem descrição"}>
                                                 {order.description || "Sem descrição"}
                                             </h3>
-                                            <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[10px] sm:text-xs text-zinc-500 font-medium">
+                                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[9px] sm:text-xs text-zinc-500 font-medium">
                                                 <div className="flex items-center gap-1">
                                                     <span>Data:</span>
                                                     <span className="text-zinc-300">{new Date(order.order_date).toLocaleDateString()}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1">
-                                                    <span>Vencimento:</span>
+                                                    <span>Venc.:</span>
                                                     <span className={isLate ? 'text-red-400 font-bold' : 'text-zinc-300'}>
                                                         {new Date(order.due_date).toLocaleDateString()}
                                                     </span>
                                                 </div>
                                             </div>
                                             <div className="pt-1 sm:pt-2 flex items-baseline gap-1">
-                                                <span className="text-zinc-500 text-[10px] sm:text-sm font-bold uppercase tracking-wider">Valor:</span>
-                                                <span className="text-2xl sm:text-3xl font-black text-white tracking-tight font-mono">
+                                                <span className="text-zinc-500 text-[9px] sm:text-sm font-bold uppercase tracking-wider">Valor:</span>
+                                                <span className="text-xl sm:text-3xl font-black text-white tracking-tight font-mono">
                                                     R$ {Number(order.total || 0).toFixed(2)}
                                                 </span>
                                             </div>
@@ -626,20 +628,20 @@ export default function ClientOrders() {
                                             {['open', 'production', 'revision'].includes(order.status) ? (
                                                 <button 
                                                     onClick={() => initiatePaymentFlow([order.id])} 
-                                                    className="flex-1 sm:w-full bg-emerald-600 hover:bg-emerald-500 text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl transition font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 text-xs active:scale-95"
+                                                    className="flex-1 sm:w-full bg-emerald-600 hover:bg-emerald-500 text-white px-2 sm:px-4 py-2 sm:py-2.5 rounded-xl transition font-bold flex items-center justify-center gap-1 sm:gap-2 shadow-lg shadow-emerald-600/20 text-[10px] sm:text-xs active:scale-95"
                                                 >
-                                                    <DollarSign size={14} className="hidden xs:block" /> Pagar
+                                                    <DollarSign size={13} className="hidden xs:block" /> Pagar
                                                 </button>
                                             ) : (
-                                                <div className="flex-1 sm:w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-center flex items-center justify-center">
-                                                    Concluído
+                                                <div className="flex-1 sm:w-full px-2 sm:px-4 py-2 sm:py-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl text-[8px] sm:text-[10px] font-bold uppercase tracking-widest text-center flex items-center justify-center">
+                                                    Pago
                                                 </div>
                                             )}
                                             <button 
                                                 onClick={() => fetchAndSetViewingOrder(order)} 
-                                                className="flex-1 sm:w-full p-2 sm:p-2.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition border border-white/5 hover:border-zinc-700 flex items-center justify-center gap-2 text-xs font-bold active:scale-95"
+                                                className="flex-1 sm:w-full p-2 sm:p-2.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition border border-white/5 hover:border-zinc-700 flex items-center justify-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-bold active:scale-95"
                                             >
-                                                <Eye size={16} className="hidden xs:block" /> Detalhes
+                                                <Eye size={15} className="hidden xs:block" /> Info
                                             </button>
                                         </div>
                                     </div>

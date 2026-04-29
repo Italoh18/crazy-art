@@ -119,7 +119,7 @@ export const ProductionPath: React.FC<ProductionPathProps> = ({ order, isCompact
                 className={`flex flex-col items-center gap-1 group ${canClick ? 'cursor-pointer' : ''}`}
                 onClick={() => canClick && handleStepClick(step.id, index)}
               >
-                <div className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all ${containerClass} ${canClick ? 'hover:scale-110 active:scale-95' : ''}`}>
+                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border flex items-center justify-center transition-all ${containerClass} ${canClick ? 'hover:scale-110 active:scale-95' : ''}`}>
                   <span className={iconClass}>{icon}</span>
                 </div>
                 {!isCompact && (
@@ -143,7 +143,7 @@ export const ProductionPath: React.FC<ProductionPathProps> = ({ order, isCompact
               </AnimatePresence>
             </div>
             {index < STEPS.length - 1 && (
-              <div className={`h-[1px] ${isCompact ? 'w-2' : 'w-4'} ${isPast ? 'bg-emerald-500/30' : 'bg-zinc-800'}`} />
+              <div className={`h-[1px] ${isCompact ? 'w-1 sm:w-2' : 'w-2 sm:w-4'} ${isPast ? 'bg-emerald-500/30' : 'bg-zinc-800'}`} />
             )}
           </React.Fragment>
         );
