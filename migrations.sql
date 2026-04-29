@@ -180,6 +180,7 @@ CREATE TABLE IF NOT EXISTS layout_requests (
     payment_method TEXT, -- 'online' ou 'credit'
     payment_status TEXT DEFAULT 'pending', -- 'pending', 'paid', 'credit_approved'
     order_status TEXT DEFAULT 'draft', -- 'draft', 'open', 'completed'
+    request_type TEXT DEFAULT 'layout_simples', -- 'layout_simples', 'montagem_molde'
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (client_id) REFERENCES clients(id),
     FOREIGN KEY (service_id) REFERENCES catalog(id)

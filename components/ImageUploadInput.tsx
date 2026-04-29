@@ -6,13 +6,16 @@ interface ImageUploadInputProps {
   onChange: (url: string) => void;
   placeholder?: string;
   label?: string;
+  accept?: string;
+  maxFiles?: number;
 }
 
 export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({ 
   value, 
   onChange, 
   placeholder = "https://...", 
-  label = "URL da Imagem"
+  label = "URL do Arquivo",
+  accept = "image/*"
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,16 +24,6 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Validação básica no cliente
-    if (!file.type.startsWith('image/')) {
-      setError('Apenas imagens são permitidas.');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Máximo 5MB permitido.');
-      return;
-    }
 
     setIsUploading(true);
     setError(null);
@@ -105,7 +98,7 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
           type="file" 
           ref={fileInputRef} 
           onChange={handleUpload} 
-          accept="image/*" 
+          accept={accept} 
           className="hidden" 
         />
       </div>

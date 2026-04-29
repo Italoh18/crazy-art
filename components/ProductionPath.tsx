@@ -43,7 +43,7 @@ export const ProductionPath: React.FC<ProductionPathProps> = ({ orderId, current
         const isPast = index < currentIndex || (currentStep === 'completed');
         const isCurrent = index === currentIndex && currentStep !== 'completed';
         const isFuture = index > currentIndex && currentStep !== 'completed';
-        const isLayoutPending = orderSource === 'layout_simples' && step.id === 'production' && currentStep === 'production';
+        const isLayoutPending = (orderSource === 'layout_simples' || orderSource === 'montagem_molde') && step.id === 'production' && currentStep === 'production';
 
         let icon = <Circle size={isCompact ? 12 : 16} />;
         let iconClass = "text-zinc-700";

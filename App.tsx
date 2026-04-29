@@ -35,6 +35,7 @@ import SmartEnlargement from './pages/SmartEnlargement';
 import Statement from './pages/Statement'; // Nova Importação
 import ClientOrders from './pages/ClientOrders'; // Nova Importação
 import LayoutSimples from './pages/LayoutSimples';
+import MontagemMolde from './pages/MontagemMolde';
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
 
@@ -93,6 +94,7 @@ const AppRoutes = () => {
             <Route path="/pricing-calculator" element={<PricingCalculator />} />
             <Route path="/smart-enlargement" element={<SmartEnlargement />} />
             <Route path="/layout-simples" element={<LayoutSimples />} />
+            <Route path="/montagem-molde" element={<MontagemMolde />} />
             <Route path="/minha-area" element={<ClientRoute />} />
             <Route path="/my-orders" element={<ClientOrdersRoute />} />
             <Route path="/statement" element={<StatementRoute />} /> {/* Nova Rota */}

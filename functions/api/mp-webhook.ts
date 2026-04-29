@@ -50,6 +50,9 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
               "UPDATE layout_requests SET payment_status = 'paid', order_status = 'open' WHERE id = ?"
             ).bind(requestId).run();
 
+            const isMolde = layout.request_type === 'montagem_molde';
+            const label = isMolde ? 'Montagem de Molde' : 'Layout Simples';
+
             // Criar Pedido na Tabela Global de Pedidos (Para aparecer na listagem principal)
             const { results: maxResults } = await env.DB.prepare('SELECT MAX(order_number) as last FROM orders').all();
             const lastNum = (maxResults as any)[0]?.last;
@@ -63,14 +66,14 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                 orderId,
                 nextOrderNumber,
                 layout.client_id,
-                `Layout Simples: ${layout.description.substring(0, 50)}...`,
+                `${label}: ${layout.description.substring(0, 50)}...`,
                 new Date().toISOString().split('T')[0],
                 new Date().toISOString().split('T')[0],
                 layout.value,
                 0,
                 'paid',
                 new Date().toISOString(),
-                'layout_simples',
+                layout.request_type || 'layout_simples',
                 'production',
                 'mercadopago',
                 new Date().toISOString()
@@ -85,7 +88,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                 itemId,
                 orderId,
                 layout.service_id || 'manual',
-                "Layout Simples",
+                label,
                 layout.value,
                 layout.value,
                 layout.example_url || null,
@@ -96,8 +99,8 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             const adminEmail = getAdminEmail(env);
             const html = `
                 <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #eee; padding: 20px; border-radius: 15px;">
-                    <h2 style="color: #10B981; text-transform: uppercase;">💰 Pagamento Confirmado: Layout Simples</h2>
-                    <p>O cliente <strong>${layout.name}</strong> pagou pela solicitação de layout.</p>
+                    <h2 style="color: #10B981; text-transform: uppercase;">💰 Pagamento Confirmado: ${label}</h2>
+                    <p>O cliente <strong>${layout.name}</strong> pagou pela solicitação de ${label}.</p>
                     
                     <div style="background: #f9fafb; padding: 15px; border-radius: 10px; margin: 20px 0;">
                         <h3 style="margin-top: 0; font-size: 14px; color: #666;">DADOS DO CLIENTE</h3>
@@ -133,15 +136,15 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
 
             await sendEmail(env, {
                 to: adminEmail,
-                subject: `[Layout Simples] PAGAMENTO APROVADO - ${layout.name}`,
+                subject: `[${label}] PAGAMENTO APROVADO - ${layout.name}`,
                 html
             });
 
             // Notificação Cliente
             await env.DB.prepare(`
                 INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, is_read)
-                VALUES (?, 'client', ?, 'success', 'Pagamento Confirmado', 'Sua solicitação de layout foi paga com sucesso e já está em nossa fila de produção.', ?, 0)
-            `).bind(crypto.randomUUID(), layout.client_id, nowTs).run();
+                VALUES (?, 'client', ?, 'success', 'Pagamento Confirmado', ?, ?, 0)
+            `).bind(crypto.randomUUID(), layout.client_id, `Sua solicitação de ${label.toLowerCase()} foi paga com sucesso e já está em nossa fila de produção.`, nowTs).run();
           }
 
           return new Response('OK', { status: 200 });

@@ -16,7 +16,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     if (request.method === 'POST') {
       const body = await request.json() as any;
-      const { serviceId, description, exampleUrl, logoUrl, paymentMethod, value } = body;
+      const { serviceId, description, exampleUrl, logoUrl, paymentMethod, value, type = 'layout_simples' } = body;
+
+      const isMolde = type === 'montagem_molde';
+      const label = isMolde ? 'Montagem de Molde' : 'Layout Simples';
 
       if (!serviceId || !description || !value) {
         return new Response(JSON.stringify({ error: 'Campos obrigatórios ausentes' }), { status: 400 });
@@ -46,8 +49,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       await env.DB.prepare(`
         INSERT INTO layout_requests (
           id, client_id, service_id, description, example_url, logo_url, 
-          value, total, payment_method, payment_status, order_status, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          value, total, payment_method, payment_status, order_status, request_type, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         requestId,
         clientId,
@@ -60,6 +63,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         paymentMethod,
         paymentMethod === 'credit' ? 'credit_approved' : 'pending',
         paymentMethod === 'credit' ? 'open' : 'draft',
+        type,
         now
       ).run();
 
@@ -77,14 +81,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             orderId,
             nextOrderNumber,
             clientId,
-            `Layout Simples: ${description.substring(0, 50)}...`,
+            `${label}: ${description.substring(0, 50)}...`,
             now.split('T')[0],
             now.split('T')[0],
             value,
             0,
             'paid',
             now,
-            'layout_simples',
+            type,
             'production'
         ).run();
 
@@ -97,7 +101,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             itemId,
             orderId,
             serviceId,
-            "Layout Simples",
+            label,
             value,
             value,
             exampleUrl || null,
@@ -116,6 +120,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           exampleUrl,
           logoUrl,
           value,
+          type,
           paymentMethod: 'Crédito Fidelidade',
           status: 'Aberto (Crédito Reservado)'
         });
@@ -128,8 +133,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           const preferencePayload = {
               items: [{
                   id: requestId,
-                  title: `Layout Simples: ${client.name}`,
-                  description: "Solicitação de Layout Personalizado",
+                  title: `${label}: ${client.name}`,
+                  description: `Solicitação de ${label} Personalizado`,
                   category_id: "services",
                   quantity: 1,
                   currency_id: 'BRL',
@@ -195,9 +200,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
 async function notifyAdmin(env: any, data: any) {
     const adminEmail = getAdminEmail(env);
+    const label = data.type === 'montagem_molde' ? 'Montagem de Molde' : 'Layout Simples';
     const html = `
         <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #eee; padding: 20px; border-radius: 15px;">
-            <h2 style="color: #F59E0B; text-transform: uppercase;">🎨 Nova Solicitação de Layout Simples</h2>
+            <h2 style="color: #F59E0B; text-transform: uppercase;">🎨 Nova Solicitação de ${label}</h2>
             <p>Um novo pedido personalizado foi recebido.</p>
             
             <div style="background: #f9fafb; padding: 15px; border-radius: 10px; margin: 20px 0;">

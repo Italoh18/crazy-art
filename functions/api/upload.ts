@@ -5,9 +5,9 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
   try {
     // 1. Verificação de Autenticação
     const user = await getAuth(request, env);
-    if (!user || user.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Acesso negado. Apenas administradores podem fazer upload.' }), { 
-        status: 403,
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Não autorizado.' }), { 
+        status: 401,
         headers: { 'Content-Type': 'application/json' }
       });
     }
@@ -24,17 +24,31 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     }
 
     // 3. Validação
-    // Apenas imagens
-    if (!file.type.startsWith('image/')) {
-      return new Response(JSON.stringify({ error: 'Apenas arquivos de imagem são permitidos.' }), { 
+    const allowedTypes = [
+      'image/',
+      'application/pdf',
+      'application/x-coreldraw',
+      'application/illustrator',
+      'application/postscript',
+      'image/vnd.adobe.photoshop',
+      'application/octet-stream' // Para extensões menos comuns ou binárias de artes
+    ];
+
+    const isAllowed = allowedTypes.some(type => file.type.startsWith(type)) || 
+                      file.name.endsWith('.cdr') || 
+                      file.name.endsWith('.ai');
+
+    if (!isAllowed && user.role !== 'admin') {
+      return new Response(JSON.stringify({ error: 'Formato de arquivo não suportado.' }), { 
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    // Máximo 5MB
-    if (file.size > 5 * 1024 * 1024) {
-      return new Response(JSON.stringify({ error: 'O arquivo excede o limite de 5MB.' }), { 
+    // Máximo 10MB para clientes, 50MB para admins
+    const maxSize = user.role === 'admin' ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      return new Response(JSON.stringify({ error: `O arquivo excede o limite de ${maxSize / (1024 * 1024)}MB.` }), { 
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
