@@ -23,6 +23,9 @@ interface RepliaItem {
   size: string;
   name: string;
   number: string;
+  isConjunto?: boolean;
+  shortSize?: string;
+  shortNumber?: string;
 }
 
 export default function MontagemMolde() {
@@ -44,7 +47,7 @@ export default function MontagemMolde() {
   
   // Replicas State
   const [hasReplicas, setHasReplicas] = useState(false);
-  const [replicas, setReplicas] = useState<RepliaItem[]>([{ id: crypto.randomUUID(), size: '', name: '', number: '' }]);
+  const [replicas, setReplicas] = useState<RepliaItem[]>([{ id: crypto.randomUUID(), size: '', name: '', number: '', isConjunto: false, shortSize: '', shortNumber: '' }]);
 
   useEffect(() => {
     fetchServices();
@@ -68,7 +71,7 @@ export default function MontagemMolde() {
   };
 
   const handleAddReplica = () => {
-    setReplicas([...replicas, { id: crypto.randomUUID(), size: '', name: '', number: '' }]);
+    setReplicas([...replicas, { id: crypto.randomUUID(), size: '', name: '', number: '', isConjunto: false, shortSize: '', shortNumber: '' }]);
   };
 
   const handleRemoveReplica = (id: string) => {
@@ -77,7 +80,7 @@ export default function MontagemMolde() {
     }
   };
 
-  const updateReplica = (id: string, field: keyof RepliaItem, value: string) => {
+  const updateReplica = (id: string, field: keyof RepliaItem, value: any) => {
     setReplicas(replicas.map(r => r.id === id ? { ...r, [field]: value } : r));
   };
 
@@ -120,7 +123,7 @@ export default function MontagemMolde() {
             },
             body: JSON.stringify({
                 serviceId: mainService?.id,
-                description: `MONTAGEM DE MOLDE:\n${description}\n\nREPLICAS (${replicas.length}):\n${replicas.map(r => `- ${r.size} | ${r.name} | ${r.number}`).join('\n')}`,
+                description: `MONTAGEM DE MOLDE:\n${description}\n\nREPLICAS (${replicas.length}):\n${replicas.map(r => `- ${r.size} | ${r.name} | ${r.number}${r.isConjunto ? ` | CONJUNTO: [Short: ${r.shortSize} Nº: ${r.shortNumber}]` : ''}`).join('\n')}`,
                 logoUrl: layoutFileUrl, // Reutilizando campo logo_url para o arquivo de layout
                 paymentMethod: method,
                 value: total,
@@ -254,40 +257,75 @@ export default function MontagemMolde() {
                                         initial={{ opacity: 0, x: -20 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         exit={{ opacity: 0, x: 20 }}
-                                        className="grid grid-cols-1 md:grid-cols-4 gap-2 bg-black/40 p-4 rounded-2xl border border-zinc-800"
+                                        className="space-y-4 bg-black/40 p-5 rounded-2xl border border-zinc-800"
                                     >
-                                        <div className="space-y-1">
-                                            <p className="text-[9px] text-zinc-600 font-black uppercase">Tamanho</p>
-                                            <input 
-                                                type="text" value={replica.size} 
-                                                onChange={(e) => updateReplica(replica.id, 'size', e.target.value)}
-                                                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white focus:border-primary outline-none" 
-                                                placeholder="ex: G"
-                                            />
+                                        <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Item #{index + 1}</span>
+                                                <button 
+                                                    onClick={() => updateReplica(replica.id, 'isConjunto', !replica.isConjunto)}
+                                                    className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${replica.isConjunto ? 'bg-primary text-black' : 'bg-zinc-800 text-zinc-500'}`}
+                                                >
+                                                    {replica.isConjunto ? 'É Conjunto' : 'Peça Única'}
+                                                </button>
+                                            </div>
+                                            {replicas.length > 1 && (
+                                                <button onClick={() => handleRemoveReplica(replica.id)} className="text-zinc-600 hover:text-red-500 transition">
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
                                         </div>
-                                        <div className="space-y-1 md:col-span-2">
-                                            <p className="text-[9px] text-zinc-600 font-black uppercase">Nome / Texto</p>
-                                            <input 
-                                                type="text" value={replica.name} 
-                                                onChange={(e) => updateReplica(replica.id, 'name', e.target.value)}
-                                                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white focus:border-primary outline-none" 
-                                                placeholder="Nome no Molde"
-                                            />
-                                        </div>
-                                        <div className="space-y-1 flex gap-2">
-                                            <div className="flex-1">
+                                        
+                                        <div className={`grid grid-cols-1 ${replica.isConjunto ? 'md:grid-cols-5' : 'md:grid-cols-3'} gap-3`}>
+                                            <div className="space-y-1">
+                                                <p className="text-[9px] text-zinc-600 font-black uppercase">Tam (Blusa)</p>
+                                                <input 
+                                                    type="text" value={replica.size} 
+                                                    onChange={(e) => updateReplica(replica.id, 'size', e.target.value)}
+                                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none" 
+                                                    placeholder="G"
+                                                />
+                                            </div>
+                                            <div className="space-y-1 md:col-span-1">
+                                                <p className="text-[9px] text-zinc-600 font-black uppercase">Nome / Texto</p>
+                                                <input 
+                                                    type="text" value={replica.name} 
+                                                    onChange={(e) => updateReplica(replica.id, 'name', e.target.value)}
+                                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none" 
+                                                    placeholder="Nome"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
                                                 <p className="text-[9px] text-zinc-600 font-black uppercase">Nº</p>
                                                 <input 
                                                     type="text" value={replica.number} 
                                                     onChange={(e) => updateReplica(replica.id, 'number', e.target.value)}
-                                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white focus:border-primary outline-none" 
+                                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none" 
                                                     placeholder="00"
                                                 />
                                             </div>
-                                            {replicas.length > 1 && (
-                                                <button onClick={() => handleRemoveReplica(replica.id)} className="mt-5 p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition">
-                                                    <Trash2 size={16} />
-                                                </button>
+                                            
+                                            {replica.isConjunto && (
+                                                <>
+                                                    <div className="space-y-1 animate-fade-in">
+                                                        <p className="text-[9px] text-primary font-black uppercase">Tam Short</p>
+                                                        <input 
+                                                            type="text" value={replica.shortSize} 
+                                                            onChange={(e) => updateReplica(replica.id, 'shortSize', e.target.value)}
+                                                            className="w-full bg-zinc-900 border border-primary/30 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none" 
+                                                            placeholder="M"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1 animate-fade-in">
+                                                        <p className="text-[9px] text-primary font-black uppercase">Nº Short</p>
+                                                        <input 
+                                                            type="text" value={replica.shortNumber} 
+                                                            onChange={(e) => updateReplica(replica.id, 'shortNumber', e.target.value)}
+                                                            className="w-full bg-zinc-900 border border-primary/30 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none" 
+                                                            placeholder="00"
+                                                        />
+                                                    </div>
+                                                </>
                                             )}
                                         </div>
                                     </motion.div>
@@ -362,7 +400,7 @@ export default function MontagemMolde() {
                                     <div className="space-y-1">
                                         {replicas.map(r => (
                                             <div key={r.id} className="text-[10px] text-zinc-400 font-bold uppercase py-1 border-b border-zinc-800/50">
-                                                {r.size} • {r.name} • {r.number}
+                                                {r.size} • {r.name} • {r.number} {r.isConjunto && <span className="text-primary ml-2"> (CONJUNTO: {r.shortSize} • {r.shortNumber})</span>}
                                             </div>
                                         ))}
                                     </div>
