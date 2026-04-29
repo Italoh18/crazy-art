@@ -81,7 +81,24 @@ export default function MontagemMolde() {
   };
 
   const updateReplica = (id: string, field: keyof RepliaItem, value: any) => {
-    setReplicas(replicas.map(r => r.id === id ? { ...r, [field]: value } : r));
+    setReplicas(replicas.map(r => {
+      if (r.id === id) {
+        const updated = { ...r, [field]: value };
+        
+        // Herança de número: quando o número da camisa muda, o do short segue se for conjunto
+        if (field === 'number' && r.isConjunto) {
+          updated.shortNumber = value;
+        }
+        
+        // Quando ativa o conjunto, herda o número que já estiver na camisa
+        if (field === 'isConjunto' && value === true) {
+          updated.shortNumber = r.number;
+        }
+        
+        return updated;
+      }
+      return r;
+    }));
   };
 
   const calculateTotal = () => {
@@ -264,9 +281,10 @@ export default function MontagemMolde() {
                                                 <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Item #{index + 1}</span>
                                                 <button 
                                                     onClick={() => updateReplica(replica.id, 'isConjunto', !replica.isConjunto)}
-                                                    className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${replica.isConjunto ? 'bg-primary text-black' : 'bg-zinc-800 text-zinc-500'}`}
+                                                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all flex items-center gap-2 ${replica.isConjunto ? 'bg-primary text-black' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
                                                 >
-                                                    {replica.isConjunto ? 'É Conjunto' : 'Peça Única'}
+                                                    <div className={`w-2 h-2 rounded-full ${replica.isConjunto ? 'bg-black animate-pulse' : 'bg-zinc-700'}`}></div>
+                                                    {replica.isConjunto ? 'É Conjunto (Sim)' : 'É Conjunto?'}
                                                 </button>
                                             </div>
                                             {replicas.length > 1 && (

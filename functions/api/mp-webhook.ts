@@ -38,96 +38,56 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
         if (reference.startsWith('LAYOUT_')) {
           const requestId = reference.replace('LAYOUT_', '');
           
-          const layout: any = await env.DB.prepare(`
-              SELECT lr.*, c.name, c.email, c.phone 
-              FROM layout_requests lr 
-              JOIN clients c ON lr.client_id = c.id 
-              WHERE lr.id = ?
+          const order: any = await env.DB.prepare(`
+              SELECT o.*, c.name, c.email, c.phone 
+              FROM orders o
+              JOIN clients c ON o.client_id = c.id 
+              WHERE o.id = ?
           `).bind(requestId).first();
-
-          if (layout && layout.payment_status !== 'paid') {
+          
+          // Se for uma solicitação de layout e ainda não confirmamos pagamento
+          if (order && order.payment_status !== 'paid') {
             await env.DB.prepare(
-              "UPDATE layout_requests SET payment_status = 'paid', order_status = 'open' WHERE id = ?"
-            ).bind(requestId).run();
+              "UPDATE orders SET payment_status = 'paid', status = 'open', paid_at = ?, payment_method = 'mercadopago' WHERE id = ?"
+            ).bind(nowTs, requestId).run();
 
-            const isMolde = layout.request_type === 'montagem_molde';
+            const isMolde = order.source === 'montagem_molde';
             const label = isMolde ? 'Montagem de Molde' : 'Layout Simples';
-
-            // Criar Pedido na Tabela Global de Pedidos (Para aparecer na listagem principal)
-            const { results: maxResults } = await env.DB.prepare('SELECT MAX(order_number) as last FROM orders').all();
-            const lastNum = (maxResults as any)[0]?.last;
-            const nextOrderNumber = (Number(lastNum) || 0) + 1;
-
-            const orderId = crypto.randomUUID();
-            await env.DB.prepare(`
-                INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, total_cost, status, created_at, source, production_step, is_confirmed, payment_method, paid_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-            `).bind(
-                orderId,
-                nextOrderNumber,
-                layout.client_id,
-                `${label}: ${layout.description.substring(0, 50)}...`,
-                new Date().toISOString().split('T')[0],
-                new Date().toISOString().split('T')[0],
-                layout.value,
-                0,
-                'paid',
-                new Date().toISOString(),
-                layout.request_type || 'layout_simples',
-                'production',
-                'mercadopago',
-                new Date().toISOString()
-            ).run();
-
-            // Adicionar o item ao pedido
-            const itemId = crypto.randomUUID();
-            await env.DB.prepare(`
-                INSERT INTO order_items (id, order_id, catalog_id, name, type, unit_price, quantity, total, art_link, art_extras_desc)
-                VALUES (?, ?, ?, ?, 'service', ?, 1, ?, ?, ?)
-            `).bind(
-                itemId,
-                orderId,
-                layout.service_id || 'manual',
-                label,
-                layout.value,
-                layout.value,
-                layout.example_url || null,
-                layout.description
-            ).run();
 
             // Notify Admin
             const adminEmail = getAdminEmail(env);
             const html = `
                 <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #eee; padding: 20px; border-radius: 15px;">
                     <h2 style="color: #10B981; text-transform: uppercase;">💰 Pagamento Confirmado: ${label}</h2>
-                    <p>O cliente <strong>${layout.name}</strong> pagou pela solicitação de ${label}.</p>
+                    <p>O cliente <strong>${order.name}</strong> pagou pela solicitação de ${label}.</p>
                     
                     <div style="background: #f9fafb; padding: 15px; border-radius: 10px; margin: 20px 0;">
                         <h3 style="margin-top: 0; font-size: 14px; color: #666;">DADOS DO CLIENTE</h3>
-                        <p><strong>Nome:</strong> ${layout.name}</p>
-                        <p><strong>E-mail:</strong> ${layout.email}</p>
-                        <p><strong>WhatsApp:</strong> ${layout.phone || 'Não informado'}</p>
+                        <p><strong>Nome:</strong> ${order.name}</p>
+                        <p><strong>E-mail:</strong> ${order.email}</p>
+                        <p><strong>WhatsApp:</strong> ${order.phone || 'Não informado'}</p>
                     </div>
 
                     <div style="background: #f9fafb; padding: 15px; border-radius: 10px; margin: 20px 0;">
                         <h3 style="margin-top: 0; font-size: 14px; color: #666;">DETALHES DO BRIEFING</h3>
-                        <p style="white-space: pre-wrap;">${layout.description}</p>
+                        <p style="white-space: pre-wrap;">${order.description}</p>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0;">
                         <div style="background: #f9fafb; padding: 10px; border-radius: 10px; text-align: center;">
                             <p style="font-size: 10px; font-weight: bold; margin-bottom: 5px;">EXEMPLO</p>
-                            ${layout.example_url ? `<a href="${layout.example_url}" target="_blank"><img src="${layout.example_url}" style="width: 100%; height: 100px; object-cover; border-radius: 5px;" /></a>` : 'Não enviado'}
+                            ${order.example_url ? `<a href="${order.example_url}" target="_blank"><img src="${order.example_url}" style="width: 100%; height: 100px; object-cover; border-radius: 5px;" /></a>` : 'Não enviado'}
                         </div>
                         <div style="background: #f9fafb; padding: 10px; border-radius: 10px; text-align: center;">
                             <p style="font-size: 10px; font-weight: bold; margin-bottom: 5px;">LOGO</p>
-                            ${layout.logo_url ? `<a href="${layout.logo_url}" target="_blank"><img src="${layout.logo_url}" style="width: 100%; height: 100px; object-cover; border-radius: 5px;" /></a>` : 'Não enviado'}
+                            ${order.logo_url ? `<a href="${order.logo_url}" target="_blank"><img src="${order.logo_url}" style="width: 100%; height: 100px; object-cover; border-radius: 5px;" /></a>` : 'Não enviado'}
                         </div>
                     </div>
 
                     <div style="border-top: 1px solid #eee; pt: 20px;">
-                        <p><strong>ID do Pedido:</strong> ${requestId}</p>
-                        <p><strong>Valor:</strong> R$ ${Number(layout.value).toFixed(2)}</p>
+                        <p><strong>Número do Pedido:</strong> #${order.order_number}</p>
+                        <p><strong>ID Técnico:</strong> ${requestId}</p>
+                        <p><strong>Valor:</strong> R$ ${Number(order.total).toFixed(2)}</p>
                         <p><strong>Pagamento:</strong> MercadoPago (Aprovado)</p>
                         <p><strong>Status:</strong> <span style="color: #10B981;">Aberto</span></p>
                     </div>
@@ -136,7 +96,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
 
             await sendEmail(env, {
                 to: adminEmail,
-                subject: `[${label}] PAGAMENTO APROVADO - ${layout.name}`,
+                subject: `[${label}] PAGAMENTO APROVADO - ${order.name}`,
                 html
             });
 
@@ -144,7 +104,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             await env.DB.prepare(`
                 INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, is_read)
                 VALUES (?, 'client', ?, 'success', 'Pagamento Confirmado', ?, ?, 0)
-            `).bind(crypto.randomUUID(), layout.client_id, `Sua solicitação de ${label.toLowerCase()} foi paga com sucesso e já está em nossa fila de produção.`, nowTs).run();
+            `).bind(crypto.randomUUID(), order.client_id, `Sua solicitação de ${label.toLowerCase()} foi paga com sucesso e já está em nossa fila de produção.`, nowTs).run();
           }
 
           return new Response('OK', { status: 200 });

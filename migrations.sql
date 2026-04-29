@@ -167,23 +167,35 @@ CREATE TABLE IF NOT EXISTS ratings (
     created_at TEXT NOT NULL
 );
 
--- Nova tabela para solicitações de Layout Simples (Módulo Próprio)
-CREATE TABLE IF NOT EXISTS layout_requests (
-    id TEXT PRIMARY KEY,
-    client_id TEXT NOT NULL,
-    service_id INTEGER NOT NULL,
-    description TEXT NOT NULL,
-    example_url TEXT,
-    logo_url TEXT,
-    value REAL NOT NULL,
-    total REAL NOT NULL,
-    payment_method TEXT, -- 'online' ou 'credit'
-    payment_status TEXT DEFAULT 'pending', -- 'pending', 'paid', 'credit_approved'
-    order_status TEXT DEFAULT 'draft', -- 'draft', 'open', 'completed'
-    request_type TEXT DEFAULT 'layout_simples', -- 'layout_simples', 'montagem_molde'
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (client_id) REFERENCES clients(id),
-    FOREIGN KEY (service_id) REFERENCES catalog(id)
-);
+-- EXPANSÃO DA TABELA DE PEDIDOS (UNIFICAÇÃO COM LAYOUT_REQUESTS)
+-- Nota: Caso esteja rodando as alterações manualmente em uma tabela existente, 
+-- utilize os comandos ALTER TABLE no final do arquivo.
 
-CREATE INDEX IF NOT EXISTS idx_layout_requests_client ON layout_requests(client_id);
+-- 3. Tabela de Pedidos (Atualizada com campos de briefing e status de pagamento)
+CREATE TABLE IF NOT EXISTS orders (
+    id TEXT PRIMARY KEY,
+    order_number INTEGER,
+    client_id TEXT NOT NULL,
+    description TEXT,
+    order_date TEXT,
+    due_date TEXT,
+    total REAL DEFAULT 0,
+    total_cost REAL DEFAULT 0,
+    status TEXT DEFAULT 'open',
+    source TEXT DEFAULT 'admin',
+    size_list TEXT,
+    is_confirmed INTEGER DEFAULT 0,
+    payment_method TEXT,
+    payment_status TEXT DEFAULT 'pending', -- Novo campo
+    example_url TEXT, -- Novo campo para briefing/referência
+    logo_url TEXT, -- Novo campo para logo/arquivo base
+    finished_by_admin INTEGER DEFAULT 0,
+    finished_at TEXT,
+    paid_at TEXT,
+    production_step TEXT DEFAULT 'production',
+    credit_bonus_applied INTEGER DEFAULT 0,
+    credit_penalty_applied INTEGER DEFAULT 0,
+    discount REAL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (client_id) REFERENCES clients(id)
+);

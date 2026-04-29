@@ -45,69 +45,54 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           .run();
       }
 
-      // Salvar solicitação na tabela de layouts (Módulo Próprio)
+      // Calcular Número do Pedido
+      const { results: maxResults } = await env.DB.prepare('SELECT MAX(order_number) as last FROM orders').all();
+      const lastNum = (maxResults as any)[0]?.last;
+      const nextOrderNumber = (Number(lastNum) || 0) + 1;
+
+      // Salvar na tabela Global de Pedidos
       await env.DB.prepare(`
-        INSERT INTO layout_requests (
-          id, client_id, service_id, description, example_url, logo_url, 
-          value, total, payment_method, payment_status, order_status, request_type, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO orders (
+          id, order_number, client_id, description, 
+          example_url, logo_url, total, total_cost,
+          payment_method, payment_status, status, 
+          source, order_date, due_date, created_at, 
+          production_step, is_confirmed
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
       `).bind(
         requestId,
+        nextOrderNumber,
         clientId,
-        serviceId,
         description,
         exampleUrl || null,
         logoUrl || null,
         value,
-        value,
+        0, // total_cost
         paymentMethod,
-        paymentMethod === 'credit' ? 'credit_approved' : 'pending',
+        paymentMethod === 'credit' ? 'paid' : 'pending',
         paymentMethod === 'credit' ? 'open' : 'draft',
         type,
-        now
+        now.split('T')[0],
+        now.split('T')[0],
+        now,
+        'production'
       ).run();
 
-      // Criar Pedido na Tabela Global de Pedidos se for Crédito (Para aparecer na listagem principal)
-      if (paymentMethod === 'credit') {
-        const { results: maxResults } = await env.DB.prepare('SELECT MAX(order_number) as last FROM orders').all();
-        const lastNum = (maxResults as any)[0]?.last;
-        const nextOrderNumber = (Number(lastNum) || 0) + 1;
-
-        const orderId = crypto.randomUUID();
-        await env.DB.prepare(`
-            INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, total_cost, status, created_at, source, production_step, is_confirmed)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-        `).bind(
-            orderId,
-            nextOrderNumber,
-            clientId,
-            `${label}: ${description.substring(0, 50)}...`,
-            now.split('T')[0],
-            now.split('T')[0],
-            value,
-            0,
-            'paid',
-            now,
-            type,
-            'production'
-        ).run();
-
-        // Adicionar o item ao pedido
-        const itemId = crypto.randomUUID();
-        await env.DB.prepare(`
-            INSERT INTO order_items (id, order_id, catalog_id, name, type, unit_price, quantity, total, art_link, art_extras_desc)
-            VALUES (?, ?, ?, ?, 'service', ?, 1, ?, ?, ?)
-        `).bind(
-            itemId,
-            orderId,
-            serviceId,
-            label,
-            value,
-            value,
-            exampleUrl || null,
-            description
-        ).run();
-      }
+      // Criar Item do Pedido
+      const itemId = crypto.randomUUID();
+      await env.DB.prepare(`
+          INSERT INTO order_items (id, order_id, catalog_id, name, type, unit_price, quantity, total, art_link, art_extras_desc)
+          VALUES (?, ?, ?, ?, 'service', ?, 1, ?, ?, ?)
+      `).bind(
+          itemId,
+          requestId,
+          serviceId,
+          label,
+          value,
+          value,
+          exampleUrl || null,
+          description
+      ).run();
 
       // Enviar E-mail se for crédito (pago online será enviado via webhook/callback de pagamento)
       if (paymentMethod === 'credit') {
@@ -173,19 +158,24 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     }
 
     if (request.method === 'GET') {
-        // Listagem para o admin ou para o próprio cliente
-        let query = 'SELECT lr.*, c.name as client_name FROM layout_requests lr JOIN clients c ON lr.client_id = c.id';
+        // Listagem para o admin ou para o próprio cliente pegando da tabela orders
+        let query = `
+            SELECT o.*, c.name as client_name 
+            FROM orders o 
+            JOIN clients c ON o.client_id = c.id 
+            WHERE o.source IN ('layout_simples', 'montagem_molde')
+        `;
         const params: any[] = [];
         
         if (user.role === 'client') {
-            query += ' WHERE lr.client_id = ?';
+            query += ' AND o.client_id = ?';
             params.push(user.clientId);
         } else if (id) {
-            query += ' WHERE lr.id = ?';
+            query += ' AND o.id = ?';
             params.push(id);
         }
 
-        query += ' ORDER BY lr.created_at DESC';
+        query += ' ORDER BY o.created_at DESC';
         
         const { results } = await env.DB.prepare(query).bind(...params).all();
         return Response.json(results);
