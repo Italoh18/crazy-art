@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Plus, Trash2, Link as LinkIcon, Building } from 'lucide-react';
+import { ImageUploadInput } from '../components/ImageUploadInput';
 
 export default function TrustedCompanies() {
   const { trustedCompanies, addTrustedCompany, deleteTrustedCompany } = useData();
@@ -40,18 +41,13 @@ export default function TrustedCompanies() {
             </div>
           </div>
           
-          <div className="relative flex-[2] w-full">
-            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1 ml-1">URL do Logotipo</label>
-            <div className="relative">
-                <input
-                type="text"
-                placeholder="Cole o link da imagem (http://...)"
-                className="w-full bg-black/50 border border-zinc-700 rounded-lg pl-10 pr-4 py-2.5 text-white focus:border-primary outline-none transition"
-                value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-                />
-                <LinkIcon className="absolute left-3 top-3 text-zinc-500" size={18} />
-            </div>
+          <div className="flex-[2] w-full">
+            <ImageUploadInput 
+              label="URL do Logotipo"
+              value={newUrl}
+              onChange={setNewUrl}
+              placeholder="Cole o link da imagem (http://...)"
+            />
           </div>
 
           <button 

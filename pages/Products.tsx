@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, Search, CheckCircle, AlertOctagon, AlertTriangle, Loader2, Edit, X, Palette, CloudDownload, Hash, TrendingDown, Layers } from 'lucide-react';
 import { ItemType, Product, PriceVariation } from '../types';
+import { ImageUploadInput } from '../components/ImageUploadInput';
 
 const DEFAULT_SUBCATEGORIES = ['Carnaval', 'Colegio', 'Futebol', 'Volei', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais', 'Logos', 'Bordados', 'Diversos'];
 
@@ -453,19 +454,12 @@ export default function Products() {
                       </div>
                   )}
                   
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">URL da Imagem</label>
-                    <div className="relative">
-                        <input
-                        type="text"
-                        placeholder="https://..."
-                        className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
-                        value={formData.imageUrl}
-                        onChange={e => setFormData({ ...formData, imageUrl: e.target.value })}
-                        />
-                        <LinkIcon className="absolute left-3 top-3.5 text-zinc-600" size={16} />
-                    </div>
-                  </div>
+                  <ImageUploadInput 
+                    label="URL da Imagem"
+                    value={formData.imageUrl}
+                    onChange={(url) => setFormData({ ...formData, imageUrl: url })}
+                    placeholder="https://..."
+                  />
 
                   <div>
                     <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Link do Fornecedor</label>

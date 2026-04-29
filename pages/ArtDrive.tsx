@@ -8,6 +8,7 @@ import {
   File, Cloud, ArrowLeft, LayoutGrid, X
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { ImageUploadInput } from '../components/ImageUploadInput';
 
 const folders = [
   { id: 'all', name: 'Todos os Arquivos', icon: LayoutGrid },
@@ -249,16 +250,13 @@ export default function ArtDrive() {
                             onChange={e => setNewFile({...newFile, name: e.target.value})}
                           />
                       </div>
-                      <div>
-                          <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Link do Arquivo (URL)</label>
-                          <input 
-                            className="w-full bg-black/40 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:border-primary outline-none" 
-                            placeholder="https://..."
-                            value={newFile.url}
-                            onChange={e => setNewFile({...newFile, url: e.target.value})}
-                          />
-                          <p className="text-[10px] text-zinc-600 mt-1">Hospede a imagem/arquivo externamente e cole o link aqui.</p>
-                      </div>
+                      <ImageUploadInput 
+                        label="Arquivo / Imagem"
+                        value={newFile.url}
+                        onChange={(url) => setNewFile({ ...newFile, url })}
+                        placeholder="https://..."
+                      />
+                      <p className="text-[10px] text-zinc-600 mt-1">Cole o link da imagem ou faça upload direto para o Crazy Drive.</p>
                       <div className="grid grid-cols-2 gap-4">
                           <div>
                               <label className="block text-xs font-bold text-zinc-500 uppercase mb-1">Pasta</label>

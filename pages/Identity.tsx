@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Save, Image as ImageIcon, Link as LinkIcon, Fingerprint, Check } from 'lucide-react';
+import { ImageUploadInput } from '../components/ImageUploadInput';
 
 export default function Identity() {
   const { faviconUrl, updateFavicon } = useData();
@@ -46,18 +47,13 @@ export default function Identity() {
               
               <form onSubmit={handleSave} className="space-y-6">
                   <div>
-                      <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 ml-1">URL do Ícone (PNG/ICO)</label>
-                      <div className="relative">
-                          <input 
-                              type="text" 
-                              value={url}
-                              onChange={(e) => setUrl(e.target.value)}
-                              placeholder="https://..."
-                              className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary outline-none transition"
-                          />
-                          <LinkIcon className="absolute left-3 top-3.5 text-zinc-600" size={18} />
-                      </div>
-                      <p className="text-[10px] text-zinc-600 mt-2 ml-1">Cole o link da imagem. Isso alterará o ícone ao lado do título da aba no navegador.</p>
+                      <ImageUploadInput 
+                        label="URL do Ícone (PNG/ICO)"
+                        value={url}
+                        onChange={setUrl}
+                        placeholder="https://..."
+                      />
+                      <p className="text-[10px] text-zinc-600 mt-2 ml-1">Cole o link da imagem ou faça upload. Isso alterará o ícone ao lado do título da aba no navegador.</p>
                   </div>
 
                   <button 

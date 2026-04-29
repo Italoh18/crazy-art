@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Plus, Trash2, Link as LinkIcon, Image as ImageIcon } from 'lucide-react';
+import { ImageUploadInput } from '../components/ImageUploadInput';
 
 export default function CarouselManager() {
   const { carouselImages, addCarouselImage, deleteCarouselImage } = useData();
@@ -22,21 +23,19 @@ export default function CarouselManager() {
 
       <div className="bg-surface border border-zinc-800 p-6 rounded-xl shadow-sm">
         <h2 className="text-lg font-semibold text-white mb-4">Adicionar Nova Imagem</h2>
-        <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              placeholder="Cole o link da imagem (http://...)"
-              className="w-full bg-black/50 border border-zinc-700 rounded-lg pl-10 pr-4 py-2.5 text-white focus:border-primary outline-none transition"
+        <form onSubmit={handleAdd} className="flex flex-col sm:flex-row items-end gap-4">
+          <div className="flex-1 w-full">
+            <ImageUploadInput 
+              label="URL da Imagem Banner"
               value={newUrl}
-              onChange={(e) => setNewUrl(e.target.value)}
+              onChange={setNewUrl}
+              placeholder="Cole o link da imagem (http://...)"
             />
-            <LinkIcon className="absolute left-3 top-3 text-zinc-500" size={18} />
             <p className="text-[10px] text-zinc-500 mt-1.5 ml-1">Tamanho recomendado: <span className="text-primary font-bold">1920x200 pixels</span> (ou proporção ultra-wide)</p>
           </div>
           <button 
             type="submit"
-            className="bg-primary text-white px-6 py-2.5 rounded-lg font-bold hover:bg-amber-600 transition flex items-center justify-center gap-2"
+            className="bg-primary text-white px-6 h-[46px] rounded-xl font-bold hover:bg-amber-600 transition flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
           >
             <Plus size={18} />
             <span>Adicionar</span>
