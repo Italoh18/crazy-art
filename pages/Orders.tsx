@@ -7,9 +7,13 @@ import { Order, ProductionStep } from '../types';
 import { ProductionPath } from '../components/ProductionPath';
 
 export default function Orders() {
-  const { orders } = useData();
+  const { orders, loadData } = useData();
   const navigate = useNavigate();
   const location = useLocation();
+
+  React.useEffect(() => {
+    loadData(true);
+  }, [loadData]);
 
   // Estados dos Filtros
   // Recupera filtro inicial via location state (vindo do gráfico DRE)

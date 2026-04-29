@@ -14,7 +14,7 @@ import { SizeListItem } from '../types';
 export default function ClientOrders() {
   const navigate = useNavigate();
   const { 
-      customers, orders, updateOrderStatus, isLoading, deleteOrder
+      customers, orders, updateOrderStatus, isLoading, deleteOrder, loadData
   } = useData();
   const { role, currentCustomer } = useAuth();
   
@@ -40,8 +40,10 @@ export default function ClientOrders() {
   useEffect(() => {
     if (role !== 'client' || !currentCustomer) {
        navigate('/');
+       return;
     }
-  }, [role, currentCustomer, navigate]);
+    loadData(true);
+  }, [role, currentCustomer, navigate, loadData]);
 
   if (isLoading) {
       return (

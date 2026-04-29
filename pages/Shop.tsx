@@ -44,7 +44,7 @@ export const ART_COLOR_FILTERS = [
 ];
 
 export default function Shop() {
-  const { products, addOrder, orders, validateCoupon } = useData();
+  const { products, addOrder, orders, validateCoupon, loadData } = useData();
   const { role, currentCustomer } = useAuth();
   const { cart, addToCart: addToCartGlobal, removeFromCart: removeFromCartGlobal, clearCart } = useCart();
   const navigate = useNavigate();

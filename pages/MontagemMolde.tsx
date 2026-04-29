@@ -32,7 +32,7 @@ interface RepliaItem {
 export default function MontagemMolde() {
   const navigate = useNavigate();
   const { currentCustomer, role } = useAuth();
-  const { orders } = useData();
+  const { orders, loadData } = useData();
   const isAuthenticated = role !== 'guest';
   
   const [isLoading, setIsLoading] = useState(true);
@@ -177,6 +177,7 @@ export default function MontagemMolde() {
             return;
         }
 
+        await loadData(true);
         setStep('completed');
         window.scrollTo(0, 0);
     } catch (err: any) {

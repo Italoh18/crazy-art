@@ -24,7 +24,7 @@ type LayoutStep = 'briefing' | 'summary' | 'completed';
 export default function LayoutSimples() {
   const navigate = useNavigate();
   const { currentCustomer, role } = useAuth();
-  const { orders } = useData();
+  const { orders, loadData } = useData();
   const isAuthenticated = role !== 'guest';
   
   const [step, setStep] = useState<LayoutStep>('briefing');
@@ -114,6 +114,7 @@ export default function LayoutSimples() {
             window.open(data.checkoutUrl, '_blank');
         }
 
+        await loadData(true);
         setStep('completed');
         window.scrollTo(0, 0);
     } catch (err: any) {
