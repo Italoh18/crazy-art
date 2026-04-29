@@ -485,7 +485,12 @@ export default function ClientOrders() {
                                             )}
                                             <span className="font-mono text-zinc-300 font-bold text-lg">#{order.formattedOrderNumber || order.order_number}</span>
                                         </div>
-                                        <ProductionPath orderId={order.id} currentStep={order.production_step || 'production'} isCompact />
+                                        <ProductionPath 
+                                            orderId={order.id} 
+                                            currentStep={order.production_step || 'production'} 
+                                            orderSource={order.source}
+                                            isCompact 
+                                        />
                                     </div>
 
                                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
@@ -655,7 +660,11 @@ export default function ClientOrders() {
                             <div>
                                 <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Caminho de Produção</h3>
                                 <div className="bg-black/20 p-4 rounded-xl border border-white/5">
-                                    <ProductionPath orderId={viewingOrder.id} currentStep={viewingOrder.production_step || 'production'} />
+                                    <ProductionPath 
+                                        orderId={viewingOrder.id} 
+                                        currentStep={viewingOrder.production_step || 'production'} 
+                                        orderSource={viewingOrder.source}
+                                    />
                                 </div>
                             </div>
                             <div>

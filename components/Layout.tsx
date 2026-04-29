@@ -141,7 +141,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const adminNavItems = [
     { name: 'Dashboard', path: '/', icon: Home },
     { name: 'Pedidos', path: '/orders', icon: ClipboardList }, 
-    { name: 'Layouts', path: '/layout-requests-admin', icon: Layers },
     { name: 'Clientes', path: '/customers', icon: Users },
     { name: 'Produtos', path: '/products', icon: Package },
     { name: 'Cupons', path: '/coupons', icon: Ticket }, 

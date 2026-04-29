@@ -1329,7 +1329,11 @@ export default function CustomerDetails() {
                             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                                 <Clock size={14} /> Progresso da Produção
                             </h3>
-                            <ProductionPath orderId={viewingOrder.id} currentStep={viewingOrder.production_step || 'production'} />
+                            <ProductionPath 
+                                orderId={viewingOrder.id} 
+                                currentStep={viewingOrder.production_step || 'production'} 
+                                orderSource={viewingOrder.source}
+                            />
                         </div>
                     </div>
 

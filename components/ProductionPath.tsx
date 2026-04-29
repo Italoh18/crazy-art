@@ -9,6 +9,7 @@ interface ProductionPathProps {
   orderId: string;
   currentStep: ProductionStep;
   isCompact?: boolean;
+  orderSource?: string;
 }
 
 const STEPS: { id: ProductionStep; label: string }[] = [
@@ -18,7 +19,7 @@ const STEPS: { id: ProductionStep; label: string }[] = [
   { id: 'completed', label: 'Concluído' }
 ];
 
-export const ProductionPath: React.FC<ProductionPathProps> = ({ orderId, currentStep, isCompact = false }) => {
+export const ProductionPath: React.FC<ProductionPathProps> = ({ orderId, currentStep, isCompact = false, orderSource }) => {
   const { updateProductionStep } = useData();
   const { role } = useAuth();
 
@@ -42,6 +43,7 @@ export const ProductionPath: React.FC<ProductionPathProps> = ({ orderId, current
         const isPast = index < currentIndex || (currentStep === 'completed');
         const isCurrent = index === currentIndex && currentStep !== 'completed';
         const isFuture = index > currentIndex && currentStep !== 'completed';
+        const isLayoutPending = orderSource === 'layout_simples' && step.id === 'production' && currentStep === 'production';
 
         let icon = <Circle size={isCompact ? 12 : 16} />;
         let iconClass = "text-zinc-700";
@@ -57,8 +59,14 @@ export const ProductionPath: React.FC<ProductionPathProps> = ({ orderId, current
           } else {
             icon = <RotateCw size={isCompact ? 12 : 16} className="animate-spin" />;
           }
-          iconClass = "text-blue-500";
-          containerClass = "border-blue-500/50 bg-blue-500/10 shadow-[0_0_10px_rgba(59,130,246,0.3)]";
+          
+          if (isLayoutPending) {
+            iconClass = "text-amber-500";
+            containerClass = "border-amber-500 bg-amber-500/20 animate-pulse shadow-[0_0_15px_rgba(245,158,11,0.5)]";
+          } else {
+            iconClass = "text-blue-500";
+            containerClass = "border-blue-500/50 bg-blue-500/10 shadow-[0_0_10px_rgba(59,130,246,0.3)]";
+          }
         }
 
         const canClick = (role === 'admin') || (role === 'client' && currentStep === 'approval' && step.id === 'approval');

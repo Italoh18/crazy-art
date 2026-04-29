@@ -201,7 +201,12 @@ export default function Orders() {
                                           )}
                                       </td>
                                       <td className="px-6 py-4">
-                                          <ProductionPath orderId={order.id} currentStep={order.production_step || 'production'} isCompact />
+                                          <ProductionPath 
+                                              orderId={order.id} 
+                                              currentStep={order.production_step || 'production'} 
+                                              orderSource={order.source}
+                                              isCompact 
+                                           />
                                       </td>
                                       <td className="px-6 py-4 text-right">
                                           <div className="font-mono text-white font-bold">R$ {order.total.toFixed(2)}</div>

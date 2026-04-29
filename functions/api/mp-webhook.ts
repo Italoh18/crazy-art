@@ -50,6 +50,48 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
               "UPDATE layout_requests SET payment_status = 'paid', order_status = 'open' WHERE id = ?"
             ).bind(requestId).run();
 
+            // Criar Pedido na Tabela Global de Pedidos (Para aparecer na listagem principal)
+            const { results: maxResults } = await env.DB.prepare('SELECT MAX(order_number) as last FROM orders').all();
+            const lastNum = (maxResults as any)[0]?.last;
+            const nextOrderNumber = (Number(lastNum) || 0) + 1;
+
+            const orderId = crypto.randomUUID();
+            await env.DB.prepare(`
+                INSERT INTO orders (id, order_number, client_id, description, order_date, due_date, total, total_cost, status, created_at, source, production_step, is_confirmed, payment_method, paid_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+            `).bind(
+                orderId,
+                nextOrderNumber,
+                layout.client_id,
+                `Layout Simples: ${layout.description.substring(0, 50)}...`,
+                new Date().toISOString().split('T')[0],
+                new Date().toISOString().split('T')[0],
+                layout.value,
+                0,
+                'paid',
+                new Date().toISOString(),
+                'layout_simples',
+                'production',
+                'mercadopago',
+                new Date().toISOString()
+            ).run();
+
+            // Adicionar o item ao pedido
+            const itemId = crypto.randomUUID();
+            await env.DB.prepare(`
+                INSERT INTO order_items (id, order_id, catalog_id, name, type, unit_price, quantity, total, art_link, art_extras_desc)
+                VALUES (?, ?, ?, ?, 'service', ?, 1, ?, ?, ?)
+            `).bind(
+                itemId,
+                orderId,
+                layout.service_id || 'manual',
+                "Layout Simples",
+                layout.value,
+                layout.value,
+                layout.example_url || null,
+                layout.description
+            ).run();
+
             // Notify Admin
             const adminEmail = getAdminEmail(env);
             const html = `
