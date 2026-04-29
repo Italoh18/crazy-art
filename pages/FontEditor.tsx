@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { GlyphMap, VectorPath, VectorNode } from '../types';
 import { generateTTF, generatePreviewFromStrokes, convertOpenTypePathToStrokes } from '../utils/fontGenerator';
-import opentype from 'opentype.js';
+import * as opentype from 'opentype.js';
 // @ts-ignore
 import * as martinez from 'martinez-polygon-clipping';
 

@@ -3,7 +3,7 @@ import { PenTool, Download, Type, Hash, CaseSensitive, Trash2, Upload, Loader2, 
 import { GlyphMap, Stroke } from '../types';
 import { DrawingModal } from './DrawingModal';
 import { generateTTF, convertOpenTypePathToStrokes, generatePreviewFromStrokes } from '../utils/fontGenerator';
-import opentype from 'opentype.js';
+import * as opentype from 'opentype.js';
 
 const CHAR_SETS = {
   lowercase: 'abcdefghijklmnopqrstuvwxyz'.split(''),

@@ -23,10 +23,45 @@ CREATE TABLE clients (
   creditLimit REAL DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   cloud_link TEXT,
-  password_hash TEXT,        -- Nova coluna
-  verification_code TEXT,    -- Nova coluna
-  is_verified INTEGER DEFAULT 0, -- Nova coluna
+  password_hash TEXT,
+  verification_code TEXT,
+  is_verified INTEGER DEFAULT 0,
   is_subscriber INTEGER DEFAULT 0
+);
+```
+
+**Tabela `orders` Atual:**
+```sql
+CREATE TABLE orders (
+    id TEXT PRIMARY KEY,
+    order_number INTEGER,
+    client_id TEXT NOT NULL,
+    description TEXT,
+    order_date TEXT,
+    due_date TEXT,
+    total REAL DEFAULT 0,
+    total_cost REAL DEFAULT 0,
+    status TEXT DEFAULT 'open',
+    source TEXT DEFAULT 'admin',
+    size_list TEXT,
+    is_confirmed INTEGER DEFAULT 0,
+    payment_method TEXT,
+    payment_status TEXT DEFAULT 'pending',
+    example_url TEXT,
+    logo_url TEXT,
+    finished_by_admin INTEGER DEFAULT 0,
+    finished_at TEXT,
+    paid_at TEXT,
+    production_step TEXT DEFAULT 'production',
+    approval_image_url TEXT, -- Novo
+    change_request_desc TEXT, -- Novo
+    change_request_image_url TEXT, -- Novo
+    approval_date TEXT, -- Novo
+    credit_bonus_applied INTEGER DEFAULT 0,
+    credit_penalty_applied INTEGER DEFAULT 0,
+    discount REAL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (client_id) REFERENCES clients(id)
 );
 ```
 

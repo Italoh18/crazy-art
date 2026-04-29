@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { X, Save, MousePointer2, PenTool, Square, Circle, Minus, RotateCcw, ZoomIn, ZoomOut, RotateCw, Upload, Brush, CornerUpRight, ChevronRight, Check } from 'lucide-react';
 import { VectorPath, VectorNode } from '../types';
-import opentype from 'opentype.js';
+import * as opentype from 'opentype.js';
 import { convertOpenTypePathToStrokes } from '../utils/fontGenerator';
 
 interface DrawingModalProps {
