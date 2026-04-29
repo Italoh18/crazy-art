@@ -6,6 +6,7 @@ import { Search, Calendar, Filter, Eye, CheckCircle, AlertTriangle, Clock } from
 import { Order, ProductionStep } from '../types';
 import { ProductionPath } from '../components/ProductionPath';
 import { X, Upload, Loader2, Check } from 'lucide-react';
+import { ImageUploadInput } from '../components/ImageUploadInput';
 
 export default function Orders() {
   const { orders, loadData, updateProductionStep, updateOrder } = useData();
@@ -275,19 +276,12 @@ export default function Orders() {
               <button onClick={() => setApprovalModalOrder(null)} className="text-zinc-500 hover:text-white"><X size={20} /></button>
             </div>
             
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Link da Imagem de Aprovação</label>
-              <div className="relative">
-                <input 
-                  type="text" 
-                  value={approvalImageUrl}
-                  onChange={(e) => setApprovalImageUrl(e.target.value)}
-                  placeholder="https://link-da-imagem.com"
-                  className="w-full bg-black/40 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition font-mono text-sm"
-                />
-                <Upload className="absolute right-4 top-3.5 text-zinc-600" size={18} />
-              </div>
-            </div>
+            <ImageUploadInput 
+              label="Arquivo de Aprovação"
+              value={approvalImageUrl}
+              onChange={setApprovalImageUrl}
+              placeholder="https://link-da-imagem.com ou faça o upload"
+            />
 
             {approvalImageUrl && (
               <div className="aspect-video w-full rounded-xl overflow-hidden border border-zinc-800 bg-black">
