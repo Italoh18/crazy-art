@@ -39,7 +39,7 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
     formData.append('file', file);
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch('/api/upload', {
         method: 'POST',
         headers: {
