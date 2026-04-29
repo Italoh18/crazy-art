@@ -35,6 +35,76 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
       const reference = paymentData.external_reference;
 
       if (reference) {
+        if (reference.startsWith('LAYOUT_')) {
+          const requestId = reference.replace('LAYOUT_', '');
+          
+          const layout: any = await env.DB.prepare(`
+              SELECT lr.*, c.name, c.email, c.phone 
+              FROM layout_requests lr 
+              JOIN clients c ON lr.client_id = c.id 
+              WHERE lr.id = ?
+          `).bind(requestId).first();
+
+          if (layout && layout.payment_status !== 'paid') {
+            await env.DB.prepare(
+              "UPDATE layout_requests SET payment_status = 'paid', order_status = 'open' WHERE id = ?"
+            ).bind(requestId).run();
+
+            // Notify Admin
+            const adminEmail = getAdminEmail(env);
+            const html = `
+                <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #eee; padding: 20px; border-radius: 15px;">
+                    <h2 style="color: #10B981; text-transform: uppercase;">💰 Pagamento Confirmado: Layout Simples</h2>
+                    <p>O cliente <strong>${layout.name}</strong> pagou pela solicitação de layout.</p>
+                    
+                    <div style="background: #f9fafb; padding: 15px; border-radius: 10px; margin: 20px 0;">
+                        <h3 style="margin-top: 0; font-size: 14px; color: #666;">DADOS DO CLIENTE</h3>
+                        <p><strong>Nome:</strong> ${layout.name}</p>
+                        <p><strong>E-mail:</strong> ${layout.email}</p>
+                        <p><strong>WhatsApp:</strong> ${layout.phone || 'Não informado'}</p>
+                    </div>
+
+                    <div style="background: #f9fafb; padding: 15px; border-radius: 10px; margin: 20px 0;">
+                        <h3 style="margin-top: 0; font-size: 14px; color: #666;">DETALHES DO BRIEFING</h3>
+                        <p style="white-space: pre-wrap;">${layout.description}</p>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0;">
+                        <div style="background: #f9fafb; padding: 10px; border-radius: 10px; text-align: center;">
+                            <p style="font-size: 10px; font-weight: bold; margin-bottom: 5px;">EXEMPLO</p>
+                            ${layout.example_url ? `<a href="${layout.example_url}" target="_blank"><img src="${layout.example_url}" style="width: 100%; height: 100px; object-cover; border-radius: 5px;" /></a>` : 'Não enviado'}
+                        </div>
+                        <div style="background: #f9fafb; padding: 10px; border-radius: 10px; text-align: center;">
+                            <p style="font-size: 10px; font-weight: bold; margin-bottom: 5px;">LOGO</p>
+                            ${layout.logo_url ? `<a href="${layout.logo_url}" target="_blank"><img src="${layout.logo_url}" style="width: 100%; height: 100px; object-cover; border-radius: 5px;" /></a>` : 'Não enviado'}
+                        </div>
+                    </div>
+
+                    <div style="border-top: 1px solid #eee; pt: 20px;">
+                        <p><strong>ID do Pedido:</strong> ${requestId}</p>
+                        <p><strong>Valor:</strong> R$ ${Number(layout.value).toFixed(2)}</p>
+                        <p><strong>Pagamento:</strong> MercadoPago (Aprovado)</p>
+                        <p><strong>Status:</strong> <span style="color: #10B981;">Aberto</span></p>
+                    </div>
+                </div>
+            `;
+
+            await sendEmail(env, {
+                to: adminEmail,
+                subject: `[Layout Simples] PAGAMENTO APROVADO - ${layout.name}`,
+                html
+            });
+
+            // Notificação Cliente
+            await env.DB.prepare(`
+                INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, is_read)
+                VALUES (?, 'client', ?, 'success', 'Pagamento Confirmado', 'Sua solicitação de layout foi paga com sucesso e já está em nossa fila de produção.', ?, 0)
+            `).bind(crypto.randomUUID(), layout.client_id, nowTs).run();
+          }
+
+          return new Response('OK', { status: 200 });
+        }
+
         if (reference.startsWith('SUB_')) {
           const clientId = reference.replace('SUB_', '');
           const expiresAt = new Date();

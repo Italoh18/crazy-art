@@ -166,3 +166,23 @@ CREATE TABLE IF NOT EXISTS ratings (
     rating INTEGER NOT NULL,
     created_at TEXT NOT NULL
 );
+
+-- Nova tabela para solicitações de Layout Simples (Módulo Próprio)
+CREATE TABLE IF NOT EXISTS layout_requests (
+    id TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL,
+    service_id INTEGER NOT NULL,
+    description TEXT NOT NULL,
+    example_url TEXT,
+    logo_url TEXT,
+    value REAL NOT NULL,
+    total REAL NOT NULL,
+    payment_method TEXT, -- 'online' ou 'credit'
+    payment_status TEXT DEFAULT 'pending', -- 'pending', 'paid', 'credit_approved'
+    order_status TEXT DEFAULT 'draft', -- 'draft', 'open', 'completed'
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clients(id),
+    FOREIGN KEY (service_id) REFERENCES catalog(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_layout_requests_client ON layout_requests(client_id);

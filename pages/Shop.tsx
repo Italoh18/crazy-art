@@ -51,7 +51,7 @@ export default function Shop() {
   const location = useLocation();
 
   const [step, setStep] = useState<ShopStep>('list');
-  const [activeTab, setActiveTab] = useState<ItemType>('product');
+  const [activeTab, setActiveTab] = useState<ItemType | 'landing'>('landing');
   const [searchTerm, setSearchTerm] = useState('');
   
   // States exclusivos da Quitanda
@@ -96,8 +96,10 @@ export default function Shop() {
           setActiveTab('art');
       } else if (tab === 'service') {
           setActiveTab('service');
-      } else {
+      } else if (tab === 'product') {
           setActiveTab('product');
+      } else {
+          setActiveTab('landing');
       }
 
       if (action === 'cart') {
@@ -462,14 +464,129 @@ export default function Shop() {
 
   const renderStepList = () => (
     <div className="animate-fade-in relative pb-24">
-        {activeTab === 'art' ? (
+        {activeTab === 'landing' ? (
+            <div className="space-y-12 py-10">
+                <div className="text-center space-y-4 max-w-2xl mx-auto px-4">
+                    <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter uppercase italic">
+                        Bem-vindo à <span className="text-primary">Loja</span>
+                    </h2>
+                    <p className="text-zinc-500 text-xs md:text-sm uppercase tracking-widest font-bold">
+                        Selecione um departamento para começar sua jornada criativa
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 px-4">
+                    {role === 'admin' && (
+                        <>
+                            <button 
+                                onClick={() => setActiveTab('product')}
+                                className="group relative bg-zinc-900 border border-zinc-800 rounded-[2.5rem] p-8 text-left hover:border-primary/50 transition-all duration-500 hover:scale-[1.02] overflow-hidden"
+                            >
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[60px] group-hover:bg-primary/10 transition-colors" />
+                                <div className="bg-primary/10 w-14 h-14 rounded-2xl flex items-center justify-center text-primary mb-8 group-hover:bg-primary group-hover:text-white transition-all duration-500">
+                                    <ShoppingBag size={28} />
+                                </div>
+                                <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Produtos</h3>
+                                <p className="text-zinc-500 text-xs uppercase tracking-widest font-bold leading-relaxed mb-6">Equipamentos, vestuários e acessórios exclusivos</p>
+                                <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-widest group-hover:gap-4 transition-all">
+                                    VER CATÁLOGO <ChevronRight size={14} />
+                                </div>
+                            </button>
+
+                            <button 
+                                onClick={() => setActiveTab('service')}
+                                className="group relative bg-zinc-900 border border-zinc-800 rounded-[2.5rem] p-8 text-left hover:border-blue-500/50 transition-all duration-500 hover:scale-[1.02] overflow-hidden"
+                            >
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-[60px] group-hover:bg-blue-500/10 transition-colors" />
+                                <div className="bg-blue-500/10 w-14 h-14 rounded-2xl flex items-center justify-center text-blue-500 mb-8 group-hover:bg-blue-500 group-hover:text-white transition-all duration-500">
+                                    <Wrench size={28} />
+                                </div>
+                                <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Serviços</h3>
+                                <p className="text-zinc-500 text-xs uppercase tracking-widest font-bold leading-relaxed mb-6">Personalização, artes sob medida e consultoria</p>
+                                <div className="flex items-center gap-2 text-blue-500 font-black text-[10px] uppercase tracking-widest group-hover:gap-4 transition-all">
+                                    SOLICITAR SERVIÇO <ChevronRight size={14} />
+                                </div>
+                            </button>
+                        </>
+                    )}
+
+                    <button 
+                        onClick={() => window.location.href = '/layout-simples'}
+                        className="group relative bg-zinc-900 border border-zinc-800 rounded-[2.5rem] p-8 text-left hover:border-amber-500/50 transition-all duration-500 hover:scale-[1.02] overflow-hidden"
+                    >
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-[60px] group-hover:bg-amber-500/10 transition-colors" />
+                        <div className="bg-amber-500/10 w-14 h-14 rounded-2xl flex items-center justify-center text-amber-500 mb-8 group-hover:bg-amber-500 group-hover:text-white transition-all duration-500">
+                            <Layers size={28} />
+                        </div>
+                        <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Layout Simples</h3>
+                        <p className="text-zinc-500 text-xs uppercase tracking-widest font-bold leading-relaxed mb-6">Solicite sua arte de forma rápida e descomplicada</p>
+                        <div className="flex items-center gap-2 text-amber-500 font-black text-[10px] uppercase tracking-widest group-hover:gap-4 transition-all">
+                            INICIAR LAYOUT <ChevronRight size={14} />
+                        </div>
+                    </button>
+
+                    <button 
+                        onClick={() => { setActiveTab('art'); setQuitandaTab('estampas'); }}
+                        className="group relative bg-zinc-900 border border-zinc-800 rounded-[2.5rem] p-8 text-left hover:border-purple-500/50 transition-all duration-500 hover:scale-[1.02] overflow-hidden"
+                    >
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-[60px] group-hover:bg-purple-500/10 transition-colors" />
+                        <div className="bg-purple-500/10 w-14 h-14 rounded-2xl flex items-center justify-center text-purple-500 mb-8 group-hover:bg-purple-500 group-hover:text-white transition-all duration-500">
+                            <Palette size={28} />
+                        </div>
+                        <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Quitanda</h3>
+                        <p className="text-zinc-500 text-xs uppercase tracking-widest font-bold leading-relaxed mb-6">Download imediato de estampas e vetores prontos</p>
+                        <div className="flex items-center gap-2 text-purple-500 font-black text-[10px] uppercase tracking-widest group-hover:gap-4 transition-all">
+                            ACESSAR QUITANDA <ChevronRight size={14} />
+                        </div>
+                    </button>
+                </div>
+                
+                <div className="max-w-4xl mx-auto px-4">
+                    <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                        <div className="relative z-10 flex items-center gap-6">
+                            <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800">
+                                <Sparkles className="text-primary" size={32} />
+                            </div>
+                            <div>
+                                <h4 className="text-xl font-black text-white uppercase italic tracking-tighter">Últimas Novidades</h4>
+                                <p className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold">Confira o que acabou de chegar na Crazy Art</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2 overflow-x-auto max-w-sm custom-scrollbar pb-2">
+                             {latestArts.slice(0, 5).map(art => (
+                                 <button key={art.id} onClick={() => openProduct(art)} className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex-shrink-0 overflow-hidden hover:border-primary transition">
+                                     {art.imageUrl && <img src={art.imageUrl} className="w-full h-full object-cover" />}
+                                 </button>
+                             ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        ) : activeTab === 'art' ? (
             <div className="flex flex-col items-center mb-10 space-y-4">
                 {role === 'admin' && (
-                    <div className="flex justify-end w-full items-center mb-2">
-                        <button onClick={() => setActiveTab('product')} className="text-[10px] text-zinc-400 hover:text-white uppercase tracking-widest flex items-center gap-1 transition group bg-zinc-900 px-4 py-2 rounded-full border border-zinc-800">
-                            Ir para Loja Geral <ArrowUpRight size={12} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                        </button>
-                    </div>
+                    <button 
+                        onClick={() => setActiveTab('product')} 
+                        className="w-full bg-zinc-800 p-[1px] rounded-2xl group hover:scale-[1.02] transition-all duration-500 shadow-xl active:scale-95 mb-4"
+                    >
+                        <div className="bg-zinc-950 rounded-2xl px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 group-hover:bg-zinc-900 transition-colors">
+                            <div className="flex items-center gap-4">
+                                <div className="bg-zinc-800 p-3 rounded-xl text-zinc-400 group-hover:text-white transition-colors">
+                                    <ShoppingBag size={24} />
+                                </div>
+                                <div className="text-left">
+                                    <h4 className="text-white font-black text-lg uppercase tracking-tighter leading-none">Ir para Loja Geral</h4>
+                                    <p className="text-zinc-400 text-[10px] uppercase tracking-widest mt-1">Voltar ao catálogo principal de produtos</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <div className="bg-white text-black px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest group-hover:bg-primary group-hover:text-white transition-all flex items-center gap-2">
+                                    Acessar Loja <ArrowUpRight size={16} />
+                                </div>
+                            </div>
+                        </div>
+                    </button>
                 )}
 
                 {!isSubscriber && (

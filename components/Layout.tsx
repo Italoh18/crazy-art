@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid, TrendingUp, ShoppingCart } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid, TrendingUp, ShoppingCart, Layers } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { useData } from '../contexts/DataContext';
@@ -141,6 +141,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const adminNavItems = [
     { name: 'Dashboard', path: '/', icon: Home },
     { name: 'Pedidos', path: '/orders', icon: ClipboardList }, 
+    { name: 'Layouts', path: '/layout-requests-admin', icon: Layers },
     { name: 'Clientes', path: '/customers', icon: Users },
     { name: 'Produtos', path: '/products', icon: Package },
     { name: 'Cupons', path: '/coupons', icon: Ticket }, 
