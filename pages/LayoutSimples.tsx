@@ -40,6 +40,12 @@ export default function LayoutSimples() {
   const [showIncompleteError, setShowIncompleteError] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'online' | null>(null);
 
+  // Coupon State
+  const [couponCode, setCouponCode] = useState('');
+  const [couponData, setCouponData] = useState<{ code: string, percentage: number } | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState('');
+
   // Cálculo do Limite Disponível Real (Crédito - Pedidos Abertos)
   const availableCredit = React.useMemo(() => {
     if (!currentCustomer) return 0;
@@ -78,12 +84,41 @@ export default function LayoutSimples() {
     window.scrollTo(0, 0);
   };
 
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    
+    setIsValidatingCoupon(true);
+    setCouponError('');
+    
+    try {
+      const response = await fetch(`/api/coupons?code=${couponCode}`);
+      if (!response.ok) {
+        throw new Error('Cupom inválido ou expirado');
+      }
+      const data = await response.json();
+      setCouponData(data);
+      setCouponError('');
+    } catch (err: any) {
+      setCouponError(err.message);
+      setCouponData(null);
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  const calculateFinalPrice = () => {
+    const basePrice = service?.price || 0;
+    if (!couponData) return basePrice;
+    return basePrice * (1 - couponData.percentage / 100);
+  };
+
   const handleSubmitRequest = async (method: 'credit' | 'online') => {
     if (!isAuthenticated) {
         alert('Você precisa estar logado para finalizar a solicitação.');
         return;
     }
 
+    const finalPrice = calculateFinalPrice();
     setIsSubmitting(true);
     setPaymentMethod(method);
 
@@ -100,7 +135,9 @@ export default function LayoutSimples() {
                 exampleUrl,
                 logoUrl,
                 paymentMethod: method,
-                value: service?.price
+                value: finalPrice,
+                discount: (service?.price || 0) - finalPrice,
+                couponCode: couponData?.code
             })
         });
 
@@ -302,12 +339,46 @@ export default function LayoutSimples() {
                       <div className="pt-8 border-t border-zinc-900">
                          <div className="flex justify-between items-center bg-zinc-900/80 p-6 rounded-2xl border border-primary/20">
                             <span className="text-zinc-500 font-black text-xs uppercase">Valor do Serviço</span>
-                            <span className="text-3xl font-black text-primary">R$ {service.price.toFixed(2)}</span>
+                            <div className="text-right">
+                                {couponData && (
+                                    <span className="block text-[10px] text-zinc-500 font-bold line-through">R$ {service.price.toFixed(2)}</span>
+                                )}
+                                <span className="text-3xl font-black text-primary">R$ {calculateFinalPrice().toFixed(2)}</span>
+                            </div>
                          </div>
                       </div>
                    </div>
 
                    <div className="space-y-6">
+                      <div className="bg-zinc-900/30 border border-zinc-800 p-6 rounded-2xl space-y-4">
+                        <label className="text-zinc-600 text-[10px] uppercase font-bold tracking-widest block">Cupom de Desconto</label>
+                        <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <input 
+                                    type="text"
+                                    value={couponCode}
+                                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                                    placeholder="CÓDIGO"
+                                    className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition uppercase"
+                                />
+                                {couponData && (
+                                    <div className="absolute right-3 top-3 text-emerald-500">
+                                        <CheckCircle2 size={20} />
+                                    </div>
+                                )}
+                            </div>
+                            <button 
+                                onClick={handleApplyCoupon}
+                                disabled={isValidatingCoupon || !couponCode}
+                                className="px-6 py-3 bg-zinc-800 text-white rounded-xl font-bold text-xs uppercase hover:bg-zinc-700 transition disabled:opacity-50"
+                            >
+                                {isValidatingCoupon ? <Loader2 className="animate-spin" size={16} /> : 'Aplicar'}
+                            </button>
+                        </div>
+                        {couponError && <p className="text-red-500 text-[10px] font-bold uppercase">{couponError}</p>}
+                        {couponData && <p className="text-emerald-500 text-[10px] font-bold uppercase">Cupom aplicado: {couponData.percentage}% de desconto!</p>}
+                      </div>
+
                       <label className="text-zinc-600 text-[10px] uppercase font-bold tracking-widest block">Arquivos Enviados</label>
                       <div className="grid grid-cols-2 gap-4">
                          <div className="space-y-2">
@@ -331,7 +402,7 @@ export default function LayoutSimples() {
                       {/* Crédito Fidelidade */}
                       <div className="space-y-2">
                         <button 
-                            disabled={isSubmitting || !currentCustomer || availableCredit < service.price}
+                            disabled={isSubmitting || !currentCustomer || availableCredit < calculateFinalPrice()}
                             onClick={() => handleSubmitRequest('credit')}
                             className="w-full py-5 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center gap-4 group transition-all hover:bg-zinc-800 hover:border-primary disabled:opacity-50 disabled:grayscale"
                         >
@@ -341,7 +412,7 @@ export default function LayoutSimples() {
                                 <span className="text-[9px] text-zinc-500 font-bold uppercase">Limite disponível: R$ {availableCredit.toFixed(2)}</span>
                             </div>
                         </button>
-                        {currentCustomer && availableCredit < service.price && (
+                        {currentCustomer && availableCredit < calculateFinalPrice() && (
                             <p className="text-red-500 text-[10px] font-black uppercase text-center animate-pulse tracking-widest">Não há limite disponível</p>
                         )}
                       </div>

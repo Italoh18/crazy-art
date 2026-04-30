@@ -16,7 +16,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     if (request.method === 'POST') {
       const body = await request.json() as any;
-      const { serviceId, description, exampleUrl, logoUrl, paymentMethod, value, type = 'layout_simples', quantity = 1 } = body;
+      const { serviceId, description, exampleUrl, logoUrl, paymentMethod, value, discount = 0, type = 'layout_simples', quantity = 1 } = body;
 
       const isMolde = type === 'montagem_molde';
       const label = isMolde ? 'Montagem de Molde' : 'Layout Simples';
@@ -57,8 +57,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           example_url, logo_url, total, total_cost,
           payment_method, payment_status, status, 
           source, order_date, due_date, created_at, 
-          production_step, is_confirmed
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+          production_step, is_confirmed, discount
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
       `).bind(
         requestId,
         nextOrderNumber,
@@ -77,7 +77,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
           : now.split('T')[0],
         now,
-        'production'
+        'production',
+        discount
       ).run();
 
       // Criar Item do Pedido

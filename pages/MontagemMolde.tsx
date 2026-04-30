@@ -46,6 +46,12 @@ export default function MontagemMolde() {
   const [layoutFileUrl, setLayoutFileUrl] = useState('');
   const [showIncompleteError, setShowIncompleteError] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'online' | null>(null);
+
+  // Coupon State
+  const [couponCode, setCouponCode] = useState('');
+  const [couponData, setCouponData] = useState<{ code: string, percentage: number } | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState('');
   
   // Replicas State
   const [hasReplicas, setHasReplicas] = useState(false);
@@ -124,6 +130,34 @@ export default function MontagemMolde() {
     return basePrice + (totalReplicaUnits * replicaPrice);
   };
 
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    
+    setIsValidatingCoupon(true);
+    setCouponError('');
+    
+    try {
+      const response = await fetch(`/api/coupons?code=${couponCode}`);
+      if (!response.ok) {
+        throw new Error('Cupom inválido ou expirado');
+      }
+      const data = await response.json();
+      setCouponData(data);
+      setCouponError('');
+    } catch (err: any) {
+      setCouponError(err.message);
+      setCouponData(null);
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  const calculateFinalPrice = () => {
+    const total = calculateTotal();
+    if (!couponData) return total;
+    return total * (1 - couponData.percentage / 100);
+  };
+
   const handleNextToSummary = () => {
     if (!description.trim()) {
       setShowIncompleteError(true);
@@ -143,7 +177,7 @@ export default function MontagemMolde() {
     setPaymentMethod(method);
 
     try {
-        const total = calculateTotal();
+        const totalAmount = calculateFinalPrice();
         const totalReplicaUnits = hasReplicas 
           ? replicas.reduce((acc, r) => acc + (r.isConjunto ? 2 : 1), 0) 
           : 0;
@@ -160,7 +194,9 @@ export default function MontagemMolde() {
                 description: `MONTAGEM DE MOLDE:\n${description}\n\nREPLICAS (${replicas.length}):\n${replicas.map(r => `- ${r.size} | ${r.name} | ${r.number}${r.isConjunto ? ` | CONJUNTO: [Short: ${r.shortSize} Nº: ${r.shortNumber}]` : ''}`).join('\n')}`,
                 logoUrl: layoutFileUrl, // Reutilizando campo logo_url para o arquivo de layout
                 paymentMethod: method,
-                value: total,
+                value: totalAmount,
+                discount: calculateTotal() - totalAmount,
+                couponCode: couponData?.code,
                 quantity: totalQuantity,
                 type: 'montagem_molde'
             })
@@ -454,7 +490,12 @@ export default function MontagemMolde() {
                                 </div>
                                 <div>
                                     <p className="text-[10px] text-zinc-600 font-black uppercase">Total a Pagar</p>
-                                    <p className="text-xl font-black text-white italic">R$ {calculateTotal().toFixed(2)}</p>
+                                     <div className="flex items-baseline gap-2">
+                                        {couponData && (
+                                            <span className="text-zinc-500 text-xs line-through">R$ {calculateTotal().toFixed(2)}</span>
+                                        )}
+                                        <p className="text-xl font-black text-white italic">R$ {calculateFinalPrice().toFixed(2)}</p>
+                                     </div>
                                 </div>
                              </div>
                           </div>
@@ -472,8 +513,38 @@ export default function MontagemMolde() {
                        </div>
                   </div>
 
-                  <div className="bg-zinc-800/50 p-8">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-zinc-800/50 p-8 space-y-8">
+                    {/* Cupom de Desconto */}
+                    <div className="bg-black/40 border border-zinc-800 p-6 rounded-2xl space-y-4">
+                        <label className="text-zinc-600 text-[10px] font-black uppercase tracking-widest block">Cupom de Desconto</label>
+                        <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <input 
+                                    type="text"
+                                    value={couponCode}
+                                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                                    placeholder="CÓDIGO"
+                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition uppercase"
+                                />
+                                {couponData && (
+                                    <div className="absolute right-3 top-3 text-emerald-500">
+                                        <CheckCircle2 size={20} />
+                                    </div>
+                                )}
+                            </div>
+                            <button 
+                                onClick={handleApplyCoupon}
+                                disabled={isValidatingCoupon || !couponCode}
+                                className="px-6 py-3 bg-zinc-800 text-white rounded-xl font-bold text-xs uppercase hover:bg-zinc-700 transition disabled:opacity-50"
+                            >
+                                {isValidatingCoupon ? <Loader2 className="animate-spin" size={16} /> : 'Aplicar'}
+                            </button>
+                        </div>
+                        {couponError && <p className="text-red-500 text-[10px] font-bold uppercase">{couponError}</p>}
+                        {couponData && <p className="text-emerald-500 text-[10px] font-bold uppercase">Cupom aplicado: {couponData.percentage}% de desconto!</p>}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Pagamento Online */}
                         <div className="space-y-4">
                             <button 
@@ -490,7 +561,7 @@ export default function MontagemMolde() {
                         {/* Crédito Fidelidade */}
                         <div className="space-y-2">
                             <button 
-                                disabled={isSubmitting || !currentCustomer || availableCredit < calculateTotal()}
+                                disabled={isSubmitting || !currentCustomer || availableCredit < calculateFinalPrice()}
                                 onClick={() => handleSubmitRequest('credit')}
                                 className="w-full py-5 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center gap-4 group transition-all hover:bg-zinc-800 hover:border-primary disabled:opacity-50 disabled:grayscale"
                             >
@@ -502,7 +573,7 @@ export default function MontagemMolde() {
                                     <span className="text-[9px] text-zinc-500 font-bold uppercase">Limite disponível: R$ {availableCredit.toFixed(2)}</span>
                                 </div>
                             </button>
-                            {currentCustomer && availableCredit < calculateTotal() && (
+                            {currentCustomer && availableCredit < calculateFinalPrice() && (
                                 <p className="text-red-500 text-[10px] font-black uppercase text-center animate-pulse tracking-widest">Não há limite disponível</p>
                             )}
                         </div>
