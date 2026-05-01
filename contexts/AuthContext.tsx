@@ -34,7 +34,25 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
       // Sync extra caso o localStorage mude externamente (opcional, mas boa prática)
       const savedCustomer = localStorage.getItem('current_customer');
       if (savedCustomer) setCurrentCustomer(JSON.parse(savedCustomer));
-  }, []);
+      
+      // Auto-refresh data if user is a client to ensure subscription status is up to date
+      const refreshData = async () => {
+          if (role === 'client') {
+              try {
+                  const data = await api.getClients();
+                  // For clients, the API returns a single object. For admins, an array.
+                  if (data && !Array.isArray(data)) {
+                    setCurrentCustomer(data);
+                    localStorage.setItem('current_customer', JSON.stringify(data));
+                  }
+              } catch (e) {
+                  console.error("Failed to refresh user data", e);
+              }
+          }
+      };
+      
+      refreshData();
+  }, [role]);
 
   const loginAdmin = async (code: string) => {
     try {

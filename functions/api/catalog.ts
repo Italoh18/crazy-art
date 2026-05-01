@@ -46,7 +46,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         const stmt = env.DB.prepare(query);
         const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
         
+        let isSubscriber = false;
+        if (user && user.role === 'client' && user.clientId) {
+          const client: any = await env.DB.prepare('SELECT is_subscriber FROM clients WHERE id = ?').bind(user.clientId).first();
+          isSubscriber = client?.is_subscriber === 1;
+        }
+
         const mappedResults = (results || []).map((row: any) => {
+          const isArt = row.type === 'art';
           const base = {
             id: String(row.id),
             type: row.type || 'product',
@@ -69,6 +76,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
               supplierLink: row.supplier_link || null
             };
           }
+
+          if (isSubscriber && isArt) {
+            return {
+              ...base,
+              downloadLink: row.download_link || null
+            };
+          }
+
           return base;
         });
         

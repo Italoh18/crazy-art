@@ -752,13 +752,26 @@ export default function Shop() {
                     <div className="p-5 flex-1 flex flex-col">
                         <div className="flex justify-between items-start gap-2">
                             <h3 className="font-bold text-white text-lg leading-tight flex-1">{item.name}</h3>
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); addToCartFromList(item); }} 
-                                className="bg-primary p-2 rounded-full text-white hover:bg-amber-600 transition shadow-lg shrink-0 active:scale-90"
-                                title="Adicionar ao Carrinho"
-                            >
-                                <ShoppingCart size={14} />
-                            </button>
+                            {showFree && item.downloadLink ? (
+                                <a 
+                                    href={item.downloadLink} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="bg-gradient-to-r from-purple-600 to-pink-600 p-2 rounded-full text-white hover:scale-110 transition shadow-lg shrink-0 active:scale-95 flex items-center justify-center"
+                                    title="Baixar Agora (Assinante)"
+                                >
+                                    <CloudDownload size={14} />
+                                </a>
+                            ) : (
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); addToCartFromList(item); }} 
+                                    className="bg-primary p-2 rounded-full text-white hover:bg-amber-600 transition shadow-lg shrink-0 active:scale-90"
+                                    title="Adicionar ao Carrinho"
+                                >
+                                    <ShoppingCart size={14} />
+                                </button>
+                            )}
                         </div>
                         <p className="text-zinc-500 text-xs mt-2 line-clamp-2 flex-1">{item.description || 'Clique para ver detalhes'}</p>
 {item.priceVariations && item.priceVariations.length > 0 && (<div className="mt-2 text-[10px] text-emerald-400 bg-emerald-900/20 px-2 py-1 rounded border border-emerald-500/20 inline-block w-fit"><Tag size={10} className="inline mr-1" /> Preços especiais p/ atacado</div>)}{isArt && (

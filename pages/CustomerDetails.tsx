@@ -8,7 +8,8 @@ import {
   CheckCircle, AlertTriangle, Trash2, Edit, Plus, X, 
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
   Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal,
-  Coins, Lock, RotateCcw, CloudDownload, Sparkles, ChevronRight, Upload, MessageCircle
+  Coins, Lock, RotateCcw, CloudDownload, Sparkles, ChevronRight, Upload, MessageCircle,
+  Crown
 } from 'lucide-react';
 import { api } from '../src/services/api';
 import { SizeListItem, Order } from '../types';
@@ -612,7 +613,14 @@ export default function CustomerDetails() {
                 <div className="space-y-6">
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Nome Completo</label>
-                        <p className="text-white font-medium text-lg">{customer?.name}</p>
+                        <div className="flex items-center gap-3">
+                            <p className="text-white font-medium text-lg">{customer?.name}</p>
+                            {customer?.isSubscriber && (
+                                <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-lg shadow-purple-900/40">
+                                    <Crown size={12} /> ASSINANTE
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     <div className="space-y-1">
