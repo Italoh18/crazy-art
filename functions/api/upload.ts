@@ -15,6 +15,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     // 2. Receber FormData
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const category = formData.get('category') as string || ''; // p.ex: banners, portfolio, clientes
 
     if (!file) {
       return new Response(JSON.stringify({ error: 'Nenhum arquivo enviado.' }), { 
@@ -54,23 +55,33 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
       });
     }
 
-    // 4. Gerar nome único
+    // 4. Gerar nome e path
     const timestamp = Date.now();
     const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const fileName = `${timestamp}-${cleanFileName}`;
+    
+    // Se tiver categoria, colocar na pasta imagens/categoria
+    // Caso contrário, deixar na raiz do bucket (compatibilidade)
+    let filePath = '';
+    if (category) {
+      // Garantir que a categoria é válida conforme solicitado (segurança simples)
+      const validCategories = ['banners', 'portfolio', 'clientes'];
+      const targetCategory = validCategories.includes(category) ? category : 'outros';
+      filePath = `imagens/${targetCategory}/${timestamp}-${cleanFileName}`;
+    } else {
+      filePath = `${timestamp}-${cleanFileName}`;
+    }
 
     // 5. Upload para o bucket R2
-    // O Cloudflare Functions suporta streaming ou ArrayBuffer para o bucket.put()
     const arrayBuffer = await file.arrayBuffer();
     
-    await env.MY_BUCKET.put(fileName, arrayBuffer, {
+    await env.MY_BUCKET.put(filePath, arrayBuffer, {
       httpMetadata: {
         contentType: file.type,
       }
     });
 
     // 6. Retornar URL pública
-    const publicUrl = `${env.R2_PUBLIC_URL}/${fileName}`;
+    const publicUrl = `${env.R2_PUBLIC_URL}/${filePath}`;
 
     return new Response(JSON.stringify({ url: publicUrl }), {
       headers: { 'Content-Type': 'application/json' }

@@ -1059,6 +1059,7 @@ export default function ClientOrders() {
                             value={changeRequestImageUrl}
                             onChange={setChangeRequestImageUrl}
                             placeholder="Link da imagem ou faça o upload..."
+                            category="clientes"
                         />
 
                         {changeRequestImageUrl && (

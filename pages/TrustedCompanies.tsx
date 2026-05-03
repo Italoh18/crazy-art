@@ -47,6 +47,7 @@ export default function TrustedCompanies() {
               value={newUrl}
               onChange={setNewUrl}
               placeholder="Cole o link da imagem (http://...)"
+              category="clientes"
             />
           </div>
 

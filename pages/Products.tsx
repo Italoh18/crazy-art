@@ -459,6 +459,7 @@ export default function Products() {
                     value={formData.imageUrl}
                     onChange={(url) => setFormData({ ...formData, imageUrl: url })}
                     placeholder="https://..."
+                    category="portfolio"
                   />
 
                   <div>

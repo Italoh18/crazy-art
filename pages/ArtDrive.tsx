@@ -255,6 +255,7 @@ export default function ArtDrive() {
                         value={newFile.url}
                         onChange={(url) => setNewFile({ ...newFile, url })}
                         placeholder="https://..."
+                        category="portfolio"
                       />
                       <p className="text-[10px] text-zinc-600 mt-1">Cole o link da imagem ou faça upload direto para o Crazy Drive.</p>
                       <div className="grid grid-cols-2 gap-4">

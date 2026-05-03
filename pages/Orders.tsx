@@ -281,6 +281,7 @@ export default function Orders() {
               value={approvalImageUrl}
               onChange={setApprovalImageUrl}
               placeholder="https://link-da-imagem.com ou faça o upload"
+              category="clientes"
             />
 
             {approvalImageUrl && (

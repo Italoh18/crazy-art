@@ -286,6 +286,7 @@ export default function MontagemMolde() {
                         onChange={(url) => setLayoutFileUrl(url)} 
                         label="Clique para subir seu arquivo base"
                         accept=".pdf,.cdr,.ai"
+                        category="clientes"
                      />
                   </div>
                </section>

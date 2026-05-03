@@ -8,6 +8,7 @@ interface ImageUploadInputProps {
   label?: string;
   accept?: string;
   maxFiles?: number;
+  category?: 'banners' | 'portfolio' | 'clientes';
 }
 
 export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({ 
@@ -15,7 +16,8 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
   onChange, 
   placeholder = "https://...", 
   label = "URL do Arquivo",
-  accept = "image/*"
+  accept = "image/*",
+  category
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +32,9 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
 
     const formData = new FormData();
     formData.append('file', file);
+    if (category) {
+      formData.append('category', category);
+    }
 
     try {
       const token = localStorage.getItem('auth_token');

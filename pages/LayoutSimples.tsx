@@ -271,6 +271,7 @@ export default function LayoutSimples() {
                         onChange={setExampleUrl}
                         label="Upload de Referência (PNG, JPG, WEBP)"
                         placeholder="Link da imagem ou upload"
+                        category="clientes"
                     />
                   </div>
 
@@ -293,6 +294,7 @@ export default function LayoutSimples() {
                         onChange={setLogoUrl}
                         label="Upload da sua Logo (Opcional)"
                         placeholder="Link da logo ou upload"
+                        category="clientes"
                     />
                   </div>
                </div>

@@ -52,6 +52,7 @@ export default function Identity() {
                         value={url}
                         onChange={setUrl}
                         placeholder="https://..."
+                        category="outros"
                       />
                       <p className="text-[10px] text-zinc-600 mt-2 ml-1">Cole o link da imagem ou faça upload. Isso alterará o ícone ao lado do título da aba no navegador.</p>
                   </div>

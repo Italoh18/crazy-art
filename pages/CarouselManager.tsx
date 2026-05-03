@@ -30,6 +30,7 @@ export default function CarouselManager() {
               value={newUrl}
               onChange={setNewUrl}
               placeholder="Cole o link da imagem (http://...)"
+              category="banners"
             />
             <p className="text-[10px] text-zinc-500 mt-1.5 ml-1">Tamanho recomendado: <span className="text-primary font-bold">1920x200 pixels</span> (ou proporção ultra-wide)</p>
           </div>
