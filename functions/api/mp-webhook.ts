@@ -151,16 +151,19 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
           try {
             // 1. Buscar dados do pedido e cliente ANTES de atualizar status
             const orderInfo: any = await env.DB.prepare(`
-                SELECT o.status, o.total, o.due_date, o.order_number, 
+                SELECT o.*, 
                        c.id as client_id, c.name as client_name, c.email as client_email, c.creditLimit
                 FROM orders o 
                 JOIN clients c ON o.client_id = c.id 
                 WHERE o.id = ?
             `).bind(orderId).first();
 
-            // Se não achar ou já estiver pago, pula lógica de crédito
-            if (!orderInfo || orderInfo.status === 'paid') {
-                console.log(`[Webhook] Pedido ${orderId} já pago ou não encontrado.`);
+            // Se não achar ou já possuir marcação de pago (ou em produção), pula lógica repetida
+            // Pedidos físicos vão para 'production' ao serem pagos, por isso checamos ambos.
+            const isAlreadyPaid = orderInfo?.paid_at || orderInfo?.payment_status === 'paid' || orderInfo?.status === 'paid' || orderInfo?.status === 'production';
+
+            if (!orderInfo || isAlreadyPaid) {
+                console.log(`[Webhook] Pedido ${orderId} já processado como pago ou não encontrado.`);
                 continue;
             }
 
