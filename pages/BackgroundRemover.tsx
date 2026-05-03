@@ -82,7 +82,7 @@ export default function BackgroundRemover() {
 
   // --- Estados Edição Final ---
   const [editMode, setEditMode] = useState<'none' | 'background' | 'text' | 'emoji'>('none');
-  const [bgType, setBgType] = useState<'color' | 'image'>('color');
+  const [bgType, setBgType] = useState<'color' | 'image'>('image');
   const [bgColor, setBgColor] = useState('#ffffff');
   const [bgImage, setBgImage] = useState<string | null>(null);
   const [addedTexts, setAddedTexts] = useState<{id: string, text: string, x: number, y: number, size: number, color: string}[]>([]);
@@ -999,10 +999,10 @@ export default function BackgroundRemover() {
                       </div>
                   </div>
                   
-                  <div className="bg-[#18181b] border border-zinc-800 rounded-2xl flex-1 flex flex-col items-center justify-center text-center relative overflow-hidden group/result">
+                  <div className="bg-black border border-zinc-800 rounded-2xl flex-1 flex flex-col items-center justify-center text-center relative overflow-hidden group/result">
                       {/* Checkerboard (Only if no background is set) */}
                       {!bgImage && bgType !== 'color' && (
-                        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #27272a 25%, transparent 25%), linear-gradient(-45deg, #27272a 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #27272a 75%), linear-gradient(-45deg, transparent 75%, #27272a 75%)', backgroundSize: '20px 20px', backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px' }}></div>
+                        <div className="absolute inset-0 opacity-100 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #111111 25%, transparent 25%), linear-gradient(-45deg, #111111 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #111111 75%), linear-gradient(-45deg, transparent 75%, #111111 75%)', backgroundSize: '20px 20px', backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px' }}></div>
                       )}
 
                       {/* Custom Background */}
@@ -1252,8 +1252,8 @@ export default function BackgroundRemover() {
                   </div>
               </div>
 
-              <div className="flex-1 overflow-hidden relative bg-[#18181b] cursor-crosshair w-full h-full flex items-center justify-center p-12">
-                  <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #333 25%, transparent 25%), linear-gradient(-45deg, #333 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #333 75%), linear-gradient(-45deg, transparent 75%, #333 75%)', backgroundSize: '40px 40px' }}></div>
+              <div className="flex-1 overflow-hidden relative bg-black cursor-crosshair w-full h-full flex items-center justify-center p-12">
+                  <div className="absolute inset-0 opacity-100 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #111 25%, transparent 25%), linear-gradient(-45deg, #111111 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #111111 75%), linear-gradient(-45deg, transparent 75%, #111111 75%)', backgroundSize: '40px 40px' }}></div>
                   
                   <div className="relative shadow-2xl max-w-full max-h-full">
                       <img 
@@ -1389,7 +1389,7 @@ export default function BackgroundRemover() {
 
               {/* Área do Canvas */}
               <div 
-                  className="flex-1 overflow-hidden relative bg-[#18181b] cursor-crosshair w-full h-full"
+                  className="flex-1 overflow-hidden relative bg-black cursor-crosshair w-full h-full"
                   onMouseDown={handleEditorMouseDown}
                   onMouseMove={handleEditorMouseMove}
                   onMouseUp={handleEditorMouseUp}
@@ -1397,7 +1397,7 @@ export default function BackgroundRemover() {
                   onWheel={handleEditorWheel}
               >
                   {/* Background Checkerboard Full */}
-                  <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #333 25%, transparent 25%), linear-gradient(-45deg, #333 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #333 75%), linear-gradient(-45deg, transparent 75%, #333 75%)', backgroundSize: '40px 40px' }}></div>
+                  <div className="absolute inset-0 opacity-100 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #111111 25%, transparent 25%), linear-gradient(-45deg, #111111 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #111111 75%), linear-gradient(-45deg, transparent 75%, #111111 75%)', backgroundSize: '40px 40px' }}></div>
 
                   {/* Container Transformável */}
                   <div 
