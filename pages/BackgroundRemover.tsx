@@ -188,20 +188,29 @@ export default function BackgroundRemover() {
             const imageData = ctx.getImageData(0, 0, width, height);
             const pixels = imageData.data;
 
-            // 1. Detectar cor do fundo automaticamente (amostragem das bordas)
+            // 1. Amostragem robusta do fundo
             let targetR = 0, targetG = 0, targetB = 0;
             if (removeMode === 'corner') {
-                // Média dos 4 cantos
-                const corners = [
-                    [0, 0], [width - 1, 0], [0, height - 1], [width - 1, height - 1]
-                ];
-                corners.forEach(([x, y]) => {
+                const samples = [];
+                // Amostra bordas para definir o "fundo"
+                const stepX = Math.max(1, Math.floor(width / 20));
+                const stepY = Math.max(1, Math.floor(height / 20));
+                for (let x = 0; x < width; x += stepX) {
+                    samples.push([x, 0], [x, height - 1]);
+                }
+                for (let y = 0; y < height; y += stepY) {
+                    samples.push([0, y], [width - 1, y]);
+                }
+                
+                samples.forEach(([x, y]) => {
                     const idx = (y * width + x) * 4;
                     targetR += pixels[idx];
                     targetG += pixels[idx + 1];
                     targetB += pixels[idx + 2];
                 });
-                targetR /= 4; targetG /= 4; targetB /= 4;
+                targetR /= samples.length; 
+                targetG /= samples.length; 
+                targetB /= samples.length;
             } else if (removeMode === 'white') {
                 targetR = 255; targetG = 255; targetB = 255;
             } else if (removeMode === 'green') {
@@ -210,22 +219,42 @@ export default function BackgroundRemover() {
                 targetR = customColor.r; targetG = customColor.g; targetB = customColor.b;
             }
 
-            // 2. Criar Máscara de Alpha
+            // 2. Cálculo de Distâncias e Tolerância
+            const getDistLocal = (r1: number, g1: number, b1: number, r2: number, g2: number, b2: number) => {
+                const dr = r1 - r2;
+                const dg = g1 - g2;
+                const db = b1 - b2;
+                // Distância Euclidiana Ponderada (Perceptual)
+                return Math.sqrt(dr * dr * 0.299 + dg * dg * 0.587 + db * db * 0.114);
+            };
+
+            const threshold = (tolerance / 100) * 200; 
+            const edgeTolerance = 35; // Relaxado para permitir propagação em fundos com leve ruído
+            const feather = 20; 
+
             const mask = new Uint8Array(width * height);
-            const threshold = (tolerance / 100) * 442; // Distância Euclidiana máxima é sqrt(255^2 * 3) ≈ 441.6
+            const visited = new Uint8Array(width * height);
+            
+            // Inicializa tudo como Objeto (255)
+            mask.fill(255);
 
             if (useFloodFill) {
-                // Flood Fill Algorithm (Stack-based)
-                const visited = new Uint8Array(width * height);
-                const stack: [number, number][] = [];
+                const stack: [number, number, number, number, number][] = []; // x, y, lastR, lastG, lastB
                 
-                // Adicionar bordas à pilha
-                for (let x = 0; x < width; x++) { stack.push([x, 0]); stack.push([x, height - 1]); }
-                for (let y = 0; y < height; y++) { stack.push([0, y]); stack.push([width - 1, y]); }
+                // Sementes iniciais: bordas
+                for (let x = 0; x < width; x++) { 
+                    stack.push([x, 0, targetR, targetG, targetB]); 
+                    stack.push([x, height - 1, targetR, targetG, targetB]); 
+                }
+                for (let y = 0; y < height; y++) { 
+                    stack.push([0, y, targetR, targetG, targetB]); 
+                    stack.push([width - 1, y, targetR, targetG, targetB]); 
+                }
 
                 while (stack.length > 0) {
-                    const [x, y] = stack.pop()!;
+                    const [x, y, lr, lg, lb] = stack.pop()!;
                     const idx = y * width + x;
+                    
                     if (visited[idx]) continue;
                     visited[idx] = 1;
 
@@ -234,52 +263,48 @@ export default function BackgroundRemover() {
                     const g = pixels[pIdx + 1];
                     const b = pixels[pIdx + 2];
 
-                    const dist = Math.sqrt(
-                        Math.pow(r - targetR, 2) + Math.pow(g - targetG, 2) + Math.pow(b - targetB, 2)
-                    );
+                    // 1. Distância para o fundo global (Target)
+                    const globalDist = getDistLocal(r, g, b, targetR, targetG, targetB);
+                    
+                    // 2. Distância para o pixel vizinho (Local Gradient)
+                    const localDist = getDistLocal(r, g, b, lr, lg, lb);
 
-                    if (dist < threshold) {
-                        mask[idx] = 0; // Fundo detectado
-                        // Adicionar vizinhos
-                        if (x > 0) stack.push([x - 1, y]);
-                        if (x < width - 1) stack.push([x + 1, y]);
-                        if (y > 0) stack.push([x, y - 1]);
-                        if (y < height - 1) stack.push([x, y + 1]);
+                    // Condição relaxada: Prioriza o globalDist para garantir que o fundo seja removido
+                    if (globalDist < threshold + feather) {
+                        // Calcula Alpha
+                        if (globalDist < threshold) {
+                            mask[idx] = 0; // Fundo total
+                        } else {
+                            const ratio = (globalDist - threshold) / feather;
+                            mask[idx] = Math.max(0, Math.min(255, ratio * 255));
+                        }
+
+                        // Expansão: Só bloqueia propagação se houver um salto local muito forte (borda do objeto)
+                        // ou se o global dist já estiver no limite do feather
+                        if (localDist < edgeTolerance || globalDist < threshold) {
+                            const neighbors = [[x-1, y], [x+1, y], [x, y-1], [x, y+1]];
+                            for (const [nx, ny] of neighbors) {
+                                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                    stack.push([nx, ny, r, g, b]);
+                                }
+                            }
+                        }
                     } else {
-                        mask[idx] = 255; // Objeto detectado
+                        mask[idx] = 255; // Mantém como objeto
                     }
                 }
-                // Preencher o que não foi visitado como objeto
-                for (let i = 0; i < mask.length; i++) {
-                    if (!visited[i]) mask[i] = 255;
-                }
             } else {
-                // Comparação direta de todos os pixels
+                // Modo Global (sem flood fill)
                 for (let i = 0; i < mask.length; i++) {
                     const pIdx = i * 4;
-                    const dist = Math.sqrt(
-                        Math.pow(pixels[pIdx] - targetR, 2) + 
-                        Math.pow(pixels[pIdx + 1] - targetG, 2) + 
-                        Math.pow(pixels[pIdx + 2] - targetB, 2)
-                    );
-                    mask[i] = dist < threshold ? 0 : 255;
+                    const d = getDistLocal(pixels[pIdx], pixels[pIdx + 1], pixels[pIdx + 2], targetR, targetG, targetB);
+                    if (d < threshold) mask[i] = 0;
+                    else if (d < threshold + feather) mask[i] = ((d - threshold) / feather) * 255;
+                    else mask[i] = 255;
                 }
             }
 
-            // 3. Detecção de Bordas (Sobel Simples) para proteção
-            const edges = new Uint8Array(width * height);
-            for (let y = 1; y < height - 1; y++) {
-                for (let x = 1; x < width - 1; x++) {
-                    const idx = y * width + x;
-                    const val = pixels[idx * 4] * 0.3 + pixels[idx * 4 + 1] * 0.59 + pixels[idx * 4 + 2] * 0.11;
-                    const right = pixels[(idx + 1) * 4] * 0.3 + pixels[(idx + 1) * 4 + 1] * 0.59 + pixels[(idx + 1) * 4 + 2] * 0.11;
-                    const bottom = pixels[(idx + width) * 4] * 0.3 + pixels[(idx + width) * 4 + 1] * 0.59 + pixels[(idx + width) * 4 + 2] * 0.11;
-                    const grad = Math.abs(val - right) + Math.abs(val - bottom);
-                    edges[idx] = grad > 30 ? 255 : 0;
-                }
-            }
-
-            // 4. Aplicar Máscara ao Canvas (com proteção de bordas)
+            // 3. Renderização Final com Feathering de Borda
             const maskCanvas = document.createElement('canvas');
             maskCanvas.width = width;
             maskCanvas.height = height;
@@ -288,26 +313,21 @@ export default function BackgroundRemover() {
 
             const maskImageData = mCtx.createImageData(width, height);
             for (let i = 0; i < mask.length; i++) {
-                let alpha = mask[i];
-                
-                // Se for borda detectada, reduzir a força da remoção para evitar "comer" o objeto
-                if (edges[i] > 0 && alpha === 0) {
-                    alpha = 50; // Mantém um pouco de opacidade em bordas complexas
-                }
-
                 maskImageData.data[i * 4] = 255;
                 maskImageData.data[i * 4 + 1] = 255;
                 maskImageData.data[i * 4 + 2] = 255;
-                maskImageData.data[i * 4 + 3] = alpha;
+                maskImageData.data[i * 4 + 3] = mask[i];
             }
             mCtx.putImageData(maskImageData, 0, 0);
 
-            // 5. Composição Final com Feathering
             ctx.clearRect(0, 0, width, height);
             ctx.save();
+            
+            // Aplica filtro de suavização opcional se o usuário desejar refine extra
             if (edgeSmoothing > 0) {
-                ctx.filter = `blur(${edgeSmoothing}px)`;
+                ctx.filter = `blur(${edgeSmoothing * 0.5}px)`; 
             }
+            
             ctx.drawImage(maskCanvas, 0, 0);
             ctx.restore();
 
@@ -317,7 +337,7 @@ export default function BackgroundRemover() {
             setProcessedImage(canvas.toDataURL('image/png'));
             setIsProcessing(false);
             
-            // Salvar máscara para refinamento
+            // Salvar máscara para refinamentos posteriores
             const finalMaskCanvas = document.createElement('canvas');
             finalMaskCanvas.width = width;
             finalMaskCanvas.height = height;
@@ -929,7 +949,7 @@ export default function BackgroundRemover() {
                             </div>
                             <input 
                                 type="range" 
-                                min="1" max="80" 
+                                min="1" max="100" step="1" 
                                 value={tolerance} 
                                 onChange={(e) => setTolerance(parseInt(e.target.value))}
                                 className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-primary"
@@ -1002,7 +1022,7 @@ export default function BackgroundRemover() {
                   <div className="bg-black border border-zinc-800 rounded-2xl flex-1 flex flex-col items-center justify-center text-center relative overflow-hidden group/result">
                       {/* Checkerboard (Only if no background is set) */}
                       {!bgImage && bgType !== 'color' && (
-                        <div className="absolute inset-0 opacity-100 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #111111 25%, transparent 25%), linear-gradient(-45deg, #111111 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #111111 75%), linear-gradient(-45deg, transparent 75%, #111111 75%)', backgroundSize: '20px 20px', backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px' }}></div>
+                        <div className="absolute inset-0 opacity-100 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #333333 25%, transparent 25%), linear-gradient(-45deg, #333333 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #333333 75%), linear-gradient(-45deg, transparent 75%, #333333 75%)', backgroundSize: '20px 20px', backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px' }}></div>
                       )}
 
                       {/* Custom Background */}
@@ -1253,7 +1273,7 @@ export default function BackgroundRemover() {
               </div>
 
               <div className="flex-1 overflow-hidden relative bg-black cursor-crosshair w-full h-full flex items-center justify-center p-12">
-                  <div className="absolute inset-0 opacity-100 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #111 25%, transparent 25%), linear-gradient(-45deg, #111111 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #111111 75%), linear-gradient(-45deg, transparent 75%, #111111 75%)', backgroundSize: '40px 40px' }}></div>
+                  <div className="absolute inset-0 opacity-100 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #333 25%, transparent 25%), linear-gradient(-45deg, #333333 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #333333 75%), linear-gradient(-45deg, transparent 75%, #333333 75%)', backgroundSize: '40px 40px' }}></div>
                   
                   <div className="relative shadow-2xl max-w-full max-h-full">
                       <img 
@@ -1397,7 +1417,7 @@ export default function BackgroundRemover() {
                   onWheel={handleEditorWheel}
               >
                   {/* Background Checkerboard Full */}
-                  <div className="absolute inset-0 opacity-100 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #111111 25%, transparent 25%), linear-gradient(-45deg, #111111 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #111111 75%), linear-gradient(-45deg, transparent 75%, #111111 75%)', backgroundSize: '40px 40px' }}></div>
+                  <div className="absolute inset-0 opacity-100 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #333333 25%, transparent 25%), linear-gradient(-45deg, #333333 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #333333 75%), linear-gradient(-45deg, transparent 75%, #333333 75%)', backgroundSize: '40px 40px' }}></div>
 
                   {/* Container Transformável */}
                   <div 
