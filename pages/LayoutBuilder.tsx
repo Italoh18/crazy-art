@@ -82,25 +82,23 @@ const URLImage = ({ imageProps, isSelected, onSelect, onChange }: {
 };
 
 export default function LayoutBuilder() {
-  const { mockupFrontUrl, mockupBackUrl } = useData();
-  const [side, setSide] = useState<'front' | 'back'>('front');
-  const [frontImages, setFrontImages] = useState<MockupImage[]>([]);
-  const [backImages, setBackImages] = useState<MockupImage[]>([]);
+  const { mockupBaseUrl } = useData();
+  const [images, setImages] = useState<MockupImage[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [localBgUrl, setLocalBgUrl] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bgInputRef = useRef<HTMLInputElement>(null);
   
-  const currentUrl = side === 'front' ? (mockupFrontUrl || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1000&auto=format&fit=crop') : (mockupBackUrl || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1000&auto=format&fit=crop');
-  const [bgImage] = useImage(currentUrl);
-
-  const images = side === 'front' ? frontImages : backImages;
-  const setImages = side === 'front' ? setFrontImages : setBackImages;
+  const currentMockupUrl = mockupBaseUrl || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1000&auto=format&fit=crop';
+  
+  const [mockupImg] = useImage(currentMockupUrl);
+  const [bgImg] = useImage(localBgUrl);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // TODO: Suporte a PDF/TIFF poderia ser adicionado aqui usando pdfjs-dist
     const reader = new FileReader();
     reader.onload = (event) => {
       const url = event.target?.result as string;
@@ -119,6 +117,28 @@ export default function LayoutBuilder() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Minimum size check 200x200
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const url = event.target?.result as string;
+        const img = new Image();
+        img.onload = () => {
+            if (img.width < 200 || img.height < 200) {
+                alert("A imagem de fundo deve ter no mínimo 200x200 pixels.");
+                return;
+            }
+            setLocalBgUrl(url);
+        };
+        img.src = url;
+    };
+    reader.readAsDataURL(file);
+    if (bgInputRef.current) bgInputRef.current.value = '';
+  };
+
   const deleteSelected = () => {
     if (!selectedId) return;
     setImages(prev => prev.filter(img => img.id !== selectedId));
@@ -126,7 +146,7 @@ export default function LayoutBuilder() {
   };
 
   const clearCanvas = () => {
-    if (confirm("Limpar todas as imagens deste lado?")) {
+    if (confirm("Limpar todas as imagens?")) {
       setImages([]);
       setSelectedId(null);
     }
@@ -157,21 +177,21 @@ export default function LayoutBuilder() {
         <div className="w-full lg:w-80 border-r border-white/5 bg-zinc-950 p-6 flex flex-col gap-6 overflow-y-auto">
           
           <div>
-            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 block">Lado da Peça</label>
-            <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-xl border border-white/5">
-                <button 
-                    onClick={() => { setSide('front'); setSelectedId(null); }}
-                    className={`py-2 rounded-lg text-sm font-bold transition ${side === 'front' ? 'bg-primary text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
-                >
-                    FRENTE
-                </button>
-                <button 
-                    onClick={() => { setSide('back'); setSelectedId(null); }}
-                    className={`py-2 rounded-lg text-sm font-bold transition ${side === 'back' ? 'bg-primary text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
-                >
-                    COSTAS
-                </button>
-            </div>
+            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 block">Fundo da Área</label>
+            <input 
+                type="file" 
+                ref={bgInputRef}
+                onChange={handleBgUpload}
+                accept="image/*.png,image/jpeg" 
+                className="hidden" 
+             />
+             <button 
+                onClick={() => bgInputRef.current?.click()}
+                className="w-full py-3 bg-zinc-900 border border-white/5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center gap-2 text-xs font-bold"
+             >
+                <ImageIcon size={14} /> Alterar Fundo
+             </button>
+             <p className="text-[9px] text-zinc-600 mt-2 text-center">Recomendado: PNG/JPG (Mín. 200x200px)</p>
           </div>
 
           <div>
@@ -253,9 +273,17 @@ export default function LayoutBuilder() {
                         }
                     }}>
                         <Layer>
-                            {bgImage && (
+                            {bgImg && (
                                 <KonvaImage 
-                                    image={bgImage} 
+                                    image={bgImg} 
+                                    width={800} 
+                                    height={1000} 
+                                    listening={false}
+                                />
+                            )}
+                            {mockupImg && (
+                                <KonvaImage 
+                                    image={mockupImg} 
                                     width={800} 
                                     height={1000} 
                                     listening={false}

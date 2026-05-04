@@ -7,28 +7,24 @@ import { ImageUploadInput } from '../components/ImageUploadInput';
 export default function Identity() {
   const { 
     faviconUrl, updateFavicon, 
-    mockupFrontUrl, updateMockupFront, 
-    mockupBackUrl, updateMockupBack 
+    mockupBaseUrl, updateMockupBase 
   } = useData();
   const [url, setUrl] = useState('');
-  const [frontUrl, setFrontUrl] = useState('');
-  const [backUrl, setBackUrl] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     if (faviconUrl) setUrl(faviconUrl);
-    if (mockupFrontUrl) setFrontUrl(mockupFrontUrl);
-    if (mockupBackUrl) setBackUrl(mockupBackUrl);
-  }, [faviconUrl, mockupFrontUrl, mockupBackUrl]);
+    if (mockupBaseUrl) setBaseUrl(mockupBaseUrl);
+  }, [faviconUrl, mockupBaseUrl]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     
     setIsSaving(true);
     if (url !== faviconUrl) await updateFavicon(url.trim());
-    if (frontUrl !== mockupFrontUrl) await updateMockupFront(frontUrl.trim());
-    if (backUrl !== mockupBackUrl) await updateMockupBack(backUrl.trim());
+    if (baseUrl !== mockupBaseUrl) await updateMockupBase(baseUrl.trim());
     setIsSaving(false);
     
     setSuccess(true);
@@ -69,28 +65,21 @@ export default function Identity() {
                   </div>
               </div>
 
-              {/* Camisa Mockup */}
+              {/* Mockup Base */}
               <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-xl">
                   <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                      <ImageIcon size={20} className="text-primary" /> Camisas do Mockup (Frente/Costa)
+                      <ImageIcon size={20} className="text-primary" /> Mockup Base (SVG/Camisa)
                   </h2>
                   
                   <div className="space-y-6">
                       <ImageUploadInput 
-                        label="Camisa Frente (PNG Transparente)"
-                        value={frontUrl}
-                        onChange={setFrontUrl}
+                        label="Imagem do Mockup (Frente e Verso Juntos)"
+                        value={baseUrl}
+                        onChange={setBaseUrl}
                         placeholder="https://..."
                         category="mockups"
                       />
-                      <ImageUploadInput 
-                        label="Camisa Costas (PNG Transparente)"
-                        value={backUrl}
-                        onChange={setBackUrl}
-                        placeholder="https://..."
-                        category="mockups"
-                      />
-                      <p className="text-[10px] text-zinc-600">Essas imagens serão usadas como base na ferramenta "Monte seu Layout". Use arquivos PNG com fundo transparente.</p>
+                      <p className="text-[10px] text-zinc-600">Este arquivo será a base da ferramenta "Monte seu Layout". Use um arquivo (SVG ou PNG) que já mostre os dois lados da camisa.</p>
                   </div>
               </div>
           </div>
