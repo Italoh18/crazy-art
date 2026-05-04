@@ -79,56 +79,76 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     localStorage.setItem('show_seasonal_effect', JSON.stringify(showSeasonalEffect));
   }, [showSeasonalEffect]);
 
-  const loadData = async (silent = false) => {
+  const isLoadingRef = React.useRef(false);
+  const cacheRef = React.useRef<Record<string, number>>({});
+
+  const loadData = async (silent = false, entities?: ('customers' | 'products' | 'orders' | 'carousel' | 'trusted' | 'settings' | 'coupons')[]) => {
     const token = localStorage.getItem('auth_token');
+    
+    // Prevent multiple simultaneous loads
+    if (isLoadingRef.current) return;
+    
+    // Throttle silent loads (debounce)
+    const now = Date.now();
+    if (silent && cacheRef.current['all'] && (now - cacheRef.current['all'] < 5000)) {
+      return;
+    }
+
     if (!silent) setIsLoading(true);
+    isLoadingRef.current = true;
 
     try {
+      const shouldLoad = (e: string) => !entities || entities.includes(e as any);
+
       const promises = [
-        token ? api.getClients() : Promise.resolve([]),
-        api.getProducts(),
-        token ? api.getOrders() : Promise.resolve([]),
-        api.getCarousel().catch(() => []),
-        api.getTrustedCompanies().catch(() => []),
-        api.getSettings().catch(() => ({})),
-        (token && localStorage.getItem('user_role') === 'admin') ? api.getCoupons().catch(() => []) : Promise.resolve([])
+        (shouldLoad('customers') && token) ? api.getClients() : Promise.resolve(null),
+        shouldLoad('products') ? api.getProducts() : Promise.resolve(null),
+        (shouldLoad('orders') && token) ? api.getOrders() : Promise.resolve(null),
+        shouldLoad('carousel') ? api.getCarousel().catch(() => []) : Promise.resolve(null),
+        shouldLoad('trusted') ? api.getTrustedCompanies().catch(() => []) : Promise.resolve(null),
+        shouldLoad('settings') ? api.getSettings().catch(() => ({})) : Promise.resolve(null),
+        (shouldLoad('coupons') && token && localStorage.getItem('user_role') === 'admin') ? api.getCoupons().catch(() => []) : Promise.resolve(null)
       ];
 
       const results = await Promise.allSettled(promises);
 
       // Tratamento robusto para Clientes
-      if (results[0].status === 'fulfilled') {
+      if (results[0].status === 'fulfilled' && results[0].value !== null) {
         const data = results[0].value;
         const list = Array.isArray(data) ? data : (data?.data || []);
         setCustomers(list.map(normalizeCustomer));
-      } else {
-        console.error("Falha ao carregar clientes:", results[0].reason);
+        cacheRef.current['customers'] = Date.now();
       }
 
       // Tratamento robusto para Produtos/Catálogo
-      if (results[1].status === 'fulfilled') {
+      if (results[1].status === 'fulfilled' && results[1].value !== null) {
         const data = results[1].value;
         setProducts(Array.isArray(data) ? data : (data?.data || []));
+        cacheRef.current['products'] = Date.now();
       }
 
       // Tratamento robusto para Pedidos
-      if (results[2].status === 'fulfilled') {
+      if (results[2].status === 'fulfilled' && results[2].value !== null) {
         const data = results[2].value;
         setOrders(Array.isArray(data) ? data : (data?.data || []));
+        cacheRef.current['orders'] = Date.now();
       }
 
-      if (results[3].status === 'fulfilled') setCarouselImages(results[3].value || []);
-      if (results[4].status === 'fulfilled') setTrustedCompanies(results[4].value || []);
-      if (results[5].status === 'fulfilled') {
+      if (results[3].status === 'fulfilled' && results[3].value !== null) setCarouselImages(results[3].value || []);
+      if (results[4].status === 'fulfilled' && results[4].value !== null) setTrustedCompanies(results[4].value || []);
+      if (results[5].status === 'fulfilled' && results[5].value !== null) {
         const settings = results[5].value || {};
         if (settings.favicon_url) setFaviconUrl(settings.favicon_url);
         if (settings.mockup_base_url) setMockupBaseUrl(settings.mockup_base_url);
       }
-      if (results[6].status === 'fulfilled') setCoupons(results[6].value || []);
+      if (results[6].status === 'fulfilled' && results[6].value !== null) setCoupons(results[6].value || []);
+
+      if (!entities) cacheRef.current['all'] = Date.now();
 
     } catch (e) {
       console.error("Erro crítico no carregamento de dados:", e);
     } finally {
+      isLoadingRef.current = false;
       if (!silent) setIsLoading(false);
     }
   };
@@ -139,15 +159,25 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
 
   const addCustomer = async (data: any) => {
     try {
-      await api.createClient(data);
-      await loadData(true);
+      const res = await api.createClient(data);
+      if (res && res.id) {
+          const newCustomer = normalizeCustomer(res);
+          setCustomers(prev => [...prev, newCustomer]);
+      } else {
+          await loadData(true, ['customers']);
+      }
     } catch (e: any) { alert(e.message); }
   };
 
   const updateCustomer = async (id: string, data: any) => {
     try {
       const res = await api.updateClient(id, data);
-      await loadData(true);
+      if (res && res.id) {
+          const updated = normalizeCustomer(res);
+          setCustomers(prev => prev.map(c => c.id === id ? updated : c));
+      } else {
+          await loadData(true, ['customers']);
+      }
       return res;
     } catch (e: any) { alert(e.message); }
   };
@@ -155,11 +185,16 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const deleteCustomer = async (id: string) => {
     try {
       if (confirm("Deseja realmente excluir este cliente? Esta ação não pode ser desfeita.")) {
+        const previous = [...customers];
         setCustomers(prev => prev.filter(c => c.id !== id));
-        await api.deleteClient(id);
+        try {
+            await api.deleteClient(id);
+        } catch (err) {
+            setCustomers(previous);
+            throw err;
+        }
       }
     } catch (e: any) { 
-      await loadData(true); 
       alert(e.message); 
     }
   };
@@ -167,7 +202,11 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const addProduct = async (data: any) => {
     try {
       const res = await api.createProduct(data);
-      await loadData(true);
+      if (res && res.id) {
+          setProducts(prev => [...prev, res]);
+      } else {
+          await loadData(true, ['products']);
+      }
       return res;
     } catch (e: any) { 
       alert(e.message); 
@@ -177,8 +216,12 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
 
   const updateProduct = async (id: string, data: any) => {
     try {
-      await api.updateProduct(id, data);
-      await loadData(true);
+      const res = await api.updateProduct(id, data);
+      if (res && res.id) {
+          setProducts(prev => prev.map(p => p.id === id ? res : p));
+      } else {
+          await loadData(true, ['products']);
+      }
     } catch (e: any) { 
       alert(e.message); 
       throw e;
@@ -201,7 +244,11 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const addOrder = async (data: any) => {
     try {
       const res = await api.createOrder(data);
-      await loadData(true);
+      if (res && res.id) {
+          setOrders(prev => [res, ...prev]);
+      } else {
+          await loadData(true, ['orders']);
+      }
       return res;
     } catch (e: any) { 
       alert(e.message); 
@@ -211,86 +258,123 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
 
   const updateOrder = async (id: string, data: any) => {
     try {
-      await api.updateOrder(id, data);
-      await loadData(true);
+      const res = await api.updateOrder(id, data);
+      if (res && res.id) {
+          setOrders(prev => prev.map(o => o.id === id ? res : o));
+      } else {
+          await loadData(true, ['orders']);
+      }
     } catch (e: any) { alert(e.message); }
   };
 
   const deleteOrder = async (id: string) => {
     try {
       if (confirm("Deseja realmente excluir este pedido? Esta ação não pode ser desfeita.")) {
+        const previous = [...orders];
         setOrders(prev => prev.filter(o => o.id !== id));
-        await api.deleteOrder(id);
+        try {
+            await api.deleteOrder(id);
+        } catch (err) {
+            setOrders(previous);
+            throw err;
+        }
       }
     } catch (e: any) {
-      await loadData(true);
       alert(e.message);
     }
   };
 
   const updateOrderStatus = async (id: string, status: OrderStatus) => {
     try {
-      await api.updateOrder(id, { status });
-      await loadData(true);
+      const res = await api.updateOrder(id, { status });
+      if (res && res.id) {
+          setOrders(prev => prev.map(o => o.id === id ? res : o));
+      } else {
+          await loadData(true, ['orders']);
+      }
     } catch (e: any) { alert(e.message); }
   };
 
   const updateProductionStep = async (id: string, step: ProductionStep) => {
     try {
-      await api.updateProductionStep(id, step);
-      await loadData(true);
+      const res = await api.updateProductionStep(id, step);
+      if (res && res.id) {
+          setOrders(prev => prev.map(o => o.id === id ? res : o));
+      } else {
+          await loadData(true, ['orders']);
+      }
     } catch (e: any) { alert(e.message); }
   };
 
   const addCarouselImage = async (url: string) => {
     try {
-      await api.addCarouselImage(url);
-      await loadData(true);
+      const res = await api.addCarouselImage(url);
+      if (res && res.id) {
+          setCarouselImages(prev => [...prev, res]);
+      } else {
+          await loadData(true, ['carousel']);
+      }
     } catch (e: any) { alert(e.message); }
   };
 
   const deleteCarouselImage = async (id: string) => {
     try {
       if (confirm("Deseja remover esta imagem do carrossel?")) {
+        const previous = [...carouselImages];
         setCarouselImages(prev => prev.filter(img => img.id !== id));
-        await api.deleteCarouselImage(id);
+        try {
+            await api.deleteCarouselImage(id);
+        } catch (err) {
+            setCarouselImages(previous);
+            throw err;
+        }
       }
     } catch (e: any) { 
-      await loadData(true);
       alert(e.message); 
     }
   };
 
   const addTrustedCompany = async (name: string, imageUrl: string) => {
     try {
-      await api.addTrustedCompany({ name, imageUrl });
-      await loadData(true);
+      const res = await api.addTrustedCompany({ name, imageUrl });
+      if (res && res.id) {
+          setTrustedCompanies(prev => [...prev, res]);
+      } else {
+          await loadData(true, ['trusted']);
+      }
     } catch (e: any) { alert(e.message); }
   };
 
   const deleteTrustedCompany = async (id: string) => {
     try {
       if (confirm("Deseja remover esta empresa?")) {
+        const previous = [...trustedCompanies];
         setTrustedCompanies(prev => prev.filter(c => c.id !== id));
-        await api.deleteTrustedCompany(id);
+        try {
+            await api.deleteTrustedCompany(id);
+        } catch (err) {
+            setTrustedCompanies(previous);
+            throw err;
+        }
       }
     } catch (e: any) {
-      await loadData(true);
       alert(e.message);
     }
   };
 
   const loadCoupons = async () => {
-      try {
-          const res = await api.getCoupons();
-          setCoupons(res || []);
-      } catch (e) { console.error(e); }
+      // Use the optimized loadData which already handles locks and throttling
+      await loadData(true, ['coupons']);
   };
 
   const addCoupon = async (data: any) => {
       try {
-          await api.addCoupon(data);
-          await loadCoupons();
+          const res = await api.addCoupon(data);
+          if (res && res.id) {
+              setCoupons(prev => [...prev, res]);
+          } else {
+              await loadCoupons();
+          }
       } catch (e: any) { alert(e.message); }
   };
 
@@ -334,17 +418,29 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   const loadDriveFiles = async (folder?: string) => {
+      // Throttle drive file loading
+      const cacheKey = `drive_${folder || 'root'}`;
+      const now = Date.now();
+      if (cacheRef.current[cacheKey] && (now - cacheRef.current[cacheKey] < 5000)) {
+          return;
+      }
+
       try {
           const res = await api.getDriveFiles(folder);
           setDriveFiles(res || []);
+          cacheRef.current[cacheKey] = Date.now();
       } catch (e) { console.error(e); }
   };
 
   const addDriveFile = async (data: any) => {
-      try {
-          await api.addDriveFile(data);
+    try {
+      const res = await api.addDriveFile(data);
+      if (res && res.id) {
+          setDriveFiles(prev => [res, ...prev]);
+      } else {
           loadDriveFiles();
-      } catch (e: any) { alert(e.message); }
+      }
+    } catch (e: any) { alert(e.message); }
   };
 
   const deleteDriveFile = async (id: string) => {
