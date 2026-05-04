@@ -1,4 +1,6 @@
 
+import bcrypt from 'bcryptjs';
+
 export interface Env {
   DB: any;
   JWT_SECRET: string;
@@ -9,13 +11,28 @@ export interface Env {
 const base64UrlEncode = (str: string) => btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 const base64UrlDecode = (str: string) => atob(str.replace(/-/g, '+').replace(/_/g, '/'));
 
-// Helper to hash passwords using SHA-256
-export async function hashPassword(password: string): Promise<string> {
+// Legacy SHA-256 hashing (Insecure, no salt)
+export async function hashPasswordLegacy(password: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Modern Bcrypt hashing
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10);
+}
+
+// Compare password against a hash (Bcrypt or Legacy)
+export async function verifyPassword(password: string, hash: string, version: number): Promise<boolean> {
+  if (version === 2) {
+    return bcrypt.compare(password, hash);
+  }
+  // Version 1 (or null/undefined) is legacy
+  const legacyHash = await hashPasswordLegacy(password);
+  return legacyHash === hash;
 }
 
 export async function createJWT(payload: any, secret: string) {

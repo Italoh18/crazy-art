@@ -9,7 +9,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     const mapClient = (c: any) => {
       if (!c) return null;
-      const { password_hash, ...clientData } = c;
+      const { password_hash, password_version, ...clientData } = c;
       return {
         ...clientData,
         cloudLink: c.cloudLink || c.cloud_link,
@@ -59,6 +59,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const now = new Date().toISOString();
       
       const passwordHash = body.password ? await hashPassword(body.password) : null;
+      const passwordVersion = passwordHash ? 2 : 1;
       
       // Se não for admin, creditLimit e isSubscriber são forçados a 0
       const creditLimitVal = body.creditLimit !== undefined ? body.creditLimit : body.credit_limit;
@@ -68,7 +69,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const isSubscriber = user?.role === 'admin' ? (isSubscriberVal ? 1 : 0) : 0;
 
       await env.DB.prepare(
-        'INSERT INTO clients (id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link, is_subscriber, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO clients (id, name, email, phone, cpf, street, number, zipCode, creditLimit, created_at, cloud_link, is_subscriber, password_hash, password_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).bind(
         newId,
         String(body.name || '').trim(),
@@ -82,7 +83,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         now,
         body.cloudLink || body.cloud_link ? String(body.cloudLink || body.cloud_link).trim() : null,
         isSubscriber,
-        passwordHash
+        passwordHash,
+        passwordVersion
       ).run();
 
       return Response.json({ success: true, id: newId });
@@ -107,7 +109,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
         if (passwordHash) {
           await env.DB.prepare(
-            'UPDATE clients SET name=?, email=?, phone=?, cpf=?, street=?, number=?, zipCode=?, creditLimit=?, cloud_link=?, is_subscriber=?, subscription_expires_at=?, password_hash=? WHERE id=?'
+            'UPDATE clients SET name=?, email=?, phone=?, cpf=?, street=?, number=?, zipCode=?, creditLimit=?, cloud_link=?, is_subscriber=?, subscription_expires_at=?, password_hash=?, password_version=2 WHERE id=?'
           ).bind(
             String(body.name || '').trim(),
             body.email ? String(body.email).trim() : null,
