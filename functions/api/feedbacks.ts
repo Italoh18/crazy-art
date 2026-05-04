@@ -41,7 +41,37 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     // GET: Listar Feedbacks
     if (request.method === 'GET') {
-      const { results } = await env.DB.prepare('SELECT * FROM feedbacks ORDER BY created_at DESC').all();
+      const page = Math.max(1, parseInt(url.searchParams.get('page') || '0'));
+      const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get('limit') || '50')));
+      const offset = (page - 1) * limit;
+      const isPaged = url.searchParams.has('page') || url.searchParams.has('limit');
+
+      let totalCount = 0;
+      if (isPaged) {
+        const countResult: any = await env.DB.prepare('SELECT COUNT(*) as total FROM feedbacks').first();
+        totalCount = countResult?.total || 0;
+      }
+
+      let query = 'SELECT * FROM feedbacks ORDER BY created_at DESC';
+      let params: any[] = [];
+      
+      if (isPaged) {
+        query += ' LIMIT ? OFFSET ?';
+        params.push(limit, offset);
+      } else {
+        query += ' LIMIT 1000';
+      }
+
+      const { results } = params.length > 0 ? await env.DB.prepare(query).bind(...params).all() : await env.DB.prepare(query).all();
+      
+      if (isPaged) {
+        return Response.json({
+          data: results || [],
+          total: totalCount,
+          page,
+          limit
+        });
+      }
       return Response.json(results || []);
     }
 

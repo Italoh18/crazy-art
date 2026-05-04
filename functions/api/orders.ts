@@ -10,6 +10,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
     const clientIdParam = url.searchParams.get('clientId');
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '0'));
+    const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get('limit') || '1000')));
+    const offset = (page - 1) * limit;
+    const isPaged = url.searchParams.has('page') || url.searchParams.has('limit');
 
     // GET /api/orders
     if (request.method === 'GET') {
@@ -34,9 +38,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         });
       }
 
-      let query = `
-        SELECT o.*, c.name as client_name, c.creditLimit as client_credit_limit,
-               (SELECT art_link FROM order_items WHERE order_id = o.id AND art_link IS NOT NULL LIMIT 1) as first_art_link
+      let baseQuery = `
         FROM orders o 
         LEFT JOIN clients c ON o.client_id = c.id
       `;
@@ -47,17 +49,36 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       if (user.role === 'client') {
         whereClauses.push('o.client_id = ?');
         params.push(user.clientId);
-      } else if (clientIdParam && clientIdParam !== 'undefined') {
+      } else if (clientIdParam && clientIdParam !== 'undefined' && clientIdParam !== 'null') {
         // Se for admin e passou clientIdParam, filtra por ele
         whereClauses.push('o.client_id = ?');
         params.push(String(clientIdParam));
       }
 
-      if (whereClauses.length > 0) {
-        query += ' WHERE ' + whereClauses.join(' AND ');
-      }
+      const wherePart = whereClauses.length > 0 ? ' WHERE ' + whereClauses.join(' AND ') : '';
       
-      query += ' ORDER BY o.created_at DESC';
+      // Count total if pagination requested
+      let totalCount = 0;
+      if (isPaged) {
+        const countQuery = `SELECT COUNT(*) as total ${baseQuery} ${wherePart}`;
+        const countResult: any = params.length > 0 ? await env.DB.prepare(countQuery).bind(...params).first() : await env.DB.prepare(countQuery).first();
+        totalCount = countResult?.total || 0;
+      }
+
+      let query = `
+        SELECT o.*, c.name as client_name, c.creditLimit as client_credit_limit,
+               (SELECT art_link FROM order_items WHERE order_id = o.id AND art_link IS NOT NULL LIMIT 1) as first_art_link
+        ${baseQuery}
+        ${wherePart}
+        ORDER BY o.created_at DESC
+      `;
+      
+      if (isPaged) {
+        query += ' LIMIT ? OFFSET ?';
+        params.push(limit, offset);
+      } else {
+        query += ' LIMIT 1000'; // Safety limit even if not paged
+      }
       
       const stmt = env.DB.prepare(query);
       const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
@@ -66,6 +87,15 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         ...o,
         formattedOrderNumber: String(o.order_number || 0).padStart(5, '0')
       }));
+      
+      if (isPaged) {
+        return Response.json({
+          data: orders,
+          total: totalCount,
+          page,
+          limit
+        });
+      }
       
       return Response.json(orders);
     }

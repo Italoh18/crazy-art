@@ -27,22 +27,41 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     };
 
     if (request.method === 'GET') {
+      const page = Math.max(1, parseInt(url.searchParams.get('page') || '0'));
+      const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get('limit') || '1000')));
+      const offset = (page - 1) * limit;
+      const isPaged = url.searchParams.has('page') || url.searchParams.has('limit');
+
       // Tentativa de buscar da tabela 'catalog' primeiro
-      let query = 'SELECT * FROM catalog WHERE active = 1';
+      let baseWhere = 'WHERE active = 1';
       const params: any[] = [];
 
       if (typeParam && typeParam !== 'undefined') {
-        query += ' AND type = ?';
+        baseWhere += ' AND type = ?';
         params.push(String(typeParam));
       }
       if (searchParam && searchParam !== 'undefined') {
-        query += ' AND name LIKE ?';
+        baseWhere += ' AND name LIKE ?';
         params.push(`%${String(searchParam)}%`);
       }
 
-      query += ' ORDER BY created_at DESC';
-
       try {
+        let totalCount = 0;
+        if (isPaged) {
+          const countQuery = `SELECT COUNT(*) as total FROM catalog ${baseWhere}`;
+          const countResult: any = params.length > 0 ? await env.DB.prepare(countQuery).bind(...params).first() : await env.DB.prepare(countQuery).first();
+          totalCount = countResult?.total || 0;
+        }
+
+        let query = `SELECT * FROM catalog ${baseWhere} ORDER BY created_at DESC`;
+        
+        if (isPaged) {
+          query += ' LIMIT ? OFFSET ?';
+          params.push(limit, offset);
+        } else {
+          query += ' LIMIT 1000';
+        }
+
         const stmt = env.DB.prepare(query);
         const { results } = params.length > 0 ? await stmt.bind(...params).all() : await stmt.all();
         
@@ -86,6 +105,15 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
           return base;
         });
+        
+        if (isPaged) {
+          return Response.json({
+            data: mappedResults,
+            total: totalCount,
+            page,
+            limit
+          });
+        }
         
         return Response.json(mappedResults);
       } catch (sqlError: any) {

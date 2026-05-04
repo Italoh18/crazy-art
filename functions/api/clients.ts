@@ -21,6 +21,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     if (request.method === 'GET') {
       if (!user) return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
       
+      const page = Math.max(1, parseInt(url.searchParams.get('page') || '0'));
+      const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get('limit') || '1000')));
+      const offset = (page - 1) * limit;
+      const isPaged = url.searchParams.has('page') || url.searchParams.has('limit');
+
       // Se for admin, pode ver qualquer um ou listar todos
       if (user.role === 'admin') {
         if (id) {
@@ -28,8 +33,34 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           return Response.json(mapClient(client));
         }
         
-        const { results } = await env.DB.prepare('SELECT * FROM clients ORDER BY created_at DESC').all();
-        return Response.json((results || []).map(mapClient));
+        let totalCount = 0;
+        if (isPaged) {
+            const countResult: any = await env.DB.prepare('SELECT COUNT(*) as total FROM clients').first();
+            totalCount = countResult?.total || 0;
+        }
+
+        let query = 'SELECT * FROM clients ORDER BY created_at DESC';
+        let params: any[] = [];
+        
+        if (isPaged) {
+            query += ' LIMIT ? OFFSET ?';
+            params.push(limit, offset);
+        } else {
+            query += ' LIMIT 1000';
+        }
+
+        const { results } = params.length > 0 ? await env.DB.prepare(query).bind(...params).all() : await env.DB.prepare(query).all();
+        const mappedResults = (results || []).map(mapClient);
+
+        if (isPaged) {
+            return Response.json({
+                data: mappedResults,
+                total: totalCount,
+                page,
+                limit
+            });
+        }
+        return Response.json(mappedResults);
       } 
       
       // Se for cliente comum, só pode ver a SI MESMO
