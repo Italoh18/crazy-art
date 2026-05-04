@@ -8,7 +8,7 @@ interface ImageUploadInputProps {
   label?: string;
   accept?: string;
   maxFiles?: number;
-  category?: 'banners' | 'portfolio' | 'clientes';
+  category?: 'banners' | 'portfolio' | 'clientes' | 'outros' | 'mockups';
 }
 
 export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({ 

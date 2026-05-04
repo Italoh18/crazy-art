@@ -14,7 +14,7 @@ const folders = [
   { id: 'all', name: 'Todos os Arquivos', icon: LayoutGrid },
   { id: 'logos', name: 'Logotipos', icon: Folder },
   { id: 'estampas', name: 'Estampas', icon: Folder },
-  { id: 'mockups', name: 'Mockups 3D', icon: Folder },
+  { id: 'mockups', name: 'Mockups 2D', icon: Folder },
   { id: 'vetores', name: 'Vetores', icon: Folder },
   { id: 'social', name: 'Social Media', icon: Folder },
 ];

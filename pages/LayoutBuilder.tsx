@@ -1,412 +1,298 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Rotate3d, Share2, ZoomIn, ZoomOut, RefreshCcw, Layers } from 'lucide-react';
+import { ArrowLeft, Share2, Upload, Trash2, ZoomIn, ZoomOut, Maximize, RotateCcw, Image as ImageIcon, FileText } from 'lucide-react';
+import { Stage, Layer, Image as KonvaImage, Transformer } from 'react-konva';
+import useImage from 'use-image';
+import { useData } from '../contexts/DataContext';
+
+interface MockupImage {
+  id: string;
+  url: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+}
+
+const URLImage = ({ imageProps, isSelected, onSelect, onChange }: { 
+  imageProps: MockupImage, 
+  isSelected: boolean, 
+  onSelect: () => void,
+  onChange: (newProps: MockupImage) => void 
+}) => {
+  const [img] = useImage(imageProps.url);
+  const shapeRef = useRef<any>(null);
+  const trRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (isSelected) {
+      trRef.current.nodes([shapeRef.current]);
+      trRef.current.getLayer().batchDraw();
+    }
+  }, [isSelected]);
+
+  return (
+    <React.Fragment>
+      <KonvaImage
+        image={img}
+        onClick={onSelect}
+        onTap={onSelect}
+        ref={shapeRef}
+        {...imageProps}
+        draggable
+        onDragEnd={(e) => {
+          onChange({
+            ...imageProps,
+            x: e.target.x(),
+            y: e.target.y(),
+          });
+        }}
+        onTransformEnd={(e) => {
+          const node = shapeRef.current;
+          const scaleX = node.scaleX();
+          const scaleY = node.scaleY();
+
+          node.scaleX(1);
+          node.scaleY(1);
+          onChange({
+            ...imageProps,
+            x: node.x(),
+            y: node.y(),
+            width: Math.max(5, node.width() * scaleX),
+            height: Math.max(node.height() * scaleY),
+            rotation: node.rotation(),
+          });
+        }}
+      />
+      {isSelected && (
+        <Transformer
+          ref={trRef}
+          boundBoxFunc={(oldBox, newBox) => {
+            if (newBox.width < 5 || newBox.height < 5) {
+              return oldBox;
+            }
+            return newBox;
+          }}
+        />
+      )}
+    </React.Fragment>
+  );
+};
 
 export default function LayoutBuilder() {
-  const [rotation, setRotation] = useState(0);
+  const { mockupFrontUrl, mockupBackUrl } = useData();
+  const [side, setSide] = useState<'front' | 'back'>('front');
+  const [frontImages, setFrontImages] = useState<MockupImage[]>([]);
+  const [backImages, setBackImages] = useState<MockupImage[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
-  const isDragging = useRef(false);
-  const lastMouseX = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const currentUrl = side === 'front' ? (mockupFrontUrl || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1000&auto=format&fit=crop') : (mockupBackUrl || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1000&auto=format&fit=crop');
+  const [bgImage] = useImage(currentUrl);
 
-  // Controle de rotação pelo mouse/touch
-  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
-    isDragging.current = true;
-    lastMouseX.current = 'touches' in e ? e.touches[0].clientX : e.clientX;
+  const images = side === 'front' ? frontImages : backImages;
+  const setImages = side === 'front' ? setFrontImages : setBackImages;
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // TODO: Suporte a PDF/TIFF poderia ser adicionado aqui usando pdfjs-dist
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const url = event.target?.result as string;
+      const newImage: MockupImage = {
+        id: Math.random().toString(36).substr(2, 9),
+        url,
+        x: 100,
+        y: 100,
+        width: 150,
+        height: 150,
+        rotation: 0
+      };
+      setImages(prev => [...prev, newImage]);
+    };
+    reader.readAsDataURL(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDragging.current) return;
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const delta = clientX - lastMouseX.current;
-    setRotation((prev) => prev + delta * 0.5);
-    lastMouseX.current = clientX;
+  const deleteSelected = () => {
+    if (!selectedId) return;
+    setImages(prev => prev.filter(img => img.id !== selectedId));
+    setSelectedId(null);
   };
 
-  const handleMouseUp = () => {
-    isDragging.current = false;
-  };
-
-  // Efeito de estrelas
-  const stars = Array.from({ length: 80 }).map((_, i) => ({
-    id: i,
-    top: `${Math.random() * 100}%`,
-    left: `${Math.random() * 100}%`,
-    size: Math.random() * 2 + 1,
-    opacity: Math.random(),
-    animDelay: `${Math.random() * 5}s`
-  }));
-
-  const handleZoom = (delta: number) => {
-    setZoom(prev => Math.max(0.6, Math.min(1.5, prev + delta)));
-  };
-
-  // Definições de Cores
-  const layoutColors = {
-    base: "#e4e4e7", // Branco levemente cinza para simular o tecido da imagem
-    stroke: "#18181b", // Linhas pretas (desenho técnico)
-    accent: "#DC2626", // Detalhes em vermelho
-    gold: "#F59E0B"
+  const clearCanvas = () => {
+    if (confirm("Limpar todas as imagens deste lado?")) {
+      setImages([]);
+      setSelectedId(null);
+    }
   };
 
   return (
-    <div 
-      className="min-h-screen bg-black text-white overflow-hidden relative flex flex-col"
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onTouchEnd={handleMouseUp}
-      onMouseMove={handleMouseMove}
-      onTouchMove={handleMouseMove}
-    >
-      {/* BACKGROUND */}
-      <div className="absolute inset-0 pointer-events-none z-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#2a2a35_0%,_#000000_100%)] opacity-90"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[100px] animate-pulse-slow"></div>
-        {stars.map(s => (
-          <div 
-            key={s.id}
-            className="absolute bg-white rounded-full animate-twinkle"
-            style={{
-              top: s.top,
-              left: s.left,
-              width: `${s.size}px`,
-              height: `${s.size}px`,
-              opacity: s.opacity * 0.5,
-              animationDelay: s.animDelay
-            }}
-          />
-        ))}
-      </div>
-
+    <div className="min-h-screen bg-[#09090b] text-white flex flex-col">
       {/* HEADER */}
-      <div className="relative z-20 p-6 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
-        <div className="flex items-center space-x-4">
-          <Link to="/" className="p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full transition border border-white/10">
-            <ArrowLeft size={24} />
+      <div className="p-4 border-b border-white/5 flex items-center justify-between bg-black/50 backdrop-blur-md sticky top-0 z-30">
+        <div className="flex items-center gap-4">
+          <Link to="/" className="p-2 hover:bg-white/10 rounded-lg transition text-zinc-400 hover:text-white">
+            <ArrowLeft size={20} />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold font-heading tracking-wide">Monte seu Layout</h1>
-            <p className="text-xs text-zinc-500 hidden md:block">Modelo Técnico (Mockup)</p>
+            <h1 className="text-lg font-bold tracking-tight">Mockup 2D Builder</h1>
+            <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Artes Personalizadas</p>
           </div>
         </div>
-        <div className="flex gap-3">
-             <button onClick={() => setRotation(0)} className="p-3 bg-zinc-800 text-zinc-400 hover:text-white rounded-full transition">
-                <RefreshCcw size={20} />
-             </button>
-            <button className="p-3 bg-primary text-white rounded-full shadow-lg hover:bg-amber-600 transition hover:scale-105 active:scale-95 shadow-primary/20">
-            <Share2 size={20} />
+        <div className="flex items-center gap-2">
+            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-amber-600 transition text-sm font-bold shadow-lg shadow-primary/20">
+                <Share2 size={16} /> <span className="hidden sm:inline">Exportar</span>
             </button>
         </div>
       </div>
 
-      {/* VIEWER AREA */}
-      <div className="flex-1 relative z-10 flex items-center justify-center perspective-1000 cursor-grab active:cursor-grabbing">
-        
-        {/* 3D SCENE CONTAINER */}
-        <div 
-          className="relative w-[340px] h-[600px] md:w-[420px] md:h-[700px] transition-transform duration-75 ease-out"
-          style={{ 
-            transform: `scale(${zoom}) rotateY(${rotation}deg)`,
-            transformStyle: 'preserve-3d'
-          }}
-          onMouseDown={handleMouseDown}
-          onTouchStart={handleMouseDown}
-        >
-          {/* =================================================================================
-              FRENTE (FRONT SIDE)
-          ================================================================================= */}
-          <div className="absolute inset-0 backface-hidden drop-shadow-2xl" style={{ transform: 'translateZ(1px)' }}>
-            
-            <svg viewBox="0 0 500 750" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <linearGradient id="fabricGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#f4f4f5" />
-                        <stop offset="50%" stopColor="#ffffff" />
-                        <stop offset="100%" stopColor="#f4f4f5" />
-                    </linearGradient>
-                    <filter id="shadowFilter">
-                        <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="black" floodOpacity="0.2" />
-                    </filter>
-                </defs>
-
-                {/* --- CAMISA FRENTE --- */}
-                <g transform="translate(0, 20)">
-                    {/* Corpo Principal (T-Shirt Standard Cut) */}
-                    <path 
-                        d="M160,50 
-                           Q250,80 340,50  
-                           L440,140 
-                           L410,180 
-                           L350,140 
-                           L350,420 
-                           Q250,425 150,420 
-                           L150,140 
-                           L90,180 
-                           L60,140 
-                           Z" 
-                        fill="url(#fabricGradient)" 
-                        stroke={layoutColors.stroke} 
-                        strokeWidth="2"
-                    />
-
-                    {/* Detalhe da Gola (Redonda/Careca) */}
-                    <path d="M160,50 Q250,80 340,50" fill="none" stroke={layoutColors.stroke} strokeWidth="2" /> {/* Costas da gola */}
-                    <path d="M160,50 Q250,120 340,50" fill="#f0f0f0" stroke={layoutColors.stroke} strokeWidth="2" /> {/* Frente da gola */}
-                    <path d="M170,55 Q250,110 330,55" fill="none" stroke={layoutColors.stroke} strokeWidth="1" strokeDasharray="3 1" /> {/* Costura Gola */}
-
-                    {/* Etiqueta interna */}
-                    <path d="M230,65 Q250,70 270,65 L270,75 Q250,80 230,75 Z" fill="#ddd" stroke="none" />
-
-                    {/* Mangas (Bainha) */}
-                    <path d="M60,140 L90,180" fill="none" stroke={layoutColors.stroke} strokeWidth="2" />
-                    <line x1="65" y1="170" x2="85" y2="150" stroke={layoutColors.stroke} strokeWidth="1" strokeDasharray="3 1" /> {/* Costura Manga Esq */}
-                    
-                    <path d="M440,140 L410,180" fill="none" stroke={layoutColors.stroke} strokeWidth="2" />
-                    <line x1="435" y1="170" x2="415" y2="150" stroke={layoutColors.stroke} strokeWidth="1" strokeDasharray="3 1" /> {/* Costura Manga Dir */}
-
-                    {/* Cava da Manga */}
-                    <path d="M150,140 Q140,90 160,50" fill="none" stroke={layoutColors.stroke} strokeWidth="1" opacity="0.3" />
-                    <path d="M350,140 Q360,90 340,50" fill="none" stroke={layoutColors.stroke} strokeWidth="1" opacity="0.3" />
-
-                    {/* Bainha Inferior */}
-                    <path d="M150,410 Q250,415 350,410" fill="none" stroke={layoutColors.stroke} strokeWidth="1" strokeDasharray="3 1" />
-
-                    {/* LOGO */}
-                    <g transform="translate(250, 200)">
-                        <text x="0" y="0" textAnchor="middle" fill="#18181b" fontFamily="Impact, sans-serif" fontSize="50" letterSpacing="2">CRAZY</text>
-                        <text x="0" y="30" textAnchor="middle" fill={layoutColors.accent} fontFamily="Arial, sans-serif" fontSize="20" letterSpacing="5" fontWeight="bold">ART</text>
-                    </g>
-                </g>
-
-                {/* --- SHORT FRENTE --- */}
-                <g transform="translate(0, 440)">
-                    {/* Outline Short */}
-                    <path 
-                        d="M130,20 
-                           L370,20 
-                           L390,260 
-                           L260,270 
-                           L250,150 
-                           L240,270 
-                           L110,260 
-                           Z" 
-                        fill="url(#fabricGradient)" 
-                        stroke={layoutColors.stroke} 
-                        strokeWidth="2"
-                    />
-
-                    {/* Cós Elástico (Ruffled Waistband) */}
-                    <rect x="130" y="20" width="240" height="35" fill="#e4e4e7" stroke={layoutColors.stroke} strokeWidth="2" />
-                    {/* Linhas de franzido do elástico */}
-                    <path d="M140,20 L140,55 M150,20 L150,55 M160,20 L160,55 M170,20 L170,55 M180,20 L180,55 M190,20 L190,55" stroke={layoutColors.stroke} strokeWidth="0.5" opacity="0.5" />
-                    <path d="M360,20 L360,55 M350,20 L350,55 M340,20 L340,55 M330,20 L330,55 M320,20 L320,55 M310,20 L310,55" stroke={layoutColors.stroke} strokeWidth="0.5" opacity="0.5" />
-                    
-                    {/* Cordão (Drawstring) */}
-                    <path d="M240,37 Q235,80 230,120" fill="none" stroke="#333" strokeWidth="3" strokeLinecap="round" />
-                    <path d="M260,37 Q265,80 270,120" fill="none" stroke="#333" strokeWidth="3" strokeLinecap="round" />
-                    {/* Ponteiras */}
-                    <rect x="227" y="115" width="6" height="12" fill={layoutColors.accent} rx="2" />
-                    <rect x="267" y="115" width="6" height="12" fill={layoutColors.accent} rx="2" />
-                    {/* Ilhós */}
-                    <circle cx="240" cy="37" r="3" fill="#333" />
-                    <circle cx="260" cy="37" r="3" fill="#333" />
-
-                    {/* Bolsos Laterais Curvos */}
-                    <path d="M132,60 Q170,120 170,180" fill="none" stroke={layoutColors.stroke} strokeWidth="1.5" />
-                    <path d="M170,180 L170,60" fill="none" stroke={layoutColors.stroke} strokeWidth="1" strokeDasharray="3 1" opacity="0.5" /> {/* Saco do bolso interno */}
-                    
-                    <path d="M368,60 Q330,120 330,180" fill="none" stroke={layoutColors.stroke} strokeWidth="1.5" />
-                    
-                    {/* Gancho (Fly) Falso */}
-                    <path d="M250,55 L250,150" fill="none" stroke={layoutColors.stroke} strokeWidth="1" />
-                    <path d="M250,150 Q230,160 250,170" fill="none" stroke={layoutColors.stroke} strokeWidth="1" opacity="0.5" />
-
-                    {/* Abertura Lateral (Vents) */}
-                    <path d="M110,240 L110,260" fill="none" stroke={layoutColors.stroke} strokeWidth="2" />
-                    <circle cx="114" cy="245" r="2" fill={layoutColors.stroke} />
-                    
-                    <path d="M390,240 L390,260" fill="none" stroke={layoutColors.stroke} strokeWidth="2" />
-                    <circle cx="386" cy="245" r="2" fill={layoutColors.stroke} />
-
-                    {/* Bainha Short */}
-                    <path d="M110,250 L240,260" fill="none" stroke={layoutColors.stroke} strokeWidth="1" strokeDasharray="3 1" />
-                    <path d="M390,250 L260,260" fill="none" stroke={layoutColors.stroke} strokeWidth="1" strokeDasharray="3 1" />
-                </g>
-            </svg>
-          </div>
-
-          {/* =================================================================================
-              COSTAS (BACK SIDE)
-          ================================================================================= */}
-          <div 
-            className="absolute inset-0 backface-hidden drop-shadow-2xl" 
-            style={{ transform: 'rotateY(180deg) translateZ(1px)' }}
-          >
-             <svg viewBox="0 0 500 750" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <linearGradient id="fabricGradientBack" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#f4f4f5" />
-                        <stop offset="50%" stopColor="#ffffff" />
-                        <stop offset="100%" stopColor="#f4f4f5" />
-                    </linearGradient>
-                </defs>
-
-                {/* --- CAMISA COSTAS --- */}
-                <g transform="translate(0, 20)">
-                    {/* Corpo Costas */}
-                    <path 
-                        d="M160,50 
-                           Q250,40 340,50  
-                           L440,140 
-                           L410,180 
-                           L350,140 
-                           L350,420 
-                           Q250,425 150,420 
-                           L150,140 
-                           L90,180 
-                           L60,140 
-                           Z" 
-                        fill="url(#fabricGradientBack)" 
-                        stroke={layoutColors.stroke} 
-                        strokeWidth="2"
-                    />
-
-                    {/* Gola Costas */}
-                    <path d="M160,50 Q250,70 340,50" fill="none" stroke={layoutColors.stroke} strokeWidth="2" />
-                    <path d="M160,50 Q250,40 340,50" fill="none" stroke={layoutColors.stroke} strokeWidth="2" /> {/* Top edge */}
-
-                    {/* Mangas Costas */}
-                    <path d="M60,140 L90,180" fill="none" stroke={layoutColors.stroke} strokeWidth="2" />
-                    <path d="M440,140 L410,180" fill="none" stroke={layoutColors.stroke} strokeWidth="2" />
-                    <path d="M150,140 Q140,90 160,50" fill="none" stroke={layoutColors.stroke} strokeWidth="1" opacity="0.3" />
-                    <path d="M350,140 Q360,90 340,50" fill="none" stroke={layoutColors.stroke} strokeWidth="1" opacity="0.3" />
-
-                    {/* Bainha Inferior */}
-                    <path d="M150,410 Q250,415 350,410" fill="none" stroke={layoutColors.stroke} strokeWidth="1" strokeDasharray="3 1" />
-
-                    {/* Nome e Número */}
-                    <g transform="translate(250, 180)">
-                        <text x="0" y="0" textAnchor="middle" fill="#18181b" fontFamily="Arial, sans-serif" fontSize="32" fontWeight="bold" letterSpacing="2">SEU NOME</text>
-                        <text x="0" y="140" textAnchor="middle" fill="none" stroke="#18181b" strokeWidth="2" fontFamily="Impact, sans-serif" fontSize="140">10</text>
-                    </g>
-                </g>
-
-                {/* --- SHORT COSTAS --- */}
-                <g transform="translate(0, 440)">
-                    {/* Outline Short */}
-                    <path 
-                        d="M130,20 
-                           L370,20 
-                           L390,260 
-                           L260,270 
-                           L250,170 
-                           L240,270 
-                           L110,260 
-                           Z" 
-                        fill="url(#fabricGradientBack)" 
-                        stroke={layoutColors.stroke} 
-                        strokeWidth="2"
-                    />
-
-                    {/* Cós Costas */}
-                    <rect x="130" y="20" width="240" height="35" fill="#e4e4e7" stroke={layoutColors.stroke} strokeWidth="2" />
-                    {/* Franzido */}
-                    <path d="M140,20 L140,55 M160,20 L160,55 M180,20 L180,55 M200,20 L200,55" stroke={layoutColors.stroke} strokeWidth="0.5" opacity="0.5" />
-                    <path d="M360,20 L360,55 M340,20 L340,55 M320,20 L320,55 M300,20 L300,55" stroke={layoutColors.stroke} strokeWidth="0.5" opacity="0.5" />
-
-                    {/* Bolsos Traseiros (Welt Pockets) */}
-                    <rect x="170" y="80" width="60" height="10" fill="none" stroke={layoutColors.stroke} strokeWidth="1.5" />
-                    <rect x="270" y="80" width="60" height="10" fill="none" stroke={layoutColors.stroke} strokeWidth="1.5" />
-
-                    {/* Costura Central Traseira */}
-                    <path d="M250,55 L250,170" fill="none" stroke={layoutColors.stroke} strokeWidth="1" />
-
-                    {/* Abertura Lateral (Vents) */}
-                    <path d="M110,240 L110,260" fill="none" stroke={layoutColors.stroke} strokeWidth="2" />
-                    <circle cx="114" cy="245" r="2" fill={layoutColors.stroke} />
-                    
-                    <path d="M390,240 L390,260" fill="none" stroke={layoutColors.stroke} strokeWidth="2" />
-                    <circle cx="386" cy="245" r="2" fill={layoutColors.stroke} />
-
-                    {/* Bainha */}
-                    <path d="M110,250 L240,260" fill="none" stroke={layoutColors.stroke} strokeWidth="1" strokeDasharray="3 1" />
-                    <path d="M390,250 L260,260" fill="none" stroke={layoutColors.stroke} strokeWidth="1" strokeDasharray="3 1" />
-                </g>
-             </svg>
-          </div>
-        </div>
-
-        {/* SHADOW */}
-        <div className="absolute bottom-[5%] w-[300px] h-[30px] bg-black/60 blur-xl rounded-[100%] z-0 transform rotate-x-60"></div>
-      </div>
-
-      {/* CONTROLS */}
-      <div className="relative z-20 p-8 glass-panel border-t border-white/10 mt-auto backdrop-blur-xl bg-black/40">
-        <div className="max-w-2xl mx-auto space-y-6">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        {/* SIDEBAR CONTROLS */}
+        <div className="w-full lg:w-80 border-r border-white/5 bg-zinc-950 p-6 flex flex-col gap-6 overflow-y-auto">
           
-          <div className="flex items-center justify-between text-zinc-400 text-sm font-mono mb-2">
-            <span className="flex items-center gap-2"><Rotate3d size={14} /> ROTAÇÃO 360°</span>
-            <span className="text-white">{Math.round(rotation % 360)}°</span>
+          <div>
+            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 block">Lado da Peça</label>
+            <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-xl border border-white/5">
+                <button 
+                    onClick={() => { setSide('front'); setSelectedId(null); }}
+                    className={`py-2 rounded-lg text-sm font-bold transition ${side === 'front' ? 'bg-primary text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
+                >
+                    FRENTE
+                </button>
+                <button 
+                    onClick={() => { setSide('back'); setSelectedId(null); }}
+                    className={`py-2 rounded-lg text-sm font-bold transition ${side === 'back' ? 'bg-primary text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
+                >
+                    COSTAS
+                </button>
+            </div>
           </div>
-          
-          {/* Custom Range Slider */}
-          <div className="relative w-full h-2 bg-zinc-800 rounded-full overflow-hidden group">
-             <div 
-                className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary to-orange-500 transition-all duration-75" 
-                style={{ width: `${((rotation % 360) / 360) * 100}%` }}
-             ></div>
+
+          <div>
+             <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 block">Adicionar Estampas</label>
              <input 
-                type="range" 
-                min="0" 
-                max="360" 
-                value={rotation % 360} 
-                onChange={(e) => setRotation(Number(e.target.value))}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                type="file" 
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept="image/*,.pdf" 
+                className="hidden" 
              />
+             <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full py-10 border-2 border-dashed border-zinc-800 rounded-2xl flex flex-col items-center justify-center gap-3 hover:bg-white/5 hover:border-primary/50 transition group cursor-pointer"
+             >
+                <div className="p-3 bg-zinc-900 rounded-xl group-hover:bg-primary/20 transition">
+                    <Upload size={24} className="text-zinc-500 group-hover:text-primary transition" />
+                </div>
+                <div className="text-center">
+                    <p className="text-sm font-bold text-zinc-300">Carregar Imagem</p>
+                    <p className="text-[10px] text-zinc-600">PNG, JPG, TIFF, PDF</p>
+                </div>
+             </button>
           </div>
 
-          <div className="flex justify-center gap-6 pt-2">
-            <button 
-              onClick={() => handleZoom(-0.1)} 
-              className="p-4 bg-zinc-900 rounded-2xl hover:bg-zinc-800 text-white transition active:scale-95 border border-white/5 shadow-lg group"
-              title="Reduzir Zoom"
-            >
-               <ZoomOut size={20} className="group-hover:scale-110 transition-transform" />
-            </button>
-            
-            <button 
-              onClick={() => setRotation(prev => prev + 180)} 
-              className="flex items-center gap-3 px-8 py-4 bg-zinc-900 rounded-2xl hover:bg-zinc-800 text-white transition font-bold border border-white/5 shadow-lg active:scale-95 group"
-            >
-               <Layers size={20} className="text-primary group-hover:rotate-180 transition-transform duration-500" />
-               <span className="tracking-widest text-sm">GIRAR</span>
-            </button>
-            
+          {selectedId && (
+            <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 block">Elemento Selecionado</label>
+                <button 
+                    onClick={deleteSelected}
+                    className="w-full py-3 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl hover:bg-red-500 hover:text-white transition flex items-center justify-center gap-2 font-bold text-sm"
+                >
+                    <Trash2 size={16} /> Remover Arte
+                </button>
+            </div>
+          )}
+
+          <div className="mt-auto pt-6 border-t border-white/5">
              <button 
-              onClick={() => handleZoom(0.1)} 
-              className="p-4 bg-zinc-900 rounded-2xl hover:bg-zinc-800 text-white transition active:scale-95 border border-white/5 shadow-lg group"
-              title="Aumentar Zoom"
-            >
-               <ZoomIn size={20} className="group-hover:scale-110 transition-transform" />
-            </button>
+                onClick={clearCanvas}
+                className="w-full py-2 text-zinc-600 hover:text-zinc-400 transition text-[10px] uppercase font-bold tracking-widest flex items-center justify-center gap-2"
+             >
+                <RotateCcw size={12} /> Limpar Área de Trabalho
+             </button>
           </div>
-          
-          <p className="text-center text-zinc-600 text-[10px] uppercase tracking-widest mt-4 flex items-center justify-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-            Arraste para interagir
-          </p>
+        </div>
+
+        {/* WORK AREA */}
+        <div className="flex-1 bg-black relative flex flex-col overflow-hidden">
+            
+            {/* TOOLBAR */}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex bg-zinc-900/80 backdrop-blur-md border border-white/5 rounded-full p-1 shadow-2xl">
+                <button onClick={() => setZoom(z => Math.max(0.5, z - 0.1))} className="p-2 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition">
+                    <ZoomOut size={18} />
+                </button>
+                <div className="w-px h-8 bg-white/5 mx-1" />
+                <button onClick={() => setZoom(1)} className="px-3 text-xs font-mono text-zinc-500 hover:text-white transition">
+                    {Math.round(zoom * 100)}%
+                </button>
+                <div className="w-px h-8 bg-white/5 mx-1" />
+                <button onClick={() => setZoom(z => Math.min(3, z + 0.1))} className="p-2 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition">
+                    <ZoomIn size={18} />
+                </button>
+            </div>
+
+            {/* CANVAS WRAPPER */}
+            <div 
+                className="flex-1 overflow-auto flex items-center justify-center p-8 lg:p-20 bg-[radial-gradient(#18181b_1px,transparent_1px)] bg-[size:40px_40px]"
+                onClick={() => setSelectedId(null)}
+            >
+                <div 
+                    className="bg-white shadow-[0_0_80px_rgba(0,0,0,0.5)] rounded-2xl overflow-hidden relative"
+                    style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <Stage width={800} height={1000} onMouseDown={(e) => {
+                        if (e.target === e.target.getStage()) {
+                            setSelectedId(null);
+                        }
+                    }}>
+                        <Layer>
+                            {bgImage && (
+                                <KonvaImage 
+                                    image={bgImage} 
+                                    width={800} 
+                                    height={1000} 
+                                    listening={false}
+                                />
+                            )}
+                            {images.map((img, i) => (
+                                <URLImage
+                                    key={img.id}
+                                    imageProps={img}
+                                    isSelected={img.id === selectedId}
+                                    onSelect={() => setSelectedId(img.id)}
+                                    onChange={(newProps) => {
+                                        const newImages = images.slice();
+                                        newImages[i] = newProps;
+                                        setImages(newImages);
+                                    }}
+                                />
+                            ))}
+                        </Layer>
+                    </Stage>
+                </div>
+            </div>
+
+            {/* LEGEND */}
+            <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none">
+                <div className="bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/5 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Canal de Impressão Direto</span>
+                </div>
+                <div className="flex gap-2">
+                    <div className="bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/5 text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
+                        Workspace: 800x1000px
+                    </div>
+                </div>
+            </div>
         </div>
       </div>
-
-      <style>{`
-        .backface-hidden {
-          backface-visibility: hidden;
-          -webkit-backface-visibility: hidden;
-        }
-        .perspective-1000 {
-          perspective: 1500px;
-        }
-      `}</style>
     </div>
   );
 }

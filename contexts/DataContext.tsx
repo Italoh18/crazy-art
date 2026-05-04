@@ -11,6 +11,8 @@ interface DataContextType {
   trustedCompanies: TrustedCompany[];
   coupons: Coupon[];
   faviconUrl: string | null;
+  mockupFrontUrl: string | null;
+  mockupBackUrl: string | null;
   isLoading: boolean;
   addCustomer: (customer: any) => Promise<void>;
   updateCustomer: (id: string, data: any) => Promise<any>;
@@ -33,6 +35,8 @@ interface DataContextType {
   loadCoupons: () => Promise<void>;
   loadData: (silent?: boolean) => Promise<void>;
   updateFavicon: (url: string) => Promise<void>;
+  updateMockupFront: (url: string) => Promise<void>;
+  updateMockupBack: (url: string) => Promise<void>;
   loadDriveFiles: (folder?: string) => Promise<void>;
   driveFiles: any[];
   addDriveFile: (data: any) => Promise<void>;
@@ -65,6 +69,8 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [trustedCompanies, setTrustedCompanies] = useState<TrustedCompany[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
+  const [mockupFrontUrl, setMockupFrontUrl] = useState<string | null>(null);
+  const [mockupBackUrl, setMockupBackUrl] = useState<string | null>(null);
   const [driveFiles, setDriveFiles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showSeasonalEffect, setShowSeasonalEffect] = useState(() => {
@@ -119,6 +125,8 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       if (results[5].status === 'fulfilled') {
         const settings = results[5].value || {};
         if (settings.favicon_url) setFaviconUrl(settings.favicon_url);
+        if (settings.mockup_front_url) setMockupFrontUrl(settings.mockup_front_url);
+        if (settings.mockup_back_url) setMockupBackUrl(settings.mockup_back_url);
       }
       if (results[6].status === 'fulfilled') setCoupons(results[6].value || []);
 
@@ -320,6 +328,24 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       }
   };
 
+  const updateMockupFront = async (url: string) => {
+      try {
+          await api.updateSetting('mockup_front_url', url);
+          setMockupFrontUrl(url);
+      } catch (e: any) {
+          alert(e.message);
+      }
+  };
+
+  const updateMockupBack = async (url: string) => {
+      try {
+          await api.updateSetting('mockup_back_url', url);
+          setMockupBackUrl(url);
+      } catch (e: any) {
+          alert(e.message);
+      }
+  };
+
   const loadDriveFiles = async (folder?: string) => {
       try {
           const res = await api.getDriveFiles(folder);
@@ -345,14 +371,15 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
 
   return (
     <DataContext.Provider value={{ 
-      customers, products, orders, carouselImages, trustedCompanies, coupons, faviconUrl, isLoading, 
+      customers, products, orders, carouselImages, trustedCompanies, coupons, faviconUrl, 
+      mockupFrontUrl, mockupBackUrl, isLoading, 
       addCustomer, updateCustomer, deleteCustomer,
       addProduct, updateProduct, deleteProduct, 
       addOrder, updateOrder, deleteOrder, updateOrderStatus, updateProductionStep,
       addCarouselImage, deleteCarouselImage,
       addTrustedCompany, deleteTrustedCompany,
       addCoupon, deleteCoupon, validateCoupon, loadCoupons,
-      updateFavicon, loadData,
+      updateFavicon, updateMockupFront, updateMockupBack, loadData,
       driveFiles, loadDriveFiles, addDriveFile, deleteDriveFile,
       showSeasonalEffect, setShowSeasonalEffect
     }}>
