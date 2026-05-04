@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Customer, Product, Order, OrderStatus, ProductionStep, CarouselImage, TrustedCompany, Coupon } from '../types';
-import { api } from '../src/services/api';
+import { Customer, Product, Order, OrderStatus, ProductionStep, CarouselImage, TrustedCompany, Coupon, Molde } from '../types';
+import { api } from '../services/api';
 
 interface DataContextType {
   customers: Customer[];
@@ -10,6 +10,7 @@ interface DataContextType {
   carouselImages: CarouselImage[];
   trustedCompanies: TrustedCompany[];
   coupons: Coupon[];
+  moldes: Molde[];
   faviconUrl: string | null;
   mockupBaseUrl: string | null;
   isLoading: boolean;
@@ -32,6 +33,9 @@ interface DataContextType {
   deleteCoupon: (id: string) => Promise<void>;
   validateCoupon: (code: string) => Promise<Coupon | null>;
   loadCoupons: () => Promise<void>;
+  addMolde: (data: any) => Promise<void>;
+  updateMolde: (id: string, data: any) => Promise<void>;
+  deleteMolde: (id: string) => Promise<void>;
   loadData: (silent?: boolean) => Promise<void>;
   updateFavicon: (url: string) => Promise<void>;
   updateMockupBase: (url: string) => Promise<void>;
@@ -66,6 +70,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [carouselImages, setCarouselImages] = useState<CarouselImage[]>([]);
   const [trustedCompanies, setTrustedCompanies] = useState<TrustedCompany[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [moldes, setMoldes] = useState<Molde[]>([]);
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
   const [mockupBaseUrl, setMockupBaseUrl] = useState<string | null>(null);
   const [driveFiles, setDriveFiles] = useState<any[]>([]);
@@ -82,7 +87,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const isLoadingRef = React.useRef(false);
   const cacheRef = React.useRef<Record<string, number>>({});
 
-  const loadData = async (silent = false, entities?: ('customers' | 'products' | 'orders' | 'carousel' | 'trusted' | 'settings' | 'coupons')[]) => {
+  const loadData = async (silent = false, entities?: ('customers' | 'products' | 'orders' | 'carousel' | 'trusted' | 'settings' | 'coupons' | 'moldes')[]) => {
     const token = localStorage.getItem('auth_token');
     
     // Prevent multiple simultaneous loads
@@ -107,7 +112,8 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
         shouldLoad('carousel') ? api.getCarousel().catch(() => []) : Promise.resolve(null),
         shouldLoad('trusted') ? api.getTrustedCompanies().catch(() => []) : Promise.resolve(null),
         shouldLoad('settings') ? api.getSettings().catch(() => ({})) : Promise.resolve(null),
-        (shouldLoad('coupons') && token && localStorage.getItem('user_role') === 'admin') ? api.getCoupons().catch(() => []) : Promise.resolve(null)
+        (shouldLoad('coupons') && token && localStorage.getItem('user_role') === 'admin') ? api.getCoupons().catch(() => []) : Promise.resolve(null),
+        shouldLoad('moldes') ? api.getMoldes().catch(() => []) : Promise.resolve(null)
       ];
 
       const results = await Promise.allSettled(promises);
@@ -142,6 +148,13 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
         if (settings.mockup_base_url) setMockupBaseUrl(settings.mockup_base_url);
       }
       if (results[6].status === 'fulfilled' && results[6].value !== null) setCoupons(results[6].value || []);
+      if (results[7].status === 'fulfilled' && results[7].value !== null) {
+          const data = results[7].value || [];
+          setMoldes(data.map((m: any) => ({
+              ...m,
+              measurements: typeof m.measurements === 'string' ? JSON.parse(m.measurements) : m.measurements
+          })));
+      }
 
       if (!entities) cacheRef.current['all'] = Date.now();
 
@@ -452,9 +465,32 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       }
   };
 
+  const addMolde = async (data: any) => {
+    try {
+      await api.addMolde(data);
+      await loadData(true, ['moldes']);
+    } catch (e: any) { alert(e.message); }
+  };
+
+  const updateMolde = async (id: string, data: any) => {
+    try {
+      await api.updateMolde(id, data);
+      await loadData(true, ['moldes']);
+    } catch (e: any) { alert(e.message); }
+  };
+
+  const deleteMolde = async (id: string) => {
+    if (confirm("Deseja realmente excluir este molde?")) {
+      try {
+        await api.deleteMolde(id);
+        await loadData(true, ['moldes']);
+      } catch (e: any) { alert(e.message); }
+    }
+  };
+
   return (
     <DataContext.Provider value={{ 
-      customers, products, orders, carouselImages, trustedCompanies, coupons, faviconUrl, 
+      customers, products, orders, carouselImages, trustedCompanies, coupons, moldes, faviconUrl, 
       mockupBaseUrl, isLoading, 
       addCustomer, updateCustomer, deleteCustomer,
       addProduct, updateProduct, deleteProduct, 
@@ -462,6 +498,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       addCarouselImage, deleteCarouselImage,
       addTrustedCompany, deleteTrustedCompany,
       addCoupon, deleteCoupon, validateCoupon, loadCoupons,
+      addMolde, updateMolde, deleteMolde,
       updateFavicon, updateMockupBase, loadData,
       driveFiles, loadDriveFiles, addDriveFile, deleteDriveFile,
       showSeasonalEffect, setShowSeasonalEffect

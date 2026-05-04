@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid, TrendingUp, ShoppingCart, Layers } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid, TrendingUp, ShoppingCart, Layers, Scissors } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { useData } from '../contexts/DataContext';
@@ -149,6 +149,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     { name: 'Empresas que Confiam', path: '/trusted-companies', icon: Building },
     { name: 'Templates E-mail', path: '/email-templates', icon: Mail }, 
     { name: 'Identidade', path: '/identity', icon: Fingerprint },
+    { name: 'Moldes', path: '/moldes', icon: Scissors },
     { name: 'Feedbacks', path: '/feedbacks', icon: MessageSquare },
   ];
 

@@ -1,5 +1,5 @@
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || '';
 
 const getHeaders = () => {
   const token = localStorage.getItem('auth_token');
@@ -115,6 +115,10 @@ export const api = {
     const res = await fetch(`${API_BASE_URL}/api/orders?id=${encodeURIComponent(id)}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },
+  async updateProductionStep(id: string, step: string) {
+    const res = await fetch(`${API_BASE_URL}/api/orders?id=${encodeURIComponent(id)}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify({ production_step: step }) });
+    return handleResponse(res);
+  },
   async deleteOrder(id: string) {
     const res = await fetch(`${API_BASE_URL}/api/orders?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
@@ -198,6 +202,24 @@ export const api = {
   },
   async updateSetting(key: string, value: string) {
     const res = await fetch(`${API_BASE_URL}/api/settings`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ key, value }) });
+    return handleResponse(res);
+  },
+
+  // Moldes
+  async getMoldes() {
+    const res = await fetch(`${API_BASE_URL}/api/moldes?_t=${Date.now()}`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
+  async addMolde(data: any) {
+    const res = await fetch(`${API_BASE_URL}/api/moldes`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+    return handleResponse(res);
+  },
+  async updateMolde(id: string, data: any) {
+    const res = await fetch(`${API_BASE_URL}/api/moldes?id=${encodeURIComponent(id)}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
+    return handleResponse(res);
+  },
+  async deleteMolde(id: string) {
+    const res = await fetch(`${API_BASE_URL}/api/moldes?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   }
 };

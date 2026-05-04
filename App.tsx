@@ -36,6 +36,7 @@ import Statement from './pages/Statement'; // Nova Importação
 import ClientOrders from './pages/ClientOrders'; // Nova Importação
 import LayoutSimples from './pages/LayoutSimples';
 import MontagemMolde from './pages/MontagemMolde';
+import MoldesManager from './pages/MoldesManager';
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
 
@@ -109,6 +110,7 @@ const AppRoutes = () => {
             <Route path="/trusted-companies" element={<ProtectedRoute requiredRole="admin"><TrustedCompanies /></ProtectedRoute>} />
             <Route path="/email-templates" element={<ProtectedRoute requiredRole="admin"><EmailTemplates /></ProtectedRoute>} />
             <Route path="/identity" element={<ProtectedRoute requiredRole="admin"><Identity /></ProtectedRoute>} />
+            <Route path="/moldes" element={<ProtectedRoute requiredRole="admin"><MoldesManager /></ProtectedRoute>} />
             <Route path="/feedbacks" element={<ProtectedRoute requiredRole="admin"><Feedbacks /></ProtectedRoute>} />
         </Routes>
     );

@@ -46,6 +46,35 @@ export default function MontagemMolde() {
   const [layoutFileUrl, setLayoutFileUrl] = useState('');
   const [showIncompleteError, setShowIncompleteError] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'online' | null>(null);
+  const [showMoldesModal, setShowMoldesModal] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('comum');
+  const [activeSubcategory, setActiveSubcategory] = useState('redonda');
+  const [activeSize, setActiveSize] = useState('G');
+
+  const { moldes } = useData();
+
+  const categories = [
+    { id: 'comum', name: 'Comum', sub: ['redonda', 'V', 'polo'] },
+    { id: 'blk-fem', name: 'Blk Fem', sub: ['redonda', 'V', 'polo'] },
+    { id: 'raglan', name: 'Raglan', sub: ['redonda', 'V', 'polo'] },
+    { id: 'moleton', name: 'Moleton' },
+    { id: 'short', name: 'Short' },
+    { id: 'calça', name: 'Calça' },
+    { id: 'avental', name: 'Avental' },
+    { id: 'mascara', name: 'Mascara' }
+  ];
+
+  const fullGrade = ['t2', 't4', 't6', 't8', 't10', 't12', 't14', 't16', 'P', 'M', 'G', 'GG', 'XG', 'XG1', 'XG2', 'XG3', 'XG4', 'XG5'];
+  const blkFemGrade = ['P', 'M', 'G', 'GG', 'XG', 'XG1', 'XG2', 'XG3', 'XG4', 'XG5'];
+
+  const currentGrade = activeCategory === 'blk-fem' ? blkFemGrade : fullGrade;
+
+  const currentMolde = moldes.find(m => 
+    m.category === activeCategory && 
+    (categories.find(c => c.id === activeCategory)?.sub ? m.subcategory === activeSubcategory : true)
+  );
+
+  const measurements = currentMolde?.measurements?.[activeSize] || { height: '-', width: '-', sleeve: '-', shoulder: '-', collar: '-' };
 
   // Coupon State
   const [couponCode, setCouponCode] = useState('');
@@ -245,6 +274,18 @@ export default function MontagemMolde() {
                 <Scissors className="text-primary" /> Montagem de Molde
               </h1>
               <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mt-1">Personalização e Graduação de Moldes</p>
+              
+              <div className="mt-4 flex flex-col items-center gap-2">
+                <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                  se nao houver grade de moldepessoal atrelada ao cadastro usaremos nossa grade padrao
+                </p>
+                <button 
+                  onClick={() => setShowMoldesModal(true)}
+                  className="px-6 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-primary font-black text-[10px] uppercase tracking-widest hover:bg-zinc-800 transition-all flex items-center gap-2"
+                >
+                  <Info size={14} /> ver moldes crazy art
+                </button>
+              </div>
             </div>
           </header>
         )}
@@ -645,6 +686,142 @@ export default function MontagemMolde() {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {showMoldesModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMoldesModal(false)}
+              className="absolute inset-0 bg-black/90 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-4xl bg-zinc-900 border border-zinc-800 rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col md:flex-row h-[90vh] md:h-[700px]"
+            >
+              <button 
+                onClick={() => setShowMoldesModal(false)}
+                className="absolute top-6 right-6 z-10 p-2 bg-black/40 text-white rounded-full hover:bg-black transition"
+              >
+                <X size={20} />
+              </button>
+
+              {/* Sidebar - Categories */}
+              <div className="w-full md:w-64 bg-black/40 border-b md:border-b-0 md:border-r border-zinc-800 flex flex-col">
+                <div className="p-8 border-b border-zinc-800">
+                  <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">Categorias</h3>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
+                  {categories.map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => {
+                        setActiveCategory(cat.id);
+                        if (cat.sub) setActiveSubcategory(cat.sub[0]);
+                        else setActiveSubcategory('');
+                      }}
+                      className={`w-full text-left px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeCategory === cat.id ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-zinc-500 hover:text-white hover:bg-zinc-800'}`}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Main Content */}
+              <div className="flex-1 flex flex-col overflow-hidden bg-zinc-900">
+                {/* Header Subcategories */}
+                {categories.find(c => c.id === activeCategory)?.sub && (
+                  <div className="p-4 bg-black/20 border-b border-zinc-800 flex gap-2 overflow-x-auto custom-scrollbar no-scrollbar">
+                    {categories.find(c => c.id === activeCategory)?.sub?.map(sub => (
+                      <button
+                        key={sub}
+                        onClick={() => setActiveSubcategory(sub)}
+                        className={`px-6 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all whitespace-nowrap ${activeSubcategory === sub ? 'bg-zinc-700 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300 bg-zinc-800/50'}`}
+                      >
+                        {sub}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+                  {/* Image View */}
+                  <div className="flex-1 p-8 flex items-center justify-center bg-black/20">
+                    <div className="relative w-full h-full rounded-3xl border border-zinc-800/50 overflow-hidden bg-black flex items-center justify-center p-4">
+                      {currentMolde?.image_url ? (
+                        <img src={currentMolde.image_url} alt="Molde" className="max-w-full max-h-full object-contain" />
+                      ) : (
+                        <div className="flex flex-col items-center gap-4 text-zinc-800">
+                          <Scissors size={64} />
+                          <p className="text-xs font-black uppercase tracking-widest">Sem Imagem</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Measurements Scroll */}
+                  <div className="w-full md:w-80 bg-black/40 border-t md:border-t-0 md:border-l border-zinc-800 flex flex-col">
+                    <div className="p-6 border-b border-zinc-800 bg-black/20">
+                      <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Grade de Medidas (cm)</h4>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                      {currentGrade.map(size => (
+                        <button
+                          key={size}
+                          onClick={() => setActiveSize(size)}
+                          className={`w-full p-4 rounded-2xl border transition-all text-left group ${activeSize === size ? 'bg-zinc-800 border-primary' : 'bg-transparent border-zinc-800/50 hover:border-zinc-700'}`}
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <span className={`text-lg font-black italic ${activeSize === size ? 'text-primary' : 'text-zinc-500'}`}>{size}</span>
+                            {activeSize === size && <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />}
+                          </div>
+                          <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+                            <div className="flex flex-col">
+                              <span className="text-[8px] text-zinc-600 font-black uppercase">Altura</span>
+                              <span className={`text-xs font-bold ${activeSize === size ? 'text-white' : 'text-zinc-400'}`}>
+                                {currentMolde?.measurements?.[size]?.height || '-'}
+                              </span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[8px] text-zinc-600 font-black uppercase">Largura</span>
+                              <span className={`text-xs font-bold ${activeSize === size ? 'text-white' : 'text-zinc-400'}`}>
+                                {currentMolde?.measurements?.[size]?.width || '-'}
+                              </span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[8px] text-zinc-600 font-black uppercase">Manga</span>
+                              <span className={`text-xs font-bold ${activeSize === size ? 'text-white' : 'text-zinc-400'}`}>
+                                {currentMolde?.measurements?.[size]?.sleeve || '-'}
+                              </span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[8px] text-zinc-600 font-black uppercase">Ombro</span>
+                              <span className={`text-xs font-bold ${activeSize === size ? 'text-white' : 'text-zinc-400'}`}>
+                                {currentMolde?.measurements?.[size]?.shoulder || '-'}
+                              </span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[8px] text-zinc-600 font-black uppercase">Gola</span>
+                              <span className={`text-xs font-bold ${activeSize === size ? 'text-white' : 'text-zinc-400'}`}>
+                                {currentMolde?.measurements?.[size]?.collar || '-'}
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

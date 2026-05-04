@@ -155,6 +155,15 @@ export interface DriveFile {
   created_at: string;
 }
 
+export interface Molde {
+  id: string;
+  category: string;
+  subcategory?: string;
+  image_url?: string;
+  measurements: Record<string, { height: string; width: string; sleeve: string; shoulder: string; collar: string }>;
+  created_at?: string;
+}
+
 // --- NEW VECTOR ENGINE TYPES (Professional Grade) ---
 
 export type NodeType = 'cusp' | 'smooth' | 'symmetric';

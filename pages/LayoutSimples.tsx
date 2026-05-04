@@ -265,6 +265,15 @@ export default function LayoutSimples() {
                     <div className="flex items-center gap-2 mb-4">
                         <span className="w-8 h-8 rounded-full bg-primary text-black flex items-center justify-center font-black text-sm italic">02</span>
                         <h3 className="text-sm font-black text-white uppercase tracking-widest italic">Tem um exemplo?</h3>
+                        <div className="group relative">
+                            <div className="p-1.5 bg-zinc-800 rounded-full text-zinc-500 cursor-help">
+                                <HelpCircle size={14} />
+                            </div>
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 bg-zinc-950 border border-zinc-800 p-4 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                                <p className="text-[10px] text-zinc-400 font-bold leading-relaxed uppercase tracking-tight">a imagem de referencia é usada apenas como uma base criativa, nao copiamos a imagem 1/1 para nao ferir direitos de arte de terceiros</p>
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-zinc-950" />
+                            </div>
+                        </div>
                     </div>
                     <ImageUploadInput 
                         value={exampleUrl}
