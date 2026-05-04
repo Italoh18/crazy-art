@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   ArrowLeft, Upload, Scissors, Image as ImageIcon, Download, 
@@ -21,7 +21,7 @@ type Point = {
 export default function BackgroundRemover() {
   // --- SEO ---
   useEffect(() => {
-    document.title = "Remove Background from Image Online | CrazyArt";
+    document.title = "Remove Background from Image Online Grátis | CrazyArt";
     const metaDescription = document.querySelector('meta[name="description"]');
     const content = "Remove image backgrounds instantly online. Upload your image and download a transparent PNG in seconds.";
     if (metaDescription) {
@@ -41,28 +41,29 @@ export default function BackgroundRemover() {
   const [maskData, setMaskData] = useState<Uint8ClampedArray | null>(null);
 
   // --- Estados Magic Wand (Cor) ---
-  const [tolerance, setTolerance] = useState(30); 
-  const [edgeSmoothing, setEdgeSmoothing] = useState(2); 
+  const [tolerance, setTolerance] = useState(21); 
+  const [edgeSmoothing, setEdgeSmoothing] = useState(4); 
   const [removeMode, setRemoveMode] = useState<'corner' | 'white' | 'green' | 'custom'>('corner');
   const [useFloodFill, setUseFloodFill] = useState(true);
   const [customColor, setCustomColor] = useState<{r: number, g: number, b: number} | null>(null);
   const [isPickingColor, setIsPickingColor] = useState(false);
-
-  // --- Estados Refinamento (Pincel) ---
-  const [isRefining, setIsRefining] = useState(false);
-  const [brushSize, setBrushSize] = useState(30);
-  const [brushMode, setBrushMode] = useState<'erase' | 'restore'>('erase');
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const refinementCanvasRef = useRef<HTMLCanvasElement>(null);
-  const maskCanvasRef = useRef<HTMLCanvasElement>(null);
-  const refinementImageRef = useRef<HTMLImageElement | null>(null);
 
   // --- Estados Editor Manual (Bezier) ---
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [manualPoints, setManualPoints] = useState<Point[]>([]);
   const [editorZoom, setEditorZoom] = useState(1);
   const [editorPan, setEditorPan] = useState({ x: 0, y: 0 });
+  
+  // --- Estados Remoção Avançada 2.0 ---
+  const [isAdvancedMode, setIsAdvancedMode] = useState(true);
+  const [advancedMask, setAdvancedMask] = useState<Uint8Array | null>(null);
+  const [hoverMask, setHoverMask] = useState<Uint8Array | null>(null);
+  const [originalImageData, setOriginalImageData] = useState<ImageData | null>(null);
+  const [advancedHistory, setAdvancedHistory] = useState<Uint8Array[]>([]);
+  const [isHoveringImage, setIsHoveringImage] = useState(false);
+  
+  // --- Estados Margens (Crop) ---
+  const [margins, setMargins] = useState({ top: 0, bottom: 0, left: 0, right: 0 });
   
   // Novo Estado: Modo de Edição Manual (Manter ou Apagar)
   const [manualMode, setManualMode] = useState<'keep' | 'erase'>('keep');
@@ -79,7 +80,7 @@ export default function BackgroundRemover() {
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const editorImageRef = useRef<HTMLImageElement>(null);
   const displayImageRef = useRef<HTMLImageElement>(null); 
-
+  const maskCanvasRef = useRef<HTMLCanvasElement>(null); // Re-added because it was used in processMagic too
   // --- Estados Edição Final ---
   const [editMode, setEditMode] = useState<'none' | 'background' | 'text' | 'emoji'>('none');
   const [bgType, setBgType] = useState<'color' | 'image'>('image');
@@ -90,6 +91,220 @@ export default function BackgroundRemover() {
   const [selectedElement, setSelectedElement] = useState<{type: 'text' | 'emoji', id: string} | null>(null);
   const [isDraggingElement, setIsDraggingElement] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const hoverCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  // --- 4.5 Lógica Remoção Avançada 2.0 ---
+  // Inicialização automática ao carregar imagem
+  useEffect(() => {
+    if (isAdvancedMode && selectedImage) {
+      const img = new Image();
+      img.src = selectedImage;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          setOriginalImageData(data);
+          const initialMask = new Uint8Array(canvas.width * canvas.height).fill(255);
+          setAdvancedMask(initialMask);
+          setAdvancedHistory([]);
+          setProcessedImage(selectedImage);
+        }
+      };
+    }
+  }, [selectedImage, isAdvancedMode]);
+
+  const undoAdvanced = useCallback(() => {
+    if (advancedHistory.length === 0) return;
+    
+    const prevMask = advancedHistory[advancedHistory.length - 1];
+    setAdvancedHistory(prev => prev.slice(0, -1));
+    setAdvancedMask(prevMask);
+    
+    if (originalImageData) {
+      const { width, height, data } = originalImageData;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const idata = ctx.createImageData(width, height);
+        for (let i = 0; i < width * height; i++) {
+          const pIdx = i * 4;
+          idata.data[pIdx] = data[pIdx];
+          idata.data[pIdx + 1] = data[pIdx + 1];
+          idata.data[pIdx + 2] = data[pIdx + 2];
+          idata.data[pIdx + 3] = prevMask[i];
+        }
+        ctx.putImageData(idata, 0, 0);
+        setProcessedImage(canvas.toDataURL('image/png'));
+      }
+    }
+  }, [advancedHistory, originalImageData]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+            undoAdvanced();
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undoAdvanced]);
+
+  const applyMargins = useCallback(() => {
+    if (!processedImage) return;
+    
+    const img = new Image();
+    img.src = processedImage;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      const newWidth = Math.max(1, img.width - margins.left - margins.right);
+      const newHeight = Math.max(1, img.height - margins.top - margins.bottom);
+      
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+      
+      ctx.drawImage(img, margins.left, margins.top, newWidth, newHeight, 0, 0, newWidth, newHeight);
+      setProcessedImage(canvas.toDataURL('image/png'));
+      // Reset margins after apply to avoid double cropping
+      setMargins({ top: 0, bottom: 0, left: 0, right: 0 });
+    };
+  }, [processedImage, margins]);
+
+  const handleAdvancedModeInteraction = (e: React.MouseEvent, type: 'move' | 'click' | 'leave') => {
+    if (!isAdvancedMode || !originalImageData || !advancedMask) {
+      if (type === 'leave') setHoverMask(null);
+      return;
+    }
+
+    if (type === 'leave') {
+      setHoverMask(null);
+      return;
+    }
+
+    const imgEl = e.currentTarget as HTMLImageElement;
+    const rect = imgEl.getBoundingClientRect();
+    
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const scaleX = originalImageData.width / rect.width;
+    const scaleY = originalImageData.height / rect.height;
+
+    const realX = Math.floor(x * scaleX);
+    const realY = Math.floor(y * scaleY);
+
+    if (realX < 0 || realX >= originalImageData.width || realY < 0 || realY >= originalImageData.height) return;
+
+    const width = originalImageData.width;
+    const height = originalImageData.height;
+    const data = originalImageData.data;
+
+    if (advancedMask[realY * width + realX] === 0) {
+      setHoverMask(null);
+      return;
+    }
+
+    // Identificar região (Flood Fill)
+    const currentMask = new Uint8Array(width * height);
+    const visited = new Uint8Array(width * height);
+    const stack: [number, number][] = [[realX, realY]];
+    
+    const startIdx = (realY * width + realX) * 4;
+    const sr = data[startIdx], sg = data[startIdx + 1], sb = data[startIdx + 2];
+    
+    const tol = tolerance;
+
+    while (stack.length > 0) {
+      const [cx, cy] = stack.pop()!;
+      const idx = cy * width + cx;
+      if (visited[idx] || advancedMask[idx] === 0) continue;
+      visited[idx] = 1;
+      
+      const pIdx = idx * 4;
+      const r = data[pIdx], g = data[pIdx + 1], b = data[pIdx + 2];
+      
+      const dist = Math.sqrt(
+        Math.pow(r - sr, 2) * 0.299 + 
+        Math.pow(g - sg, 2) * 0.587 + 
+        Math.pow(b - sb, 2) * 0.114
+      );
+      
+      if (dist < tol) {
+        currentMask[idx] = 255;
+        if (cx > 0) stack.push([cx - 1, cy]);
+        if (cx < width - 1) stack.push([cx + 1, cy]);
+        if (cy > 0) stack.push([cx, cy - 1]);
+        if (cy < height - 1) stack.push([cx, cy + 1]);
+      }
+    }
+
+    if (type === 'move') {
+      setHoverMask(currentMask);
+    } else if (type === 'click') {
+      // Salvar estado atual no histórico antes de mudar (limite de 20 passos)
+      setAdvancedHistory(prev => {
+        const next = [...prev, new Uint8Array(advancedMask!)];
+        if (next.length > 20) return next.slice(1);
+        return next;
+      });
+      
+      const newAdvancedMask = new Uint8Array(advancedMask);
+      for (let i = 0; i < width * height; i++) {
+        if (currentMask[i] === 255) newAdvancedMask[i] = 0;
+      }
+      setAdvancedMask(newAdvancedMask);
+      setHoverMask(null);
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const idata = ctx.createImageData(width, height);
+        for (let i = 0; i < width * height; i++) {
+          const pIdx = i * 4;
+          idata.data[pIdx] = data[pIdx];
+          idata.data[pIdx + 1] = data[pIdx + 1];
+          idata.data[pIdx + 2] = data[pIdx + 2];
+          idata.data[pIdx + 3] = newAdvancedMask[i];
+        }
+        ctx.putImageData(idata, 0, 0);
+        setProcessedImage(canvas.toDataURL('image/png'));
+      }
+    }
+  };
+
+  // Efeito para desenhar o destaque (hover)
+  useEffect(() => {
+    if (isAdvancedMode && hoverMask && hoverCanvasRef.current && originalImageData) {
+      const canvas = hoverCanvasRef.current;
+      const { width, height } = originalImageData;
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, width, height);
+        const idata = ctx.createImageData(width, height);
+        for (let i = 0; i < width * height; i++) {
+          if (hoverMask[i] === 255) {
+            idata.data[i * 4] = 255;   // Red
+            idata.data[i * 4 + 1] = 0; // Green
+            idata.data[i * 4 + 2] = 0; // Blue
+            idata.data[i * 4 + 3] = 150; // Alpha
+          }
+        }
+        ctx.putImageData(idata, 0, 0);
+      }
+    }
+  }, [hoverMask, isAdvancedMode, originalImageData]);
 
   // --- 1. Lógica Global: Colar Imagem (Ctrl+V) ---
   useEffect(() => {
@@ -348,106 +563,6 @@ export default function BackgroundRemover() {
             }
         };
     }, 100);
-  };
-
-  // --- 4. Refinamento com Pincel ---
-  useEffect(() => {
-    if (isRefining && refinementCanvasRef.current && maskCanvasRef.current) {
-        renderRefinement();
-    }
-  }, [isRefining]);
-
-  const startRefining = () => {
-    if (!processedImage || !selectedImage) return;
-    
-    const img = new Image();
-    img.src = selectedImage;
-    img.onload = () => {
-        refinementImageRef.current = img;
-        setIsRefining(true);
-    };
-  };
-
-  const handleRefinementMouseDown = (e: React.MouseEvent) => {
-    setIsDrawing(true);
-    drawRefinement(e);
-  };
-
-  const handleRefinementMouseMove = (e: React.MouseEvent) => {
-    const canvas = refinementCanvasRef.current;
-    if (canvas) {
-        const rect = canvas.getBoundingClientRect();
-        setMousePos({
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        });
-    }
-    if (!isDrawing) return;
-    drawRefinement(e);
-  };
-
-  const handleRefinementMouseUp = () => {
-    setIsDrawing(false);
-    updateProcessedFromRefinement();
-  };
-
-  const drawRefinement = (e: React.MouseEvent) => {
-    const canvas = refinementCanvasRef.current;
-    const mCanvas = maskCanvasRef.current;
-    if (!canvas || !mCanvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    
-    // Calcula a escala real entre o canvas exibido e o tamanho natural da máscara
-    const scaleX = mCanvas.width / rect.width;
-    const scaleY = mCanvas.height / rect.height;
-
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-
-    const mCtx = mCanvas.getContext('2d');
-    if (!mCtx) return;
-
-    mCtx.globalCompositeOperation = brushMode === 'erase' ? 'destination-out' : 'source-over';
-    mCtx.fillStyle = '#ffffff';
-    mCtx.beginPath();
-    mCtx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
-    mCtx.fill();
-
-    renderRefinement();
-  };
-
-  const renderRefinement = () => {
-    const canvas = refinementCanvasRef.current;
-    const mCanvas = maskCanvasRef.current;
-    const img = refinementImageRef.current;
-    if (!canvas || !mCanvas || !img) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(mCanvas, 0, 0);
-    ctx.globalCompositeOperation = 'source-in';
-    ctx.drawImage(img, 0, 0);
-    ctx.globalCompositeOperation = 'source-over';
-  };
-
-  const updateProcessedFromRefinement = () => {
-    const mCanvas = maskCanvasRef.current;
-    const img = refinementImageRef.current;
-    if (!mCanvas || !img) return;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = mCanvas.width;
-    canvas.height = mCanvas.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.drawImage(mCanvas, 0, 0);
-    ctx.globalCompositeOperation = 'source-in';
-    ctx.drawImage(img, 0, 0);
-    setProcessedImage(canvas.toDataURL('image/png'));
   };
 
   // --- 4. Lógica do Editor Manual (Fullscreen) ---
@@ -738,7 +853,7 @@ export default function BackgroundRemover() {
                 <Scissors size={22} />
             </div>
             <h1 className="text-4xl md:text-6xl font-black tracking-tighter bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent font-heading">
-                Remover Fundo de Imagem
+                Remover Fundo de Imagem Grátis
             </h1>
         </div>
         <p className="text-zinc-400 text-sm md:text-lg font-medium max-w-2xl mx-auto">
@@ -888,9 +1003,9 @@ export default function BackgroundRemover() {
               className="flex flex-col gap-4 h-full overflow-hidden"
             >
               {/* Top Section: Thumbnail and Settings Side-by-Side */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
+              <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4 shrink-0">
                 {/* Thumbnail Original */}
-                <div className="border-2 border-dashed rounded-2xl h-48 flex flex-col items-center justify-center relative overflow-hidden transition-all group border-zinc-700 bg-zinc-900">
+                <div className="border-2 border-dashed rounded-2xl h-32 flex flex-col items-center justify-center relative overflow-hidden transition-all group border-zinc-700 bg-zinc-900">
                     <div 
                         className={`relative w-full h-full flex items-center justify-center p-3 ${isPickingColor ? 'cursor-crosshair' : ''}`}
                         onClick={handleMainImageClick}
@@ -988,6 +1103,73 @@ export default function BackgroundRemover() {
                             Manual
                         </button>
                     </div>
+
+                    <button 
+                        onClick={() => {
+                            setIsAdvancedMode(!isAdvancedMode);
+                        }}
+                        className={`w-full py-2 rounded-lg transition flex items-center justify-center gap-2 text-[10px] font-bold mt-1 border ${isAdvancedMode ? 'bg-primary text-white border-primary-foreground' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:text-white'}`}
+                    >
+                        <Layers size={14} />
+                        Remoção Avançada 2.0
+                    </button>
+
+                    {isAdvancedMode && (
+                        <div className="bg-primary/10 border border-primary/20 rounded-lg p-2 mt-2">
+                            <p className="text-[9px] text-primary font-bold leading-tight">
+                                ✨ Passe o mouse para destacar áreas e clique para removê-las. Pressione Ctrl + Z para desfazer.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Barra de Corte de Margens */}
+                    <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-3 space-y-2 mt-2">
+                        <div className="flex justify-between items-center">
+                            <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1">
+                                <Scissors size={10} /> Cortar Margens
+                            </label>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                             <div className="flex flex-col gap-1">
+                                <span className="text-[8px] text-zinc-500 text-center">Topo</span>
+                                <input 
+                                    type="number" value={margins.top} 
+                                    onChange={(e) => setMargins({...margins, top: parseInt(e.target.value) || 0})}
+                                    className="bg-zinc-950 border border-zinc-800 rounded px-1 py-0.5 text-[10px] text-center w-full focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                             </div>
+                             <div className="flex flex-col gap-1">
+                                <span className="text-[8px] text-zinc-500 text-center">Base</span>
+                                <input 
+                                    type="number" value={margins.bottom} 
+                                    onChange={(e) => setMargins({...margins, bottom: parseInt(e.target.value) || 0})}
+                                    className="bg-zinc-950 border border-zinc-800 rounded px-1 py-0.5 text-[10px] text-center w-full focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                             </div>
+                             <div className="flex flex-col gap-1">
+                                <span className="text-[8px] text-zinc-500 text-center">Esq.</span>
+                                <input 
+                                    type="number" value={margins.left} 
+                                    onChange={(e) => setMargins({...margins, left: parseInt(e.target.value) || 0})}
+                                    className="bg-zinc-950 border border-zinc-800 rounded px-1 py-0.5 text-[10px] text-center w-full focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                             </div>
+                             <div className="flex flex-col gap-1">
+                                <span className="text-[8px] text-zinc-500 text-center">Dir.</span>
+                                <input 
+                                    type="number" value={margins.right} 
+                                    onChange={(e) => setMargins({...margins, right: parseInt(e.target.value) || 0})}
+                                    className="bg-zinc-950 border border-zinc-800 rounded px-1 py-0.5 text-[10px] text-center w-full focus:outline-none focus:ring-1 focus:ring-primary"
+                                />
+                             </div>
+                        </div>
+                        <button 
+                            onClick={applyMargins}
+                            className="w-full py-1.5 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-[9px] font-bold text-white transition mt-1"
+                        >
+                            Aplicar Corte
+                        </button>
+                    </div>
                 </div>
               </div>
 
@@ -1051,8 +1233,23 @@ export default function BackgroundRemover() {
                             }}
                             onMouseUp={() => setIsDraggingElement(false)}
                           >
-                              <div className="flex-1 relative w-full overflow-hidden min-h-0 flex items-center justify-center">
-                                  <img src={processedImage} alt="Resultado" className="max-w-full max-h-full object-contain drop-shadow-2xl relative z-10" />
+                               <div className="flex-1 relative w-full overflow-hidden min-h-0 flex items-center justify-center">
+                                  <img 
+                                    src={processedImage} 
+                                    alt="Resultado" 
+                                    className={`max-w-full max-h-full object-contain drop-shadow-2xl relative z-10 transition-opacity ${isAdvancedMode ? 'cursor-crosshair' : ''}`}
+                                    onMouseMove={(e) => handleAdvancedModeInteraction(e, 'move')}
+                                    onClick={(e) => handleAdvancedModeInteraction(e, 'click')}
+                                    onMouseLeave={(e) => handleAdvancedModeInteraction(e, 'leave')}
+                                  />
+                                  
+                                  {isAdvancedMode && hoverMask && (
+                                    <canvas 
+                                        ref={hoverCanvasRef}
+                                        className="absolute inset-0 w-full h-full object-contain pointer-events-none z-20 mix-blend-overlay"
+                                        style={{ width: '100%', height: '100%' }}
+                                    />
+                                  )}
                                   
                                   {/* Added Texts */}
                                   {addedTexts.map(t => (
@@ -1095,13 +1292,6 @@ export default function BackgroundRemover() {
                                       className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold shadow-xl shadow-emerald-900/20 transition flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transform text-sm"
                                   >
                                       <Download size={18} /> <span className="whitespace-nowrap">Baixar PNG</span>
-                                  </button>
-                                  
-                                  <button 
-                                      onClick={startRefining}
-                                      className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 border border-zinc-700 text-sm"
-                                  >
-                                      <Eraser size={16} /> <span className="whitespace-nowrap">Refinar</span>
                                   </button>
                               </div>
 
@@ -1209,106 +1399,6 @@ export default function BackgroundRemover() {
           )}
         </AnimatePresence>
       </div>
-
-      {/* --- REFINEMENT EDITOR (BRUSH) --- */}
-      {isRefining && selectedImage && (
-          <div className="fixed inset-0 z-[100] bg-[#09090b] flex flex-col animate-fade-in overflow-hidden h-screen w-screen">
-              <div className="flex-shrink-0 min-h-16 border-b border-zinc-800 bg-[#121215] flex flex-wrap items-center justify-between px-4 py-3 gap-4 z-50 shadow-xl relative w-full">
-                  <div className="flex items-center gap-4 shrink-0 flex-wrap">
-                      <div className="flex items-center gap-2 text-white font-bold shrink-0">
-                          <Eraser className="text-primary" size={20} />
-                          <span>Refinamento com Pincel</span>
-                      </div>
-                      
-                      <div className="h-6 w-px bg-zinc-800 hidden sm:block"></div>
-                      
-                      <div className="flex bg-black/50 p-1 rounded-lg">
-                          <button 
-                            onClick={() => setBrushMode('erase')}
-                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-2 ${brushMode === 'erase' ? 'bg-red-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
-                          >
-                              <Eraser size={14} /> Apagar Fundo
-                          </button>
-                          <button 
-                            onClick={() => setBrushMode('restore')}
-                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-2 ${brushMode === 'restore' ? 'bg-emerald-600 text-white shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}
-                          >
-                              <RefreshCcw size={14} /> Restaurar Objeto
-                          </button>
-                      </div>
-
-                      <div className="h-6 w-px bg-zinc-800 hidden sm:block"></div>
-
-                      <div className="flex items-center gap-3 bg-black/50 px-3 py-1.5 rounded-lg border border-zinc-800 shrink-0">
-                          <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tamanho</label>
-                          <input 
-                                type="range" 
-                                min="5" 
-                                max="200" 
-                                value={brushSize} 
-                                onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                                className="w-32 h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-primary"
-                            />
-                            <span className="text-[10px] font-mono text-primary w-8">{brushSize}px</span>
-                      </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0 ml-auto flex-wrap justify-end">
-                      <button 
-                          onClick={() => setIsRefining(false)}
-                          className="p-2 hover:bg-red-500/10 text-zinc-400 hover:text-red-500 rounded-lg transition"
-                      >
-                          <X size={20} />
-                      </button>
-                      
-                      <div className="h-6 w-px bg-zinc-800 mx-1 hidden sm:block"></div>
-
-                      <button 
-                          onClick={() => setIsRefining(false)}
-                          className="flex items-center gap-2 px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-sm transition shadow-lg shadow-emerald-600/20"
-                      >
-                          <Check size={16} /> Concluir Refinamento
-                      </button>
-                  </div>
-              </div>
-
-              <div className="flex-1 overflow-hidden relative bg-black cursor-crosshair w-full h-full flex items-center justify-center p-12">
-                  <div className="absolute inset-0 opacity-100 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg, #333 25%, transparent 25%), linear-gradient(-45deg, #333333 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #333333 75%), linear-gradient(-45deg, transparent 75%, #333333 75%)', backgroundSize: '40px 40px' }}></div>
-                  
-                  <div className="relative shadow-2xl max-w-full max-h-full">
-                      <img 
-                        src={selectedImage} 
-                        alt="Refinement Base" 
-                        className="max-w-full max-h-full object-contain opacity-30" 
-                        draggable={false}
-                      />
-                      <canvas 
-                        ref={refinementCanvasRef}
-                        width={maskCanvasRef.current?.width || 800}
-                        height={maskCanvasRef.current?.height || 600}
-                        onMouseDown={handleRefinementMouseDown}
-                        onMouseMove={handleRefinementMouseMove}
-                        onMouseUp={handleRefinementMouseUp}
-                        onMouseLeave={handleRefinementMouseUp}
-                        className="absolute inset-0 w-full h-full object-contain cursor-crosshair"
-                        style={{ imageRendering: 'pixelated' }}
-                      />
-                      {/* Brush Preview */}
-                      <div 
-                        className="pointer-events-none absolute border border-white/50 rounded-full bg-white/10 z-50"
-                        style={{
-                            width: `${brushSize}px`,
-                            height: `${brushSize}px`,
-                            left: `${mousePos.x}px`,
-                            top: `${mousePos.y}px`,
-                            transform: 'translate(-50%, -50%)',
-                            display: isDrawing ? 'none' : 'block'
-                        }}
-                      />
-                  </div>
-              </div>
-          </div>
-      )}
 
       {/* Seção Informativa Compacta removida pois foi restaurada acima */}
 
