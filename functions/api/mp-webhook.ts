@@ -100,6 +100,18 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                 html
             });
 
+            // Notificação Admin (In-App)
+            await env.DB.prepare(`
+                INSERT INTO notifications (id, target_role, type, title, message, created_at, reference_id, is_read)
+                VALUES (?, 'admin', 'success', ?, ?, ?, ?, 0)
+            `).bind(
+                crypto.randomUUID(), 
+                `Pagamento Confirmado: ${label}`, 
+                `O cliente ${order.name} pagou a solicitação de ${label.toLowerCase()}.`, 
+                nowTs, 
+                requestId
+            ).run();
+
             // Notificação Cliente
             await env.DB.prepare(`
                 INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, is_read)

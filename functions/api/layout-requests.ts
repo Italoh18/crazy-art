@@ -98,7 +98,16 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           description
       ).run();
 
-      // Enviar E-mail se for crédito (pago online será enviado via webhook/callback de pagamento)
+      // Enviar Notificação In-App para Admin (Sempre que um pedido é gerado)
+      const notificationTitle = `Nova Solicitação: ${label}`;
+      const notificationMessage = `O cliente ${client.name} gerou um pedido de ${label.toLowerCase()}. Valor: R$ ${Number(value).toFixed(2)} (${paymentMethod === 'credit' ? 'Crédito' : 'Aguardando Pagamento Online'})`;
+      
+      await env.DB.prepare(`
+        INSERT INTO notifications (id, target_role, type, title, message, created_at, reference_id, is_read)
+        VALUES (?, 'admin', 'info', ?, ?, ?, ?, 0)
+      `).bind(crypto.randomUUID(), notificationTitle, notificationMessage, now, requestId).run();
+
+      // Enviar E-mail se for crédito (pago online será enviado via webhook quando aprovado)
       if (paymentMethod === 'credit') {
         await notifyAdmin(env, {
           requestId,
