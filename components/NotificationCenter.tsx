@@ -2,11 +2,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Info, CheckCircle, AlertTriangle, XCircle, X, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Notification } from '../types';
+import { Notification as AppNotification } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
 export const NotificationCenter = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isPushSupported, setIsPushSupported] = useState(false);
@@ -18,7 +18,7 @@ export const NotificationCenter = () => {
   const fetchNotifications = async () => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
       if (!token) return;
 
       const res = await fetch('/api/notifications', {
@@ -34,6 +34,18 @@ export const NotificationCenter = () => {
       setIsLoading(false);
     }
   };
+
+  // Sincroniza o Badge do App (no ícone) com notificações não lidas
+  useEffect(() => {
+    const unreadCount = notifications.filter(n => n.is_read === 0).length;
+    if ('setAppBadge' in navigator) {
+      if (unreadCount > 0) {
+        (navigator as any).setAppBadge(unreadCount).catch((e: any) => console.error('Badge error:', e));
+      } else {
+        (navigator as any).clearAppBadge().catch((e: any) => console.error('Badge error:', e));
+      }
+    }
+  }, [notifications]);
 
   // Poll de notificações a cada 30 segundos
   useEffect(() => {
@@ -57,6 +69,12 @@ export const NotificationCenter = () => {
 
   const subscribeUser = async () => {
     try {
+      // Solicita permissão explicitamente antes de prosseguir
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        throw new Error('Permissão negada pelo usuário');
+      }
+
       const sw = await navigator.serviceWorker.ready;
       
       // Get VAPID public key from server
@@ -143,7 +161,7 @@ export const NotificationCenter = () => {
     }
   };
 
-  const handleNotificationClick = (notif: Notification) => {
+  const handleNotificationClick = (notif: AppNotification) => {
     // 1. Marca como lida
     if (notif.is_read === 0) {
         markAsRead(notif.id);
