@@ -15,8 +15,12 @@ self.addEventListener('fetch', (event) => {
   // but we must have this listener at the top level.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match('/') || new Response("Offline");
+      fetch(event.request).catch(async () => {
+        const cachedResponse = await caches.match('/');
+        return cachedResponse || new Response("Offline", {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' }
+        });
       })
     );
   }

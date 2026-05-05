@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
         filename: 'sw.ts',
         registerType: 'autoUpdate',
         injectRegister: 'inline',
-        manifestFilename: 'site.webmanifest',
+        manifestFilename: 'manifest.json',
         includeAssets: ['icons/*.png', 'icons/*.svg'],
         manifest: {
           id: '/',
@@ -26,7 +26,6 @@ export default defineConfig(({ mode }) => {
           theme_color: '#09090b',
           background_color: '#09090b',
           display: 'standalone',
-          display_override: ['window-controls-overlay', 'standalone'],
           orientation: 'portrait',
           start_url: '/',
           scope: '/',
