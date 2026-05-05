@@ -112,10 +112,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             total: totalCount,
             page,
             limit
+          }, {
+            headers: { 'Cache-Control': 'public, max-age=60, s-maxage=60' }
           });
         }
         
-        return Response.json(mappedResults);
+        return Response.json(mappedResults, {
+          headers: { 'Cache-Control': 'public, max-age=60, s-maxage=60' }
+        });
       } catch (sqlError: any) {
           // Se a tabela 'catalog' não existir, tenta 'products' como fallback
           if (sqlError.message.includes('no such table')) {

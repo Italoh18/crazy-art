@@ -20,7 +20,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
               }
           });
       }
-      return Response.json(settings);
+      return Response.json(settings, {
+        headers: { 'Cache-Control': 'public, max-age=60, s-maxage=60' }
+      });
     }
 
     // POST: Atualizar Configurações (Apenas Admin)

@@ -9,7 +9,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     // GET: Listagem Pública
     if (request.method === 'GET') {
       const { results } = await env.DB.prepare('SELECT * FROM trusted_companies ORDER BY created_at DESC').all();
-      return Response.json(results || []);
+      return Response.json(results || [], {
+        headers: { 'Cache-Control': 'public, max-age=60, s-maxage=60' }
+      });
     }
 
     // Auth Check para modificações

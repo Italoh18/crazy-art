@@ -50,7 +50,7 @@ export const NotificationCenter = () => {
   // Poll de notificações a cada 30 segundos
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
+    const interval = setInterval(fetchNotifications, 120000);
     
     // Verificar suporte a Push
     if ('serviceWorker' in navigator && 'PushManager' in window) {
