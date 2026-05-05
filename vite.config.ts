@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
         srcDir: 'src',
         filename: 'sw.ts',
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'icons/*'],
+        includeAssets: ['icons/*'],
         manifest: {
           name: 'Crazy Art | Comunicação Visual',
           short_name: 'Crazy Art',
@@ -25,18 +25,26 @@ export default defineConfig(({ mode }) => {
           display: 'standalone',
           orientation: 'portrait',
           start_url: '/',
+          scope: '/',
+          id: '/',
           icons: [
             {
               src: '/icons/icon-192.svg',
               sizes: '192x192',
               type: 'image/svg+xml',
-              purpose: 'any maskable'
+              purpose: 'any'
+            },
+            {
+              src: '/icons/icon-192.svg',
+              sizes: '192x192',
+              type: 'image/svg+xml',
+              purpose: 'maskable'
             },
             {
               src: '/icons/icon-512.svg',
               sizes: '512x512',
               type: 'image/svg+xml',
-              purpose: 'any maskable'
+              purpose: 'any'
             }
           ],
           shortcuts: [
