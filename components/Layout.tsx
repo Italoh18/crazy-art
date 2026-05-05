@@ -159,9 +159,9 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     <footer className="glass-panel border-t-0 border-t-zinc-800/30 py-8 px-6 mt-auto w-full z-10 relative z-20 seasonal-target backdrop-blur-xl">
       {/* Barra de Progresso PWA */}
       {swStatus === 'loading' && (
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-zinc-800 overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-[3px] bg-zinc-800 overflow-hidden z-50">
           <div 
-            className="h-full bg-primary transition-all duration-300 shadow-[0_0_10px_#f59e0b]"
+            className="h-full bg-crazy-gradient transition-all duration-300 shadow-[0_0_15px_#f59e0b]"
             style={{ width: `${downloadProgress}%` }}
           />
         </div>

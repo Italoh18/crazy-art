@@ -10,9 +10,15 @@ precacheAndRoute(self.__WB_MANIFEST);
 
 // Explicit fetch handler for PWA installability requirements
 self.addEventListener('fetch', (event) => {
-  // Check if we are offline or if the request is a navigation to a page
+  // PWA requirement: existence of a fetch handler. 
+  // We allow Workbox to handle standard precached routes, 
+  // but we must have this listener at the top level.
   if (event.request.mode === 'navigate') {
-    // We could return a custom offline page here if needed
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return caches.match('/') || new Response("Offline");
+      })
+    );
   }
 });
 

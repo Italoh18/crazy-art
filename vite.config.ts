@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
         manifestFilename: 'manifest.json',
         includeAssets: ['icons/icon-192.svg', 'icons/icon-512.svg'],
         manifest: {
+          id: '/?pwa=root',
           name: 'Crazy Art | Comunicação Visual',
           short_name: 'Crazy Art',
           description: 'Soluções profissionais de design para estamparias e freelancers',
@@ -26,7 +27,7 @@ export default defineConfig(({ mode }) => {
           background_color: '#09090b',
           display: 'standalone',
           orientation: 'portrait',
-          start_url: '/',
+          start_url: '/?utm_source=pwa',
           scope: '/',
           icons: [
             {
