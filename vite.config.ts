@@ -15,7 +15,8 @@ export default defineConfig(({ mode }) => {
         srcDir: 'src',
         filename: 'sw.ts',
         registerType: 'autoUpdate',
-        includeAssets: ['icons/*'],
+        injectRegister: 'script',
+        includeAssets: ['icons/*.svg'],
         manifest: {
           name: 'Crazy Art | Comunicação Visual',
           short_name: 'Crazy Art',
@@ -45,6 +46,12 @@ export default defineConfig(({ mode }) => {
               sizes: '512x512',
               type: 'image/svg+xml',
               purpose: 'any'
+            },
+            {
+              src: '/icons/icon-512.svg',
+              sizes: '512x512',
+              type: 'image/svg+xml',
+              purpose: 'maskable'
             }
           ],
           shortcuts: [
