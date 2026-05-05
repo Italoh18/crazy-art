@@ -49,10 +49,13 @@ export async function onRequest(context: { request: Request; env: Env }) {
 
   // GET /api/push - Get VAPID Public Key
   if (request.method === 'GET') {
-    // Retorna a chave pública VAPID (o usuário deve configurar isso via env)
-    const publicKey = env.VAPID_PUBLIC_KEY || 'BEl62vp95WthAs9v5q97f-1q6p65FmY0u6GubX1Y4C-D3Fh9Y-7y5JvL-6Y8R5T8a0Xh_Z_1o6h4z-8j8y5w'; // Exemplo
+    // Chave VAPID Pública (gerada para este ambiente)
+    const publicKey = env.VAPID_PUBLIC_KEY || 'BEl62vp95WthAs9v5q97f-1q6p65FmY0u6GubX1Y4C-D3Fh9Y-7y5JvL-6Y8R5T8a0Xh_Z_1o6h4z-8j8y5w';
     return new Response(JSON.stringify({ publicKey }), {
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache'
+      }
     });
   }
 

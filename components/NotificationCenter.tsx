@@ -88,38 +88,42 @@ export const NotificationCenter = () => {
 
   const subscribeUser = async () => {
     try {
-      // 1. Verificar permissão atual
-      if (window.Notification.permission === 'denied') {
-        alert("As notificações estão bloqueadas no seu navegador. Você precisa permitir manualmente nas configurações do site (ícone de cadeado na barra de endereços).");
+      // 1. Verificar se o navegador suporta notificações
+      if (!('Notification' in window)) {
+        alert("Este navegador não suporta notificações de desktop.");
         return;
       }
 
-      // 2. Solicita permissão (isso deve abrir a caixa de seleção do navegador se for 'default')
+      // 2. Solicita permissão (isso deve abrir a caixa de seleção do navegador)
       const permission = await window.Notification.requestPermission();
-      if (permission !== 'granted') {
-        return; // Usuário negou ou fechou a caixa
+      
+      if (permission === 'denied') {
+        alert("As notificações estão bloqueadas. Por favor, ative-as nas configurações do seu navegador (clicando no cadeado ao lado da URL).");
+        return;
       }
 
-      const sw = await navigator.serviceWorker.ready;
+      if (permission !== 'granted') return;
+
+      // 3. Obter Service Worker
+      const registration = await navigator.serviceWorker.ready;
       
-      // 3. Get VAPID public key from server
-      const resKey = await fetch('/api/push');
-      const { publicKey } = await resKey.json();
+      // 4. Buscar chave pública VAPID
+      const response = await fetch('/api/push');
+      const { publicKey } = await response.json();
 
-      if (!publicKey) throw new Error("Chave VAPID não encontrada");
-
-      // 4. Converter chave para o formato correto
-      const applicationServerKey = urlBase64ToUint8Array(publicKey);
+      if (!publicKey) {
+        throw new Error("Chave de servidor não disponível.");
+      }
 
       // 5. Subscrever
-      const subscription = await sw.pushManager.subscribe({
+      const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: applicationServerKey
+        applicationServerKey: urlBase64ToUint8Array(publicKey)
       });
 
-      // 6. Enviar inscrição para o servidor
+      // 6. Enviar para o servidor
       const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-      await fetch('/api/push', {
+      const saveResponse = await fetch('/api/push', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -128,13 +132,15 @@ export const NotificationCenter = () => {
         body: JSON.stringify({ subscription })
       });
 
+      if (!saveResponse.ok) throw new Error("Erro ao salvar inscrição no servidor.");
+
       setIsSubscribed(true);
-    } catch (e) {
-      console.error("Falha ao se inscrever", e);
-      if (window.location.protocol !== 'https:') {
-        alert("As notificações push só funcionam em conexões seguras (HTTPS).");
+    } catch (e: any) {
+      console.error("Erro detalhado ao se inscrever:", e);
+      if (e.name === 'NotAllowedError') {
+        alert("A permissão de notificação foi negada ou o navegador bloqueou a janela pop-up.");
       } else {
-        alert("Não foi possível ativar as notificações agora. Se você estiver em um computador/celular de teste, verifique as configurações do navegador.");
+        alert("Falha ao ativar notificações. Certifique-se de que está usando uma conexão segura (HTTPS).");
       }
     }
   };
