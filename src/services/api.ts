@@ -1,6 +1,8 @@
 
+const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || '';
+
 const getHeaders = () => {
-  const token = localStorage.getItem('auth_token');
+  const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
   return {
     'Content-Type': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -14,6 +16,9 @@ const handleResponse = async (res: Response) => {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_role');
         localStorage.removeItem('current_customer');
+        sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem('user_role');
+        sessionStorage.removeItem('current_customer');
         window.location.href = '/';
         throw new Error('Sessão expirada. Faça login novamente.');
     }
@@ -34,16 +39,17 @@ const handleResponse = async (res: Response) => {
 };
 
 export const api = {
-  async auth(payload: { code?: string, cpf?: string, email?: string, password?: string }) {
-    const res = await fetch('/api/auth', {
+  async auth(payload: { code?: string, cpf?: string, email?: string, password?: string }, rememberMe: boolean = true) {
+    const res = await fetch(`${API_BASE_URL}/api/auth`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
     const data = await handleResponse(res);
     if (data.token) {
-        localStorage.setItem('auth_token', data.token);
-        localStorage.setItem('user_role', data.role);
+        const storage = rememberMe ? localStorage : sessionStorage;
+        storage.setItem('auth_token', data.token);
+        storage.setItem('user_role', data.role);
     }
     return data;
   },
@@ -197,6 +203,24 @@ export const api = {
   },
   async updateSetting(key: string, value: string) {
     const res = await fetch('/api/settings', { method: 'POST', headers: getHeaders(), body: JSON.stringify({ key, value }) });
+    return handleResponse(res);
+  },
+
+  // --- Moldes ---
+  async getMoldes() {
+    const res = await fetch(`${API_BASE_URL}/api/moldes?_t=${Date.now()}`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
+  async addMolde(data: any) {
+    const res = await fetch(`${API_BASE_URL}/api/moldes`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+    return handleResponse(res);
+  },
+  async updateMolde(id: string, data: any) {
+    const res = await fetch(`${API_BASE_URL}/api/moldes?id=${encodeURIComponent(id)}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
+    return handleResponse(res);
+  },
+  async deleteMolde(id: string) {
+    const res = await fetch(`${API_BASE_URL}/api/moldes?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: getHeaders() });
     return handleResponse(res);
   },
 

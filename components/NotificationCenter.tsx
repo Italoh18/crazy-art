@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, Info, CheckCircle, AlertTriangle, XCircle, X } from 'lucide-react';
+import { Bell, Check, Info, CheckCircle, AlertTriangle, XCircle, X, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Notification } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,6 +9,8 @@ export const NotificationCenter = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPushSupported, setIsPushSupported] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { role } = useAuth();
@@ -37,8 +39,80 @@ export const NotificationCenter = () => {
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 30000);
+    
+    // Verificar suporte a Push
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      setIsPushSupported(true);
+      checkSubscription();
+    }
+    
     return () => clearInterval(interval);
   }, []);
+
+  const checkSubscription = async () => {
+    const sw = await navigator.serviceWorker.ready;
+    const sub = await sw.pushManager.getSubscription();
+    setIsSubscribed(!!sub);
+  };
+
+  const subscribeUser = async () => {
+    try {
+      const sw = await navigator.serviceWorker.ready;
+      
+      // Get VAPID public key from server
+      const resKey = await fetch('/api/push');
+      const { publicKey } = await resKey.json();
+
+      const subscription = await sw.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: publicKey
+      });
+
+      // Send subscription to server
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+      await fetch('/api/push', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ subscription })
+      });
+
+      setIsSubscribed(true);
+    } catch (e) {
+      console.error("Falha ao se inscrever", e);
+      alert("Para receber notificações, você precisa permitir o acesso nas configurações do seu navegador.");
+    }
+  };
+
+  const unsubscribeUser = async () => {
+    try {
+      const sw = await navigator.serviceWorker.ready;
+      const sub = await sw.pushManager.getSubscription();
+      if (sub) {
+        await sub.unsubscribe();
+        
+        // Remove from server
+        await fetch('/api/push', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint })
+        });
+      }
+      setIsSubscribed(false);
+    } catch (e) {
+      console.error("Falha ao cancelar inscrição", e);
+    }
+  };
+
+  const togglePush = () => {
+    if (isSubscribed) {
+      unsubscribeUser();
+    } else {
+      subscribeUser();
+    }
+  };
 
   // Fechar dropdown ao clicar fora
   useEffect(() => {
@@ -152,6 +226,26 @@ export const NotificationCenter = () => {
             </div>
 
             <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                {isPushSupported && (
+                    <div className="p-3 bg-zinc-900/50 border-b border-zinc-800 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isSubscribed ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                <ShieldCheck size={16} />
+                             </div>
+                             <div>
+                                <p className="text-[10px] font-bold text-white uppercase tracking-tight">Notificações Push</p>
+                                <p className="text-[9px] text-zinc-500 uppercase font-medium">{isSubscribed ? 'Ativadas' : 'Desativadas'}</p>
+                             </div>
+                        </div>
+                        <button 
+                            onClick={togglePush}
+                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${isSubscribed ? 'bg-zinc-800 text-zinc-400 hover:text-white' : 'bg-primary text-black hover:scale-105'}`}
+                        >
+                            {isSubscribed ? 'Configurar' : 'Ativar'}
+                        </button>
+                    </div>
+                )}
+
                 {notifications.length === 0 ? (
                     <div className="py-12 text-center text-zinc-600 flex flex-col items-center">
                         <Bell size={32} className="opacity-20 mb-2" />

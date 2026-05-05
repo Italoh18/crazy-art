@@ -9,20 +9,22 @@ type UserRole = 'guest' | 'admin' | 'client';
 interface AuthContextType {
   role: UserRole;
   currentCustomer: Customer | null;
-  loginAdmin: (code: string) => Promise<boolean>;
-  loginClient: (emailOrCpf: string, password?: string) => Promise<boolean>;
+  loginAdmin: (code: string, rememberMe?: boolean) => Promise<boolean>;
+  loginClient: (emailOrCpf: string, password?: string, rememberMe?: boolean) => Promise<boolean>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children?: ReactNode }) => {
-  const [role, setRole] = useState<UserRole>((localStorage.getItem('user_role') as UserRole) || 'guest');
+  const [role, setRole] = useState<UserRole>(() => {
+    return (localStorage.getItem('user_role') || sessionStorage.getItem('user_role') || 'guest') as UserRole;
+  });
   const { loadData } = useData();
   
   // CORREÇÃO: Inicialização síncrona (Lazy) para garantir que os dados estejam disponíveis na primeira renderização
   const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(() => {
-      const saved = localStorage.getItem('current_customer');
+      const saved = localStorage.getItem('current_customer') || sessionStorage.getItem('current_customer');
       try {
           return saved ? JSON.parse(saved) : null;
       } catch {
@@ -31,9 +33,13 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
   });
 
   useEffect(() => {
-      // Sync extra caso o localStorage mude externamente (opcional, mas boa prática)
-      const savedCustomer = localStorage.getItem('current_customer');
-      if (savedCustomer) setCurrentCustomer(JSON.parse(savedCustomer));
+      // Sync extra caso o storage mude externamente
+      const savedCustomer = localStorage.getItem('current_customer') || sessionStorage.getItem('current_customer');
+      if (savedCustomer) {
+          try {
+              setCurrentCustomer(JSON.parse(savedCustomer));
+          } catch(e) {}
+      }
       
       // Auto-refresh data if user is a client to ensure subscription status is up to date
       const refreshData = async () => {
@@ -43,7 +49,8 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
                   // For clients, the API returns a single object. For admins, an array.
                   if (data && !Array.isArray(data)) {
                     setCurrentCustomer(data);
-                    localStorage.setItem('current_customer', JSON.stringify(data));
+                    const storage = localStorage.getItem('auth_token') ? localStorage : sessionStorage;
+                    storage.setItem('current_customer', JSON.stringify(data));
                   }
               } catch (e) {
                   console.error("Failed to refresh user data", e);
@@ -54,9 +61,9 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
       refreshData();
   }, [role]);
 
-  const loginAdmin = async (code: string) => {
+  const loginAdmin = async (code: string, rememberMe: boolean = true) => {
     try {
-        const data = await api.auth({ code });
+        const data = await api.auth({ code }, rememberMe);
         if (data.token) {
             setRole('admin');
             await loadData(); // Recarrega dados com o novo token
@@ -66,14 +73,15 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
     return false;
   };
 
-  const loginClient = async (emailOrCpf: string, password?: string) => {
+  const loginClient = async (emailOrCpf: string, password?: string, rememberMe: boolean = true) => {
     try {
         const payload = password ? { email: emailOrCpf, password } : { cpf: emailOrCpf };
-        const data = await api.auth(payload);
+        const data = await api.auth(payload, rememberMe);
         if (data.token && data.customer) {
             setRole('client');
             setCurrentCustomer(data.customer);
-            localStorage.setItem('current_customer', JSON.stringify(data.customer));
+            const storage = rememberMe ? localStorage : sessionStorage;
+            storage.setItem('current_customer', JSON.stringify(data.customer));
             await loadData(); // Recarrega dados com o novo token
             return true;
         }
@@ -83,6 +91,7 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
 
   const logout = () => {
     localStorage.clear();
+    sessionStorage.clear();
     setRole('guest');
     setCurrentCustomer(null);
     loadData(); // Limpa dados sensíveis recarregando como guest (sem token)

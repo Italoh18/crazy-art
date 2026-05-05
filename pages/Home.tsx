@@ -14,6 +14,7 @@ export default function Home() {
   const [inputValue, setInputValue] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [currentSlide, setCurrentSlide] = useState(0);
   const [gameMode, setGameMode] = useState(false);
@@ -115,14 +116,14 @@ export default function Home() {
     e.preventDefault();
     setError('');
     if (loginMode === 'admin') {
-      const success = await loginAdmin(inputValue);
+      const success = await loginAdmin(inputValue, rememberMe);
       if (success) {
         setIsModalOpen(false);
       } else {
         setError('Código de acesso inválido.');
       }
     } else {
-      const success = await loginClient(inputValue, loginPassword);
+      const success = await loginClient(inputValue, loginPassword, rememberMe);
       if (success) {
         setIsModalOpen(false);
       } else {
@@ -630,6 +631,22 @@ export default function Home() {
                                 </button>
                             </div>
                         )}
+                        
+                        <div className="flex items-center gap-2 px-1">
+                            <button 
+                                type="button"
+                                onClick={() => setRememberMe(!rememberMe)}
+                                className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${rememberMe ? 'bg-primary border-primary' : 'bg-black/50 border-zinc-700'}`}
+                            >
+                                {rememberMe && <div className="w-2.5 h-2.5 bg-black rounded-[1px]" />}
+                            </button>
+                            <span 
+                                className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest cursor-pointer hover:text-white transition-colors"
+                                onClick={() => setRememberMe(!rememberMe)}
+                            >
+                                Manter conectado
+                            </span>
+                        </div>
                     </div>
                     {error && <div className="text-red-500 text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20 animate-pulse text-xs font-bold">{error}</div>}
                     <button type="submit" className="w-full bg-zinc-100 text-black font-bold py-4 rounded-xl hover:bg-white transition-all transform active:scale-95 uppercase tracking-wider text-sm btn-active-effect shadow-xl">Entrar</button>

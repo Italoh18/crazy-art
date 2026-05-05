@@ -6,6 +6,8 @@ export interface Env {
   JWT_SECRET: string;
   MY_BUCKET: any;
   R2_PUBLIC_URL: string;
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
 }
 
 const base64UrlEncode = (str: string) => btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');

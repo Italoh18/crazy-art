@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Customer, Product, Order, OrderStatus, ProductionStep, CarouselImage, TrustedCompany, Coupon, Molde } from '../types';
-import { api } from '../services/api';
+import { api } from '../src/services/api';
 
 interface DataContextType {
   customers: Customer[];

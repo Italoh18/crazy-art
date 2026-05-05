@@ -39,6 +39,7 @@ import MontagemMolde from './pages/MontagemMolde';
 import MoldesManager from './pages/MoldesManager';
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
+import ReloadPrompt from './components/ReloadPrompt';
 
 const LoadingScreen = () => {
   const [messageIndex, setMessageIndex] = useState(0);
@@ -136,6 +137,7 @@ const AppContent = ({ showIntro, setShowIntro }: { showIntro: boolean, setShowIn
   
   return (
     <>
+      <ReloadPrompt />
       {showIntro && <IntroAnimation onComplete={() => setShowIntro(false)} />}
       {isLoading ? (
          <LoadingScreen />
