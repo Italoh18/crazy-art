@@ -19,6 +19,44 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
+  const [swStatus, setSwStatus] = useState<'loading' | 'ready' | 'offline' | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
+  // Monitorar Service Worker e Download
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(() => {
+        setSwStatus('ready');
+      });
+
+      // Simular progresso baseado em eventos de instalação
+      const handleStateChange = (state: string) => {
+        if (state === 'installing') {
+          setSwStatus('loading');
+          // Simulação de progresso já que Workbox não nos dá progresso real facilmente sem plugins complexos
+          let progress = 0;
+          const interval = setInterval(() => {
+            progress += 5;
+            if (progress > 95) clearInterval(interval);
+            setDownloadProgress(progress);
+          }, 200);
+        } else if (state === 'activated') {
+          setSwStatus('ready');
+          setDownloadProgress(100);
+          setTimeout(() => setSwStatus(null), 3000);
+        }
+      };
+
+      navigator.serviceWorker.getRegistration().then(reg => {
+        if (reg?.installing) handleStateChange('installing');
+        reg?.addEventListener('updatefound', () => {
+          const newSw = reg.installing;
+          newSw?.addEventListener('statechange', () => handleStateChange(newSw.state));
+        });
+      });
+    }
+  }, []);
+
   const location = useLocation();
   const navigate = useNavigate();
   const { role, logout, currentCustomer } = useAuth();
@@ -119,10 +157,26 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
   const Footer = () => (
     <footer className="glass-panel border-t-0 border-t-zinc-800/30 py-8 px-6 mt-auto w-full z-10 relative z-20 seasonal-target backdrop-blur-xl">
+      {/* Barra de Progresso PWA */}
+      {swStatus === 'loading' && (
+        <div className="absolute top-0 left-0 w-full h-[2px] bg-zinc-800 overflow-hidden">
+          <div 
+            className="h-full bg-primary transition-all duration-300 shadow-[0_0_10px_#f59e0b]"
+            style={{ width: `${downloadProgress}%` }}
+          />
+        </div>
+      )}
+      
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
         <div className="flex flex-col text-center md:text-left">
           <h2 className="text-xl font-bold text-white mb-1 uppercase bg-clip-text text-transparent bg-crazy-gradient tracking-widest drop-shadow-sm" style={timesFont}>CRAZY ART</h2>
           <p className="text-zinc-500 text-xs tracking-wide">transformando ideias em realidade</p>
+          {swStatus === 'loading' && (
+            <p className="text-[10px] text-primary animate-pulse mt-2 uppercase tracking-tighter">Baixando recursos offline {downloadProgress}%...</p>
+          )}
+          {swStatus === 'ready' && (
+            <p className="text-[10px] text-emerald-500 mt-2 uppercase tracking-tighter">App pronto para uso offline</p>
+          )}
         </div>
         <div className="flex flex-col items-center">
           <div className="flex items-center space-x-6">
@@ -146,10 +200,12 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             {showInstallButton && (
               <button 
                 onClick={handleInstallClick}
-                className="text-primary hover:text-white transition-all hover:scale-125 hover:shadow-glow p-2.5 rounded-full hover:bg-white/10 flex items-center gap-2 animate-pulse"
+                className={`text-primary hover:text-white transition-all hover:scale-110 hover:shadow-glow p-2.5 rounded-full hover:bg-white/10 flex items-center gap-2 ${swStatus === 'loading' ? 'grayscale opacity-50 cursor-wait' : 'animate-bounce'}`}
                 title="Instalar Aplicativo"
+                disabled={swStatus === 'loading'}
               >
                 <Smartphone size={20} />
+                <span className="text-[10px] font-bold uppercase hidden sm:inline">Instalar</span>
               </button>
             )}
           </div>
