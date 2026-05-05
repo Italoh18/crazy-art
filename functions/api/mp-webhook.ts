@@ -1,5 +1,6 @@
 
 import { sendEmail, getAdminEmail, getRenderedTemplate } from '../services/email';
+import { sendPushNotification } from '../services/push-service';
 
 export interface Env {
   DB: any;
@@ -112,11 +113,25 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                 requestId
             ).run();
 
+            // Push Admin
+            await sendPushNotification(env, { role: 'admin' }, {
+                title: `Pagamento: ${label}`,
+                message: `O cliente ${order.name} pagou a solicitação de ${label.toLowerCase()}.`,
+                url: `/admin/orders?id=${requestId}`
+            });
+
             // Notificação Cliente
             await env.DB.prepare(`
                 INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, is_read)
                 VALUES (?, 'client', ?, 'success', 'Pagamento Confirmado', ?, ?, 0)
             `).bind(crypto.randomUUID(), order.client_id, `Sua solicitação de ${label.toLowerCase()} foi paga com sucesso e já está em nossa fila de produção.`, nowTs).run();
+
+            // Push Cliente
+            await sendPushNotification(env, { userId: order.client_id }, {
+              title: 'Pagamento Confirmado',
+              message: `Sua solicitação de ${label.toLowerCase()} foi paga com sucesso.`,
+              url: `/minha-area?status=success&layoutId=${requestId}`
+            });
           }
 
           return new Response('OK', { status: 200 });
@@ -246,6 +261,13 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                 orderId
             ).run();
 
+            // Push Admin
+            await sendPushNotification(env, { role: 'admin' }, {
+              title: `Pedido #${formattedNum} Pago`,
+              message: `O cliente ${orderInfo.client_name} pagou o pedido #${formattedNum}.`,
+              url: `/admin/orders?id=${orderId}`
+            });
+
             // EMAIL ADMIN
             const emailAdmin = await getRenderedTemplate(env, 'paymentConfirmedAdmin', {
                 orderNumber: formattedNum,
@@ -269,6 +291,13 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                 nowTs,
                 orderId
             ).run();
+            
+            // Push Cliente
+            await sendPushNotification(env, { userId: orderInfo.client_id }, {
+              title: `Pagamento Pedido #${formattedNum}`,
+              message: `Confirmamos o pagamento do seu pedido. ${creditMessage}`,
+              url: `/client-orders`
+            });
             
           } catch (err: any) {
             console.error(`[Webhook] Erro processando ID ${orderId}:`, err.message);

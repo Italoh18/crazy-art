@@ -37,6 +37,7 @@ self.addEventListener('push', (event: any) => {
     icon: data.icon,
     badge: '/icons/icon-192.svg',
     tag: 'crazy-art-notification', // Evita duplicados
+    // @ts-ignore
     renotify: true,
     data: {
       url: data.url

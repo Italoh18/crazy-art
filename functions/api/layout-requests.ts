@@ -1,6 +1,7 @@
 
 import { Env, getAuth } from './_auth';
 import { sendEmail, getAdminEmail } from '../services/email';
+import { sendPushNotification } from '../services/push-service';
 
 interface LayoutEnv extends Env {
     MP_ACCESS_TOKEN: string;
@@ -106,6 +107,13 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         INSERT INTO notifications (id, target_role, type, title, message, created_at, reference_id, is_read)
         VALUES (?, 'admin', 'info', ?, ?, ?, ?, 0)
       `).bind(crypto.randomUUID(), notificationTitle, notificationMessage, now, requestId).run();
+
+      // Enviar Notificação Push para Admin
+      await sendPushNotification(env, { role: 'admin' }, {
+        title: notificationTitle,
+        message: notificationMessage,
+        url: `/admin/orders?id=${requestId}`
+      });
 
       // Enviar E-mail se for crédito (pago online será enviado via webhook quando aprovado)
       if (paymentMethod === 'credit') {

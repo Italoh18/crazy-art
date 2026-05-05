@@ -121,6 +121,13 @@ const AppContent = ({ showIntro, setShowIntro }: { showIntro: boolean, setShowIn
   const { isLoading, faviconUrl } = useData();
   
   useEffect(() => {
+    // Clear badge when app is opened
+    if ('clearAppBadge' in navigator) {
+      (navigator as any).clearAppBadge().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
     if (faviconUrl) {
       const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement || document.createElement('link');
       link.type = 'image/png';

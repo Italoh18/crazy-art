@@ -1,6 +1,7 @@
 
 import { Env, getAuth } from './_auth';
 import { sendEmail, getAdminEmail, getRenderedTemplate } from '../services/email';
+import { sendPushNotification } from '../services/push-service';
 
 export const onRequest: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
@@ -87,6 +88,13 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                     "INSERT INTO notifications (id, target_role, type, title, message, created_at, reference_id) VALUES (?, 'admin', 'warning', 'Pedido em Atraso', ?, ?, ?)"
                   ).bind(notifId, `Pedido #${formattedOrder} venceu em ${dateStr}.`, createdAt, refId).run();
 
+                  // Push Admin
+                  await sendPushNotification(env, { role: 'admin' }, {
+                    title: 'Pedido em Atraso',
+                    message: `Pedido #${formattedOrder} de ${order.client_name} venceu em ${dateStr}.`,
+                    url: `/admin/orders?id=${order.id}`
+                  });
+
                   const emailAdmin = await getRenderedTemplate(env, 'overdueAdmin', vars);
                   await sendEmail(env, {
                     to: getAdminEmail(env),
@@ -99,6 +107,13 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                   await env.DB.prepare(
                     "INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, reference_id) VALUES (?, 'client', ?, 'warning', 'Fatura em Atraso', ?, ?, ?)"
                   ).bind(notifIdClient, order.client_id, `Seu pedido #${formattedOrder} está vencido.`, createdAt, refId + '_client').run();
+
+                  // Push Client
+                  await sendPushNotification(env, { userId: order.client_id }, {
+                    title: 'Fatura em Atraso',
+                    message: `Seu pedido #${formattedOrder} está vencido. Regularize para evitar suspensão de crédito.`,
+                    url: `/client-orders`
+                  });
 
                   if (order.client_email) {
                     const emailClient = await getRenderedTemplate(env, 'overdueClient', vars);
@@ -141,6 +156,13 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                             INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, reference_id, is_read)
                             VALUES (?, 'client', ?, 'warning', 'Assinatura Expirando', ?, ?, ?, 0)
                         `).bind(crypto.randomUUID(), client.id, message, now.toISOString(), refId).run();
+
+                        // Push Client
+                        await sendPushNotification(env, { userId: client.id }, {
+                          title: 'Assinatura Expirando',
+                          message: message,
+                          url: `/subscription`
+                        });
 
                         if (client.email) {
                             const emailData = await getRenderedTemplate(env, 'subscriptionExpiring', {
