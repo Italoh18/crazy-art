@@ -63,11 +63,23 @@ export const NotificationCenter = () => {
 
   const checkSubscription = async () => {
     try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        setIsPushSupported(false);
+        return;
+      }
+      
       const sw = await navigator.serviceWorker.ready;
+      if (!sw) {
+        setIsPushSupported(false);
+        return;
+      }
+
       const sub = await sw.pushManager.getSubscription();
       setIsSubscribed(!!sub);
+      setIsPushSupported(true);
     } catch (e) {
       console.error("Erro ao verificar inscrição", e);
+      setIsPushSupported(false);
     }
   };
 
@@ -88,32 +100,35 @@ export const NotificationCenter = () => {
 
   const subscribeUser = async () => {
     try {
-      // 1. Verificar se o navegador suporta notificações
+      // 1. Verificar suporte básico
       if (!('Notification' in window)) {
-        alert("Este navegador não suporta notificações de desktop.");
+        alert("Este navegador não suporta notificações.");
         return;
       }
 
-      // 2. Solicita permissão (isso deve abrir a caixa de seleção do navegador)
+      // 2. Solicitar permissão
       const permission = await window.Notification.requestPermission();
       
       if (permission === 'denied') {
-        alert("As notificações estão bloqueadas. Por favor, ative-as nas configurações do seu navegador (clicando no cadeado ao lado da URL).");
+        alert("As notificações foram bloqueadas. Você precisa permitir o acesso clicando no ícone de cadeado ao lado da URL do site.");
         return;
       }
 
       if (permission !== 'granted') return;
 
-      // 3. Obter Service Worker
+      // 3. Garantir Service Worker pronto
       const registration = await navigator.serviceWorker.ready;
+      if (!registration.pushManager) {
+        alert("Seu navegador suporta notificações, mas o gerenciador de push não está disponível. Tente reiniciar o navegador.");
+        return;
+      }
       
-      // 4. Buscar chave pública VAPID
+      // 4. Buscar chave VAPID
       const response = await fetch('/api/push');
+      if (!response.ok) throw new Error("Falha ao obter chave do servidor");
       const { publicKey } = await response.json();
 
-      if (!publicKey) {
-        throw new Error("Chave de servidor não disponível.");
-      }
+      if (!publicKey) throw new Error("Chave pública não configurada.");
 
       // 5. Subscrever
       const subscription = await registration.pushManager.subscribe({
@@ -121,7 +136,7 @@ export const NotificationCenter = () => {
         applicationServerKey: urlBase64ToUint8Array(publicKey)
       });
 
-      // 6. Enviar para o servidor
+      // 6. Sincronizar com o servidor
       const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
       const saveResponse = await fetch('/api/push', {
         method: 'POST',
@@ -132,15 +147,18 @@ export const NotificationCenter = () => {
         body: JSON.stringify({ subscription })
       });
 
-      if (!saveResponse.ok) throw new Error("Erro ao salvar inscrição no servidor.");
+      if (!saveResponse.ok) throw new Error("Erro ao salvar inscrição no banco de dados.");
 
       setIsSubscribed(true);
+      alert("Notificações ativadas com sucesso!");
     } catch (e: any) {
-      console.error("Erro detalhado ao se inscrever:", e);
-      if (e.name === 'NotAllowedError') {
-        alert("A permissão de notificação foi negada ou o navegador bloqueou a janela pop-up.");
+      console.error("Erro ao ativar push:", e);
+      
+      // Ajuste para dispositivos móveis (especialmente iOS)
+      if (e.message?.includes('Registration failed')) {
+        alert("Erro de registro. Se estiver no iPhone, você DEVE 'Adicionar à Tela de Início' antes de ativar as notificações.");
       } else {
-        alert("Falha ao ativar notificações. Certifique-se de que está usando uma conexão segura (HTTPS).");
+        alert("Falha ao ativar: " + (e.message || "Verifique sua conexão HTTPS."));
       }
     }
   };
