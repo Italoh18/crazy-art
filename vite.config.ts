@@ -15,11 +15,16 @@ export default defineConfig(({ mode }) => {
         srcDir: 'src',
         filename: 'sw.ts',
         registerType: 'autoUpdate',
-        injectRegister: 'inline',
+        injectRegister: null, // We will register manually for better control
         manifestFilename: 'manifest.json',
-        includeAssets: ['icons/*.png', 'icons/*.svg'],
+        includeAssets: ['icons/*.png', 'icons/*.svg', 'robots.txt'],
+        devOptions: {
+          enabled: true,
+          type: 'module',
+          navigateFallback: 'index.html',
+        },
         manifest: {
-          id: '/',
+          id: '/?pwa=1',
           name: 'Crazy Art Comunicação Visual',
           short_name: 'Crazy Art',
           description: 'Soluções profissionais de design para estamparias e freelancers',
@@ -31,25 +36,25 @@ export default defineConfig(({ mode }) => {
           scope: '/',
           icons: [
             {
-              src: '/icons/icon-192.png',
+              src: 'icons/icon-192.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/icons/icon-192.png',
+              src: 'icons/icon-192.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'maskable'
             },
             {
-              src: '/icons/icon-512.png',
+              src: 'icons/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/icons/icon-512.png',
+              src: 'icons/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'

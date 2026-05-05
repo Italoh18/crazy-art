@@ -10,16 +10,16 @@ precacheAndRoute(self.__WB_MANIFEST);
 
 // Explicit fetch handler for PWA installability requirements
 self.addEventListener('fetch', (event) => {
-  // PWA requirement: existence of a fetch handler. 
-  // We allow Workbox to handle standard precached routes, 
-  // but we must have this listener at the top level.
+  // We must have a top-level listener for Chrome to consider the app installable.
+  // Workbox handles some requests, but we can add a simple listener here.
+  // The most critical part for PWA is that it handles navigation requests to provide offline support.
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(async () => {
         const cachedResponse = await caches.match('/');
-        return cachedResponse || new Response("Offline", {
+        return cachedResponse || new Response("Crazy Art está offline, mas você ainda pode acessar as ferramentas precachadas.", {
           status: 200,
-          headers: { 'Content-Type': 'text/html' }
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
         });
       })
     );
