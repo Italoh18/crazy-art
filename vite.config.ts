@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
         srcDir: 'src',
         filename: 'sw.ts',
         registerType: 'autoUpdate',
-        injectRegister: 'script',
+        injectRegister: 'inline',
         manifestFilename: 'manifest.webmanifest',
         includeAssets: ['icons/icon-192.svg', 'icons/icon-512.svg'],
         manifest: {
@@ -25,12 +25,9 @@ export default defineConfig(({ mode }) => {
           theme_color: '#09090b',
           background_color: '#09090b',
           display: 'standalone',
-          display_override: ['standalone', 'window-controls-overlay'],
           orientation: 'portrait',
           start_url: '/',
           scope: '/',
-          id: '/',
-          protocol_handlers: [{ protocol: 'web+crazyart', url: '/?url=%s' }],
           icons: [
             {
               src: '/icons/icon-192.svg',
@@ -39,22 +36,10 @@ export default defineConfig(({ mode }) => {
               purpose: 'any'
             },
             {
-              src: '/icons/icon-192.svg',
-              sizes: '192x192',
-              type: 'image/svg+xml',
-              purpose: 'maskable'
-            },
-            {
               src: '/icons/icon-512.svg',
               sizes: '512x512',
               type: 'image/svg+xml',
               purpose: 'any'
-            },
-            {
-              src: '/icons/icon-512.svg',
-              sizes: '512x512',
-              type: 'image/svg+xml',
-              purpose: 'maskable'
             }
           ],
           shortcuts: [

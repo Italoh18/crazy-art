@@ -8,6 +8,14 @@ declare const self: ServiceWorkerGlobalScope;
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
+// Explicit fetch handler for PWA installability requirements
+self.addEventListener('fetch', (event) => {
+  // Check if we are offline or if the request is a navigation to a page
+  if (event.request.mode === 'navigate') {
+    // We could return a custom offline page here if needed
+  }
+});
+
 self.skipWaiting();
 clientsClaim();
 
