@@ -88,21 +88,33 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     // Verificar se já está instalado
-    if (window.matchMedia('(display-mode: standalone)').matches) {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    
+    if (isStandalone) {
       setShowInstallButton(false);
+    } else {
+      // No iOS, o evento beforeinstallprompt não dispara, mas queremos mostrar o botão
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+      if (isIOS || !('beforeinstallprompt' in window)) {
+        setShowInstallButton(true);
+      }
     }
 
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setShowInstallButton(false);
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setShowInstallButton(false);
+      }
+      setDeferredPrompt(null);
+    } else {
+      // Caso seja iOS ou navegador sem suporte a prompt automático
+      alert("Para instalar:\n1. Clique no ícone de 'Compartilhar' (seta para cima);\n2. Role para baixo e selecione 'Adicionar à Tela de Início'.");
     }
-    setDeferredPrompt(null);
   };
 
   const Footer = () => (
