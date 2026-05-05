@@ -11,113 +11,38 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       VitePWA({
-        strategies: 'injectManifest',
-        srcDir: 'src',
-        filename: 'sw.ts',
         registerType: 'autoUpdate',
-        injectRegister: null,
         manifestFilename: 'manifest.json',
-        includeAssets: ['icons/*.png', 'icons/*.svg'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icons/*.png', 'icons/*.svg'],
+        workbox: {
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        },
         manifest: {
-          id: '/',
           name: 'Crazy Art Comunicação Visual',
           short_name: 'Crazy Art',
           description: 'Soluções profissionais de design para estamparias e freelancers',
           theme_color: '#09090b',
           background_color: '#09090b',
           display: 'standalone',
-          orientation: 'portrait',
           start_url: '/',
           scope: '/',
           icons: [
             {
-              src: '/icons/icon-192.png',
+              src: 'icons/icon-192.png',
               sizes: '192x192',
-              type: 'image/png',
-              purpose: 'any'
+              type: 'image/png'
             },
             {
-              src: '/icons/icon-192.png',
-              sizes: '192x192',
-              type: 'image/png',
-              purpose: 'maskable'
+              src: 'icons/icon-512.png',
+              sizes: '512x512',
+              type: 'image/png'
             },
             {
-              src: '/icons/icon-512.png',
+              src: 'icons/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
-              purpose: 'any'
-            },
-            {
-              src: '/icons/icon-512.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'maskable'
-            }
-          ],
-          shortcuts: [
-            {
-              name: 'Novo Pedido',
-              short_name: 'Pedido',
-              url: '/montagem-molde',
-              icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }]
-            },
-            {
-              name: 'Meus Pedidos',
-              short_name: 'Pedidos',
-              url: '/client-orders',
-              icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }]
-            }
-          ]
-        },
-        injectManifest: {
-          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        },
-        workbox: {
-          runtimeCaching: [
-            {
-              urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'google-fonts-cache',
-                expiration: {
-                  maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 dias
-                },
-                cacheableResponse: {
-                  statuses: [0, 200]
-                }
-              }
-            },
-            {
-              urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'gstatic-fonts-cache',
-                expiration: {
-                  maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 dias
-                },
-                cacheableResponse: {
-                  statuses: [0, 200]
-                }
-              }
-            },
-            {
-               urlPattern: /^https:\/\/api\.*/i,
-               handler: 'NetworkFirst',
-               options: {
-                  cacheName: 'api-cache',
-                  expiration: {
-                     maxEntries: 100,
-                     maxAgeSeconds: 60 * 60 * 24 // 24 horas
-                  },
-                  networkTimeoutSeconds: 10,
-                  cacheableResponse: {
-                     statuses: [0, 200]
-                  }
-               }
+              purpose: 'any maskable'
             }
           ]
         }
