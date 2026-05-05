@@ -130,10 +130,14 @@ export const NotificationCenter = () => {
       
       // 4. Buscar chave VAPID
       const response = await fetch('/api/push');
-      if (!response.ok) throw new Error("Falha ao obter chave do servidor");
-      const { publicKey } = await response.json();
+      const data = await response.json();
 
-      if (!publicKey) throw new Error("Chave pública não configurada.");
+      if (!response.ok) {
+        throw new Error(data.error || "Falha ao obter chave do servidor");
+      }
+
+      const { publicKey } = data;
+      if (!publicKey) throw new Error("Chave pública não encontrada no servidor.");
 
       // 5. Subscrever
       const subscription = await registration.pushManager.subscribe({
