@@ -16,7 +16,8 @@ export default defineConfig(({ mode }) => {
         filename: 'sw.ts',
         registerType: 'autoUpdate',
         injectRegister: 'script',
-        includeAssets: ['icons/*.svg'],
+        manifestFilename: 'manifest.webmanifest',
+        includeAssets: ['icons/icon-192.svg', 'icons/icon-512.svg'],
         manifest: {
           name: 'Crazy Art | Comunicação Visual',
           short_name: 'Crazy Art',
@@ -24,10 +25,12 @@ export default defineConfig(({ mode }) => {
           theme_color: '#09090b',
           background_color: '#09090b',
           display: 'standalone',
+          display_override: ['standalone', 'window-controls-overlay'],
           orientation: 'portrait',
           start_url: '/',
           scope: '/',
           id: '/',
+          protocol_handlers: [{ protocol: 'web+crazyart', url: '/?url=%s' }],
           icons: [
             {
               src: '/icons/icon-192.svg',
