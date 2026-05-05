@@ -32,7 +32,7 @@ self.addEventListener('push', (event: any) => {
   let data: any = {
     title: 'Crazy Art',
     message: 'Você tem uma nova atualização!',
-    icon: '/icons/icon-192.svg',
+    icon: '/icons/icon-192.png',
     url: '/'
   };
 
@@ -49,7 +49,7 @@ self.addEventListener('push', (event: any) => {
   const options: NotificationOptions = {
     body: data.message,
     icon: data.icon,
-    badge: '/icons/icon-192.svg',
+    badge: '/icons/icon-192.png',
     tag: 'crazy-art-notification', // Evita duplicados
     // @ts-ignore
     renotify: true,

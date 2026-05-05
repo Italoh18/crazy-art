@@ -16,40 +16,40 @@ export default defineConfig(({ mode }) => {
         filename: 'sw.ts',
         registerType: 'autoUpdate',
         injectRegister: 'inline',
-        manifestFilename: 'manifest.json',
-        includeAssets: ['icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-192.svg', 'icons/icon-512.svg'],
+        manifestFilename: 'site.webmanifest',
+        includeAssets: ['icons/*.png', 'icons/*.svg'],
         manifest: {
-          id: '/?pwa=root',
-          name: 'Crazy Art | Comunicação Visual',
+          name: 'Crazy Art Comunicação Visual',
           short_name: 'Crazy Art',
           description: 'Soluções profissionais de design para estamparias e freelancers',
           theme_color: '#09090b',
           background_color: '#09090b',
           display: 'standalone',
+          display_override: ['window-controls-overlay', 'standalone'],
           orientation: 'portrait',
-          start_url: '/?utm_source=pwa',
+          start_url: '/',
           scope: '/',
           icons: [
             {
-              src: '/icons/icon-192.png',
+              src: 'icons/icon-192.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/icons/icon-192.png',
+              src: 'icons/icon-192.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'maskable'
             },
             {
-              src: '/icons/icon-512.png',
+              src: 'icons/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/icons/icon-512.png',
+              src: 'icons/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'
