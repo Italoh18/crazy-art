@@ -43,6 +43,7 @@ export default function MontagemMolde() {
   // Form State
   const [step, setStep] = useState<'briefing' | 'summary' | 'completed'>('briefing');
   const [description, setDescription] = useState('');
+  const [paperSize, setPaperSize] = useState('90cm');
   const [layoutFileUrl, setLayoutFileUrl] = useState('');
   const [showIncompleteError, setShowIncompleteError] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'online' | null>(null);
@@ -220,7 +221,7 @@ export default function MontagemMolde() {
             },
             body: JSON.stringify({
                 serviceId: mainService?.id,
-                description: `MONTAGEM DE MOLDE:\n${description}\n\nREPLICAS (${replicas.length}):\n${replicas.map(r => `- ${r.size} | ${r.name} | ${r.number}${r.isConjunto ? ` | CONJUNTO: [Short: ${r.shortSize} Nº: ${r.shortNumber}]` : ''}`).join('\n')}`,
+                description: `MONTAGEM DE MOLDE:\n${description}\n\nPAPEL DE IMPRESSÃO: ${paperSize}\n\nREPLICAS (${replicas.length}):\n${replicas.map(r => `- ${r.size} | ${r.name} | ${r.number}${r.isConjunto ? ` | CONJUNTO: [Short: ${r.shortSize} Nº: ${r.shortNumber}]` : ''}`).join('\n')}`,
                 logoUrl: layoutFileUrl, // Reutilizando campo logo_url para o arquivo de layout
                 paymentMethod: method,
                 value: totalAmount,
@@ -337,13 +338,28 @@ export default function MontagemMolde() {
                      <span className="w-8 h-8 rounded-full bg-primary text-black flex items-center justify-center font-black text-sm italic">02</span>
                      <h2 className="text-xl font-black text-white uppercase italic tracking-tighter">Informações Adicionais</h2>
                   </div>
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                      <textarea 
                         className={`w-full bg-black/40 border ${showIncompleteError && !description.trim() ? 'border-red-500 animate-shake' : 'border-zinc-800'} rounded-2xl p-6 text-sm text-white focus:border-primary outline-none transition min-h-[150px] placeholder:text-zinc-700 italic`}
                         placeholder="Descreva detalhes específicos da montagem, acabamentos ou observações técnicas..."
                         value={description}
                         onChange={(e) => { setDescription(e.target.value); setShowIncompleteError(false); }}
                      />
+
+                     <div className="space-y-4">
+                        <label className="text-zinc-600 text-[10px] font-black uppercase tracking-widest block">Tamanho do Papel para Impressão</label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                           {['90cm', '100cm', '120cm', '160cm'].map((size) => (
+                              <button
+                                 key={size}
+                                 onClick={() => setPaperSize(size)}
+                                 className={`py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${paperSize === size ? 'bg-primary text-black border-primary' : 'bg-black/40 border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700'}`}
+                              >
+                                 {size}
+                              </button>
+                           ))}
+                        </div>
+                     </div>
                   </div>
                </section>
 
@@ -505,9 +521,15 @@ export default function MontagemMolde() {
                              )}
                           </div>
                           <div className="flex-1 space-y-6">
-                             <div>
-                                <h3 className="text-zinc-600 text-[10px] font-black uppercase tracking-widest mb-1">Briefing</h3>
-                                <p className="text-white text-sm leading-relaxed italic">"{description}"</p>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                   <h3 className="text-zinc-600 text-[10px] font-black uppercase tracking-widest mb-1">Briefing</h3>
+                                   <p className="text-white text-sm leading-relaxed italic">"{description}"</p>
+                                </div>
+                                <div>
+                                   <h3 className="text-zinc-600 text-[10px] font-black uppercase tracking-widest mb-1">Papel de Impressão</h3>
+                                   <p className="text-primary text-sm font-black italic">{paperSize}</p>
+                                </div>
                              </div>
                              {hasReplicas && (
                                  <div>
