@@ -62,31 +62,62 @@ export const NotificationCenter = () => {
   }, []);
 
   const checkSubscription = async () => {
-    const sw = await navigator.serviceWorker.ready;
-    const sub = await sw.pushManager.getSubscription();
-    setIsSubscribed(!!sub);
+    try {
+      const sw = await navigator.serviceWorker.ready;
+      const sub = await sw.pushManager.getSubscription();
+      setIsSubscribed(!!sub);
+    } catch (e) {
+      console.error("Erro ao verificar inscrição", e);
+    }
+  };
+
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+      .replace(/\-/g, '+')
+      .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
   };
 
   const subscribeUser = async () => {
     try {
-      // Solicita permissão explicitamente antes de prosseguir
-      const permission = await Notification.requestPermission();
+      // 1. Verificar permissão atual
+      if (window.Notification.permission === 'denied') {
+        alert("As notificações estão bloqueadas no seu navegador. Você precisa permitir manualmente nas configurações do site (ícone de cadeado na barra de endereços).");
+        return;
+      }
+
+      // 2. Solicita permissão (isso deve abrir a caixa de seleção do navegador se for 'default')
+      const permission = await window.Notification.requestPermission();
       if (permission !== 'granted') {
-        throw new Error('Permissão negada pelo usuário');
+        return; // Usuário negou ou fechou a caixa
       }
 
       const sw = await navigator.serviceWorker.ready;
       
-      // Get VAPID public key from server
+      // 3. Get VAPID public key from server
       const resKey = await fetch('/api/push');
       const { publicKey } = await resKey.json();
 
+      if (!publicKey) throw new Error("Chave VAPID não encontrada");
+
+      // 4. Converter chave para o formato correto
+      const applicationServerKey = urlBase64ToUint8Array(publicKey);
+
+      // 5. Subscrever
       const subscription = await sw.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: publicKey
+        applicationServerKey: applicationServerKey
       });
 
-      // Send subscription to server
+      // 6. Enviar inscrição para o servidor
       const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
       await fetch('/api/push', {
         method: 'POST',
@@ -100,7 +131,11 @@ export const NotificationCenter = () => {
       setIsSubscribed(true);
     } catch (e) {
       console.error("Falha ao se inscrever", e);
-      alert("Para receber notificações, você precisa permitir o acesso nas configurações do seu navegador.");
+      if (window.location.protocol !== 'https:') {
+        alert("As notificações push só funcionam em conexões seguras (HTTPS).");
+      } else {
+        alert("Não foi possível ativar as notificações agora. Se você estiver em um computador/celular de teste, verifique as configurações do navegador.");
+      }
     }
   };
 
@@ -244,23 +279,48 @@ export const NotificationCenter = () => {
             </div>
 
             <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                {isPushSupported && (
-                    <div className="p-3 bg-zinc-900/50 border-b border-zinc-800 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isSubscribed ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                                <ShieldCheck size={16} />
+                {isPushSupported && !isSubscribed && (
+                    <div className="p-4 bg-primary/10 border-b border-primary/20 animate-pulse-slow">
+                        <div className="flex items-start gap-3">
+                             <div className="w-10 h-10 rounded-xl bg-primary/20 text-primary flex items-center justify-center shrink-0">
+                                <ShieldCheck size={20} />
                              </div>
-                             <div>
-                                <p className="text-[10px] font-bold text-white uppercase tracking-tight">Notificações Push</p>
-                                <p className="text-[9px] text-zinc-500 uppercase font-medium">{isSubscribed ? 'Ativadas' : 'Desativadas'}</p>
+                             <div className="flex-1">
+                                <p className="text-xs font-black text-white uppercase tracking-tight">Ativar Notificações?</p>
+                                <p className="text-[10px] text-zinc-400 mt-1 leading-relaxed">
+                                    Receba alertas em tempo real sobre seus pedidos e novidades diretamente no celular.
+                                </p>
+                                <div className="flex gap-2 mt-3">
+                                    <button 
+                                        onClick={subscribeUser}
+                                        className="bg-primary text-black px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg"
+                                    >
+                                        Sim, Ativar
+                                    </button>
+                                    <button 
+                                        onClick={() => setIsPushSupported(false)}
+                                        className="text-zinc-500 hover:text-white px-2 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                                    >
+                                        Agora não
+                                    </button>
+                                </div>
                              </div>
                         </div>
-                        <button 
-                            onClick={togglePush}
-                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${isSubscribed ? 'bg-zinc-800 text-zinc-400 hover:text-white' : 'bg-primary text-black hover:scale-105'}`}
-                        >
-                            {isSubscribed ? 'Configurar' : 'Ativar'}
-                        </button>
+                    </div>
+                )}
+
+                {isPushSupported && isSubscribed && (
+                    <div className="px-4 py-2 bg-emerald-500/5 border-b border-emerald-500/10 flex items-center justify-between">
+                         <div className="flex items-center gap-2">
+                             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                             <span className="text-[9px] font-bold text-emerald-500/80 uppercase tracking-widest">Push Ativado</span>
+                         </div>
+                         <button 
+                            onClick={unsubscribeUser}
+                            className="text-[9px] text-zinc-600 hover:text-zinc-400 font-bold uppercase tracking-widest transition-colors"
+                         >
+                            Desativar
+                         </button>
                     </div>
                 )}
 
