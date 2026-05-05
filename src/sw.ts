@@ -13,6 +13,8 @@ clientsClaim();
 
 // Handle Push Notifications
 self.addEventListener('push', (event: any) => {
+  console.log('[SW] Push Event received:', event);
+  
   let data: any = {
     title: 'Crazy Art',
     message: 'Você tem uma nova atualização!',
@@ -23,8 +25,10 @@ self.addEventListener('push', (event: any) => {
   if (event.data) {
     try {
       data = { ...data, ...event.data.json() };
+      console.log('[SW] Push Data JSON:', data);
     } catch (e) {
       data.message = event.data.text();
+      console.log('[SW] Push Data Text:', data.message);
     }
   }
 
@@ -32,10 +36,12 @@ self.addEventListener('push', (event: any) => {
     body: data.message,
     icon: data.icon,
     badge: '/icons/icon-192.svg',
+    tag: 'crazy-art-notification', // Evita duplicados
+    renotify: true,
     data: {
       url: data.url
     },
-    // @ts-ignore - vibration might not be in some types but supported by browsers
+    // @ts-ignore
     vibrate: [100, 50, 100],
     actions: [
       { action: 'open', title: 'Ver Agora' },
@@ -45,6 +51,12 @@ self.addEventListener('push', (event: any) => {
 
   event.waitUntil(
     self.registration.showNotification(data.title, options)
+      .then(() => {
+        // Atualiza o badge se suportado
+        if ('setAppBadge' in navigator) {
+          (navigator as any).setAppBadge().catch(() => {});
+        }
+      })
   );
 });
 

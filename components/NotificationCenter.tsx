@@ -104,31 +104,58 @@ export const NotificationCenter = () => {
   };
 
   const subscribeUser = async () => {
+    console.log("Iniciando processo de subscrição...");
     try {
       // 1. Verificar suporte básico
       if (!('Notification' in window)) {
-        alert("Este navegador não suporta notificações.");
+        alert("Este navegador não suporta notificações de desktop.");
         return;
       }
 
+      console.log("Permissão atual:", window.Notification.permission);
+
       // 2. Solicitar permissão
       const permission = await window.Notification.requestPermission();
+      console.log("Nova permissão:", permission);
       
       if (permission === 'denied') {
         alert("As notificações foram bloqueadas. Você precisa permitir o acesso clicando no ícone de cadeado ao lado da URL do site.");
         return;
       }
 
-      if (permission !== 'granted') return;
+      if (permission !== 'granted') {
+        console.log("Permissão não concedida pelo usuário.");
+        return;
+      }
 
       // 3. Garantir Service Worker pronto
-      const registration = await navigator.serviceWorker.ready;
+      console.log("Aguardando Service Worker...");
+      let registration = await navigator.serviceWorker.getRegistration();
+      
+      if (!registration) {
+        console.log("Registration não encontrada, tentando registrar manualmente...");
+        registration = await navigator.serviceWorker.register('/sw.js');
+      }
+
+      // Esperar o SW estar ativo se necessário
+      if (!registration.active) {
+        console.log("SW não está ativo, aguardando...");
+        await new Promise((resolve) => {
+          const check = () => {
+            if (registration?.active) resolve(true);
+            else setTimeout(check, 100);
+          };
+          check();
+        });
+      }
+
       if (!registration.pushManager) {
-        alert("Seu navegador suporta notificações, mas o gerenciador de push não está disponível. Tente reiniciar o navegador.");
+        alert("Seu navegador suporta notificações, mas o gerenciador de push não está disponível.");
         return;
       }
       
       // 4. Buscar chave VAPID
+      console.log("Buscando chave VAPID...");
       const response = await fetch('/api/push');
       const data = await response.json();
 
@@ -139,11 +166,14 @@ export const NotificationCenter = () => {
       const { publicKey } = data;
       if (!publicKey) throw new Error("Chave pública não encontrada no servidor.");
 
+      console.log("Subscrevendo ao Push...");
       // 5. Subscrever
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey)
       });
+
+      console.log("Subscrição obtida:", subscription.endpoint);
 
       // 6. Sincronizar com o servidor
       const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
@@ -156,16 +186,21 @@ export const NotificationCenter = () => {
         body: JSON.stringify({ subscription })
       });
 
-      if (!saveResponse.ok) throw new Error("Erro ao salvar inscrição no banco de dados.");
+      if (!saveResponse.ok) {
+        const errText = await saveResponse.text();
+        throw new Error("Erro ao salvar no servidor: " + errText);
+      }
 
       setIsSubscribed(true);
       alert("Notificações ativadas com sucesso!");
     } catch (e: any) {
-      console.error("Erro ao ativar push:", e);
+      console.error("Erro detalhado ao se inscrever:", e);
       
       // Ajuste para dispositivos móveis (especialmente iOS)
-      if (e.message?.includes('Registration failed')) {
+      if (e.message?.includes('Registration failed') || e.name === 'InvalidStateError') {
         alert("Erro de registro. Se estiver no iPhone, você DEVE 'Adicionar à Tela de Início' antes de ativar as notificações.");
+      } else if (e.name === 'NotAllowedError') {
+        alert("A permissão foi negada. Verifique as configurações do seu navegador.");
       } else {
         alert("Falha ao ativar: " + (e.message || "Verifique sua conexão HTTPS."));
       }

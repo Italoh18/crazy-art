@@ -42,13 +42,15 @@ export default defineConfig(({ mode }) => {
           shortcuts: [
             {
               name: 'Novo Pedido',
+              short_name: 'Pedido',
               url: '/montagem-molde',
-              icons: [{ src: '/icons/icon-192.svg', sizes: '192x192' }]
+              icons: [{ src: '/icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' }]
             },
             {
               name: 'Meus Pedidos',
+              short_name: 'Pedidos',
               url: '/client-orders',
-              icons: [{ src: '/icons/icon-192.svg', sizes: '192x192' }]
+              icons: [{ src: '/icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' }]
             }
           ]
         },
