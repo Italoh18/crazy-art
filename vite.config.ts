@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
         manifestFilename: 'site.webmanifest',
         includeAssets: ['icons/*.png', 'icons/*.svg'],
         manifest: {
+          id: '/',
           name: 'Crazy Art Comunicação Visual',
           short_name: 'Crazy Art',
           description: 'Soluções profissionais de design para estamparias e freelancers',
@@ -31,25 +32,25 @@ export default defineConfig(({ mode }) => {
           scope: '/',
           icons: [
             {
-              src: 'icons/icon-192.png',
+              src: '/icons/icon-192.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: 'icons/icon-192.png',
+              src: '/icons/icon-192.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'maskable'
             },
             {
-              src: 'icons/icon-512.png',
+              src: '/icons/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: 'icons/icon-512.png',
+              src: '/icons/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'
