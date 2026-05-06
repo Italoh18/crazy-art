@@ -14,7 +14,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       console.error('Erro na limpeza de notificações:', e);
     }
 
-    const { user } = await getAuth(request, env);
+    const user = await getAuth(request, env);
     if (!user) return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
 
     // Garantir que a tabela de push existe (Execução única ou se faltar)
