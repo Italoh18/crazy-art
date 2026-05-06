@@ -625,9 +625,9 @@ export default function Home() {
                                 <button 
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                                    className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
                                 >
-                                    {showPassword ? <Eye size={20} /> : <EyeOff size={20} />}
+                                    {showPassword ? <Eye size={20} className="bg-[#000000] text-[#ff8100]" /> : <EyeOff size={20} className="bg-[#000000] text-[#ff8100]" />}
                                 </button>
                             </div>
                         )}
