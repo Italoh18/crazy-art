@@ -2,15 +2,14 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-// Limpeza automática de Service Workers antigos para remover o prompt de notificações push dos clientes
+// Registro do Service Worker para permitir a instalação do site como App (Add to Home Screen)
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      registration.unregister();
-      console.log('Service Worker antigo removido com sucesso.');
-    }
-  }).catch((err) => {
-    console.error('Erro ao remover Service Worker:', err);
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then((registration) => {
+      console.log('Service Worker registrado com sucesso:', registration.scope);
+    }).catch((err) => {
+      console.error('Falha ao registrar Service Worker:', err);
+    });
   });
 }
 
