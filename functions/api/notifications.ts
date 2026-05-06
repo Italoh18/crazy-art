@@ -14,8 +14,20 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       console.error('Erro na limpeza de notificações:', e);
     }
 
-    const user = await getAuth(request, env);
+    const { user } = await getAuth(request, env);
     if (!user) return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
+
+    // Garantir que a tabela de push existe (Execução única ou se faltar)
+    try {
+      await env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          subscription_json TEXT NOT NULL,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `).run();
+    } catch(e) { /* silent if already exists */ }
 
     const url = new URL(request.url);
     const id = url.searchParams.get('id');

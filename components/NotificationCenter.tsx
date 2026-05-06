@@ -101,8 +101,10 @@ export const NotificationCenter = () => {
 
       const { publicKey: vapidPublicKey } = await keyRes.json();
       
+      console.log('[Push] Chave VAPID recebida do servidor:', vapidPublicKey ? 'OK (presente)' : 'ERRO (vazia)');
+
       if (!vapidPublicKey) {
-          throw new Error('Chave VAPID não encontrada no servidor. Verifique as variáveis de ambiente.');
+          throw new Error('Chave VAPID não encontrada no servidor. Verifique as variáveis de ambiente na aba Settings do AI Studio e na Cloudflare.');
       }
 
       console.log('[Push] Chave VAPID obtida com sucesso');

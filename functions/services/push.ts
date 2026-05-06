@@ -23,23 +23,26 @@ export async function sendPushNotification(env: any, userId: string, payload: { 
       "SELECT id, subscription_json FROM push_subscriptions WHERE user_id = ?"
     ).bind(userId).all();
 
-    console.log(`[Push] Enviando para usuário ${userId}. Encontradas ${results?.length || 0} inscrições.`);
+    const count = results?.length || 0;
+    console.log(`[Push] Tentando enviar para usuário ${userId}. Inscrições encontradas: ${count}`);
 
-    if (!results || results.length === 0) {
-        console.warn(`[Push] Nenhuma inscrição encontrada para o usuário: ${userId}`);
+    if (count === 0) {
+        console.warn(`[Push] Nenhuma inscrição (dispositivo) encontrada para o usuário: ${userId}. Certifique-se de que clicou em ATIVAR neste dispositivo.`);
         return;
     }
 
     const pushPromises = results.map(async (row: any) => {
       try {
         const subscription = JSON.parse(row.subscription_json);
-        await webpush.sendNotification(subscription, JSON.stringify(payload));
+        console.log(`[Push] Enviando para endpoint: ${subscription.endpoint?.slice(-30)}...`);
+        const response = await webpush.sendNotification(subscription, JSON.stringify(payload));
+        console.log(`[Push] Resposta do gateway de push: ${response.statusCode}`);
       } catch (error: any) {
-        // Se a inscrição expirou ou é inválida (404/410), removemos do banco
+        console.error('[Push] Erro na inscrição', row.id, ':', error.message, 'Status:', error.statusCode);
+        // Se a inscrição expirou (404/410), removemos
         if (error.statusCode === 404 || error.statusCode === 410) {
           await env.DB.prepare("DELETE FROM push_subscriptions WHERE id = ?").bind(row.id).run();
         }
-        console.error('[Push] Erro ao enviar para inscrição:', row.id, error.message);
       }
     });
 
