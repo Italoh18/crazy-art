@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Check, Info, CheckCircle, AlertTriangle, XCircle, X, ShieldCheck } from 'lucide-react';
+import { Bell, Check, Info, CheckCircle, AlertTriangle, XCircle, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Notification as AppNotification } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -32,18 +32,6 @@ export const NotificationCenter = () => {
       setIsLoading(false);
     }
   };
-
-  // Sincroniza o Badge do App (no ícone) com notificações não lidas
-  useEffect(() => {
-    const unreadCount = notifications.filter(n => n.is_read === 0).length;
-    if ('setAppBadge' in navigator) {
-      if (unreadCount > 0) {
-        (navigator as any).setAppBadge(unreadCount).catch((e: any) => console.error('Badge error:', e));
-      } else {
-        (navigator as any).clearAppBadge().catch((e: any) => console.error('Badge error:', e));
-      }
-    }
-  }, [notifications]);
 
   // Poll de notificações a cada 120 segundos
   useEffect(() => {
