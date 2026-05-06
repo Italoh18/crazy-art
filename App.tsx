@@ -1,44 +1,46 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { DataProvider, useData } from './contexts/DataContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { Layout } from './components/Layout';
 import Home from './pages/Home';
-import Customers from './pages/Customers';
-import CustomerDetails from './pages/CustomerDetails';
-import Products from './pages/Products';
-import DRE from './pages/DRE';
-import Orders from './pages/Orders';
-import FontEditor from './pages/FontEditor'; // Nova Importação
-import Programs from './pages/Programs';
-import Shop from './pages/Shop';
-import CarouselManager from './pages/CarouselManager';
-import TrustedCompanies from './pages/TrustedCompanies'; 
-import LayoutBuilder from './pages/LayoutBuilder';
-import BackgroundRemover from './pages/BackgroundRemover';
-import PixelArt from './pages/PixelArt'; 
-import PdfToWord from './pages/PdfToWord';
-import EmailTemplates from './pages/EmailTemplates';
-import PendingOrders from './pages/PendingOrders';
-import Coupons from './pages/Coupons';
-import Identity from './pages/Identity';
-import ArtDrive from './pages/ArtDrive';
-import PrintCheck from './pages/PrintCheck';
-import TraceMagic from './pages/TraceMagic';
-import PowerTraceAlfa from './pages/PowerTraceAlfa';
-import CdrConverter from './pages/CdrConverter';
-import Feedbacks from './pages/Feedbacks';
-import PricingCalculator from './pages/PricingCalculator';
-import SmartEnlargement from './pages/SmartEnlargement';
-import Statement from './pages/Statement'; // Nova Importação
-import ClientOrders from './pages/ClientOrders'; // Nova Importação
-import LayoutSimples from './pages/LayoutSimples';
-import MontagemMolde from './pages/MontagemMolde';
-import MoldesManager from './pages/MoldesManager';
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
+
+// Lazy loading rotas secundárias e ferramentas pesadas
+const Customers = lazy(() => import('./pages/Customers'));
+const CustomerDetails = lazy(() => import('./pages/CustomerDetails'));
+const Products = lazy(() => import('./pages/Products'));
+const DRE = lazy(() => import('./pages/DRE'));
+const Orders = lazy(() => import('./pages/Orders'));
+const FontEditor = lazy(() => import('./pages/FontEditor'));
+const Programs = lazy(() => import('./pages/Programs'));
+const Shop = lazy(() => import('./pages/Shop'));
+const CarouselManager = lazy(() => import('./pages/CarouselManager'));
+const TrustedCompanies = lazy(() => import('./pages/TrustedCompanies')); 
+const LayoutBuilder = lazy(() => import('./pages/LayoutBuilder'));
+const BackgroundRemover = lazy(() => import('./pages/BackgroundRemover'));
+const PixelArt = lazy(() => import('./pages/PixelArt')); 
+const PdfToWord = lazy(() => import('./pages/PdfToWord'));
+const EmailTemplates = lazy(() => import('./pages/EmailTemplates'));
+const PendingOrders = lazy(() => import('./pages/PendingOrders'));
+const Coupons = lazy(() => import('./pages/Coupons'));
+const Identity = lazy(() => import('./pages/Identity'));
+const ArtDrive = lazy(() => import('./pages/ArtDrive'));
+const PrintCheck = lazy(() => import('./pages/PrintCheck'));
+const TraceMagic = lazy(() => import('./pages/TraceMagic'));
+const PowerTraceAlfa = lazy(() => import('./pages/PowerTraceAlfa'));
+const CdrConverter = lazy(() => import('./pages/CdrConverter'));
+const Feedbacks = lazy(() => import('./pages/Feedbacks'));
+const PricingCalculator = lazy(() => import('./pages/PricingCalculator'));
+const SmartEnlargement = lazy(() => import('./pages/SmartEnlargement'));
+const Statement = lazy(() => import('./pages/Statement'));
+const ClientOrders = lazy(() => import('./pages/ClientOrders'));
+const LayoutSimples = lazy(() => import('./pages/LayoutSimples'));
+const MontagemMolde = lazy(() => import('./pages/MontagemMolde'));
+const MoldesManager = lazy(() => import('./pages/MoldesManager'));
 
 const LoadingScreen = () => {
   const [messageIndex, setMessageIndex] = useState(0);
@@ -76,43 +78,51 @@ const LoadingScreen = () => {
   );
 };
 
+const RouteLoadingScreen = () => (
+  <div className="flex h-[50vh] w-full items-center justify-center">
+    <Loader2 className="animate-spin text-primary opacity-50" size={32} />
+  </div>
+);
+
 const AppRoutes = () => {
     return (
-        <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/shop" element={<Shop />} />
-            <Route path="/quitanda_de_art" element={<Shop />} />
-            <Route path="/tools" element={<Programs />} />
-            <Route path="/font-editor" element={<FontEditor />} /> {/* Nova Rota */}
-            <Route path="/layout-builder" element={<LayoutBuilder />} />
-            <Route path="/remove-bg" element={<BackgroundRemover />} />
-            <Route path="/pixel-art" element={<PixelArt />} />
-            <Route path="/pdf-to-word" element={<PdfToWord />} />
-            <Route path="/print-check" element={<PrintCheck />} />
-            <Route path="/trace-magic" element={<TraceMagic />} />
-            <Route path="/power-trace-alfa" element={<PowerTraceAlfa />} />
-            <Route path="/cdr-converter" element={<CdrConverter />} />
-            <Route path="/pricing-calculator" element={<PricingCalculator />} />
-            <Route path="/smart-enlargement" element={<SmartEnlargement />} />
-            <Route path="/layout-simples" element={<LayoutSimples />} />
-            <Route path="/montagem-molde" element={<MontagemMolde />} />
-            <Route path="/minha-area" element={<ClientRoute />} />
-            <Route path="/my-orders" element={<ClientOrdersRoute />} />
-            <Route path="/statement" element={<StatementRoute />} /> {/* Nova Rota */}
-            <Route path="/pending-confirmations" element={<ProtectedRoute requiredRole="admin"><PendingOrders /></ProtectedRoute>} />
-            <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><Orders /></ProtectedRoute>} />
-            <Route path="/customers" element={<ProtectedRoute requiredRole="admin"><Customers /></ProtectedRoute>} />
-            <Route path="/customers/:id" element={<ProtectedRoute requiredRole="admin"><CustomerDetails /></ProtectedRoute>} />
-            <Route path="/products" element={<ProtectedRoute requiredRole="admin"><Products /></ProtectedRoute>} />
-            <Route path="/coupons" element={<ProtectedRoute requiredRole="admin"><Coupons /></ProtectedRoute>} />
-            <Route path="/dre" element={<ProtectedRoute requiredRole="admin"><DRE /></ProtectedRoute>} />
-            <Route path="/carousel-manager" element={<ProtectedRoute requiredRole="admin"><CarouselManager /></ProtectedRoute>} />
-            <Route path="/trusted-companies" element={<ProtectedRoute requiredRole="admin"><TrustedCompanies /></ProtectedRoute>} />
-            <Route path="/email-templates" element={<ProtectedRoute requiredRole="admin"><EmailTemplates /></ProtectedRoute>} />
-            <Route path="/identity" element={<ProtectedRoute requiredRole="admin"><Identity /></ProtectedRoute>} />
-            <Route path="/moldes" element={<ProtectedRoute requiredRole="admin"><MoldesManager /></ProtectedRoute>} />
-            <Route path="/feedbacks" element={<ProtectedRoute requiredRole="admin"><Feedbacks /></ProtectedRoute>} />
-        </Routes>
+        <Suspense fallback={<RouteLoadingScreen />}>
+            <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/shop" element={<Shop />} />
+                <Route path="/quitanda_de_art" element={<Shop />} />
+                <Route path="/tools" element={<Programs />} />
+                <Route path="/font-editor" element={<FontEditor />} /> {/* Nova Rota */}
+                <Route path="/layout-builder" element={<LayoutBuilder />} />
+                <Route path="/remove-bg" element={<BackgroundRemover />} />
+                <Route path="/pixel-art" element={<PixelArt />} />
+                <Route path="/pdf-to-word" element={<PdfToWord />} />
+                <Route path="/print-check" element={<PrintCheck />} />
+                <Route path="/trace-magic" element={<TraceMagic />} />
+                <Route path="/power-trace-alfa" element={<PowerTraceAlfa />} />
+                <Route path="/cdr-converter" element={<CdrConverter />} />
+                <Route path="/pricing-calculator" element={<PricingCalculator />} />
+                <Route path="/smart-enlargement" element={<SmartEnlargement />} />
+                <Route path="/layout-simples" element={<LayoutSimples />} />
+                <Route path="/montagem-molde" element={<MontagemMolde />} />
+                <Route path="/minha-area" element={<ClientRoute />} />
+                <Route path="/my-orders" element={<ClientOrdersRoute />} />
+                <Route path="/statement" element={<StatementRoute />} /> {/* Nova Rota */}
+                <Route path="/pending-confirmations" element={<ProtectedRoute requiredRole="admin"><PendingOrders /></ProtectedRoute>} />
+                <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><Orders /></ProtectedRoute>} />
+                <Route path="/customers" element={<ProtectedRoute requiredRole="admin"><Customers /></ProtectedRoute>} />
+                <Route path="/customers/:id" element={<ProtectedRoute requiredRole="admin"><CustomerDetails /></ProtectedRoute>} />
+                <Route path="/products" element={<ProtectedRoute requiredRole="admin"><Products /></ProtectedRoute>} />
+                <Route path="/coupons" element={<ProtectedRoute requiredRole="admin"><Coupons /></ProtectedRoute>} />
+                <Route path="/dre" element={<ProtectedRoute requiredRole="admin"><DRE /></ProtectedRoute>} />
+                <Route path="/carousel-manager" element={<ProtectedRoute requiredRole="admin"><CarouselManager /></ProtectedRoute>} />
+                <Route path="/trusted-companies" element={<ProtectedRoute requiredRole="admin"><TrustedCompanies /></ProtectedRoute>} />
+                <Route path="/email-templates" element={<ProtectedRoute requiredRole="admin"><EmailTemplates /></ProtectedRoute>} />
+                <Route path="/identity" element={<ProtectedRoute requiredRole="admin"><Identity /></ProtectedRoute>} />
+                <Route path="/moldes" element={<ProtectedRoute requiredRole="admin"><MoldesManager /></ProtectedRoute>} />
+                <Route path="/feedbacks" element={<ProtectedRoute requiredRole="admin"><Feedbacks /></ProtectedRoute>} />
+            </Routes>
+        </Suspense>
     );
 }
 
