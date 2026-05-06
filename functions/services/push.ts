@@ -1,22 +1,58 @@
 
-import webpush from 'web-push';
+// Implementação de Web Push compatível com o ambiente Cloudflare Workers
+// Evita o módulo 'crypto' do Node.js que causa o erro "crypto.createECDH is not implemented yet"
 
-export async function sendPushNotification(env: any, userId: string, payload: { title: string, body: string, url?: string }) {
+async function signVapid(env: any, endpoint: string) {
   const publicKey = env.VAPID_PUBLIC_KEY;
   const privateKey = env.VAPID_PRIVATE_KEY;
+  const email = 'johnmedeirosh18@gmail.com';
+
+  const url = new URL(endpoint);
+  const audience = `${url.protocol}//${url.hostname}`;
   
-  if (!publicKey || !privateKey) {
-    console.warn('[Push] Chaves VAPID não configuradas no ambiente.');
-    return { count: 0, success: 0, failure: 0, error: 'Chaves não configuradas' };
-  }
+  const header = { alg: 'ES256', typ: 'JWT' };
+  const payload = {
+    aud: audience,
+    exp: Math.floor(Date.now() / 1000) + 12 * 60 * 60, // 12 horas
+    sub: `mailto:${email}`
+  };
+
+  const encode = (obj: any) => btoa(JSON.stringify(obj)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const tokenInput = `${encode(header)}.${encode(payload)}`;
 
   try {
-    webpush.setVapidDetails(
-      'mailto:johnmedeirosh18@gmail.com',
-      publicKey,
-      privateKey
+    // Importar a chave privada VAPID (formato PKCS8 base64-url)
+    const pemContents = privateKey.replace(/---.*---|\s/g, '');
+    const binaryDerString = atob(pemContents.replace(/-/g, '+').replace(/_/g, '/'));
+    const binaryDer = new Uint8Array(binaryDerString.length);
+    for (let i = 0; i < binaryDerString.length; i++) binaryDer[i] = binaryDerString.charCodeAt(i);
+
+    const key = await crypto.subtle.importKey(
+      'pkcs8',
+      binaryDer,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      false,
+      ['sign']
     );
 
+    const signature = await crypto.subtle.sign(
+      { name: 'ECDSA', hash: { name: 'SHA-256' } },
+      key,
+      new TextEncoder().encode(tokenInput)
+    );
+
+    const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+      .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+
+    return `${tokenInput}.${signatureBase64}`;
+  } catch (e) {
+    console.error('[VAPID] Erro ao assinar:', e);
+    return null;
+  }
+}
+
+export async function sendPushNotification(env: any, userId: string, payload: { title: string, body: string, url?: string }) {
+  try {
     const { results } = await env.DB.prepare(
       "SELECT id, subscription_json FROM push_subscriptions WHERE user_id = ?"
     ).bind(userId).all();
@@ -28,24 +64,44 @@ export async function sendPushNotification(env: any, userId: string, payload: { 
     let failureCount = 0;
     let lastError = '';
 
-    const pushPromises = results.map(async (row: any) => {
+    for (const row of results) {
       try {
         const subscription = JSON.parse(row.subscription_json);
-        await webpush.sendNotification(subscription, JSON.stringify(payload));
-        successCount++;
-      } catch (error: any) {
-        failureCount++;
-        lastError = `Status ${error.statusCode}: ${error.body || error.message}`;
-        if (error.statusCode === 404 || error.statusCode === 410) {
-          await env.DB.prepare("DELETE FROM push_subscriptions WHERE id = ?").bind(row.id).run();
-        }
-      }
-    });
+        const vapidToken = await signVapid(env, subscription.endpoint);
 
-    await Promise.allSettled(pushPromises);
+        if (!vapidToken) {
+          throw new Error('Falha ao gerar token VAPID');
+        }
+
+        const response = await fetch(subscription.endpoint, {
+          method: 'POST',
+          headers: {
+            'TTL': '60',
+            'Urgency': 'high',
+            'Authorization': `WebPush ${vapidToken}`,
+            'Crypto-Key': `p256ecdsa=${env.VAPID_PUBLIC_KEY}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok || response.status === 201) {
+          successCount++;
+        } else {
+          failureCount++;
+          const body = await response.text();
+          lastError = `Status ${response.status}: ${body}`;
+          if (response.status === 404 || response.status === 410) {
+            await env.DB.prepare("DELETE FROM push_subscriptions WHERE id = ?").bind(row.id).run();
+          }
+        }
+      } catch (err: any) {
+        failureCount++;
+        lastError = err.message;
+      }
+    }
+
     return { count, success: successCount, failure: failureCount, error: lastError };
   } catch (e: any) {
-    console.error('[Push] Erro geral:', e.message);
     return { count: 0, success: 0, failure: 0, error: e.message };
   }
 }
