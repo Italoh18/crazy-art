@@ -12,10 +12,13 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: 'autoUpdate',
+        injectRegister: 'inline',
         manifestFilename: 'manifest.json',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icons/*.png', 'icons/*.svg'],
+        includeAssets: ['favicon.ico', 'icons/*.png', 'icons/*.svg'],
         workbox: {
-          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
+          skipWaiting: true,
+          clientsClaim: true,
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         },
         manifest: {
@@ -31,12 +34,8 @@ export default defineConfig(({ mode }) => {
             {
               src: 'icons/icon-192.png',
               sizes: '192x192',
-              type: 'image/png'
-            },
-            {
-              src: 'icons/icon-512.png',
-              sizes: '512x512',
-              type: 'image/png'
+              type: 'image/png',
+              purpose: 'any maskable'
             },
             {
               src: 'icons/icon-512.png',
