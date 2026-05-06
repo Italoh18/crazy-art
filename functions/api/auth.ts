@@ -47,7 +47,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     
     if (adminSetting && code === adminSetting.value) {
       await recordAttempt(true);
-      const token = await createJWT({ role: 'admin' }, env.JWT_SECRET);
+      const token = await createJWT({ role: 'admin', userId: 'admin' }, env.JWT_SECRET);
       return Response.json({ token, role: 'admin' });
     }
     

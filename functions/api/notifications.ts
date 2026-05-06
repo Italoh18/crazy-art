@@ -277,7 +277,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           return new Response(JSON.stringify({ error: 'Inscrição ou Endpoint inválido' }), { status: 400 });
         }
 
-        const userId = user.clientId || user.userId;
+        const userId = user.clientId || user.userId || (user.role === 'admin' ? 'admin' : null);
         if (!userId) {
           return new Response(JSON.stringify({ error: 'Usuário sem ID válido para vinculação' }), { status: 400 });
         }
