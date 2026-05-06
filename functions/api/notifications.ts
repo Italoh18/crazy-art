@@ -20,6 +20,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
 
+    // --- GET: Retornar Chave Pública VAPID ---
+    if (request.method === 'GET' && url.pathname.endsWith('/vapid-key')) {
+      if (!env.VAPID_PUBLIC_KEY) {
+        console.error('[Push] Erro: VAPID_PUBLIC_KEY não definida nas variáveis de ambiente do Cloudflare.');
+      }
+      return Response.json({ publicKey: env.VAPID_PUBLIC_KEY });
+    }
+
     // --- GET: Listar Notificações ---
     if (request.method === 'GET') {
       

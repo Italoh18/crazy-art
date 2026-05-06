@@ -77,20 +77,34 @@ export const NotificationCenter = () => {
 
   const subscribeToPush = async () => {
     try {
+      setPushStatus('loading');
+      console.log('[Push] Iniciando processo de inscrição...');
+
+      // 1. Pedir permissão
       const permission = await Notification.requestPermission();
+      console.log('[Push] Permissão:', permission);
       if (permission !== 'granted') {
+          setPushStatus(permission === 'denied' ? 'blocked' : 'idle');
           alert('Você precisa permitir notificações para receber alertas no celular.');
           return;
       }
 
-      const registration = await navigator.serviceWorker.ready;
+      // 2. Buscar Chave VAPID do Backend (Garante que a chave correta seja usada)
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+      const keyRes = await fetch('/api/notifications/vapid-key', {
+          headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const { publicKey: vapidPublicKey } = await keyRes.json();
       
-      const vapidPublicKey = (import.meta as any).env.VITE_VAPID_PUBLIC_KEY;
       if (!vapidPublicKey) {
-          console.error('VITE_VAPID_PUBLIC_KEY não configurada');
-          return;
+          throw new Error('Chave VAPID não encontrada no servidor');
       }
 
+      console.log('[Push] Chave VAPID obtida com sucesso');
+
+      // 3. Preparar Service Worker
+      const registration = await navigator.serviceWorker.ready;
+      
       // Converte base64 para Uint8Array
       const padding = '='.repeat((4 - vapidPublicKey.length % 4) % 4);
       const base64 = (vapidPublicKey + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -100,14 +114,15 @@ export const NotificationCenter = () => {
           outputArray[i] = rawData.charCodeAt(i);
       }
 
+      // 4. Se inscrever no PushManager
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: outputArray
       });
 
-      console.log('Push Subscription criada:', JSON.stringify(subscription));
+      console.log('[Push] Inscrição criada no navegador');
 
-      const token = localStorage.getItem('auth_token');
+      // 5. Salvar no Banco de Dados
       const res = await fetch('/api/notifications', {
         method: 'POST',
         headers: { 
@@ -124,8 +139,9 @@ export const NotificationCenter = () => {
         throw new Error('Falha ao salvar assinatura no servidor');
       }
     } catch (e) {
-      console.error('Falha ao assinar push:', e);
-      alert('Erro ao ativar notificações. Certifique-se de que o app está instalado e as chaves VAPID estão corretas.');
+      console.error('[Push] Erro crítico:', e);
+      setPushStatus('idle');
+      alert('Erro ao ativar notificações. Certifique-se de que o app está instalado e recarregue a página.');
     }
   };
 
@@ -252,10 +268,12 @@ export const NotificationCenter = () => {
                                 ? 'bg-emerald-500/20 text-emerald-500 cursor-default uppercase' 
                                 : pushStatus === 'blocked'
                                 ? 'bg-red-500/20 text-red-500 cursor-not-allowed opacity-50 uppercase'
+                                : pushStatus === 'loading'
+                                ? 'bg-zinc-500/20 text-zinc-500 cursor-wait animate-pulse uppercase'
                                 : 'bg-primary/20 hover:bg-primary text-primary hover:text-white uppercase'
                             }`}
                         >
-                            {pushStatus === 'subscribed' ? 'Ativado' : pushStatus === 'blocked' ? 'Bloqueado' : 'Ativar'}
+                            {pushStatus === 'subscribed' ? 'Ativado' : pushStatus === 'blocked' ? 'Bloqueado' : pushStatus === 'loading' ? 'Aguarde...' : 'Ativar'}
                         </button>
                     </div>
                 )}
