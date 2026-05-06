@@ -26,7 +26,9 @@ if ('serviceWorker' in navigator) {
   });
 
   window.addEventListener('beforeinstallprompt', (e) => {
+    alert("INSTALL PROMPT FIRED");
     console.log('PWA Audit: beforeinstallprompt FIRED. App is installable.');
+    console.log("beforeinstallprompt event:", e);
   });
 }
 
