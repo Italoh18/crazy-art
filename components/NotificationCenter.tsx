@@ -290,6 +290,27 @@ export const NotificationCenter = () => {
                     </div>
                 )}
 
+                {role === 'admin' && pushStatus === 'subscribed' && (
+                    <div className="p-3 bg-zinc-900/50 border-b border-zinc-800">
+                        <button 
+                            onClick={async () => {
+                                try {
+                                    const token = localStorage.getItem('auth_token');
+                                    const res = await fetch('/api/notifications?testPush=true', {
+                                        method: 'POST',
+                                        headers: { 'Authorization': `Bearer ${token}` }
+                                    });
+                                    if(res.ok) alert('Teste enviado! Verifique sua aba de notificações.');
+                                    else alert('Falha ao enviar teste.');
+                                } catch (e) { alert('Erro no teste'); }
+                            }}
+                            className="w-full py-1 text-[9px] font-bold text-zinc-500 hover:text-white border border-zinc-800 hover:border-zinc-700 rounded transition-all uppercase"
+                        >
+                            Testar Notificação
+                        </button>
+                    </div>
+                )}
+
                 {notifications.length === 0 ? (
                     <div className="py-12 text-center text-zinc-600 flex flex-col items-center">
                         <Bell size={32} className="opacity-20 mb-2" />

@@ -23,7 +23,12 @@ export async function sendPushNotification(env: any, userId: string, payload: { 
       "SELECT id, subscription_json FROM push_subscriptions WHERE user_id = ?"
     ).bind(userId).all();
 
-    if (!results || results.length === 0) return;
+    console.log(`[Push] Enviando para usuário ${userId}. Encontradas ${results?.length || 0} inscrições.`);
+
+    if (!results || results.length === 0) {
+        console.warn(`[Push] Nenhuma inscrição encontrada para o usuário: ${userId}`);
+        return;
+    }
 
     const pushPromises = results.map(async (row: any) => {
       try {
@@ -47,14 +52,23 @@ export async function sendPushNotification(env: any, userId: string, payload: { 
 // Helper para notificar todos os admins
 export async function notifyAdminsPush(env: any, payload: { title: string, body: string, url?: string }) {
     try {
+        // Busca administradores na tabela de usuários
         const { results: admins } = await env.DB.prepare(
             "SELECT id FROM users WHERE role = 'admin'"
         ).all();
 
-        if (!admins) return;
+        const adminIds = new Set<string>();
+        if (admins) {
+            admins.forEach((a: any) => adminIds.add(a.id));
+        }
+        
+        // Sempre incluir o ID fixo 'admin' (usado pelo login de código)
+        adminIds.add('admin');
 
-        for (const admin of admins) {
-            await sendPushNotification(env, admin.id, payload);
+        console.log(`[Push] Notificando ${adminIds.size} possíveis administradores:`, Array.from(adminIds));
+
+        for (const adminId of adminIds) {
+            await sendPushNotification(env, adminId, payload);
         }
     } catch (e) {
         console.error('[Push] Erro ao notificar admins:', e);

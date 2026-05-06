@@ -1,6 +1,6 @@
 
 import { sendEmail, getAdminEmail, getRenderedTemplate } from '../services/email';
-import { sendPushNotification } from '../services/push';
+import { sendPushNotification, notifyAdminsPush } from '../services/push';
 
 export interface Env {
   DB: any;
@@ -117,18 +117,11 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             ).run();
 
             // PUSH ADMIN
-            try {
-                const { results: admins } = await env.DB.prepare("SELECT id FROM users WHERE role = 'admin'").all();
-                if (admins) {
-                    for (const admin of admins) {
-                        await sendPushNotification(env, admin.id, { 
-                            title: `Pagamento: ${label}`, 
-                            body: adminPushMsg, 
-                            url: '/orders' 
-                        });
-                    }
-                }
-            } catch (pErr) { console.error(pErr); }
+            await notifyAdminsPush(env, { 
+                title: `Pagamento: ${label}`, 
+                body: adminPushMsg, 
+                url: '/orders' 
+            });
 
             // Notificação Cliente
             const clientPushMsg = `Sua solicitação de ${label.toLowerCase()} foi paga com sucesso e já está em nossa fila de produção.`;
@@ -283,18 +276,11 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             ).run();
 
             // PUSH ADMIN
-            try {
-                const { results: admins } = await env.DB.prepare("SELECT id FROM users WHERE role = 'admin'").all();
-                if (admins) {
-                    for (const admin of admins) {
-                        await sendPushNotification(env, admin.id, { 
-                            title: 'Pagamento Recebido', 
-                            body: adminNotifMsg, 
-                            url: '/orders' 
-                        });
-                    }
-                }
-            } catch (pErr) { console.error(pErr); }
+            await notifyAdminsPush(env, { 
+                title: 'Pagamento Recebido', 
+                body: adminNotifMsg, 
+                url: '/orders' 
+            });
 
             // EMAIL ADMIN
             const emailAdmin = await getRenderedTemplate(env, 'paymentConfirmedAdmin', {

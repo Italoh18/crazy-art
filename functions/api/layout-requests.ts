@@ -1,7 +1,7 @@
 
 import { Env, getAuth } from './_auth';
 import { sendEmail, getAdminEmail } from '../services/email';
-import { sendPushNotification } from '../services/push';
+import { sendPushNotification, notifyAdminsPush } from '../services/push';
 
 interface LayoutEnv extends Env {
     MP_ACCESS_TOKEN: string;
@@ -109,18 +109,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       `).bind(crypto.randomUUID(), notificationTitle, notificationMessage, now, requestId).run();
 
       // PUSH ADMIN (Layout)
-      try {
-        const { results: admins } = await env.DB.prepare("SELECT id FROM users WHERE role = 'admin'").all();
-        if (admins) {
-            for (const admin of admins) {
-                await sendPushNotification(env, admin.id, {
-                    title: notificationTitle,
-                    body: notificationMessage,
-                    url: '/orders'
-                });
-            }
-        }
-      } catch (pErr) { console.error(pErr); }
+      await notifyAdminsPush(env, {
+          title: notificationTitle,
+          body: notificationMessage,
+          url: '/orders'
+      });
 
       // Enviar E-mail se for crédito (pago online será enviado via webhook quando aprovado)
       if (paymentMethod === 'credit') {

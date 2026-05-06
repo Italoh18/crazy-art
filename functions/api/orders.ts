@@ -1,7 +1,7 @@
 
 import { Env, getAuth } from './_auth';
 import { sendEmail, getAdminEmail, getRenderedTemplate } from '../services/email';
-import { sendPushNotification } from '../services/push';
+import { sendPushNotification, notifyAdminsPush } from '../services/push';
 
 export const onRequest: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
@@ -188,21 +188,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             .bind(calculatedTotal - discount, calculatedCost, newId).run();
 
         // PUSH ADMIN (Novo Pedido)
-        try {
-            const { results: admins } = await env.DB.prepare("SELECT id FROM users WHERE role = 'admin'").all();
-            if (admins) {
-                const adminMsg = `Novo pedido #${formattedOrder} recebido!`;
-                for (const admin of admins) {
-                    await sendPushNotification(env, admin.id, {
-                        title: 'Novo Pedido',
-                        body: adminMsg,
-                        url: '/orders'
-                    });
-                }
-            }
-        } catch (e) {
-            console.error('[Push Admin] Erro ao notificar novo pedido:', e);
-        }
+        await notifyAdminsPush(env, {
+            title: 'Novo Pedido',
+            body: `Novo pedido #${formattedOrder} recebido!`,
+            url: '/orders'
+        });
       }
 
       return Response.json({ 

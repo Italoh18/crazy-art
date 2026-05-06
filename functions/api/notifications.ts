@@ -1,7 +1,7 @@
 
 import { Env, getAuth } from './_auth';
 import { sendEmail, getAdminEmail, getRenderedTemplate } from '../services/email';
-import { sendPushNotification } from '../services/push';
+import { sendPushNotification, notifyAdminsPush } from '../services/push';
 
 export const onRequest: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
@@ -107,20 +107,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                   ).bind(notifId, adminMessage, createdAt, refId).run();
 
                   // PUSH ADMIN
-                  try {
-                      const { results: admins } = await env.DB.prepare("SELECT id FROM users WHERE role = 'admin'").all();
-                      if (admins) {
-                          for (const admin of admins) {
-                              await sendPushNotification(env, admin.id, { 
-                                  title: 'Pedido em Atraso', 
-                                  body: adminMessage, 
-                                  url: '/orders' 
-                              });
-                          }
-                      }
-                  } catch (pushErr) {
-                      console.error('[Push Admin] Erro:', pushErr);
-                  }
+                  await notifyAdminsPush(env, { 
+                      title: 'Pedido em Atraso', 
+                      body: adminMessage, 
+                      url: '/orders' 
+                  });
 
                   const emailAdmin = await getRenderedTemplate(env, 'overdueAdmin', vars);
                   await sendEmail(env, {
@@ -267,8 +258,19 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       }
     }
 
-    // --- POST: Salvar Inscrição Push ---
+    // --- POST: Salvar Inscrição ou Enviar Teste ---
     if (request.method === 'POST') {
+      // Caso de teste de push para o próprio admin
+      if (url.searchParams.get('testPush') === 'true') {
+          const userId = user.clientId || user.userId || (user.role === 'admin' ? 'admin' : null);
+          await sendPushNotification(env, userId!, {
+              title: 'Teste de Notificação',
+              body: 'Se você está vendo isso, as notificações push estão funcionando!',
+              url: '/orders'
+          });
+          return Response.json({ success: true });
+      }
+
       try {
         const body: any = await request.json();
         const { subscription } = body;
