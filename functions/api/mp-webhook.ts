@@ -49,10 +49,15 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
           `).bind(requestId).first();
           
           // Se for uma solicitação de layout e ainda não confirmamos pagamento
-          if (order && order.payment_status !== 'paid') {
-            await env.DB.prepare(
-              "UPDATE orders SET payment_status = 'paid', status = 'open', paid_at = ?, payment_method = 'mercadopago' WHERE id = ?"
+          if (order) {
+            const { meta } = await env.DB.prepare(
+              "UPDATE orders SET payment_status = 'paid', status = 'open', paid_at = ?, payment_method = 'mercadopago' WHERE id = ? AND payment_status != 'paid'"
             ).bind(nowTs, requestId).run();
+
+            // Se o update não alterou nada, significa que já foi pago/processado por outra chamada
+            if (meta.changes === 0) {
+                return new Response('OK', { status: 200 });
+            }
 
             const isMolde = order.source === 'montagem_molde';
             const label = isMolde ? 'Montagem de Molde' : 'Layout Simples';
@@ -210,7 +215,6 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             // 2. Lógica de Crédito Dinâmico
             const now = new Date();
             const dueDate = new Date(orderInfo.due_date);
-            // Zera as horas para comparar apenas datas
             now.setHours(0,0,0,0);
             dueDate.setHours(0,0,0,0);
 
@@ -224,13 +228,10 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             let penaltyApplied = 0;
 
             if (diffDays <= 0) {
-                // REGRA 1: Pagamento em dia ou adiantado -> Aumenta metade do valor do pedido
                 newLimit = newLimit + (orderTotal / 2);
                 creditMessage = `Pagamento pontual! Seu limite de crédito aumentou em R$ ${(orderTotal/2).toFixed(2)}.`;
                 bonusApplied = 1;
             } else if (diffDays > 15) {
-                // REGRA 2: Pagamento com atraso superior a 15 dias -> Diminui metade do valor do pedido (se ainda não penalizado)
-                // Buscamos se já foi penalizado antes
                 const alreadyPenalty: any = await env.DB.prepare("SELECT credit_penalty_applied FROM orders WHERE id = ?").bind(orderId).first();
                 if (!alreadyPenalty?.credit_penalty_applied) {
                     newLimit = Math.max(0, newLimit - (orderTotal / 2));
@@ -240,15 +241,10 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                     creditMessage = "Pagamento recebido (penalidade de atraso já havia sido aplicada).";
                 }
             } else {
-                // Entre 1 e 15 dias de atraso: Mantém o crédito
                 creditMessage = "Pagamento recebido.";
             }
 
-            // Atualiza o limite do cliente
-            await env.DB.prepare("UPDATE clients SET creditLimit = ? WHERE id = ?")
-                .bind(newLimit, orderInfo.client_id).run();
-
-            // 3. Atualiza Pedido para Pago
+            // 3. Atualiza Pedido para Pago ATOMICAMENTE
             // Verifica se possui produtos para mover para produção automaticamente
             const { results: items } = await env.DB.prepare(`
                 SELECT type FROM order_items WHERE order_id = ?
@@ -257,8 +253,18 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             const hasProducts = (items || []).some((i: any) => i.type === 'product');
             const newStatus = hasProducts ? 'production' : 'paid';
 
-            await env.DB.prepare("UPDATE orders SET status = ?, paid_at = ?, payment_method = 'mercadopago', credit_bonus_applied = ?, credit_penalty_applied = ? WHERE id = ?")
+            const { meta } = await env.DB.prepare("UPDATE orders SET status = ?, paid_at = ?, payment_method = 'mercadopago', credit_bonus_applied = ?, credit_penalty_applied = ? WHERE id = ? AND paid_at IS NULL")
                 .bind(newStatus, nowTs, bonusApplied, penaltyApplied || (diffDays > 15 ? 1 : 0), orderId).run();
+            
+            // Se o update não alterou nada, significa que já foi processado
+            if (meta.changes === 0) {
+                console.log(`[Webhook] Pedido ${orderId} já processado simultaneamente por outra instância.`);
+                continue;
+            }
+
+            // 4. Atualiza o limite do cliente agora que temos certeza que fomos nós que processamos o pagamento
+            await env.DB.prepare("UPDATE clients SET creditLimit = ? WHERE id = ?")
+                .bind(newLimit, orderInfo.client_id).run();
             
             const formattedNum = String(orderInfo.order_number).padStart(5, '0');
                 

@@ -125,15 +125,23 @@ export async function sendPushNotification(env: any, userId: string, payload: { 
 
 export async function notifyAdminsPush(env: any, payload: { title: string, body: string, url?: string }) {
     try {
-        const { results: admins } = await env.DB.prepare(
-            "SELECT id FROM users WHERE role = 'admin'"
-        ).all();
-        
         const adminIds = new Set<string>();
-        if (admins) {
-            admins.forEach((a: any) => adminIds.add(a.id));
-        }
+        
+        // O administrador padrão sempre usa o ID 'admin'
         adminIds.add('admin');
+
+        // Se houver futuramente uma tabela de usuários admins, ela poderia ser consultada aqui com try/catch
+        try {
+            const { results: admins } = await env.DB.prepare(
+                "SELECT id FROM clients WHERE role = 'admin' OR is_verified = -1" 
+            ).all().catch(() => ({ results: [] })); // Fallback seguro se não houver coluna role
+            
+            if (admins) {
+                admins.forEach((a: any) => adminIds.add(a.id));
+            }
+        } catch (e) {
+            // Ignora erro de tabela/coluna inexistente
+        }
 
         // Enviar para todos os admins em paralelo
         const pushPromises = Array.from(adminIds).map(adminId => 

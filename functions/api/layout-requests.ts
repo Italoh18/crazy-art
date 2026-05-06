@@ -261,7 +261,7 @@ async function notifyAdmin(env: any, data: any) {
 
     await sendEmail(env, {
         to: adminEmail,
-        subject: `[Layout Simples] Novo Pedido - ${data.clientName}`,
+        subject: `[${label}] Novo Pedido - ${data.clientName}`,
         html
     });
 }

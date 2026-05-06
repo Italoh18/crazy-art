@@ -57,11 +57,27 @@ export const NotificationCenter = () => {
     }
   };
 
-  // Poll de notificações a cada 15 segundos
+  // Poll de notificações e visibilidade
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 15000);
-    return () => clearInterval(interval);
+    
+    // Busca ao focar na janela ou mudar visibilidade
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    };
+
+    window.addEventListener('focus', fetchNotifications);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const interval = setInterval(fetchNotifications, 10000); // Reduzido para 10 segundos
+    
+    return () => {
+      window.removeEventListener('focus', fetchNotifications);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
+    };
   }, []);
 
   // Fechar dropdown ao clicar fora
