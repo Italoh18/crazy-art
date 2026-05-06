@@ -71,12 +71,11 @@ CREATE TABLE orders (
 - **Domínio:** crazyart.com.br
 
 ## Estrutura de Pastas Importante
-- `/public`: Arquivos estáticos que devem ser servidos na raiz (ex: `sw.js`, `manifest.json`, `_redirects`).
+- `/public`: Arquivos estáticos que devem ser servidos na raiz (ex: `_redirects`).
 - `/functions`: Cloudflare Pages Functions (backend serverless).
 - `/src`: Código fonte React.
 
 ## Notas de Manutenção
-- **Service Worker:** O arquivo `sw.js` deve residir em `/public` para ser copiado corretamente para a raiz do build (`dist/`) pelo Vite.
 - **Roteamento:** O arquivo `public/_redirects` é essencial para o roteamento SPA no Cloudflare Pages (redirecionar tudo para `index.html`).
 - **Ícones:** Sempre verifique se os ícones usados (lucide-react) estão importados corretamente.
 

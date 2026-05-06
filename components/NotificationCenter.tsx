@@ -9,8 +9,6 @@ export const NotificationCenter = () => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isPushSupported, setIsPushSupported] = useState(false);
-  const [isSubscribed, setIsSubscribed] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { role } = useAuth();
@@ -47,193 +45,12 @@ export const NotificationCenter = () => {
     }
   }, [notifications]);
 
-  // Poll de notificações a cada 30 segundos
+  // Poll de notificações a cada 120 segundos
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 120000);
-    
-    // Verificar suporte a Push
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      setIsPushSupported(true);
-      checkSubscription();
-    }
-    
     return () => clearInterval(interval);
   }, []);
-
-  const checkSubscription = async () => {
-    try {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        setIsPushSupported(false);
-        return;
-      }
-      
-      const sw = await navigator.serviceWorker.ready;
-      if (!sw) {
-        setIsPushSupported(false);
-        return;
-      }
-
-      const sub = await sw.pushManager.getSubscription();
-      setIsSubscribed(!!sub);
-      setIsPushSupported(true);
-    } catch (e) {
-      console.error("Erro ao verificar inscrição", e);
-      setIsPushSupported(false);
-    }
-  };
-
-  const urlBase64ToUint8Array = (base64String: string) => {
-    try {
-      const padding = '='.repeat((4 - base64String.length % 4) % 4);
-      const base64 = (base64String + padding)
-        .replace(/\-/g, '+')
-        .replace(/_/g, '/');
-
-      const rawData = window.atob(base64);
-      const outputArray = new Uint8Array(rawData.length);
-
-      for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
-      }
-      return outputArray;
-    } catch (e) {
-      console.error("Erro na conversão Base64 para Uint8Array:", e);
-      throw new Error("Chave de segurança inválida.");
-    }
-  };
-
-  const subscribeUser = async () => {
-    console.log("Iniciando processo de subscrição...");
-    try {
-      // 1. Verificar suporte básico
-      if (!('Notification' in window)) {
-        alert("Este navegador não suporta notificações de desktop.");
-        return;
-      }
-
-      console.log("Permissão atual:", window.Notification.permission);
-
-      // 2. Solicitar permissão
-      const permission = await window.Notification.requestPermission();
-      console.log("Nova permissão:", permission);
-      
-      if (permission === 'denied') {
-        alert("As notificações foram bloqueadas. Você precisa permitir o acesso clicando no ícone de cadeado ao lado da URL do site.");
-        return;
-      }
-
-      if (permission !== 'granted') {
-        console.log("Permissão não concedida pelo usuário.");
-        return;
-      }
-
-      // 3. Garantir Service Worker pronto
-      console.log("Aguardando Service Worker...");
-      let registration = await navigator.serviceWorker.getRegistration();
-      
-      if (!registration) {
-        console.log("Registration não encontrada, tentando registrar manualmente...");
-        registration = await navigator.serviceWorker.register('/sw.js');
-      }
-
-      // Esperar o SW estar ativo se necessário
-      if (!registration.active) {
-        console.log("SW não está ativo, aguardando...");
-        await new Promise((resolve) => {
-          const check = () => {
-            if (registration?.active) resolve(true);
-            else setTimeout(check, 100);
-          };
-          check();
-        });
-      }
-
-      if (!registration.pushManager) {
-        alert("Seu navegador suporta notificações, mas o gerenciador de push não está disponível.");
-        return;
-      }
-      
-      // 4. Buscar chave VAPID
-      console.log("Buscando chave VAPID...");
-      const response = await fetch('/api/push');
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Falha ao obter chave do servidor");
-      }
-
-      const { publicKey } = data;
-      if (!publicKey) throw new Error("Chave pública não encontrada no servidor.");
-
-      console.log("Subscrevendo ao Push...");
-      // 5. Subscrever
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey)
-      });
-
-      console.log("Subscrição obtida:", subscription.endpoint);
-
-      // 6. Sincronizar com o servidor
-      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-      const saveResponse = await fetch('/api/push', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ subscription })
-      });
-
-      if (!saveResponse.ok) {
-        const errText = await saveResponse.text();
-        throw new Error("Erro ao salvar no servidor: " + errText);
-      }
-
-      setIsSubscribed(true);
-      alert("Notificações ativadas com sucesso!");
-    } catch (e: any) {
-      console.error("Erro detalhado ao se inscrever:", e);
-      
-      // Ajuste para dispositivos móveis (especialmente iOS)
-      if (e.message?.includes('Registration failed') || e.name === 'InvalidStateError') {
-        alert("Erro de registro. Se estiver no iPhone, você DEVE 'Adicionar à Tela de Início' antes de ativar as notificações.");
-      } else if (e.name === 'NotAllowedError') {
-        alert("A permissão foi negada. Verifique as configurações do seu navegador.");
-      } else {
-        alert("Falha ao ativar: " + (e.message || "Verifique sua conexão HTTPS."));
-      }
-    }
-  };
-
-  const unsubscribeUser = async () => {
-    try {
-      const sw = await navigator.serviceWorker.ready;
-      const sub = await sw.pushManager.getSubscription();
-      if (sub) {
-        await sub.unsubscribe();
-        
-        // Remove from server
-        await fetch('/api/push', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ endpoint: sub.endpoint })
-        });
-      }
-      setIsSubscribed(false);
-    } catch (e) {
-      console.error("Falha ao cancelar inscrição", e);
-    }
-  };
-
-  const togglePush = () => {
-    if (isSubscribed) {
-      unsubscribeUser();
-    } else {
-      subscribeUser();
-    }
-  };
 
   // Fechar dropdown ao clicar fora
   useEffect(() => {
@@ -347,51 +164,6 @@ export const NotificationCenter = () => {
             </div>
 
             <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                {isPushSupported && !isSubscribed && (
-                    <div className="p-4 bg-primary/10 border-b border-primary/20 animate-pulse-slow">
-                        <div className="flex items-start gap-3">
-                             <div className="w-10 h-10 rounded-xl bg-primary/20 text-primary flex items-center justify-center shrink-0">
-                                <ShieldCheck size={20} />
-                             </div>
-                             <div className="flex-1">
-                                <p className="text-xs font-black text-white uppercase tracking-tight">Ativar Notificações?</p>
-                                <p className="text-[10px] text-zinc-400 mt-1 leading-relaxed">
-                                    Receba alertas em tempo real sobre seus pedidos e novidades diretamente no celular.
-                                </p>
-                                <div className="flex gap-2 mt-3">
-                                    <button 
-                                        onClick={subscribeUser}
-                                        className="bg-primary text-black px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg"
-                                    >
-                                        Sim, Ativar
-                                    </button>
-                                    <button 
-                                        onClick={() => setIsPushSupported(false)}
-                                        className="text-zinc-500 hover:text-white px-2 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
-                                    >
-                                        Agora não
-                                    </button>
-                                </div>
-                             </div>
-                        </div>
-                    </div>
-                )}
-
-                {isPushSupported && isSubscribed && (
-                    <div className="px-4 py-2 bg-emerald-500/5 border-b border-emerald-500/10 flex items-center justify-between">
-                         <div className="flex items-center gap-2">
-                             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                             <span className="text-[9px] font-bold text-emerald-500/80 uppercase tracking-widest">Push Ativado</span>
-                         </div>
-                         <button 
-                            onClick={unsubscribeUser}
-                            className="text-[9px] text-zinc-600 hover:text-zinc-400 font-bold uppercase tracking-widest transition-colors"
-                         >
-                            Desativar
-                         </button>
-                    </div>
-                )}
-
                 {notifications.length === 0 ? (
                     <div className="py-12 text-center text-zinc-600 flex flex-col items-center">
                         <Bell size={32} className="opacity-20 mb-2" />

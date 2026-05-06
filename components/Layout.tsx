@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid, TrendingUp, ShoppingCart, Layers, Scissors, Smartphone } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid, TrendingUp, ShoppingCart, Layers, Scissors } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { useData } from '../contexts/DataContext';
@@ -17,8 +17,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
   const [isClientMenuOpen, setIsClientMenuOpen] = React.useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [showInstallButton, setShowInstallButton] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -79,44 +77,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     </div>
   );
 
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setShowInstallButton(true);
-    };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    // Verificar se já está instalado
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
-    
-    if (isStandalone) {
-      setShowInstallButton(false);
-    } else {
-      // No iOS, o evento beforeinstallprompt não dispara, mas queremos mostrar o botão
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-      if (isIOS || !('beforeinstallprompt' in window)) {
-        setShowInstallButton(true);
-      }
-    }
-
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-  }, []);
-
-  const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setShowInstallButton(false);
-      }
-      setDeferredPrompt(null);
-    } else {
-      // Caso seja iOS ou navegador sem suporte a prompt automático
-      alert("Para instalar:\n1. Clique no ícone de 'Compartilhar' (seta para cima);\n2. Role para baixo e selecione 'Adicionar à Tela de Início'.");
-    }
-  };
 
   const Footer = () => (
     <footer className="glass-panel border-t-0 border-t-zinc-800/30 py-8 px-6 mt-auto w-full z-10 relative z-20 seasonal-target backdrop-blur-xl">
@@ -143,17 +104,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                 <item.icon size={20} />
               </a>
             ))}
-
-            {showInstallButton && (
-              <button 
-                onClick={handleInstallClick}
-                className="text-primary hover:text-white transition-all hover:scale-110 hover:shadow-glow p-2.5 rounded-full hover:bg-white/10 flex items-center gap-2 animate-bounce"
-                title="Instalar Aplicativo"
-              >
-                <Smartphone size={20} />
-                <span className="text-[10px] font-bold uppercase hidden sm:inline">Instalar App</span>
-              </button>
-            )}
           </div>
         </div>
         <div className="flex flex-col items-center md:items-end opacity-60">

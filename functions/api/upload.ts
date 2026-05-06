@@ -77,6 +77,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     await env.MY_BUCKET.put(filePath, arrayBuffer, {
       httpMetadata: {
         contentType: file.type,
+        contentDisposition: `attachment; filename="${cleanFileName}"`,
       }
     });
 
