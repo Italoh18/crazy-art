@@ -421,6 +421,59 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       }
   };
 
+  // Efeito para atualizar manifest e favicon dinamicamente baseado nas configurações de Identidade
+  useEffect(() => {
+    if (!faviconUrl) return;
+
+    // 1. Atualizar Favicon da Aba
+    const faviconLink = document.getElementById('favicon-link') as HTMLLinkElement;
+    if (faviconLink) faviconLink.href = faviconUrl;
+
+    // 2. Atualizar Apple Touch Icon
+    const appleIcon = document.getElementById('apple-touch-icon') as HTMLLinkElement;
+    if (appleIcon) appleIcon.href = faviconUrl;
+
+    // 3. Gerar e Atualizar Manifest dinâmico
+    const manifest = {
+      name: "Crazy Art",
+      short_name: "Crazy Art",
+      description: "Comunicação Visual & Design para Estamparia",
+      start_url: "/",
+      display: "standalone",
+      background_color: "#09090b",
+      theme_color: "#09090b",
+      icons: [
+        {
+          src: faviconUrl,
+          sizes: "192x192 512x512",
+          type: "image/png", // O navegador costuma ser flexível aqui, mas PNG é o mais comum
+          purpose: "any maskable"
+        }
+      ]
+    };
+
+    const stringManifest = JSON.stringify(manifest);
+    const blob = new Blob([stringManifest], {type: 'application/json'});
+    const manifestURL = URL.createObjectURL(blob);
+    
+    const manifestLink = document.getElementById('manifest-link') as HTMLLinkElement;
+    if (manifestLink) {
+      const oldUrl = manifestLink.href;
+      manifestLink.href = manifestURL;
+      
+      // Cleanup do URL antigo se for um blob
+      if (oldUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(oldUrl);
+      }
+    }
+
+    return () => {
+      if (manifestURL.startsWith('blob:')) {
+        URL.revokeObjectURL(manifestURL);
+      }
+    };
+  }, [faviconUrl]);
+
   const updateMockupBase = async (url: string) => {
       try {
           await api.updateSetting('mockup_base_url', url);
