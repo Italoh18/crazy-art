@@ -18,8 +18,10 @@ export default defineConfig(({ mode }) => {
         workbox: {
           skipWaiting: true,
           clientsClaim: true,
-          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+          maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // Increase to 10MB to cover main bundle
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          navigateFallback: 'index.html',
+          navigateFallbackAllowlist: [/^(?!\/__).*/], // Allow all except internal firebase/dev routes
         },
         manifest: {
           name: 'Crazy Art Comunicação Visual',
