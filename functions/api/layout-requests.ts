@@ -36,14 +36,22 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
       // Verificar limite de crédito se for esse o método
       if (paymentMethod === 'credit') {
-        if (client.creditLimit < value) {
-          return new Response(JSON.stringify({ error: 'Limite de crédito insuficiente' }), { status: 400 });
+        // Calcular saldo disponível real: Limite - Pedidos Abertos
+        const { results: openOrders } = await env.DB.prepare(`
+          SELECT SUM(total) as total_open FROM orders 
+          WHERE client_id = ? AND status = 'open'
+        `).bind(clientId).all();
+        
+        const totalOpen = Number((openOrders as any)[0]?.total_open || 0);
+        const availableCredit = Number(client.creditLimit || 0) - totalOpen;
+
+        if (availableCredit < value) {
+          return new Response(JSON.stringify({ error: `Saldo de crédito insuficiente. Disponível: R$ ${availableCredit.toFixed(2)}` }), { status: 400 });
         }
         
-        // Deduzir do limite
-        await env.DB.prepare('UPDATE clients SET creditLimit = creditLimit - ? WHERE id = ?')
-          .bind(value, clientId)
-          .run();
+        // NÃO subtraímos do creditLimit aqui. 
+        // O valor será "consumido" do saldo disponível enquanto o pedido estiver com status 'open'.
+        // Assim que for finalizado, o saldo é liberado automaticamente.
       }
 
       // Calcular Número do Pedido
