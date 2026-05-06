@@ -71,12 +71,12 @@ CREATE TABLE orders (
 - **Domínio:** crazyart.com.br
 
 ## Estrutura de Pastas Importante
-- `/public`: Arquivos estáticos que devem ser servidos na raiz (ex: `_redirects`).
+- `/public`: Arquivos estáticos que devem ser servidos na raiz.
 - `/functions`: Cloudflare Pages Functions (backend serverless).
 - `/src`: Código fonte React.
 
 ## Notas de Manutenção
-- **Roteamento:** O arquivo `public/_redirects` é essencial para o roteamento SPA no Cloudflare Pages (redirecionar tudo para `index.html`).
+- **Roteamento:** O roteamento SPA no Cloudflare Pages é feito de forma nativa e automática, não devendo usar `_redirects` para lidar com SPA fallback.
 - **Ícones:** Sempre verifique se os ícones usados (lucide-react) estão importados corretamente.
 
 ## Comandos Úteis
