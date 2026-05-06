@@ -17,6 +17,7 @@
     "file-saver": "^2.0.5",
     "framer-motion": "^12.35.0",
     "gifenc": "^1.0.3",
+    "jose": "^6.2.3",
     "jspdf": "^2.5.1",
     "jszip": "^3.10.1",
     "konva": "^10.3.0",

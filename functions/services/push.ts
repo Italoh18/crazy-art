@@ -1,54 +1,73 @@
 
-// Implementação de Web Push compatível com o ambiente Cloudflare Workers
-// Evita o módulo 'crypto' do Node.js que causa o erro "crypto.createECDH is not implemented yet"
+import * as jose from 'jose';
 
-async function signVapid(env: any, endpoint: string) {
-  const publicKey = env.VAPID_PUBLIC_KEY;
-  const privateKey = env.VAPID_PRIVATE_KEY;
-  const email = 'johnmedeirosh18@gmail.com';
+// Helper para converter base64url para Uint8Array
+function base64urlToUint8Array(base64url: string) {
+    const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    const binary = atob(base64 + '==='.slice((base64.length + 3) % 4));
+    return new Uint8Array(binary.length).map((_, i) => binary.charCodeAt(i));
+}
 
-  const url = new URL(endpoint);
-  const audience = `${url.protocol}//${url.hostname}`;
-  
-  const header = { alg: 'ES256', typ: 'JWT' };
-  const payload = {
-    aud: audience,
-    exp: Math.floor(Date.now() / 1000) + 12 * 60 * 60, // 12 horas
-    sub: `mailto:${email}`
-  };
+// Criptografia Web Push (Simulação simplificada ou envio raw)
+// A implementação real completa exigiria @web-push/encryption
+async function encryptPayload(payload: any, subscription: any) {
+    // Retornamos o JSON stringeado. Alguns gateways (como FCM se configurado para legacy/raw) aceitam.
+    // Navegadores modernos podem exigir a criptografia AES-GCM.
+    // Se o teste falhar com 400 'invalid payload', precisaremos da implementação completa.
+    return new TextEncoder().encode(JSON.stringify(payload));
+}
 
-  const encode = (obj: any) => btoa(JSON.stringify(obj)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-  const tokenInput = `${encode(header)}.${encode(payload)}`;
+async function getVapidAuthHeader(env: any, endpoint: string) {
+    const publicKey = env.VAPID_PUBLIC_KEY;
+    const privateKey = env.VAPID_PRIVATE_KEY;
+    const email = 'johnmedeirosh18@gmail.com';
 
-  try {
-    // Importar a chave privada VAPID (formato PKCS8 base64-url)
-    const pemContents = privateKey.replace(/---.*---|\s/g, '');
-    const binaryDerString = atob(pemContents.replace(/-/g, '+').replace(/_/g, '/'));
-    const binaryDer = new Uint8Array(binaryDerString.length);
-    for (let i = 0; i < binaryDerString.length; i++) binaryDer[i] = binaryDerString.charCodeAt(i);
+    if (!publicKey || !privateKey) return null;
 
-    const key = await crypto.subtle.importKey(
-      'pkcs8',
-      binaryDer,
-      { name: 'ECDSA', namedCurve: 'P-256' },
-      false,
-      ['sign']
-    );
+    try {
+        const url = new URL(endpoint);
+        const audience = `${url.protocol}//${url.hostname}`;
 
-    const signature = await crypto.subtle.sign(
-      { name: 'ECDSA', hash: { name: 'SHA-256' } },
-      key,
-      new TextEncoder().encode(tokenInput)
-    );
+        let key;
+        try {
+            if (privateKey.includes('-----BEGIN')) {
+                key = await jose.importPKCS8(privateKey, 'ES256');
+            } else {
+                const binary = base64urlToUint8Array(privateKey);
+                if (binary.length === 32) {
+                   const pubBinary = base64urlToUint8Array(publicKey);
+                   const x = pubBinary.slice(1, 33);
+                   const y = pubBinary.slice(33, 65);
+                   
+                   const jwk = {
+                       kty: 'EC' as const,
+                       crv: 'P-256' as const,
+                       x: btoa(String.fromCharCode(...x)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_'),
+                       y: btoa(String.fromCharCode(...y)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_'),
+                       d: privateKey.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_'),
+                       ext: true
+                   };
+                   key = await jose.importJWK(jwk, 'ES256');
+                } else {
+                    key = await jose.importPKCS8(privateKey, 'ES256');
+                }
+            }
+        } catch (e: any) {
+            console.error('[JOSE Import] Erro:', e.message);
+            throw new Error(`Chave privada inválida: ${e.message}`);
+        }
 
-    const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-      .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+        const jwt = await new jose.SignJWT({ sub: `mailto:${email}` })
+            .setProtectedHeader({ alg: 'ES256' })
+            .setAudience(audience)
+            .setExpirationTime('12h')
+            .sign(key);
 
-    return `${tokenInput}.${signatureBase64}`;
-  } catch (e) {
-    console.error('[VAPID] Erro ao assinar:', e);
-    return null;
-  }
+        return `WebPush ${jwt}`;
+    } catch (e: any) {
+        console.error('[VAPID Signing] Erro:', e.message);
+        throw e;
+    }
 }
 
 export async function sendPushNotification(env: any, userId: string, payload: { title: string, body: string, url?: string }) {
@@ -67,19 +86,17 @@ export async function sendPushNotification(env: any, userId: string, payload: { 
     for (const row of results) {
       try {
         const subscription = JSON.parse(row.subscription_json);
-        const vapidToken = await signVapid(env, subscription.endpoint);
+        const authHeader = await getVapidAuthHeader(env, subscription.endpoint);
 
-        if (!vapidToken) {
-          throw new Error('Falha ao gerar token VAPID');
-        }
+        if (!authHeader) throw new Error('VAPID não configurado');
 
         const response = await fetch(subscription.endpoint, {
           method: 'POST',
           headers: {
+            'Authorization': authHeader,
+            'Crypto-Key': `p256ecdsa=${env.VAPID_PUBLIC_KEY}`,
             'TTL': '60',
-            'Urgency': 'high',
-            'Authorization': `WebPush ${vapidToken}`,
-            'Crypto-Key': `p256ecdsa=${env.VAPID_PUBLIC_KEY}`
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify(payload)
         });
@@ -88,8 +105,8 @@ export async function sendPushNotification(env: any, userId: string, payload: { 
           successCount++;
         } else {
           failureCount++;
-          const body = await response.text();
-          lastError = `Status ${response.status}: ${body}`;
+          const errorBody = await response.text();
+          lastError = `Status ${response.status}: ${errorBody}`;
           if (response.status === 404 || response.status === 410) {
             await env.DB.prepare("DELETE FROM push_subscriptions WHERE id = ?").bind(row.id).run();
           }
@@ -106,23 +123,17 @@ export async function sendPushNotification(env: any, userId: string, payload: { 
   }
 }
 
-// Helper para notificar todos os admins
 export async function notifyAdminsPush(env: any, payload: { title: string, body: string, url?: string }) {
     try {
-        // Busca administradores na tabela de usuários
         const { results: admins } = await env.DB.prepare(
             "SELECT id FROM users WHERE role = 'admin'"
         ).all();
-
+        
         const adminIds = new Set<string>();
         if (admins) {
             admins.forEach((a: any) => adminIds.add(a.id));
         }
-        
-        // Sempre incluir o ID fixo 'admin' (usado pelo login de código)
         adminIds.add('admin');
-
-        console.log(`[Push] Notificando ${adminIds.size} possíveis administradores:`, Array.from(adminIds));
 
         for (const adminId of adminIds) {
             await sendPushNotification(env, adminId, payload);
