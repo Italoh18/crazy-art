@@ -16,27 +16,36 @@ self.addEventListener('fetch', (event) => {
 
 // Push Notification Handling
 self.addEventListener('push', (event) => {
-  if (!event.data) return;
-
-  try {
-    const data = event.data.json();
-    const options = {
-      body: data.body || 'Nova notificação da Crazy Art',
-      icon: data.icon || '/icons/icon-192.svg',
-      badge: '/icons/icon-192.svg',
-      vibrate: [100, 50, 100],
-      data: {
-        url: data.url || '/'
-      },
-      actions: data.actions || []
-    };
-
-    event.waitUntil(
-      self.registration.showNotification(data.title || 'Crazy Art', options)
-    );
-  } catch (e) {
-    console.error('Error showing push notification:', e);
+  console.log('[SW] Push recebido:', event);
+  
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+      console.log('[SW] Payload JSON:', data);
+    } catch (e) {
+      console.warn('[SW] Payload não é JSON, usando texto puro:', event.data.text());
+      data = { title: 'Crazy Art', body: event.data.text() };
+    }
   }
+
+  const options = {
+    body: data.body || 'Nova notificação da Crazy Art',
+    icon: data.icon || '/icons/icon-192.svg',
+    badge: data.badge || '/icons/icon-192.svg',
+    vibrate: [100, 50, 100],
+    data: {
+      url: data.url || '/'
+    },
+    tag: data.tag || 'crazy-art-notification', // Evita duplicatas
+    actions: data.actions || []
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Crazy Art', options)
+      .then(() => console.log('[SW] Notificação exibida com sucesso'))
+      .catch(err => console.error('[SW] Erro ao exibir notificação:', err))
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {

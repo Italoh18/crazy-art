@@ -9,9 +9,33 @@ export const NotificationCenter = () => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [pushStatus, setPushStatus] = useState<'idle' | 'subscribed' | 'blocked' | 'loading'>('idle');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { role } = useAuth();
+
+  const checkPushSubscription = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    
+    try {
+      const permission = Notification.permission;
+      if (permission === 'denied') {
+        setPushStatus('blocked');
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      
+      if (subscription) {
+        setPushStatus('subscribed');
+      } else {
+        setPushStatus('idle');
+      }
+    } catch (e) {
+      console.error('Erro ao verificar push:', e);
+    }
+  };
 
   const fetchNotifications = async () => {
     setIsLoading(true);
@@ -81,8 +105,10 @@ export const NotificationCenter = () => {
         applicationServerKey: outputArray
       });
 
+      console.log('Push Subscription criada:', JSON.stringify(subscription));
+
       const token = localStorage.getItem('auth_token');
-      await fetch('/api/notifications', {
+      const res = await fetch('/api/notifications', {
         method: 'POST',
         headers: { 
             'Authorization': `Bearer ${token}`,
@@ -91,7 +117,12 @@ export const NotificationCenter = () => {
         body: JSON.stringify({ subscription })
       });
 
-      alert('Notificações ativadas com sucesso!');
+      if (res.ok) {
+        setPushStatus('subscribed');
+        alert('Notificações ativadas com sucesso!');
+      } else {
+        throw new Error('Falha ao salvar assinatura no servidor');
+      }
     } catch (e) {
       console.error('Falha ao assinar push:', e);
       alert('Erro ao ativar notificações. Certifique-se de que o app está instalado e as chaves VAPID estão corretas.');
@@ -166,7 +197,10 @@ export const NotificationCenter = () => {
       <button 
         onClick={() => {
             setIsOpen(!isOpen);
-            if(!isOpen) fetchNotifications(); // Refresh on open
+            if(!isOpen) {
+                fetchNotifications();
+                checkPushSubscription();
+            }
         }}
         className="relative p-2.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition-all hover:scale-105"
       >
@@ -211,10 +245,17 @@ export const NotificationCenter = () => {
                            </div>
                         </div>
                         <button 
-                            onClick={subscribeToPush}
-                            className="text-[10px] px-3 py-1.5 bg-primary/20 hover:bg-primary text-primary hover:text-white rounded-lg font-bold transition-all"
+                            onClick={pushStatus === 'idle' ? subscribeToPush : undefined}
+                            disabled={pushStatus !== 'idle'}
+                            className={`text-[10px] px-3 py-1.5 rounded-lg font-bold transition-all ${
+                                pushStatus === 'subscribed' 
+                                ? 'bg-emerald-500/20 text-emerald-500 cursor-default uppercase' 
+                                : pushStatus === 'blocked'
+                                ? 'bg-red-500/20 text-red-500 cursor-not-allowed opacity-50 uppercase'
+                                : 'bg-primary/20 hover:bg-primary text-primary hover:text-white uppercase'
+                            }`}
                         >
-                            ATIVAR
+                            {pushStatus === 'subscribed' ? 'Ativado' : pushStatus === 'blocked' ? 'Bloqueado' : 'Ativar'}
                         </button>
                     </div>
                 )}
