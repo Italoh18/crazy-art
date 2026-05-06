@@ -26,6 +26,7 @@ export async function sendPushNotification(env: any, userId: string, payload: { 
 
     let successCount = 0;
     let failureCount = 0;
+    let lastError = '';
 
     const pushPromises = results.map(async (row: any) => {
       try {
@@ -34,6 +35,7 @@ export async function sendPushNotification(env: any, userId: string, payload: { 
         successCount++;
       } catch (error: any) {
         failureCount++;
+        lastError = `Status ${error.statusCode}: ${error.body || error.message}`;
         if (error.statusCode === 404 || error.statusCode === 410) {
           await env.DB.prepare("DELETE FROM push_subscriptions WHERE id = ?").bind(row.id).run();
         }
@@ -41,7 +43,7 @@ export async function sendPushNotification(env: any, userId: string, payload: { 
     });
 
     await Promise.allSettled(pushPromises);
-    return { count, success: successCount, failure: failureCount };
+    return { count, success: successCount, failure: failureCount, error: lastError };
   } catch (e: any) {
     console.error('[Push] Erro geral:', e.message);
     return { count: 0, success: 0, failure: 0, error: e.message };
