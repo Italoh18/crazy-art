@@ -269,29 +269,41 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     // --- POST: Salvar Inscrição Push ---
     if (request.method === 'POST') {
-      const body: any = await request.json();
-      const { subscription } = body;
+      try {
+        const body: any = await request.json();
+        const { subscription } = body;
 
-      if (!subscription) {
-        return new Response(JSON.stringify({ error: 'Inscrição inválida' }), { status: 400 });
+        if (!subscription || !subscription.endpoint) {
+          return new Response(JSON.stringify({ error: 'Inscrição ou Endpoint inválido' }), { status: 400 });
+        }
+
+        const userId = user.clientId || user.userId;
+        if (!userId) {
+          return new Response(JSON.stringify({ error: 'Usuário sem ID válido para vinculação' }), { status: 400 });
+        }
+
+        // Usamos o endpoint como ID (limlimited para 128 caracteres para segurança) para evitar duplicatas por dispositivo
+        // Se já existir esse endpoint para esse usuário, o INSERT OR REPLACE atualizará o JSON (útil se as chaves mudarem)
+        await env.DB.prepare(`
+          INSERT OR REPLACE INTO push_subscriptions (id, user_id, subscription_json, created_at)
+          VALUES (?, ?, ?, datetime('now'))
+        `).bind(
+          subscription.endpoint.slice(-100), // Usar o final do endpoint como ID é seguro e único o suficiente
+          userId,
+          JSON.stringify(subscription)
+        ).run();
+
+        return Response.json({ success: true });
+      } catch (postError: any) {
+        console.error('[Push Save Error]:', postError.message);
+        return new Response(JSON.stringify({ error: `Erro ao salvar no banco: ${postError.message}` }), { status: 500 });
       }
-
-      await env.DB.prepare(`
-        INSERT OR REPLACE INTO push_subscriptions (id, user_id, subscription_json, created_at)
-        VALUES (?, ?, ?, datetime('now'))
-      `).bind(
-        crypto.randomUUID(),
-        user.clientId || user.userId,
-        JSON.stringify(subscription)
-      ).run();
-
-      return Response.json({ success: true });
     }
 
     return new Response(JSON.stringify({ error: 'Método não permitido' }), { status: 405 });
 
   } catch (e: any) {
-    console.error("Erro na API de Notificações:", e.message);
-    return new Response(JSON.stringify({ error: 'Erro ao processar notificações.' }), { status: 500 });
+    console.error("Erro crítico na API de Notificações:", e.message);
+    return new Response(JSON.stringify({ error: `Erro interno: ${e.message}` }), { status: 500 });
   }
 };
