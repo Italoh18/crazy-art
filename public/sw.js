@@ -1,5 +1,5 @@
-// Service Worker for PWA and Push Notifications
-const CACHE_NAME = 'crazy-art-v1';
+// Service Worker for PWA and Push Notifications - v1.0.3
+const CACHE_NAME = 'crazy-art-v1.0.3';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

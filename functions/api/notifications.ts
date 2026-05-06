@@ -221,7 +221,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         let params: any[] = [];
 
         if (user.role === 'admin') {
-          query += "target_role = 'admin'";
+          query += "(target_role = 'admin' OR target_role IS NULL)";
         } else {
           query += "target_role = 'client' AND user_id = ?";
           params.push(user.clientId || user.userId);
@@ -275,12 +275,16 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       // Caso de teste de push para o próprio admin
       if (url.searchParams.get('testPush') === 'true') {
           const userId = user.clientId || user.userId || (user.role === 'admin' ? 'admin' : null);
-          await sendPushNotification(env, userId!, {
+          const result = await sendPushNotification(env, userId!, {
               title: 'Teste de Notificação',
               body: 'Se você está vendo isso, as notificações push estão funcionando!',
               url: '/orders'
+          }) as any;
+          
+          return Response.json({ 
+              success: true, 
+              details: `Dispositivos: ${result.count}, Sucessos: ${result.success}, Falhas: ${result.failure}. ${result.error ? 'Erro: ' + result.error : ''}`
           });
-          return Response.json({ success: true });
       }
 
       try {

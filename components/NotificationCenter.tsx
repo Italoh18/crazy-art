@@ -302,9 +302,10 @@ export const NotificationCenter = () => {
                                         method: 'POST',
                                         headers: { 'Authorization': `Bearer ${token}` }
                                     });
-                                    if(res.ok) alert('Teste enviado! Verifique sua aba de notificações.');
-                                    else alert('Falha ao enviar teste.');
-                                } catch (e) { alert('Erro no teste'); }
+                                    const data = await res.json() as any;
+                                    if(res.ok) alert('Teste processado! ' + (data.details || 'Verifique sua aba de notificações no celular.'));
+                                    else alert('Falha ao enviar teste: ' + (data.error || 'Erro desconhecido'));
+                                } catch (e) { alert('Erro na requisição de teste'); }
                             }}
                             className="w-full py-1 text-[9px] font-bold text-zinc-500 hover:text-white border border-zinc-800 hover:border-zinc-700 rounded transition-all uppercase"
                         >

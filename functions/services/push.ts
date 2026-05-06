@@ -5,41 +5,35 @@ export async function sendPushNotification(env: any, userId: string, payload: { 
   const publicKey = env.VAPID_PUBLIC_KEY;
   const privateKey = env.VAPID_PRIVATE_KEY;
   
-  // Se não houver chaves, silencia para não quebrar o fluxo principal
   if (!publicKey || !privateKey) {
     console.warn('[Push] Chaves VAPID não configuradas no ambiente.');
-    return;
+    return { count: 0, success: 0, failure: 0, error: 'Chaves não configuradas' };
   }
 
   try {
     webpush.setVapidDetails(
-      'mailto:admin@crazyart.com.br',
+      'mailto:johnmedeirosh18@gmail.com',
       publicKey,
       privateKey
     );
 
-    // Buscar todas as inscrições do usuário (ele pode estar logado em múltiplos dispositivos)
     const { results } = await env.DB.prepare(
       "SELECT id, subscription_json FROM push_subscriptions WHERE user_id = ?"
     ).bind(userId).all();
 
     const count = results?.length || 0;
-    console.log(`[Push] Tentando enviar para usuário ${userId}. Inscrições encontradas: ${count}`);
+    if (count === 0) return { count: 0, success: 0, failure: 0 };
 
-    if (count === 0) {
-        console.warn(`[Push] Nenhuma inscrição (dispositivo) encontrada para o usuário: ${userId}. Certifique-se de que clicou em ATIVAR neste dispositivo.`);
-        return;
-    }
+    let successCount = 0;
+    let failureCount = 0;
 
     const pushPromises = results.map(async (row: any) => {
       try {
         const subscription = JSON.parse(row.subscription_json);
-        console.log(`[Push] Enviando para endpoint: ${subscription.endpoint?.slice(-30)}...`);
-        const response = await webpush.sendNotification(subscription, JSON.stringify(payload));
-        console.log(`[Push] Resposta do gateway de push: ${response.statusCode}`);
+        await webpush.sendNotification(subscription, JSON.stringify(payload));
+        successCount++;
       } catch (error: any) {
-        console.error('[Push] Erro na inscrição', row.id, ':', error.message, 'Status:', error.statusCode);
-        // Se a inscrição expirou (404/410), removemos
+        failureCount++;
         if (error.statusCode === 404 || error.statusCode === 410) {
           await env.DB.prepare("DELETE FROM push_subscriptions WHERE id = ?").bind(row.id).run();
         }
@@ -47,8 +41,10 @@ export async function sendPushNotification(env: any, userId: string, payload: { 
     });
 
     await Promise.allSettled(pushPromises);
+    return { count, success: successCount, failure: failureCount };
   } catch (e: any) {
-    console.error('[Push] Erro geral no sistema de push:', e.message);
+    console.error('[Push] Erro geral:', e.message);
+    return { count: 0, success: 0, failure: 0, error: e.message };
   }
 }
 
