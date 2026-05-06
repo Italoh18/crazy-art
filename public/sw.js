@@ -33,7 +33,10 @@ self.addEventListener('push', (event) => {
     body: data.body || 'Nova notificação da Crazy Art',
     icon: data.icon || '/icons/icon-192.svg',
     badge: data.badge || '/icons/icon-192.svg',
-    vibrate: [100, 50, 100],
+    image: data.image || null, // Permite exibir uma imagem maior se enviada
+    vibrate: [200, 100, 200],
+    dir: 'ltr',
+    lang: 'pt-BR',
     data: {
       url: data.url || '/'
     },

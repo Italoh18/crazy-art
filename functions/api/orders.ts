@@ -188,6 +188,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             .bind(calculatedTotal - discount, calculatedCost, newId).run();
 
         // PUSH ADMIN (Novo Pedido)
+        console.log(`[Orders] Enviando push para admins sobre novo pedido #${formattedOrder}`);
         await notifyAdminsPush(env, {
             title: 'Novo Pedido',
             body: `Novo pedido #${formattedOrder} recebido!`,

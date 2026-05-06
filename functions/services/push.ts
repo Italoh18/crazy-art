@@ -135,9 +135,13 @@ export async function notifyAdminsPush(env: any, payload: { title: string, body:
         }
         adminIds.add('admin');
 
-        for (const adminId of adminIds) {
-            await sendPushNotification(env, adminId, payload);
-        }
+        // Enviar para todos os admins em paralelo
+        const pushPromises = Array.from(adminIds).map(adminId => 
+            sendPushNotification(env, adminId, payload)
+        );
+        
+        const results = await Promise.allSettled(pushPromises);
+        console.log('[Push] Resultado do envio para admins:', JSON.stringify(results));
     } catch (e) {
         console.error('[Push] Erro ao notificar admins:', e);
     }

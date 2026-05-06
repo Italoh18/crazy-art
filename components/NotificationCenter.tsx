@@ -57,10 +57,10 @@ export const NotificationCenter = () => {
     }
   };
 
-  // Poll de notificações a cada 120 segundos
+  // Poll de notificações a cada 15 segundos
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 120000);
+    const interval = setInterval(fetchNotifications, 15000);
     return () => clearInterval(interval);
   }, []);
 

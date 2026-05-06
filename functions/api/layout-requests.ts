@@ -109,6 +109,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       `).bind(crypto.randomUUID(), notificationTitle, notificationMessage, now, requestId).run();
 
       // PUSH ADMIN (Layout)
+      console.log(`[LayoutRequest] Enviando push para admins: ${notificationTitle}`);
       await notifyAdminsPush(env, {
           title: notificationTitle,
           body: notificationMessage,
