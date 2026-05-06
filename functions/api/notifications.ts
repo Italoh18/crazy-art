@@ -1,6 +1,7 @@
 
 import { Env, getAuth } from './_auth';
 import { sendEmail, getAdminEmail, getRenderedTemplate } from '../services/email';
+import { sendPushNotification } from '../services/push';
 
 export const onRequest: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
@@ -92,9 +93,26 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                   
                   // A. Admin (Resend + Template)
                   const notifId = crypto.randomUUID();
+                  const adminMessage = `Pedido #${formattedOrder} venceu em ${dateStr}.`;
                   await env.DB.prepare(
                     "INSERT INTO notifications (id, target_role, type, title, message, created_at, reference_id) VALUES (?, 'admin', 'warning', 'Pedido em Atraso', ?, ?, ?)"
-                  ).bind(notifId, `Pedido #${formattedOrder} venceu em ${dateStr}.`, createdAt, refId).run();
+                  ).bind(notifId, adminMessage, createdAt, refId).run();
+
+                  // PUSH ADMIN
+                  try {
+                      const { results: admins } = await env.DB.prepare("SELECT id FROM users WHERE role = 'admin'").all();
+                      if (admins) {
+                          for (const admin of admins) {
+                              await sendPushNotification(env, admin.id, { 
+                                  title: 'Pedido em Atraso', 
+                                  body: adminMessage, 
+                                  url: '/orders' 
+                              });
+                          }
+                      }
+                  } catch (pushErr) {
+                      console.error('[Push Admin] Erro:', pushErr);
+                  }
 
                   const emailAdmin = await getRenderedTemplate(env, 'overdueAdmin', vars);
                   await sendEmail(env, {
@@ -105,9 +123,17 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
                   // B. Cliente (Resend + Template)
                   const notifIdClient = crypto.randomUUID();
+                  const clientMessage = `Seu pedido #${formattedOrder} está vencido.`;
                   await env.DB.prepare(
                     "INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, reference_id) VALUES (?, 'client', ?, 'warning', 'Fatura em Atraso', ?, ?, ?)"
-                  ).bind(notifIdClient, order.client_id, `Seu pedido #${formattedOrder} está vencido.`, createdAt, refId + '_client').run();
+                  ).bind(notifIdClient, order.client_id, clientMessage, createdAt, refId + '_client').run();
+
+                  // PUSH CLIENTE
+                  await sendPushNotification(env, order.client_id, { 
+                      title: 'Fatura em Atraso', 
+                      body: clientMessage, 
+                      url: '/minha-area' 
+                  });
 
                   if (order.client_email) {
                     const emailClient = await getRenderedTemplate(env, 'overdueClient', vars);
@@ -150,6 +176,13 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                             INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, reference_id, is_read)
                             VALUES (?, 'client', ?, 'warning', 'Assinatura Expirando', ?, ?, ?, 0)
                         `).bind(crypto.randomUUID(), client.id, message, now.toISOString(), refId).run();
+
+                        // PUSH CLIENTE (Assinatura)
+                        await sendPushNotification(env, client.id, { 
+                            title: 'Assinatura Expirando', 
+                            body: message, 
+                            url: '/minha-area' 
+                        });
 
                         if (client.email) {
                             const emailData = await getRenderedTemplate(env, 'subscriptionExpiring', {
@@ -224,6 +257,27 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       } catch (dbError: any) {
           throw dbError;
       }
+    }
+
+    // --- POST: Salvar Inscrição Push ---
+    if (request.method === 'POST') {
+      const body: any = await request.json();
+      const { subscription } = body;
+
+      if (!subscription) {
+        return new Response(JSON.stringify({ error: 'Inscrição inválida' }), { status: 400 });
+      }
+
+      await env.DB.prepare(`
+        INSERT OR REPLACE INTO push_subscriptions (id, user_id, subscription_json, created_at)
+        VALUES (?, ?, ?, datetime('now'))
+      `).bind(
+        crypto.randomUUID(),
+        user.clientId || user.userId,
+        JSON.stringify(subscription)
+      ).run();
+
+      return Response.json({ success: true });
     }
 
     return new Response(JSON.stringify({ error: 'Método não permitido' }), { status: 405 });

@@ -51,6 +51,53 @@ export const NotificationCenter = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const subscribeToPush = async () => {
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+          alert('Você precisa permitir notificações para receber alertas no celular.');
+          return;
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      
+      const vapidPublicKey = (import.meta as any).env.VITE_VAPID_PUBLIC_KEY;
+      if (!vapidPublicKey) {
+          console.error('VITE_VAPID_PUBLIC_KEY não configurada');
+          return;
+      }
+
+      // Converte base64 para Uint8Array
+      const padding = '='.repeat((4 - vapidPublicKey.length % 4) % 4);
+      const base64 = (vapidPublicKey + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+          outputArray[i] = rawData.charCodeAt(i);
+      }
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: outputArray
+      });
+
+      const token = localStorage.getItem('auth_token');
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ subscription })
+      });
+
+      alert('Notificações ativadas com sucesso!');
+    } catch (e) {
+      console.error('Falha ao assinar push:', e);
+      alert('Erro ao ativar notificações. Certifique-se de que o app está instalado e as chaves VAPID estão corretas.');
+    }
+  };
+
   const markAsRead = async (id: string) => {
     try {
       const token = localStorage.getItem('auth_token');
@@ -152,6 +199,26 @@ export const NotificationCenter = () => {
             </div>
 
             <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                {('serviceWorker' in navigator && 'PushManager' in window) && (
+                    <div className="p-3 bg-white/5 border-b border-zinc-800 flex items-center justify-between group">
+                        <div className="flex items-center gap-2">
+                           <div className="p-1.5 bg-primary/10 rounded-lg text-primary">
+                               <Bell size={14} />
+                           </div>
+                           <div className="flex flex-col">
+                               <span className="text-[10px] font-bold text-white uppercase tracking-wider">Alertas no Celular</span>
+                               <span className="text-[9px] text-zinc-500">Receba avisos de novos pedidos</span>
+                           </div>
+                        </div>
+                        <button 
+                            onClick={subscribeToPush}
+                            className="text-[10px] px-3 py-1.5 bg-primary/20 hover:bg-primary text-primary hover:text-white rounded-lg font-bold transition-all"
+                        >
+                            ATIVAR
+                        </button>
+                    </div>
+                )}
+
                 {notifications.length === 0 ? (
                     <div className="py-12 text-center text-zinc-600 flex flex-col items-center">
                         <Bell size={32} className="opacity-20 mb-2" />

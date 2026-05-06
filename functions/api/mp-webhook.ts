@@ -1,11 +1,14 @@
 
 import { sendEmail, getAdminEmail, getRenderedTemplate } from '../services/email';
+import { sendPushNotification } from '../services/push';
 
 export interface Env {
   DB: any;
   MP_ACCESS_TOKEN: string;
   RESEND_API_KEY: string;
   ADMIN_EMAIL?: string;
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
 }
 
 export const onRequestPost: any = async ({ request, env }: { request: Request, env: Env }) => {
@@ -101,22 +104,45 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             });
 
             // Notificação Admin (In-App)
+            const adminPushMsg = `O cliente ${order.name} pagou a solicitação de ${label.toLowerCase()}.`;
             await env.DB.prepare(`
                 INSERT INTO notifications (id, target_role, type, title, message, created_at, reference_id, is_read)
                 VALUES (?, 'admin', 'success', ?, ?, ?, ?, 0)
             `).bind(
                 crypto.randomUUID(), 
                 `Pagamento Confirmado: ${label}`, 
-                `O cliente ${order.name} pagou a solicitação de ${label.toLowerCase()}.`, 
+                adminPushMsg, 
                 nowTs, 
                 requestId
             ).run();
 
+            // PUSH ADMIN
+            try {
+                const { results: admins } = await env.DB.prepare("SELECT id FROM users WHERE role = 'admin'").all();
+                if (admins) {
+                    for (const admin of admins) {
+                        await sendPushNotification(env, admin.id, { 
+                            title: `Pagamento: ${label}`, 
+                            body: adminPushMsg, 
+                            url: '/orders' 
+                        });
+                    }
+                }
+            } catch (pErr) { console.error(pErr); }
+
             // Notificação Cliente
+            const clientPushMsg = `Sua solicitação de ${label.toLowerCase()} foi paga com sucesso e já está em nossa fila de produção.`;
             await env.DB.prepare(`
                 INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, is_read)
                 VALUES (?, 'client', ?, 'success', 'Pagamento Confirmado', ?, ?, 0)
-            `).bind(crypto.randomUUID(), order.client_id, `Sua solicitação de ${label.toLowerCase()} foi paga com sucesso e já está em nossa fila de produção.`, nowTs).run();
+            `).bind(crypto.randomUUID(), order.client_id, clientPushMsg, nowTs).run();
+
+            // PUSH CLIENTE
+            await sendPushNotification(env, order.client_id, {
+                title: 'Pagamento Confirmado',
+                body: clientPushMsg,
+                url: '/minha-area'
+            });
 
           }
 
@@ -133,11 +159,19 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
           ).bind(expiresAt.toISOString(), clientId).first();
 
           // Notificação de Assinatura
+          const subMsg = 'Sua assinatura Crazy Art foi ativada com sucesso! Aproveite downloads ilimitados.';
           await env.DB.prepare(`
             INSERT INTO notifications (
                 id, target_role, user_id, type, title, message, created_at, is_read
-            ) VALUES (?, 'client', ?, 'success', 'Assinatura Ativada', 'Sua assinatura Crazy Art foi ativada com sucesso! Aproveite downloads ilimitados.', ?, 0)
-          `).bind(crypto.randomUUID(), clientId, nowTs).run();
+            ) VALUES (?, 'client', ?, 'success', 'Assinatura Ativada', ?, ?, 0)
+          `).bind(crypto.randomUUID(), clientId, subMsg, nowTs).run();
+
+          // PUSH CLIENTE (Assinatura)
+          await sendPushNotification(env, clientId, {
+              title: 'Assinatura Ativada',
+              body: subMsg,
+              url: '/minha-area'
+          });
 
           return new Response('OK', { status: 200 });
         }
@@ -236,16 +270,31 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             const formattedNum = String(orderInfo.order_number).padStart(5, '0');
                 
             // NOTIFICAÇÃO ADMIN
+            const adminNotifMsg = `Pedido #${formattedNum} pago. ${creditMessage}`;
             await env.DB.prepare(`
                 INSERT INTO notifications (
                     id, target_role, type, title, message, created_at, reference_id, is_read
                 ) VALUES (?, 'admin', 'success', 'Pagamento Recebido', ?, ?, ?, 0)
             `).bind(
                 crypto.randomUUID(),
-                `Pedido #${formattedNum} pago. ${creditMessage}`,
+                adminNotifMsg,
                 nowTs,
                 orderId
             ).run();
+
+            // PUSH ADMIN
+            try {
+                const { results: admins } = await env.DB.prepare("SELECT id FROM users WHERE role = 'admin'").all();
+                if (admins) {
+                    for (const admin of admins) {
+                        await sendPushNotification(env, admin.id, { 
+                            title: 'Pagamento Recebido', 
+                            body: adminNotifMsg, 
+                            url: '/orders' 
+                        });
+                    }
+                }
+            } catch (pErr) { console.error(pErr); }
 
             // EMAIL ADMIN
             const emailAdmin = await getRenderedTemplate(env, 'paymentConfirmedAdmin', {
@@ -259,6 +308,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             });
 
             // NOTIFICAÇÃO CLIENTE
+            const clientNotifMsg = `Recebemos o pagamento do pedido #${formattedNum}. ${creditMessage} Novo limite: R$ ${newLimit.toFixed(2)}`;
             await env.DB.prepare(`
                 INSERT INTO notifications (
                     id, target_role, user_id, type, title, message, created_at, reference_id, is_read
@@ -266,10 +316,17 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             `).bind(
                 crypto.randomUUID(),
                 orderInfo.client_id,
-                `Recebemos o pagamento do pedido #${formattedNum}. ${creditMessage} Novo limite: R$ ${newLimit.toFixed(2)}`,
+                clientNotifMsg,
                 nowTs,
                 orderId
             ).run();
+
+            // PUSH CLIENTE
+            await sendPushNotification(env, orderInfo.client_id, {
+                title: 'Pagamento Confirmado',
+                body: clientNotifMsg,
+                url: '/minha-area'
+            });
             
           } catch (err: any) {
             console.error(`[Webhook] Erro processando ID ${orderId}:`, err.message);

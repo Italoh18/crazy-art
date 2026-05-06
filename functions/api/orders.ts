@@ -1,6 +1,7 @@
 
 import { Env, getAuth } from './_auth';
 import { sendEmail, getAdminEmail, getRenderedTemplate } from '../services/email';
+import { sendPushNotification } from '../services/push';
 
 export const onRequest: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
@@ -185,6 +186,23 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
         await env.DB.prepare('UPDATE orders SET total = ?, total_cost = ? WHERE id = ?')
             .bind(calculatedTotal - discount, calculatedCost, newId).run();
+
+        // PUSH ADMIN (Novo Pedido)
+        try {
+            const { results: admins } = await env.DB.prepare("SELECT id FROM users WHERE role = 'admin'").all();
+            if (admins) {
+                const adminMsg = `Novo pedido #${formattedOrder} recebido!`;
+                for (const admin of admins) {
+                    await sendPushNotification(env, admin.id, {
+                        title: 'Novo Pedido',
+                        body: adminMsg,
+                        url: '/orders'
+                    });
+                }
+            }
+        } catch (e) {
+            console.error('[Push Admin] Erro ao notificar novo pedido:', e);
+        }
       }
 
       return Response.json({ 
@@ -274,21 +292,29 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             clauses.push('production_step = ?');
             updateParams.push(String(body.production_step));
 
-            // Notificação para o cliente quando entra em aprovação
+      // Notificação para o cliente quando entra em aprovação
             if (body.production_step === 'approval') {
                 const order: any = await env.DB.prepare('SELECT order_number, client_id FROM orders WHERE id = ?').bind(id).first();
                 if (order) {
                     const formattedNum = String(order.order_number).padStart(5, '0');
+                    const message = `Seu pedido #${formattedNum} está aguardando sua aprovação para seguir na produção.`;
                     await env.DB.prepare(`
                         INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, reference_id, is_read)
                         VALUES (?, 'client', ?, 'info', 'Aguardando Aprovação', ?, ?, ?, 0)
                     `).bind(
                         crypto.randomUUID(), 
                         order.client_id, 
-                        `Seu pedido #${formattedNum} está aguardando sua aprovação para seguir na produção.`, 
+                        message, 
                         new Date().toISOString(), 
                         `approval_${id}`
                     ).run();
+
+                    // PUSH CLIENTE (Aprovação)
+                    await sendPushNotification(env, order.client_id, {
+                        title: 'Aguardando Aprovação',
+                        body: message,
+                        url: '/minha-area'
+                    });
                 }
             }
         }
