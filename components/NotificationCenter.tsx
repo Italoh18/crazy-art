@@ -91,19 +91,30 @@ export const NotificationCenter = () => {
 
       // 2. Buscar Chave VAPID do Backend (Garante que a chave correta seja usada)
       const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-      const keyRes = await fetch('/api/notifications/vapid-key', {
+      const keyRes = await fetch('/api/notifications?vapidKey=true', {
           headers: { 'Authorization': `Bearer ${token}` }
       });
+      
+      if (!keyRes.ok) {
+        throw new Error(`Servidor retornou erro ${keyRes.status} ao buscar chave.`);
+      }
+
       const { publicKey: vapidPublicKey } = await keyRes.json();
       
       if (!vapidPublicKey) {
-          throw new Error('Chave VAPID não encontrada no servidor');
+          throw new Error('Chave VAPID não encontrada no servidor. Verifique as variáveis de ambiente.');
       }
 
       console.log('[Push] Chave VAPID obtida com sucesso');
 
       // 3. Preparar Service Worker
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        throw new Error('Service Worker não encontrado. Tente recarregar a página.');
+      }
+      
+      // Garante que o SW esteja pronto
+      await navigator.serviceWorker.ready;
       
       // Converte base64 para Uint8Array
       const padding = '='.repeat((4 - vapidPublicKey.length % 4) % 4);
@@ -136,12 +147,13 @@ export const NotificationCenter = () => {
         setPushStatus('subscribed');
         alert('Notificações ativadas com sucesso!');
       } else {
-        throw new Error('Falha ao salvar assinatura no servidor');
+        const errorData = await res.json() as any;
+        throw new Error(errorData.error || 'Falha ao salvar assinatura no servidor');
       }
     } catch (e) {
       console.error('[Push] Erro crítico:', e);
       setPushStatus('idle');
-      alert('Erro ao ativar notificações. Certifique-se de que o app está instalado e recarregue a página.');
+      alert(`Erro ao ativar notificações: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
