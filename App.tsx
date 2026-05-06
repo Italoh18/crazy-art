@@ -39,7 +39,6 @@ import MontagemMolde from './pages/MontagemMolde';
 import MoldesManager from './pages/MoldesManager';
 import { Loader2 } from 'lucide-react';
 import { IntroAnimation } from './components/IntroAnimation';
-import ReloadPrompt from './components/ReloadPrompt';
 
 const LoadingScreen = () => {
   const [messageIndex, setMessageIndex] = useState(0);
@@ -121,13 +120,6 @@ const AppContent = ({ showIntro, setShowIntro }: { showIntro: boolean, setShowIn
   const { isLoading, faviconUrl } = useData();
   
   useEffect(() => {
-    // Clear badge when app is opened
-    if ('clearAppBadge' in navigator) {
-      (navigator as any).clearAppBadge().catch(() => {});
-    }
-  }, []);
-
-  useEffect(() => {
     if (faviconUrl) {
       const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement || document.createElement('link');
       link.type = 'image/png';
@@ -144,7 +136,6 @@ const AppContent = ({ showIntro, setShowIntro }: { showIntro: boolean, setShowIn
   
   return (
     <>
-      <ReloadPrompt />
       {showIntro && <IntroAnimation onComplete={() => setShowIntro(false)} />}
       {isLoading ? (
          <LoadingScreen />
