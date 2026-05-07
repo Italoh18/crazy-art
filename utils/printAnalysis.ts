@@ -1,8 +1,4 @@
 
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Configurar Worker (necessário para o PDF.js funcionar no browser)
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
 
 export interface AnalysisReport {
   fileName: string;
@@ -117,6 +113,13 @@ export const analyzeImage = async (file: File, targetWidthMm?: number): Promise<
  * Analisa um arquivo PDF
  */
 export const analyzePDF = async (file: File): Promise<AnalysisReport> => {
+  // Importação dinâmica para otimização de performance
+  const pdfjsLib = await import('pdfjs-dist');
+  
+  // Configurar Worker (necessário para o PDF.js funcionar no browser)
+  // @ts-ignore - a propriedade version existe mas pode não estar no tipo básico dependendo do build
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
   const page = await pdf.getPage(1); // Analisa a primeira página

@@ -6,8 +6,6 @@ import {
   Download, Plus, Trash2, Home, Monitor, Lightbulb, Wallet, Briefcase, 
   TrendingUp, Copy, HelpCircle, AlertOctagon 
 } from 'lucide-react';
-// @ts-ignore
-import { jsPDF } from 'jspdf';
 
 // --- TYPES ---
 interface Appliance {
@@ -229,7 +227,8 @@ export default function PricingCalculator() {
   };
 
   // --- EXPORT PDF ---
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
+    const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     const purple = "#7C3AED";
     const black = "#000000";

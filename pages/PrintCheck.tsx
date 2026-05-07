@@ -7,9 +7,6 @@ import {
   Download, Eye, Palette, ScanLine, Info 
 } from 'lucide-react';
 import { analyzeImage, analyzePDF, simulatePrintPreview, AnalysisReport } from '../utils/printAnalysis';
-import * as pdfjsLib from 'pdfjs-dist';
-// @ts-ignore
-import { jsPDF } from 'jspdf';
 
 export default function PrintCheck() {
   const [file, setFile] = useState<File | null>(null);
@@ -81,6 +78,10 @@ export default function PrintCheck() {
         result = await analyzePDF(file);
         
         // Renderizar primeira página do PDF para preview
+        const pdfjsLib = await import('pdfjs-dist');
+        // @ts-ignore
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
         const page = await pdf.getPage(1);
@@ -126,8 +127,9 @@ export default function PrintCheck() {
       setPreviewSimulated(canvas.toDataURL('image/png'));
   };
 
-  const exportReport = () => {
+  const exportReport = async () => {
       if(!report) return;
+      const { jsPDF } = await import('jspdf');
       const doc = new jsPDF();
       
       doc.setFontSize(20);

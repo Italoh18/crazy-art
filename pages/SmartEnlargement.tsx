@@ -5,8 +5,6 @@ import {
   ArrowLeft, Maximize, Upload, Eye, Ruler, AlertTriangle, 
   CheckCircle, FileText, Monitor, X, ZoomIn, ZoomOut, MousePointer2 
 } from 'lucide-react';
-// @ts-ignore
-import { jsPDF } from 'jspdf';
 
 interface ImageInfo {
   width: number;
@@ -235,8 +233,9 @@ export default function SmartEnlargement() {
   }, [image, effectiveDPI, viewDistance, zoomLevel, showHumanEyeSim]);
 
   // --- 5. Gerar Relatório PDF ---
-  const generateReport = () => {
+  const generateReport = async () => {
       if (!image) return;
+      const { jsPDF } = await import('jspdf');
       const doc = new jsPDF();
       
       doc.setFillColor(10, 10, 10);

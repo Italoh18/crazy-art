@@ -5,10 +5,6 @@ import {
   ArrowLeft, Upload, FileType, RefreshCw, Download, 
   CheckCircle, AlertTriangle, X, File as FileIcon, ChevronRight, Layers, Image as ImageIcon 
 } from 'lucide-react';
-// @ts-ignore
-import JSZip from 'jszip';
-// @ts-ignore
-import { jsPDF } from 'jspdf';
 
 type ConversionStatus = 'idle' | 'uploading' | 'processing' | 'done' | 'error';
 
@@ -65,6 +61,7 @@ export default function CdrConverter() {
         if (view[0] === 0x50 && view[1] === 0x4B) {
             setExtractedData({ type: 'zip', version: 'CorelDRAW X4+ (Moderno)' });
             
+            const JSZip = (await import('jszip')).default;
             const zip = new JSZip();
             const content = await zip.loadAsync(arrayBuffer);
             
@@ -115,7 +112,8 @@ export default function CdrConverter() {
     
     const img = new Image();
     img.src = previewUrl;
-    img.onload = () => {
+    img.onload = async () => {
+        const { jsPDF } = await import('jspdf');
         const pdf = new jsPDF({
             orientation: img.width > img.height ? 'l' : 'p',
             unit: 'px',

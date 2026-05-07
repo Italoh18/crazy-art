@@ -5,16 +5,11 @@ import {
   ArrowLeft, Upload, FileText, CheckCircle, AlertTriangle, 
   X, File as FileIcon, Loader2, Download, FileType 
 } from 'lucide-react';
-import * as pdfjsLib from 'pdfjs-dist';
-import { Document, Packer, Paragraph, TextRun } from 'docx';
 // Fix import for file-saver to support both synthetic default and named exports depending on environment
 import * as FileSaverPkg from 'file-saver';
 
 // @ts-ignore
 const saveAs = FileSaverPkg.default || FileSaverPkg.saveAs || FileSaverPkg;
-
-// Configura o worker do PDF.js via CDN para evitar problemas de build com Vite
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
 
 type ConversionStatus = 'idle' | 'processing' | 'done' | 'error';
 
@@ -60,6 +55,14 @@ export default function PdfToWord() {
     setProgress(10);
 
     try {
+      const [{ Document, Packer, Paragraph, TextRun }, pdfjsLib] = await Promise.all([
+        import('docx'),
+        import('pdfjs-dist')
+      ]);
+
+      // @ts-ignore
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
       const numPages = pdf.numPages;
