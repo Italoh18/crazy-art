@@ -60,6 +60,29 @@
     transform: translateZ(40px);
     transition: transform 0.3s;
   }
+
+  /* Intro Animation Utilities */
+  @keyframes slideInFromRight {
+    0% {
+      transform: translateX(100vw) scale(1.2);
+      opacity: 0;
+    }
+    60% {
+      transform: translateX(-2vw) scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+    }
+  }
+
+  .char-enter {
+    animation: slideInFromRight 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    display: inline-block;
+    white-space: pre;
+    will-change: transform, opacity;
+  }
 }
 
 /* Custom Scrollbar */
