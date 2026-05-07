@@ -7,6 +7,7 @@ import { Order, ProductionStep } from '../types';
 import { ProductionPath } from '../components/ProductionPath';
 import { X, Upload, Loader2, Check } from 'lucide-react';
 import { ImageUploadInput } from '../components/ImageUploadInput';
+import { MontagemMoldeDetailsSection, MontagemMoldeModal } from '../components/MontagemMoldeDetailsSection';
 
 export default function Orders() {
   const { orders, loadData, updateProductionStep, updateOrder } = useData();
@@ -16,6 +17,7 @@ export default function Orders() {
   const [approvalModalOrder, setApprovalModalOrder] = useState<Order | null>(null);
   const [approvalImageUrl, setApprovalImageUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [viewingMoldeDetailsOrder, setViewingMoldeDetailsOrder] = useState<Order | null>(null);
 
   React.useEffect(() => {
     loadData(true);
@@ -242,6 +244,14 @@ export default function Orders() {
                                               isCompact 
                                               onStepClick={handleStepClick}
                                            />
+                                           {order.source === 'montagem_molde' && (
+                                              <button 
+                                                  onClick={() => setViewingMoldeDetailsOrder(order)}
+                                                  className="mt-2 w-full py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-xs text-white font-bold rounded-lg border border-zinc-700 transition"
+                                              >
+                                                  Detalhes do Molde
+                                              </button>
+                                           )}
                                       </td>
                                       <td className="px-6 py-4 text-right">
                                           <div className="font-mono text-white font-bold">R$ {order.total.toFixed(2)}</div>
@@ -300,6 +310,13 @@ export default function Orders() {
             </button>
           </div>
         </div>
+      )}
+
+      {viewingMoldeDetailsOrder && (
+        <MontagemMoldeModal 
+          order={viewingMoldeDetailsOrder} 
+          onClose={() => setViewingMoldeDetailsOrder(null)} 
+        />
       )}
     </div>
   );
