@@ -5,6 +5,7 @@ import {
   Eye, Search, Package, X, Download, ShoppingBag, ListChecks
 } from 'lucide-react';
 import { Order, SizeListItem } from '../types';
+import { MontagemMoldeDetailsSection } from '../components/MontagemMoldeDetailsSection';
 
 export default function PendingOrders() {
   const { orders } = useData();
@@ -132,10 +133,14 @@ export default function PendingOrders() {
 
                       <div>
                           <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-2 ml-1">Observações / Descrição</span>
-                          <div className="bg-zinc-900/50 p-5 rounded-2xl border border-zinc-800 text-zinc-300 text-sm leading-relaxed italic">
-                              "{viewingOrder.description || 'Sem observações.'}"
+                          <div className={`bg-zinc-900/50 p-5 rounded-2xl border border-zinc-800 text-zinc-300 text-sm leading-relaxed italic ${viewingOrder.source === 'montagem_molde' ? 'max-h-24 overflow-hidden text-ellipsis line-clamp-4' : ''}`}>
+                              "{viewingOrder.source === 'montagem_molde' ? 'Montagem de Molde' : (viewingOrder.description || 'Sem observações.')}"
                           </div>
                       </div>
+                      
+                      {viewingOrder.source === 'montagem_molde' && (
+                          <MontagemMoldeDetailsSection order={viewingOrder} />
+                      )}
 
                       {viewingOrder.size_list && (
                           <div>

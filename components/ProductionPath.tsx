@@ -54,7 +54,9 @@ export const ProductionPath: React.FC<ProductionPathProps> = ({ order, isCompact
           ) : (
             <div className="w-full aspect-square bg-black rounded-lg mb-2 flex items-center justify-center text-zinc-700 text-[10px]">Sem imagem</div>
           )}
-          <p className="text-[10px] text-zinc-400 line-clamp-3 leading-relaxed">{order.description || 'Sem descrição'}</p>
+          <p className="text-[10px] text-zinc-400 line-clamp-3 leading-relaxed">
+            {order.source === 'montagem_molde' ? 'Montagem de Molde (veja detalhes no ícone olho)' : (order.description || 'Sem descrição')}
+          </p>
         </div>
       );
     }

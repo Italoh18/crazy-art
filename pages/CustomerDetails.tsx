@@ -14,6 +14,7 @@ import {
 import { api } from '../src/services/api';
 import { SizeListItem, Order } from '../types';
 import { ProductionPath } from '../components/ProductionPath';
+import { MontagemMoldeDetailsSection } from '../components/MontagemMoldeDetailsSection';
 
 export default function CustomerDetails() {
   const { id: paramId } = useParams<{ id: string }>();
@@ -1233,7 +1234,9 @@ export default function CustomerDetails() {
                     <div className="p-6 border-b border-white/5 flex justify-between items-start bg-[#0c0c0e] rounded-t-2xl">
                         <div>
                             <h2 className="text-xl font-bold text-white flex items-center gap-2"><Package size={20} className="text-primary" /> Pedido #{viewingOrder.formattedOrderNumber || viewingOrder.order_number}</h2>
-                            <p className="text-zinc-500 text-xs mt-1">{viewingOrder.description || "Sem descrição adicional"}</p>
+                            <p className="text-zinc-500 text-xs mt-1 max-h-12 overflow-hidden text-ellipsis line-clamp-3">
+                                {viewingOrder.source === 'montagem_molde' ? 'Montagem de Molde' : (viewingOrder.description || "Sem descrição adicional")}
+                            </p>
                         </div>
                         <button onClick={() => setViewingOrder(null)} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button>
                     </div>
@@ -1341,6 +1344,10 @@ export default function CustomerDetails() {
                                 order={viewingOrder}
                             />
                         </div>
+                        
+                        {viewingOrder.source === 'montagem_molde' && (
+                            <MontagemMoldeDetailsSection order={viewingOrder} />
+                        )}
                     </div>
 
                     <div className="p-6 border-t border-white/5 bg-[#0c0c0e] rounded-b-2xl">
