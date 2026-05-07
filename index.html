@@ -64,16 +64,16 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #050505;
+        background-color: #FFFFFF;
         z-index: 9999;
       }
       .loader-text {
         font-family: "Times New Roman", Times, serif;
         font-weight: 900;
-        font-size: 10vw;
+        font-size: 60vw;
         color: #000;
-        background: #FAFAFA;
-        padding: 0 20px;
+        background: transparent;
+        padding: 0;
         clip-path: inset(0 100% 0 0);
         animation: reveal 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
@@ -83,10 +83,11 @@
     </style>
 </head>
   <body>
-    <div id="initial-loader">
-      <div class="loader-text">C A</div>
+    <div id="root">
+      <div id="initial-loader">
+        <div class="loader-text">C</div>
+      </div>
     </div>
-    <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
