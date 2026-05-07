@@ -42,12 +42,50 @@
       // Shim para garantir que process.env não quebre o app se não for injetado pelo bundler
       window.process = window.process || { env: {} };
     </script>
-    <!-- ImageTracer JS (Alternative to Potrace for Browser) -->
-    <script src="https://cdn.jsdelivr.net/npm/imagetracerjs@1.2.6/imagetracer_v1.2.6.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600&family=Jost:wght@300;400;500&display=swap">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600&family=Jost:wght@300;400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+    </noscript>
     
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+      /* Critical Inline CSS for FCP */
+      body {
+        margin: 0;
+        background-color: #050505;
+        color: #FAFAFA;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      #initial-loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #050505;
+        z-index: 9999;
+      }
+      .loader-text {
+        font-family: "Times New Roman", Times, serif;
+        font-weight: 900;
+        font-size: 10vw;
+        color: #000;
+        background: #FAFAFA;
+        padding: 0 20px;
+        clip-path: inset(0 100% 0 0);
+        animation: reveal 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      }
+      @keyframes reveal {
+        100% { clip-path: inset(0 0 0 0); }
+      }
+    </style>
 </head>
   <body>
+    <div id="initial-loader">
+      <div class="loader-text">C A</div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

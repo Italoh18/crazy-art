@@ -19,6 +19,20 @@ interface TraceStats {
 }
 
 export default function TraceMagic() {
+  const [scriptLoaded, setScriptLoaded] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !(window as any).ImageTracer) {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/imagetracerjs@1.2.6/imagetracer_v1.2.6.min.js';
+      script.async = true;
+      script.onload = () => setScriptLoaded(true);
+      document.head.appendChild(script);
+    } else {
+      setScriptLoaded(true);
+    }
+  }, []);
+
   // --- Estados de Imagem ---
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [processedSvg, setProcessedSvg] = useState<string | null>(null);
@@ -167,6 +181,10 @@ export default function TraceMagic() {
 
   const runTrace = () => {
     if (!originalImage || !imageRef.current) return;
+    if (typeof window !== 'undefined' && !(window as any).ImageTracer) {
+      alert("Aguarde o carregamento do motor de vetorização...");
+      return;
+    }
     setIsProcessing(true);
 
     setTimeout(() => {
