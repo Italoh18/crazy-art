@@ -67,25 +67,12 @@
         background-color: #FFFFFF;
         z-index: 9999;
       }
-      .loader-text {
-        font-family: "Times New Roman", Times, serif;
-        font-weight: 900;
-        font-size: 60vw;
-        color: #000;
-        background: transparent;
-        padding: 0;
-        clip-path: inset(0 100% 0 0);
-        animation: reveal 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-      }
-      @keyframes reveal {
-        100% { clip-path: inset(0 0 0 0); }
-      }
     </style>
 </head>
   <body>
     <div id="root">
       <div id="initial-loader">
-        <div class="loader-text">C</div>
+        <span style="color: #FEFEFE; font-size: 1px;">.</span>
       </div>
     </div>
     <script type="module" src="/index.tsx"></script>
