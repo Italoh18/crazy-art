@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { 
+    font-family: 'Inter', sans-serif; 
+    background-color: #050505; 
+    color: #FAFAFA; 
+    margin: 0; 
+    overflow-x: hidden;
+  }
+  
+  h1, h2, h3, h4, .font-heading {
+    font-family: 'Outfit', sans-serif;
+  }
+  
+  @media (min-width: 1024px) {
+    html {
+      /* Scale root font size based on 1440px reference width */
+      /* 1440px / 16px = 90 */
+      font-size: clamp(11px, 1.111vw, 18px);
+    }
+  }
+}
+
+@layer utilities {
+  .font-times {
+    font-family: 'Times New Roman', Times, serif;
+  }
+  .font-futura {
+    font-family: 'Jost', sans-serif;
+  }
+
+  .glass-panel {
+    background: rgba(18, 18, 21, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  }
+  
+  .bg-grid-pattern {
+    background-size: 50px 50px;
+    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    mask-image: linear-gradient(to bottom, black 20%, transparent 95%);
+    -webkit-mask-image: linear-gradient(to bottom, black 20%, transparent 95%);
+  }
+
+  .text-glow {
+    text-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
+  }
+
+  .tilt-content-float {
+    transform: translateZ(20px);
+    transition: transform 0.3s;
+  }
+  .tilt-content-deep {
+    transform: translateZ(40px);
+    transition: transform 0.3s;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+/* FEATURE: Button Response & Pulse */
+button:not(:disabled):active, 
+a[role="button"]:not(:disabled):active,
+.btn-active-effect:active {
+  transform: scale(0.96);
+  transition: transform 0.05s ease-out;
+  /* Leve brilho na borda ao clicar */
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.3), inset 0 0 10px rgba(255,255,255,0.1);
+  border-color: rgba(245, 158, 11, 0.6) !important;
+}

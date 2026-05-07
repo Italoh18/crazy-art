@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import './index.css';
 
 // Registro do Service Worker para permitir a instalação do site como App (Add to Home Screen)
 if ('serviceWorker' in navigator) {
