@@ -372,7 +372,12 @@ export default function ClientOrders() {
   };
 
   return (
-    <div className="space-y-8 pb-24 relative animate-fade-in-up">
+    <div 
+      className="space-y-8 pb-24 relative animate-fade-in-up"
+      onAnimationEnd={(e) => {
+        (e.currentTarget as HTMLElement).classList.remove('animate-fade-in-up');
+      }}
+    >
         {/* Header */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
             <div className="flex items-center gap-4">

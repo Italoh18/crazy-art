@@ -122,7 +122,13 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
         <StickManCleaner />
         <CosmicPulseSystem />
         <CookieConsent /> {/* Aviso LGPD */}
-        <main key={location.pathname} className="flex-1 animate-page-enter">
+        <main 
+          key={location.pathname} 
+          className="flex-1 animate-page-enter"
+          onAnimationEnd={(e) => {
+            (e.currentTarget as HTMLElement).classList.remove('animate-page-enter');
+          }}
+        >
             {children}
         </main>
         {location.pathname === '/' && (
@@ -289,7 +295,13 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                 </div>
             )}
 
-            <main key={location.pathname} className={`flex-1 ${!isHomePage ? 'pt-24 p-6 max-w-7xl mx-auto w-full' : ''} animate-page-enter`}>
+            <main 
+              key={location.pathname} 
+              className={`flex-1 ${!isHomePage ? 'pt-24 p-6 max-w-7xl mx-auto w-full' : ''} animate-page-enter`}
+              onAnimationEnd={(e) => {
+                (e.currentTarget as HTMLElement).classList.remove('animate-page-enter');
+              }}
+            >
                 {children}
             </main>
             {isHomePage && (
@@ -411,7 +423,13 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             </div>
         </header>
 
-        <main key={location.pathname} className="flex-1 overflow-x-hidden overflow-y-auto p-6 scroll-smooth animate-page-enter">
+        <main 
+          key={location.pathname} 
+          className="flex-1 overflow-x-hidden overflow-y-auto p-6 scroll-smooth animate-page-enter"
+          onAnimationEnd={(e) => {
+            (e.currentTarget as HTMLElement).classList.remove('animate-page-enter');
+          }}
+        >
           <div className="max-w-7xl mx-auto">
             {children}
           </div>

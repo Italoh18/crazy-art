@@ -590,7 +590,12 @@ export default function CustomerDetails() {
     const hasOverdue = _overdueOrders.length > 0;
 
     return (
-      <div className="max-w-6xl mx-auto pb-24 animate-fade-in-up">
+      <div 
+        className="max-w-6xl mx-auto pb-24 animate-fade-in-up"
+        onAnimationEnd={(e) => {
+          (e.currentTarget as HTMLElement).classList.remove('animate-fade-in-up');
+        }}
+      >
         <div className="flex items-center gap-4 mb-8">
             <Link to="/" className="p-3 bg-zinc-900 border border-white/5 hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-white transition">
                 <ArrowLeft size={20} />
@@ -894,7 +899,12 @@ export default function CustomerDetails() {
   }
 
   return (
-    <div className="space-y-8 pb-24 relative animate-fade-in-up">
+    <div 
+      className="space-y-8 pb-24 relative animate-fade-in-up"
+      onAnimationEnd={(e) => {
+        (e.currentTarget as HTMLElement).classList.remove('animate-fade-in-up');
+      }}
+    >
         {/* Header */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
             <div className="flex items-center gap-4">
