@@ -508,7 +508,7 @@ export default function Shop() {
                         </div>
                     </button>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                         {/* Layout Simples - Estilo Ferramentas com Diagonal */}
                         <button 
                             onClick={() => navigate('/layout-simples')}
@@ -616,6 +616,42 @@ export default function Shop() {
                                 <div className="absolute right-[-10%] bottom-[-5%] w-48 h-48 rotate-12 group-hover:rotate-6 group-hover:scale-110 transition-all duration-700 pointer-events-none z-30 drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
                                     <img 
                                         src={products.find(p => p.name.toLowerCase().includes('bordado'))?.imageUrl} 
+                                        className="w-full h-full object-contain" 
+                                    />
+                                </div>
+                            )}
+                        </button>
+
+                        {/* Vetorização */}
+                        <button 
+                            onClick={() => navigate('/vetorizacao')}
+                            className="group relative h-80 rounded-[2.5rem] border border-white/10 overflow-hidden bg-gradient-to-br from-emerald-900/40 via-teal-900/20 to-black transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:border-emerald-500/30"
+                        >
+                            <div className="absolute inset-0 bg-grid-pattern opacity-10 mix-blend-overlay pointer-events-none" />
+                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,rgba(16,185,129,0.15)_0%,transparent_60%)] group-hover:opacity-100 transition-opacity" />
+                            
+                            <div className="relative h-full w-full p-8 flex flex-col justify-between z-20">
+                                <div className="flex justify-between items-start">
+                                    <div className="p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 shadow-lg group-hover:scale-110 transition-transform duration-500 text-emerald-300">
+                                        <Palette size={32} strokeWidth={1.5} />
+                                    </div>
+                                    <div className="w-4 h-4 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_20px_#10b981]" />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h3 className="text-3xl font-black text-white leading-none uppercase tracking-tighter italic">
+                                        Vetorização
+                                        <span className="block text-xl font-medium opacity-80 text-emerald-300">de Arte</span>
+                                    </h3>
+                                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest max-w-[150px]">Conversão para vetor editável</p>
+                                </div>
+                            </div>
+
+                            {/* Product Image on Front */}
+                            {products.find(p => p.name.toLowerCase().includes('vetoriza'))?.imageUrl && (
+                                <div className="absolute right-[-10%] bottom-[-5%] w-48 h-48 -rotate-12 group-hover:-rotate-6 group-hover:scale-110 transition-all duration-700 pointer-events-none z-30 drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
+                                    <img 
+                                        src={products.find(p => p.name.toLowerCase().includes('vetoriza'))?.imageUrl} 
                                         className="w-full h-full object-contain" 
                                     />
                                 </div>

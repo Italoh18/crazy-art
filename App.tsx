@@ -41,6 +41,7 @@ const ClientOrders = lazy(() => import('./pages/ClientOrders'));
 const LayoutSimples = lazy(() => import('./pages/LayoutSimples'));
 const MontagemMolde = lazy(() => import('./pages/MontagemMolde'));
 const MatrizBordado = lazy(() => import('./pages/MatrizBordado'));
+const Vetorizacao = lazy(() => import('./pages/Vetorizacao'));
 const MoldesManager = lazy(() => import('./pages/MoldesManager'));
 
 const LoadingScreen = () => {
@@ -107,6 +108,7 @@ const AppRoutes = () => {
                 <Route path="/layout-simples" element={<LayoutSimples />} />
                 <Route path="/montagem-molde" element={<MontagemMolde />} />
                 <Route path="/matriz-bordado" element={<MatrizBordado />} />
+                <Route path="/vetorizacao" element={<Vetorizacao />} />
                 <Route path="/minha-area" element={<ClientRoute />} />
                 <Route path="/my-orders" element={<ClientOrdersRoute />} />
                 <Route path="/statement" element={<StatementRoute />} /> {/* Nova Rota */}
