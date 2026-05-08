@@ -5,11 +5,9 @@ import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, 
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { useData } from '../contexts/DataContext';
-import { StickManCleaner } from './StickManCleaner';
-import { CosmicPulseSystem } from './CosmicPulseSystem';
-import { NotificationCenter } from './NotificationCenter';
-import { VirtualAssistant } from './VirtualAssistant'; 
-import { CookieConsent } from './CookieConsent'; // Importado
+const NotificationCenter = React.lazy(() => import('./NotificationCenter').then(module => ({ default: module.NotificationCenter })));
+const VirtualAssistant = React.lazy(() => import('./VirtualAssistant').then(module => ({ default: module.VirtualAssistant }))); 
+const CookieConsent = React.lazy(() => import('./CookieConsent').then(module => ({ default: module.CookieConsent })));
 
 export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
@@ -61,15 +59,10 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
   const timesFont = { fontFamily: '"Times New Roman", Times, serif' };
 
-  // Fundo Impactante "Flare" SEM PARALLAX
+  // Fundo Impactante Otimizado (Sem Blurs Pesados e Parallax)
   const BackgroundEffects = () => (
     <div className="fixed inset-0 z-[-1] overflow-hidden pointer-events-none bg-background">
       <div className="absolute inset-0 bg-grid-pattern opacity-40"></div>
-      <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] animate-spin-slow opacity-20">
-        <div className="w-full h-full bg-flare-gradient blur-[100px] mix-blend-screen"></div>
-      </div>
-      <div className="absolute top-[10%] right-[10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px] mix-blend-screen animate-pulse-slow"></div>
-      <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-secondary/10 rounded-full blur-[140px] mix-blend-screen animate-float"></div>
       <div className="absolute inset-0 bg-radial-gradient from-transparent via-background/60 to-background opacity-90"></div>
     </div>
   );
@@ -114,9 +107,9 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     return (
       <div className="flex flex-col min-h-screen relative selection:bg-primary/30 selection:text-white overflow-x-hidden">
         <BackgroundEffects />
-        <StickManCleaner />
-        <CosmicPulseSystem />
-        <CookieConsent /> {/* Aviso LGPD */}
+        <React.Suspense fallback={null}>
+          <CookieConsent /> {/* Aviso LGPD */}
+        </React.Suspense>
         <main 
           key={location.pathname} 
           className="flex-1 animate-page-enter"
@@ -126,7 +119,9 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
         >
             {children}
         </main>
-        <VirtualAssistant />
+        <React.Suspense fallback={null}>
+          <VirtualAssistant />
+        </React.Suspense>
         <Footer />
       </div>
     );
@@ -158,9 +153,9 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     return (
         <div className="min-h-screen flex flex-col relative selection:bg-primary/30 selection:text-white overflow-x-hidden">
             <BackgroundEffects />
-            <StickManCleaner />
-            <CosmicPulseSystem />
-            <CookieConsent /> {/* Aviso LGPD */}
+            <React.Suspense fallback={null}>
+              <CookieConsent /> {/* Aviso LGPD */}
+            </React.Suspense>
             
             {/* Oculta o cabeçalho do layout se estiver na home, pois a home tem o próprio cabeçalho */}
             {!isHomePage && (
@@ -287,7 +282,9 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             >
                 {children}
             </main>
-            <VirtualAssistant />
+            <React.Suspense fallback={null}>
+              <VirtualAssistant />
+            </React.Suspense>
             <Footer />
         </div>
     );
@@ -297,10 +294,10 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   return (
     <div className="flex h-screen overflow-hidden text-text relative selection:bg-primary/30 selection:text-white">
       <BackgroundEffects />
-      <StickManCleaner />
-      <CosmicPulseSystem />
-      <VirtualAssistant />
-      <CookieConsent /> {/* Aviso LGPD */}
+      <React.Suspense fallback={null}>
+        <VirtualAssistant />
+        <CookieConsent /> {/* Aviso LGPD */}
+      </React.Suspense>
       
       {isSidebarOpen && (
         <div 

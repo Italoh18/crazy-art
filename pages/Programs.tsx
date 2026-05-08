@@ -159,10 +159,7 @@ export default function Programs() {
 
   return (
     <div className="min-h-screen bg-black text-white p-6 pb-24 overflow-x-hidden">
-      <div className="fixed inset-0 pointer-events-none">
-         <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-purple-900/20 rounded-full blur-[120px] animate-pulse-slow"></div>
-         <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-900/10 rounded-full blur-[100px] animate-float"></div>
-      </div>
+      <div className="fixed inset-0 pointer-events-none bg-radial-gradient from-transparent via-background/60 to-background opacity-90"></div>
 
       <div className="max-w-7xl mx-auto relative z-10">
         <div className="flex items-center gap-4 mb-12 animate-fade-in-up">
@@ -223,7 +220,6 @@ export default function Programs() {
                             className="absolute inset-0 transition-opacity duration-700 opacity-60 group-hover:opacity-100"
                             style={{ background: tool.bgImage }}
                         ></div>
-                        <div className={`absolute -right-20 -bottom-20 w-80 h-80 ${tool.flareColor} blur-[100px] opacity-0 group-hover:opacity-30 transition-opacity duration-500 rounded-full pointer-events-none`}></div>
                     </>
                 );
 

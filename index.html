@@ -34,9 +34,18 @@
     
     <meta name="theme-color" content="#09090b">
 
-    <!-- Google AdSense -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2992531272644420"
-     crossorigin="anonymous"></script>
+    <!-- Google AdSense (Lazy Loaded to improve TBT) -->
+    <script>
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          var script = document.createElement('script');
+          script.async = true;
+          script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2992531272644420";
+          script.crossOrigin = "anonymous";
+          document.head.appendChild(script);
+        }, 3500); // Aguarda 3.5s apos o load para carregar os anuncios
+      });
+    </script>
 
     <script>
       // Shim para garantir que process.env não quebre o app se não for injetado pelo bundler
