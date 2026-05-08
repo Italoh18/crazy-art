@@ -4,8 +4,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers, MapPin, UserPlus, Menu, LogOut, Wrench, Grid, Palette, ChevronDown, ClipboardList, TrendingUp, Eye, EyeOff } from 'lucide-react';
-import { GalaxyGame } from '../components/GalaxyGame';
 import { NotificationCenter } from '../components/NotificationCenter';
+
+const GalaxyGame = React.lazy(() => import('../components/GalaxyGame').then(m => ({ default: m.GalaxyGame })));
 
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -515,7 +516,9 @@ export default function Home() {
 
           {gameMode && (
               <div className="absolute inset-0 z-50">
-                  <GalaxyGame onClose={() => setGameMode(false)} />
+                  <React.Suspense fallback={null}>
+                      <GalaxyGame onClose={() => setGameMode(false)} />
+                  </React.Suspense>
               </div>
           )}
 

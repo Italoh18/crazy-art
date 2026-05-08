@@ -28,6 +28,9 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             'vendor-react': ['react', 'react-dom', 'react-router-dom'],
             'vendor-ui': ['lucide-react', 'framer-motion'],
+            'vendor-canvas': ['konva', 'react-konva', 'use-image'],
+            'vendor-charts': ['recharts'],
+            'vendor-utils': ['jspdf', 'pdfjs-dist', 'docx', 'jszip', 'opentype.js', 'gifenc']
           }
         }
       },

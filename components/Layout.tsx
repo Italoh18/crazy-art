@@ -7,7 +7,6 @@ import { useCart } from '../contexts/CartContext';
 import { useData } from '../contexts/DataContext';
 import { StickManCleaner } from './StickManCleaner';
 import { CosmicPulseSystem } from './CosmicPulseSystem';
-import { FluidTrail } from './FluidTrail';
 import { NotificationCenter } from './NotificationCenter';
 import { VirtualAssistant } from './VirtualAssistant'; 
 import { CookieConsent } from './CookieConsent'; // Importado
@@ -115,7 +114,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     return (
       <div className="flex flex-col min-h-screen relative selection:bg-primary/30 selection:text-white overflow-x-hidden">
         <BackgroundEffects />
-        <FluidTrail />
         <StickManCleaner />
         <CosmicPulseSystem />
         <CookieConsent /> {/* Aviso LGPD */}
@@ -160,7 +158,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     return (
         <div className="min-h-screen flex flex-col relative selection:bg-primary/30 selection:text-white overflow-x-hidden">
             <BackgroundEffects />
-            <FluidTrail />
             <StickManCleaner />
             <CosmicPulseSystem />
             <CookieConsent /> {/* Aviso LGPD */}
@@ -300,7 +297,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   return (
     <div className="flex h-screen overflow-hidden text-text relative selection:bg-primary/30 selection:text-white">
       <BackgroundEffects />
-      <FluidTrail />
       <StickManCleaner />
       <CosmicPulseSystem />
       <VirtualAssistant />
