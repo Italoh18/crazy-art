@@ -508,7 +508,7 @@ export default function Shop() {
                         </div>
                     </button>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         {/* Layout Simples - Estilo Ferramentas com Diagonal */}
                         <button 
                             onClick={() => window.location.href = '/layout-simples'}
@@ -522,26 +522,26 @@ export default function Shop() {
                                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent" />
                             </div>
 
-                            <div className="relative h-full w-full p-10 flex flex-col justify-between z-20">
+                            <div className="relative h-full w-full p-8 flex flex-col justify-between z-20">
                                 <div className="flex justify-between items-start">
                                     <div className="p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 shadow-lg group-hover:scale-110 transition-transform duration-500 text-amber-300">
-                                        <Layers size={40} strokeWidth={1.5} />
+                                        <Layers size={32} strokeWidth={1.5} />
                                     </div>
                                     <div className="w-4 h-4 rounded-full bg-amber-500 animate-pulse shadow-[0_0_20px_#f59e0b]" />
                                 </div>
 
-                                <div className="space-y-3">
-                                    <h3 className="text-4xl font-black text-white leading-none uppercase tracking-tighter italic">
+                                <div className="space-y-2">
+                                    <h3 className="text-3xl font-black text-white leading-none uppercase tracking-tighter italic">
                                         Layout
-                                        <span className="block text-2xl font-medium opacity-80 text-amber-300">Simples</span>
+                                        <span className="block text-xl font-medium opacity-80 text-amber-300">Simples</span>
                                     </h3>
-                                    <p className="text-sm text-zinc-400 font-bold uppercase tracking-widest max-w-[200px]">Briefing rápido, entrega garantida</p>
+                                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest max-w-[150px]">Briefing rápido, entrega garantida</p>
                                 </div>
                             </div>
 
                             {/* Product Image on Front */}
                             {products.find(p => p.name.toLowerCase().includes('layout simples'))?.imageUrl && (
-                                <div className="absolute right-[-10%] bottom-[-5%] w-64 h-64 rotate-12 group-hover:rotate-6 group-hover:scale-110 transition-all duration-700 pointer-events-none z-30 drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
+                                <div className="absolute right-[-10%] bottom-[-5%] w-48 h-48 rotate-12 group-hover:rotate-6 group-hover:scale-110 transition-all duration-700 pointer-events-none z-30 drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
                                     <img 
                                         src={products.find(p => p.name.toLowerCase().includes('layout simples'))?.imageUrl} 
                                         className="w-full h-full object-contain" 
@@ -556,35 +556,66 @@ export default function Shop() {
                             className="group relative h-80 rounded-[2.5rem] border border-white/10 overflow-hidden bg-gradient-to-br from-blue-900/40 via-cyan-900/20 to-black transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:border-blue-500/30"
                         >
                             <div className="absolute inset-0 bg-grid-pattern opacity-10 mix-blend-overlay pointer-events-none" />
-                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_90%_10%,rgba(59,130,246,0.15)_0%,transparent_60%)] group-hover:opacity-100 transition-opacity" />
+                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.15)_0%,transparent_60%)] group-hover:opacity-100 transition-opacity" />
                             
-                            {/* Diagonal Division Effect */}
-                            <div className="absolute top-0 left-0 w-1/2 h-full bg-black/40 overflow-hidden hidden md:block" style={{ clipPath: 'polygon(0 0, 80% 0, 100% 100%, 0% 100%)' }}>
-                                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent" />
-                            </div>
-
-                            <div className="relative h-full w-full p-10 flex flex-col justify-between z-20 md:items-end md:text-right">
-                                <div className="flex justify-between items-start md:flex-row-reverse w-full">
+                            <div className="relative h-full w-full p-8 flex flex-col justify-between z-20">
+                                <div className="flex justify-between items-start">
                                     <div className="p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 shadow-lg group-hover:scale-110 transition-transform duration-500 text-blue-300">
-                                        <Scissors size={40} strokeWidth={1.5} />
+                                        <Scissors size={32} strokeWidth={1.5} />
                                     </div>
                                     <div className="w-4 h-4 rounded-full bg-blue-500 animate-pulse shadow-[0_0_20px_#3b82f6]" />
                                 </div>
 
-                                <div className="space-y-3">
-                                    <h3 className="text-4xl font-black text-white leading-none uppercase tracking-tighter italic">
+                                <div className="space-y-2">
+                                    <h3 className="text-3xl font-black text-white leading-none uppercase tracking-tighter italic">
                                         Montagem
-                                        <span className="block text-2xl font-medium opacity-80 text-blue-300">de Molde</span>
+                                        <span className="block text-xl font-medium opacity-80 text-blue-300">de Molde</span>
                                     </h3>
-                                    <p className="text-sm text-zinc-400 font-bold uppercase tracking-widest max-w-[200px]">Precisão técnica para sua produção</p>
+                                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest max-w-[150px]">Precisão técnica para produção</p>
                                 </div>
                             </div>
 
                             {/* Product Image on Front */}
                             {products.find(p => p.name.toLowerCase().includes('montagem de molde'))?.imageUrl && (
-                                <div className="absolute left-[-10%] bottom-[-5%] w-64 h-64 -rotate-12 group-hover:-rotate-6 group-hover:scale-110 transition-all duration-700 pointer-events-none z-30 drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
+                                <div className="absolute right-[-10%] bottom-[-5%] w-48 h-48 -rotate-12 group-hover:-rotate-6 group-hover:scale-110 transition-all duration-700 pointer-events-none z-30 drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
                                     <img 
                                         src={products.find(p => p.name.toLowerCase().includes('montagem de molde'))?.imageUrl} 
+                                        className="w-full h-full object-contain" 
+                                    />
+                                </div>
+                            )}
+                        </button>
+
+                        {/* Matriz de Bordado */}
+                        <button 
+                            onClick={() => window.location.href = '/matriz-bordado'}
+                            className="group relative h-80 rounded-[2.5rem] border border-white/10 overflow-hidden bg-gradient-to-br from-purple-900/40 via-indigo-900/20 to-black transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:border-purple-500/30"
+                        >
+                            <div className="absolute inset-0 bg-grid-pattern opacity-10 mix-blend-overlay pointer-events-none" />
+                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_90%_80%,rgba(168,85,247,0.15)_0%,transparent_60%)] group-hover:opacity-100 transition-opacity" />
+                            
+                            <div className="relative h-full w-full p-8 flex flex-col justify-between z-20">
+                                <div className="flex justify-between items-start">
+                                    <div className="p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 shadow-lg group-hover:scale-110 transition-transform duration-500 text-purple-300">
+                                        <Hash size={32} strokeWidth={1.5} />
+                                    </div>
+                                    <div className="w-4 h-4 rounded-full bg-purple-500 animate-pulse shadow-[0_0_20px_#a855f7]" />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h3 className="text-3xl font-black text-white leading-none uppercase tracking-tighter italic">
+                                        Matriz
+                                        <span className="block text-xl font-medium opacity-80 text-purple-300">de Bordado</span>
+                                    </h3>
+                                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest max-w-[150px]">Digitalização de alta qualidade</p>
+                                </div>
+                            </div>
+
+                            {/* Product Image on Front */}
+                            {products.find(p => p.name.toLowerCase().includes('bordado'))?.imageUrl && (
+                                <div className="absolute right-[-10%] bottom-[-5%] w-48 h-48 rotate-12 group-hover:rotate-6 group-hover:scale-110 transition-all duration-700 pointer-events-none z-30 drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
+                                    <img 
+                                        src={products.find(p => p.name.toLowerCase().includes('bordado'))?.imageUrl} 
                                         className="w-full h-full object-contain" 
                                     />
                                 </div>

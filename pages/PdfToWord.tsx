@@ -67,7 +67,7 @@ export default function PdfToWord() {
       const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
       const numPages = pdf.numPages;
       
-      const docChildren: Paragraph[] = [];
+      const docChildren: any[] = [];
 
       // Itera por cada página do PDF
       for (let i = 1; i <= numPages; i++) {

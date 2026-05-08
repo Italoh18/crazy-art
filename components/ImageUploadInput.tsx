@@ -8,6 +8,7 @@ interface ImageUploadInputProps {
   label?: string;
   accept?: string;
   maxFiles?: number;
+  maxSizeMB?: number; // Tamanho máximo em Megabytes
   category?: 'banners' | 'portfolio' | 'clientes' | 'outros' | 'mockups';
 }
 
@@ -17,6 +18,7 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
   placeholder = "https://...", 
   label = "URL do Arquivo",
   accept = "image/*",
+  maxSizeMB = 50, // Padrão 50MB para não quebrar outros componentes
   category
 }) => {
   const [isUploading, setIsUploading] = useState(false);
@@ -26,6 +28,14 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validação de tamanho do arquivo
+    const sizeInMB = file.size / (1024 * 1024);
+    if (sizeInMB > maxSizeMB) {
+      setError(`Arquivo muito grande (Máx ${maxSizeMB}MB)`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
 
     setIsUploading(true);
     setError(null);
@@ -110,11 +120,21 @@ export const ImageUploadInput: React.FC<ImageUploadInputProps> = ({
 
       {/* Preview opcional compacto abaixo do campo se tiver valor */}
       {value && (
-        <div className="mt-2 flex items-center gap-3 p-2 bg-zinc-900/50 rounded-lg border border-zinc-800 animate-fade-in">
-          <div className="w-10 h-10 rounded border border-zinc-700 overflow-hidden bg-black shrink-0">
-             <img src={value} alt="Preview" className="w-full h-full object-cover" />
+        <div className="mt-2 flex items-center gap-3 p-2 bg-zinc-900/50 rounded-lg border border-zinc-800 animate-fade-in text-white">
+          <div className="w-10 h-10 rounded border border-zinc-700 overflow-hidden bg-black shrink-0 flex items-center justify-center">
+             {value.match(/\.(jpg|jpeg|png|gif|webp|svg|avif)$/i) ? (
+               <img src={value} alt="Preview" className="w-full h-full object-cover" />
+             ) : (
+               <div className="text-zinc-600">
+                 <ImageIcon size={20} />
+               </div>
+             )}
           </div>
-          <p className="text-[10px] text-zinc-500 truncate italic flex-1">{value}</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-zinc-500 truncate italic">
+              {value.split('/').pop()?.split('?')[0] || value}
+            </p>
+          </div>
         </div>
       )}
     </div>
