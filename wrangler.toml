@@ -14,4 +14,4 @@ binding = "MY_BUCKET"
 bucket_name = "crazyart-images"
 
 [vars]
-R2_PUBLIC_URL = "https://pub-90249418c8104934b180e153731ca317.r2.dev"
+R2_PUBLIC_URL = "https://imagens.crazyart.com.br"
