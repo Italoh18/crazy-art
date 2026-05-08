@@ -30,10 +30,13 @@ export const CookieConsent = () => {
         </div>
         
         <div className="flex-1 text-center sm:text-left">
-          <h4 className="text-white font-bold text-sm mb-1">Cookies & Dados Locais</h4>
+          <h4 className="text-white font-bold text-sm mb-1">Uso de Cookies</h4>
           <p className="text-zinc-400 text-xs leading-relaxed">
-            Utilizamos armazenamento local apenas para garantir que seu login e preferências funcionem corretamente. 
-            Não vendemos seus dados. Ao continuar, você concorda com isso.
+            Este site utiliza cookies e tecnologias semelhantes para garantir o funcionamento adequado, melhorar a experiência do usuário, analisar o tráfego e exibir anúncios personalizados.
+            <br />
+            Informações coletadas podem ser compartilhadas com parceiros de publicidade e análise, como o Google, conforme suas políticas.
+            <br />
+            Ao clicar em “Aceitar” ou continuar navegando, você concorda com o uso de cookies, nos termos da nossa Política de Privacidade.
           </p>
         </div>
 
@@ -42,7 +45,7 @@ export const CookieConsent = () => {
             onClick={handleAccept}
             className="flex-1 sm:flex-none bg-primary hover:bg-amber-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wide transition shadow-lg shadow-primary/20"
           >
-            Entendi
+            Aceitar
           </button>
           <button 
             onClick={handleAccept} // Fecha também (aceite implícito ou apenas fechar o aviso)
