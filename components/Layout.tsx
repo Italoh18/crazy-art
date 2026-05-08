@@ -5,7 +5,6 @@ import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, 
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { useData } from '../contexts/DataContext';
-import { SeasonalEffects } from './SeasonalEffects';
 import { StickManCleaner } from './StickManCleaner';
 import { CosmicPulseSystem } from './CosmicPulseSystem';
 import { FluidTrail } from './FluidTrail';
@@ -22,7 +21,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const navigate = useNavigate();
   const { role, logout, currentCustomer } = useAuth();
   const { cartCount } = useCart();
-  const { showSeasonalEffect, setShowSeasonalEffect } = useData();
   const userMenuRef = useRef<HTMLDivElement>(null);
   
   const CartButton = () => {
@@ -118,7 +116,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
       <div className="flex flex-col min-h-screen relative selection:bg-primary/30 selection:text-white overflow-x-hidden">
         <BackgroundEffects />
         <FluidTrail />
-        <SeasonalEffects />
         <StickManCleaner />
         <CosmicPulseSystem />
         <CookieConsent /> {/* Aviso LGPD */}
@@ -131,16 +128,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
         >
             {children}
         </main>
-        {location.pathname === '/' && (
-          <button 
-            onClick={() => setShowSeasonalEffect(!showSeasonalEffect)}
-            className="fixed bottom-6 right-[92px] z-[9999] w-14 h-14 flex items-center justify-center bg-zinc-800 backdrop-blur-md border border-white/10 rounded-full text-zinc-400 hover:text-white transition-all hover:scale-110 active:scale-95 group shadow-2xl"
-            style={{ position: 'fixed', bottom: '24px', right: '92px' }}
-            title={showSeasonalEffect ? "Desativar efeitos de estação" : "Ativar efeitos de estação"}
-          >
-            <Sparkles size={24} className={`${showSeasonalEffect ? 'text-primary animate-spin' : 'text-zinc-600'}`} />
-          </button>
-        )}
         <VirtualAssistant />
         <Footer />
       </div>
@@ -174,7 +161,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
         <div className="min-h-screen flex flex-col relative selection:bg-primary/30 selection:text-white overflow-x-hidden">
             <BackgroundEffects />
             <FluidTrail />
-            <SeasonalEffects />
             <StickManCleaner />
             <CosmicPulseSystem />
             <CookieConsent /> {/* Aviso LGPD */}
@@ -304,16 +290,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             >
                 {children}
             </main>
-            {isHomePage && (
-              <button 
-                onClick={() => setShowSeasonalEffect(!showSeasonalEffect)}
-                className="fixed bottom-6 right-[92px] z-[9999] w-14 h-14 flex items-center justify-center bg-zinc-800 backdrop-blur-md border border-white/10 rounded-full text-zinc-400 hover:text-white transition-all hover:scale-110 active:scale-95 group shadow-2xl"
-                style={{ position: 'fixed', bottom: '24px', right: '92px' }}
-                title={showSeasonalEffect ? "Desativar efeitos de estação" : "Ativar efeitos de estação"}
-              >
-                <Sparkles size={24} className={`${showSeasonalEffect ? 'text-primary animate-spin' : 'text-zinc-600'}`} />
-              </button>
-            )}
             <VirtualAssistant />
             <Footer />
         </div>
@@ -325,7 +301,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     <div className="flex h-screen overflow-hidden text-text relative selection:bg-primary/30 selection:text-white">
       <BackgroundEffects />
       <FluidTrail />
-      <SeasonalEffects />
       <StickManCleaner />
       <CosmicPulseSystem />
       <VirtualAssistant />
@@ -433,16 +408,6 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
           <div className="max-w-7xl mx-auto">
             {children}
           </div>
-          {location.pathname === '/' && (
-            <button 
-              onClick={() => setShowSeasonalEffect(!showSeasonalEffect)}
-              className="fixed bottom-6 right-[92px] z-[9999] w-14 h-14 flex items-center justify-center bg-zinc-800 backdrop-blur-md border border-white/10 rounded-full text-zinc-400 hover:text-white transition-all hover:scale-110 active:scale-95 group shadow-2xl"
-              style={{ position: 'fixed', bottom: '24px', right: '92px' }}
-              title={showSeasonalEffect ? "Desativar efeitos de estação" : "Ativar efeitos de estação"}
-            >
-              <Sparkles size={24} className={`${showSeasonalEffect ? 'text-primary animate-spin' : 'text-zinc-600'}`} />
-            </button>
-          )}
           <div className="max-w-7xl mx-auto mt-10">
               <Footer />
           </div>

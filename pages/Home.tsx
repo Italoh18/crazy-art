@@ -29,7 +29,7 @@ export default function Home() {
   });
   
   const { loginAdmin, loginClient, role, logout, currentCustomer } = useAuth();
-  const { carouselImages, addCustomer, trustedCompanies, faviconUrl, showSeasonalEffect } = useData();
+  const { carouselImages, addCustomer, trustedCompanies, faviconUrl } = useData();
   const navigate = useNavigate();
   const location = useLocation();
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -357,7 +357,7 @@ export default function Home() {
 
       {/* NAV BAR DESKTOP (MENU HORIZONTAL) */}
       <nav className="fixed top-24 left-0 w-full z-[55] hidden md:flex justify-center items-start pt-2 pb-2 pointer-events-none">
-          <div className={`flex gap-8 items-center pointer-events-auto bg-[#09090b]/80 backdrop-blur-xl border border-white/10 rounded-full px-10 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)] animate-slide-down-reveal transition-all duration-500 group relative ${showSeasonalEffect ? 'seasonal-border' : ''}`}>
+          <div className={`flex gap-8 items-center pointer-events-auto bg-[#09090b]/80 backdrop-blur-xl border border-white/10 rounded-full px-10 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)] animate-slide-down-reveal transition-all duration-500 group relative`}>
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
 
               {menuItems.map((item) => (
@@ -397,7 +397,7 @@ export default function Home() {
           <>
             <div className="fixed inset-0 z-[9990] bg-black/90 md:hidden transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
             <div className="fixed top-24 left-4 right-4 z-[9999] md:hidden animate-scale-in origin-top">
-                <div className={`bg-[#121215] border border-white/10 rounded-3xl p-5 shadow-2xl flex flex-col gap-2 relative overflow-hidden ring-1 ring-white/5 ${showSeasonalEffect ? 'seasonal-border' : ''}`}>
+                <div className={`bg-[#121215] border border-white/10 rounded-3xl p-5 shadow-2xl flex flex-col gap-2 relative overflow-hidden ring-1 ring-white/5`}>
                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1 bg-white/20 rounded-b-full shadow-[0_0_15px_rgba(255,255,255,0.2)]"></div>
                      
                      <div className="flex justify-between items-center mb-1 border-b border-white/5 pb-3">

@@ -511,7 +511,7 @@ export default function Shop() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         {/* Layout Simples - Estilo Ferramentas com Diagonal */}
                         <button 
-                            onClick={() => window.location.href = '/layout-simples'}
+                            onClick={() => navigate('/layout-simples')}
                             className="group relative h-80 rounded-[2.5rem] border border-white/10 overflow-hidden bg-gradient-to-br from-amber-900/40 via-orange-900/20 to-black transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:border-amber-500/30"
                         >
                             <div className="absolute inset-0 bg-grid-pattern opacity-10 mix-blend-overlay pointer-events-none" />
@@ -552,7 +552,7 @@ export default function Shop() {
 
                         {/* Montagem de Molde */}
                         <button 
-                            onClick={() => window.location.href = '/montagem-molde'}
+                            onClick={() => navigate('/montagem-molde')}
                             className="group relative h-80 rounded-[2.5rem] border border-white/10 overflow-hidden bg-gradient-to-br from-blue-900/40 via-cyan-900/20 to-black transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:border-blue-500/30"
                         >
                             <div className="absolute inset-0 bg-grid-pattern opacity-10 mix-blend-overlay pointer-events-none" />
@@ -588,7 +588,7 @@ export default function Shop() {
 
                         {/* Matriz de Bordado */}
                         <button 
-                            onClick={() => window.location.href = '/matriz-bordado'}
+                            onClick={() => navigate('/matriz-bordado')}
                             className="group relative h-80 rounded-[2.5rem] border border-white/10 overflow-hidden bg-gradient-to-br from-purple-900/40 via-indigo-900/20 to-black transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:border-purple-500/30"
                         >
                             <div className="absolute inset-0 bg-grid-pattern opacity-10 mix-blend-overlay pointer-events-none" />
