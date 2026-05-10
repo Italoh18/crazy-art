@@ -9,7 +9,8 @@ import { StickManCleaner } from './StickManCleaner';
 import { CosmicPulseSystem } from './CosmicPulseSystem';
 import { NotificationCenter } from './NotificationCenter';
 import { VirtualAssistant } from './VirtualAssistant'; 
-import { CookieConsent } from './CookieConsent'; // Importado
+import { CookieConsent } from './CookieConsent';
+import { PwaInstallPrompt } from './PwaInstallPrompt';
 
 export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
@@ -117,6 +118,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
         <StickManCleaner />
         <CosmicPulseSystem />
         <CookieConsent /> {/* Aviso LGPD */}
+        <PwaInstallPrompt />
         <main 
           key={location.pathname} 
           className="flex-1 animate-page-enter"
@@ -161,6 +163,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             <StickManCleaner />
             <CosmicPulseSystem />
             <CookieConsent /> {/* Aviso LGPD */}
+            <PwaInstallPrompt />
             
             {/* Oculta o cabeçalho do layout se estiver na home, pois a home tem o próprio cabeçalho */}
             {!isHomePage && (
@@ -301,6 +304,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
       <CosmicPulseSystem />
       <VirtualAssistant />
       <CookieConsent /> {/* Aviso LGPD */}
+      <PwaInstallPrompt />
       
       {isSidebarOpen && (
         <div 
