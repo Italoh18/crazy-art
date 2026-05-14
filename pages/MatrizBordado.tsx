@@ -34,13 +34,75 @@ export default function MatrizBordado() {
   
   const [showIncompleteError, setShowIncompleteError] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'online' | null>(null);
+  const [isAnalyzingColors, setIsAnalyzingColors] = useState(false);
+  const [analyzedColorCount, setAnalyzedColorCount] = useState<number | ''>('');
 
-  // Filter products that contain "BORDADO"
+  useEffect(() => {
+    if(artUrl) {
+       if(artUrl.endsWith('.pdf') || artUrl.includes('application/pdf') || artUrl.includes('.cdr') || artUrl.includes('.ai') || artUrl.includes('.tiff') || artUrl.includes('.tif')) {
+          setAnalyzedColorCount('');
+          return;
+       }
+       setIsAnalyzingColors(true);
+       
+       const img = new Image();
+       img.crossOrigin = 'Anonymous';
+       img.onload = () => {
+             const canvas = document.createElement('canvas');
+             const ctx = canvas.getContext('2d', { willReadFrequently: true });
+             if(!ctx) { 
+               setIsAnalyzingColors(false);
+               return; 
+             }
+             const maxDim = 400; 
+             let w = img.width;
+             let h = img.height;
+             if(w > maxDim || h > maxDim) {
+                 const ratio = Math.min(maxDim/w, maxDim/h);
+                 w = Math.floor(w * ratio);
+                 h = Math.floor(h * ratio);
+             }
+             canvas.width = w;
+             canvas.height = h;
+             ctx.drawImage(img, 0, 0, w, h);
+             const imageData = ctx.getImageData(0, 0, w, h);
+             const pixels = imageData.data;
+             
+             const colors = new Set<string>();
+             for(let i = 0; i < pixels.length; i += 4) {
+                 if(pixels[i+3] > 10) {
+                     const qr = Math.floor(pixels[i] / 32) * 32;
+                     const qg = Math.floor(pixels[i+1] / 32) * 32;
+                     const qb = Math.floor(pixels[i+2] / 32) * 32;
+                     colors.add(`${qr},${qg},${qb}`);
+                 }
+             }
+             
+             let count = colors.size - 1;
+             if(count < 1) count = 1;
+             
+             setAnalyzedColorCount(count);
+             setIsAnalyzingColors(false);
+       };
+       img.onerror = () => {
+           setIsAnalyzingColors(false);
+       };
+       img.src = artUrl;
+    } else {
+       setAnalyzedColorCount('');
+    }
+  }, [artUrl]);
+
+  // Filter specific embroidery service names
   const embroideryItems = useMemo(() => {
+    const allowedNames = [
+      "MATRIZ BÁSICA",
+      "MATRIZ INTERMEDIARIA",
+      "MATRIZ AVANÇADA",
+      "MATRIZ PROFISSIONAL"
+    ];
     return products.filter(p => 
-      p.name.toUpperCase().includes('BORDADO') || 
-      p.description?.toUpperCase().includes('BORDADO') ||
-      p.subcategory?.toUpperCase().includes('BORDADO')
+      allowedNames.includes(p.name.toUpperCase())
     );
   }, [products]);
 
@@ -83,7 +145,8 @@ export default function MatrizBordado() {
     setPaymentMethod(method);
 
     try {
-        const description = `Matriz de Bordado: ${selectedProduct?.name}. Tamanho: ${width}x${height}cm. Cores originais: ${keepOriginalColors ? 'Sim' : 'Não'}. ${!keepOriginalColors ? 'Mudanças: ' + colorChanges : ''}`;
+        const colorDesc = analyzedColorCount !== '' ? ` Quantidade de cores: ${analyzedColorCount}.` : '';
+        const description = `Matriz de Bordado: ${selectedProduct?.name}. Tamanho: ${width}x${height}cm. Cores originais: ${keepOriginalColors ? 'Sim' : 'Não'}. ${!keepOriginalColors ? 'Mudanças: ' + colorChanges : ''}${colorDesc}`;
         
         const response = await fetch('/api/layout-requests', {
             method: 'POST',
@@ -290,10 +353,47 @@ export default function MatrizBordado() {
                         label="Upload da Arte (Referência para Matriz)"
                         placeholder="Link do arquivo ou upload"
                         category="clientes"
-                        accept=".pdf,.cdr,.ai,.tiff,.tif,.jpg,.jpeg,.png,application/pdf,image/tiff,image/jpeg,image/png"
+                        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
                         maxSizeMB={5}
                    />
                    {showIncompleteError && !artUrl && <p className="text-red-500 text-[10px] font-bold mt-2 uppercase tracking-widest">Por favor, envie o arquivo da matriz</p>}
+                   
+                   {isAnalyzingColors && (
+                       <div className="mt-6 flex flex-col items-center justify-center gap-3 p-8 border border-dashed border-primary/50 bg-primary/5 rounded-2xl">
+                           <Loader2 className="animate-spin text-primary" size={32} />
+                           <p className="text-primary font-bold uppercase tracking-widest text-xs">Analisando cores da imagem...</p>
+                       </div>
+                   )}
+
+                   {!isAnalyzingColors && artUrl && (
+                       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 space-y-4">
+                           <div className="aspect-video w-full rounded-2xl bg-black border border-zinc-800 flex items-center justify-center overflow-hidden relative">
+                               {artUrl.includes('.pdf') || artUrl.includes('application/pdf') || artUrl.includes('.cdr') || artUrl.includes('.ai') ? (
+                                   <div className="flex flex-col items-center text-zinc-500 p-8">
+                                       <ImageIcon size={48} className="mb-2 opacity-50" />
+                                       <span className="text-[10px] uppercase font-bold tracking-widest">Arquivo não visualizável</span>
+                                   </div>
+                               ) : (
+                                   <img src={artUrl} className="w-full h-full object-contain" />
+                               )}
+                           </div>
+                           
+                           {analyzedColorCount !== '' && (
+                               <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col gap-3">
+                                   <label className="text-[10px] uppercase font-bold tracking-widest text-zinc-400">Essa é a quantidade de cores correta do projeto?</label>
+                                   <div className="relative">
+                                       <input 
+                                           type="number"
+                                           value={analyzedColorCount}
+                                           onChange={(e) => setAnalyzedColorCount(e.target.value === '' ? '' : Number(e.target.value))}
+                                           className="w-full bg-black border border-zinc-800 rounded-xl p-3 text-white text-sm outline-none focus:border-primary transition pl-10"
+                                       />
+                                       <Palette className="absolute left-3 top-3.5 text-zinc-700" size={16} />
+                                   </div>
+                               </div>
+                           )}
+                       </motion.div>
+                   )}
                 </div>
 
                 <button 
