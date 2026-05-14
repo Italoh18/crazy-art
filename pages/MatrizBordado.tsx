@@ -71,26 +71,65 @@ export default function MatrizBordado() {
              const pixels = imageData.data;
              
              const colorsFreq: Record<string, number> = {};
+             let totalOpaquePixels = 0;
              for(let i = 0; i < pixels.length; i += 4) {
-                 if(pixels[i+3] > 10) {
-                     const qr = Math.floor(pixels[i] / 32) * 32;
-                     const qg = Math.floor(pixels[i+1] / 32) * 32;
-                     const qb = Math.floor(pixels[i+2] / 32) * 32;
+                 if(pixels[i+3] > 128) {
+                     const qr = Math.floor(pixels[i] / 16) * 16;
+                     const qg = Math.floor(pixels[i+1] / 16) * 16;
+                     const qb = Math.floor(pixels[i+2] / 16) * 16;
                      const key = `${qr},${qg},${qb}`;
                      colorsFreq[key] = (colorsFreq[key] || 0) + 1;
+                     totalOpaquePixels++;
                  }
              }
              
-             const sortedColors = Object.keys(colorsFreq).sort((a,b) => colorsFreq[b] - colorsFreq[a]);
-             // Assuming the most frequent color is the background, skip it if there's more than one color
-             const actualColors = sortedColors.length > 1 ? sortedColors.slice(1) : sortedColors;
+             const minPixels = totalOpaquePixels * 0.01;
+             const significantColors = Object.keys(colorsFreq)
+                .filter(k => colorsFreq[k] >= minPixels)
+                .map(k => {
+                   const [r, g, b] = k.split(',').map(Number);
+                   return { r, g, b, freq: colorsFreq[k] };
+                })
+                .sort((a, b) => b.freq - a.freq);
+
+             const colorDistanceThreshold = 50; 
+             const mergedColors: {r: number, g: number, b: number, freq: number}[] = [];
+             
+             for (const color of significantColors) {
+                 let merged = false;
+                 for (const target of mergedColors) {
+                     const dist = Math.sqrt(
+                         Math.pow(color.r - target.r, 2) + 
+                         Math.pow(color.g - target.g, 2) + 
+                         Math.pow(color.b - target.b, 2)
+                     );
+                     if (dist < colorDistanceThreshold) {
+                         const totalFreq = target.freq + color.freq;
+                         target.r = Math.floor((target.r * target.freq + color.r * color.freq) / totalFreq);
+                         target.g = Math.floor((target.g * target.freq + color.g * color.freq) / totalFreq);
+                         target.b = Math.floor((target.b * target.freq + color.b * color.freq) / totalFreq);
+                         target.freq = totalFreq;
+                         merged = true;
+                         break;
+                     }
+                 }
+                 if (!merged) {
+                     mergedColors.push({ ...color });
+                 }
+             }
+             
+             let actualColors = mergedColors.sort((a,b) => b.freq - a.freq);
+             
+             if (actualColors.length > 1) {
+                 actualColors = actualColors.slice(1);
+             }
+
              const hexColors = actualColors.map(c => {
-                 const [r, g, b] = c.split(',').map(Number);
                  const hex = (r: number, g: number, b: number) => '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-                 return hex(r + 16 > 255 ? 255 : r + 16, g + 16 > 255 ? 255 : g + 16, b + 16 > 255 ? 255 : b + 16);
+                 return hex(Math.min(255, c.r + 8), Math.min(255, c.g + 8), Math.min(255, c.b + 8));
              });
              
-             let count = sortedColors.length - 1;
+             let count = actualColors.length;
              if(count < 1) count = 1;
              
              setAnalyzedColorCount(count);
