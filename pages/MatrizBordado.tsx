@@ -36,11 +36,13 @@ export default function MatrizBordado() {
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'online' | null>(null);
   const [isAnalyzingColors, setIsAnalyzingColors] = useState(false);
   const [analyzedColorCount, setAnalyzedColorCount] = useState<number | ''>('');
+  const [analyzedColors, setAnalyzedColors] = useState<string[]>([]);
 
   useEffect(() => {
     if(artUrl) {
        if(artUrl.endsWith('.pdf') || artUrl.includes('application/pdf') || artUrl.includes('.cdr') || artUrl.includes('.ai') || artUrl.includes('.tiff') || artUrl.includes('.tif')) {
           setAnalyzedColorCount('');
+          setAnalyzedColors([]);
           return;
        }
        setIsAnalyzingColors(true);
@@ -68,20 +70,31 @@ export default function MatrizBordado() {
              const imageData = ctx.getImageData(0, 0, w, h);
              const pixels = imageData.data;
              
-             const colors = new Set<string>();
+             const colorsFreq: Record<string, number> = {};
              for(let i = 0; i < pixels.length; i += 4) {
                  if(pixels[i+3] > 10) {
                      const qr = Math.floor(pixels[i] / 32) * 32;
                      const qg = Math.floor(pixels[i+1] / 32) * 32;
                      const qb = Math.floor(pixels[i+2] / 32) * 32;
-                     colors.add(`${qr},${qg},${qb}`);
+                     const key = `${qr},${qg},${qb}`;
+                     colorsFreq[key] = (colorsFreq[key] || 0) + 1;
                  }
              }
              
-             let count = colors.size - 1;
+             const sortedColors = Object.keys(colorsFreq).sort((a,b) => colorsFreq[b] - colorsFreq[a]);
+             // Assuming the most frequent color is the background, skip it if there's more than one color
+             const actualColors = sortedColors.length > 1 ? sortedColors.slice(1) : sortedColors;
+             const hexColors = actualColors.map(c => {
+                 const [r, g, b] = c.split(',').map(Number);
+                 const hex = (r: number, g: number, b: number) => '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+                 return hex(r + 16 > 255 ? 255 : r + 16, g + 16 > 255 ? 255 : g + 16, b + 16 > 255 ? 255 : b + 16);
+             });
+             
+             let count = sortedColors.length - 1;
              if(count < 1) count = 1;
              
              setAnalyzedColorCount(count);
+             setAnalyzedColors(hexColors);
              setIsAnalyzingColors(false);
        };
        img.onerror = () => {
@@ -90,6 +103,7 @@ export default function MatrizBordado() {
        img.src = artUrl;
     } else {
        setAnalyzedColorCount('');
+       setAnalyzedColors([]);
     }
   }, [artUrl]);
 
@@ -101,9 +115,9 @@ export default function MatrizBordado() {
       "MATRIZ AVANÇADA",
       "MATRIZ PROFISSIONAL"
     ];
-    return products.filter(p => 
-      allowedNames.includes(p.name.toUpperCase())
-    );
+    return products
+      .filter(p => allowedNames.includes(p.name.toUpperCase()))
+      .sort((a, b) => allowedNames.indexOf(a.name.toUpperCase()) - allowedNames.indexOf(b.name.toUpperCase()));
   }, [products]);
 
   // Calculation for Real Available Limit
@@ -298,42 +312,8 @@ export default function MatrizBordado() {
                 </div>
 
                 <div>
-                   <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                         <span className="w-8 h-8 rounded-full bg-primary text-black flex items-center justify-center font-black text-sm italic">02</span>
-                         <h3 className="text-sm font-black text-white uppercase tracking-widest italic">Manter cores originais?</h3>
-                      </div>
-                      <div className="flex bg-black border border-zinc-800 rounded-xl p-1">
-                          <button 
-                            onClick={() => setKeepOriginalColors(true)}
-                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition ${keepOriginalColors ? 'bg-primary text-white' : 'text-zinc-500'}`}
-                          >
-                              SIM
-                          </button>
-                          <button 
-                            onClick={() => setKeepOriginalColors(false)}
-                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition ${!keepOriginalColors ? 'bg-primary text-white' : 'text-zinc-500'}`}
-                          >
-                              NÃO
-                          </button>
-                      </div>
-                   </div>
-                   
-                   {!keepOriginalColors && (
-                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
-                            <textarea 
-                                value={colorChanges}
-                                onChange={(e) => setColorChanges(e.target.value)}
-                                placeholder="Descreva as mudanças de cores desejadas..."
-                                className="w-full bg-black/60 border border-zinc-800 rounded-2xl p-4 text-white text-sm outline-none focus:border-primary transition h-32 resize-none mt-2"
-                            />
-                       </motion.div>
-                   )}
-                </div>
-
-                <div>
                    <div className="flex items-center gap-2 mb-4">
-                      <span className="w-8 h-8 rounded-full bg-primary text-black flex items-center justify-center font-black text-sm italic">03</span>
+                      <span className="w-8 h-8 rounded-full bg-primary text-black flex items-center justify-center font-black text-sm italic">02</span>
                       <h3 className="text-sm font-black text-white uppercase tracking-widest italic">Envie sua arte</h3>
                       <div className="group relative">
                           <div className="p-1.5 bg-zinc-800 rounded-full text-zinc-500 cursor-help">
@@ -377,22 +357,67 @@ export default function MatrizBordado() {
                                    <img src={artUrl} className="w-full h-full object-contain" />
                                )}
                            </div>
+                       </motion.div>
+                   )}
+                </div>
+
+                <div>
+                   <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                         <span className="w-8 h-8 rounded-full bg-primary text-black flex items-center justify-center font-black text-sm italic">03</span>
+                         <h3 className="text-sm font-black text-white uppercase tracking-widest italic">Manter cores originais?</h3>
+                      </div>
+                      <div className="flex bg-black border border-zinc-800 rounded-xl p-1">
+                          <button 
+                            onClick={() => setKeepOriginalColors(true)}
+                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition ${keepOriginalColors ? 'bg-primary text-white' : 'text-zinc-500'}`}
+                          >
+                              SIM
+                          </button>
+                          <button 
+                            onClick={() => setKeepOriginalColors(false)}
+                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition ${!keepOriginalColors ? 'bg-primary text-white' : 'text-zinc-500'}`}
+                          >
+                              NÃO
+                          </button>
+                      </div>
+                   </div>
+                   
+                   {!keepOriginalColors && (
+                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                            <textarea 
+                                value={colorChanges}
+                                onChange={(e) => setColorChanges(e.target.value)}
+                                placeholder="Descreva as mudanças de cores desejadas..."
+                                className="w-full bg-black/60 border border-zinc-800 rounded-2xl p-4 text-white text-sm outline-none focus:border-primary transition h-32 resize-none mt-2"
+                            />
+                       </motion.div>
+                   )}
+
+                   {analyzedColorCount !== '' && (
+                       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 mt-6 flex flex-col gap-3">
+                           <label className="text-[10px] uppercase font-bold tracking-widest text-zinc-400">Essa é a quantidade de cores correta do projeto?</label>
+                           <div className="relative">
+                               <input 
+                                   type="number"
+                                   value={analyzedColorCount}
+                                   onChange={(e) => setAnalyzedColorCount(e.target.value === '' ? '' : Number(e.target.value))}
+                                   className="w-full bg-black border border-zinc-800 rounded-xl p-3 text-white text-sm outline-none focus:border-primary transition pl-10"
+                               />
+                               <Palette className="absolute left-3 top-3.5 text-zinc-700" size={16} />
+                           </div>
                            
-                           {analyzedColorCount !== '' && (
-                               <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col gap-3">
-                                   <label className="text-[10px] uppercase font-bold tracking-widest text-zinc-400">Essa é a quantidade de cores correta do projeto?</label>
-                                   <div className="relative">
-                                       <input 
-                                           type="number"
-                                           value={analyzedColorCount}
-                                           onChange={(e) => setAnalyzedColorCount(e.target.value === '' ? '' : Number(e.target.value))}
-                                           className="w-full bg-black border border-zinc-800 rounded-xl p-3 text-white text-sm outline-none focus:border-primary transition pl-10"
-                                       />
-                                       <Palette className="absolute left-3 top-3.5 text-zinc-700" size={16} />
+                           {analyzedColors.length > 0 && (
+                               <div className="mt-2">
+                                   <label className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 mb-2 block">Tabela de cores identificadas</label>
+                                   <div className="flex flex-wrap gap-2">
+                                       {analyzedColors.map((hex, idx) => (
+                                           <div key={idx} className="w-8 h-8 rounded-full border-2 border-zinc-800 shadow-sm" style={{ backgroundColor: hex }} title={hex} />
+                                       ))}
                                    </div>
                                </div>
                            )}
-                       </motion.div>
+                       </div>
                    )}
                 </div>
 
