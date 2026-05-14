@@ -100,7 +100,8 @@ export default function MatrizBordado() {
        img.onerror = () => {
            setIsAnalyzingColors(false);
        };
-       img.src = artUrl;
+       // Use proxy for analysis to avoid CORS tainted canvas when fetching from custom R2 domain
+       img.src = `/api/proxy-image?url=${encodeURIComponent(artUrl)}`;
     } else {
        setAnalyzedColorCount('');
        setAnalyzedColors([]);
