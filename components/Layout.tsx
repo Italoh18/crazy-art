@@ -16,6 +16,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
   const [isClientMenuOpen, setIsClientMenuOpen] = React.useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false);
+  const [legalModal, setLegalModal] = useState<'termos' | 'cookies' | 'privacidade' | null>(null);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -79,37 +80,105 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
   const Footer = () => (
     <footer className="glass-panel border-t-0 border-t-zinc-800/30 py-8 px-6 mt-auto w-full z-10 relative z-20 seasonal-target backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
-        <div className="flex flex-col text-center md:text-left">
-          <h2 className="text-xl font-bold text-white mb-1 uppercase bg-clip-text text-transparent bg-crazy-gradient tracking-widest drop-shadow-sm" style={timesFont}>CRAZY ART</h2>
-          <p className="text-zinc-500 text-xs tracking-wide">transformando ideias em realidade</p>
-        </div>
-        <div className="flex flex-col items-center">
-          <div className="flex items-center space-x-6">
-            {[
-              { icon: MessageCircle, href: "https://wa.me/5516994142665" },
-              { icon: Instagram, href: "https://instagram.com" },
-              { icon: Facebook, href: "https://facebook.com" },
-              { icon: Mail, href: "mailto:crazyartoficial@outlook.com" } 
-            ].map((item, idx) => (
-              <a 
-                key={idx}
-                href={item.href} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="text-zinc-400 hover:text-white transition-all hover:scale-125 hover:shadow-glow p-2.5 rounded-full hover:bg-white/10"
-              >
-                <item.icon size={20} />
-              </a>
-            ))}
+      <div className="max-w-7xl mx-auto flex flex-col gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+          <div className="flex flex-col text-center md:text-left">
+            <h2 className="text-xl font-bold text-white mb-1 uppercase bg-clip-text text-transparent bg-crazy-gradient tracking-widest drop-shadow-sm" style={timesFont}>CRAZY ART</h2>
+            <p className="text-zinc-500 text-xs tracking-wide">transformando ideias em realidade</p>
+          </div>
+          <div className="flex flex-col items-center">
+            <div className="flex items-center space-x-6">
+              {[
+                { icon: MessageCircle, href: "https://wa.me/5516994142665" },
+                { icon: Instagram, href: "https://instagram.com" },
+                { icon: Facebook, href: "https://facebook.com" },
+                { icon: Mail, href: "mailto:crazyartoficial@outlook.com" } 
+              ].map((item, idx) => (
+                <a 
+                  key={idx}
+                  href={item.href} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-zinc-400 hover:text-white transition-all hover:scale-125 hover:shadow-glow p-2.5 rounded-full hover:bg-white/10"
+                >
+                  <item.icon size={20} />
+                </a>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col items-center md:items-end opacity-60">
+            <p className="text-zinc-500 text-[10px] font-bold tracking-[0.2em] uppercase" style={timesFont}>CRAZY ART ® 2026</p>
           </div>
         </div>
-        <div className="flex flex-col items-center md:items-end opacity-60">
-          <p className="text-zinc-500 text-[10px] font-bold tracking-[0.2em] uppercase" style={timesFont}>CRAZY ART ® 2026</p>
+        <div className="flex flex-wrap justify-center gap-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest pt-4 border-t border-zinc-800/50">
+            <button onClick={() => setLegalModal('termos')} className="hover:text-white transition">Termos de Uso</button>
+            <button onClick={() => setLegalModal('privacidade')} className="hover:text-white transition">Política de Privacidade</button>
+            <button onClick={() => setLegalModal('cookies')} className="hover:text-white transition">Relatório de Cookies</button>
+            <a href="https://wa.me/5516994142665" target="_blank" rel="noopener noreferrer" className="hover:text-white transition">SAC</a>
         </div>
       </div>
     </footer>
   );
+
+  const LegalModals = () => {
+    if (!legalModal) return null;
+    return (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+        <div className="bg-[#18181b] border border-zinc-800 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col relative animate-in fade-in zoom-in duration-300 shadow-2xl">
+          <button 
+            onClick={() => setLegalModal(null)} 
+            className="absolute right-4 top-4 text-zinc-500 hover:text-white transition z-10"
+          >
+            <X size={24} />
+          </button>
+          <div className="p-6 border-b border-zinc-800">
+            <h3 className="text-xl font-black uppercase tracking-widest text-transparent bg-clip-text bg-crazy-gradient">
+                {legalModal === 'termos' ? 'Termos de Uso' : legalModal === 'privacidade' ? 'Política de Privacidade' : 'Relatório de Cookies'}
+            </h3>
+          </div>
+          <div className="p-6 overflow-y-auto custom-scrollbar text-zinc-400 text-sm space-y-4">
+            {legalModal === 'termos' && (
+              <>
+                <p><strong>1. ACEITAÇÃO DOS TERMOS</strong></p>
+                <p>Ao acessar e utilizar a Crazy Art, você concorda com os presentes Termos de Uso. Se você não concorda com qualquer parte destes termos, você não poderá acessar o serviço.</p>
+                <p><strong>2. USO DOS SERVIÇOS</strong></p>
+                <p>Os serviços de vetorização, montagem de molde, e matrizes de bordados estão sujeitos a disponibilidade e capacidade de entrega. Os prazos informados podem variar dependendo da demanda.</p>
+                <p><strong>3. PROPRIEDADE INTELECTUAL E DIREITOS AUTORAIS</strong></p>
+                <p>Você é o único responsável pelos arquivos e imagens enviados, garantindo que possui os direitos de uso sobre as artes anexadas. A Crazy Art se exime de responsabilidades por violações de direitos de terceiros.</p>
+                <p><strong>4. POLÍTICA DE SERVIÇOS E ESTORNOS</strong></p>
+                <p>Por se tratarem de serviços digitais personalizados, o desenvolvimento não garante devoluções após a prestação inicial e entrega digital do produto, salvo em casos de defeito ou falha incontestável de nossa parte.</p>
+              </>
+            )}
+            {legalModal === 'privacidade' && (
+              <>
+                <p><strong>1. COLETA DE DADOS</strong></p>
+                <p>Coletamos informações como nome, e-mail e dados de contato quando você se cadastra ou realiza um pedido para fornecer o serviço solicitado.</p>
+                <p><strong>2. USO DE SUAS INFORMAÇÕES</strong></p>
+                <p>Seus dados são usados estritamente para comunicação, execução da prestação do serviço solicitado e melhoria da nossa plataforma. Não comercializamos dados de usuários para terceiros em nenhuma hipótese.</p>
+                <p><strong>3. RETENÇÃO E PROTEÇÃO</strong></p>
+                <p>Armazenamos suas informações em provedores de nuvem de forma segura, com acesso restrito e autenticação devida, seguindo rigorosamente as diretrizes da Lei Geral de Proteção de Dados (LGPD).</p>
+                <p><strong>4. SEUS DIREITOS (LGPD)</strong></p>
+                <p>De acordo com a Lei Geral de Proteção de Dados brasileira (Lei 13.709/2018), você possui o direito de solicitar acesso às suas informações, solicitar alteração, ou requerir deleção, desde que não conflite com obrigações legais da nossa prestação frente ao serviço adquirido.</p>
+              </>
+            )}
+            {legalModal === 'cookies' && (
+              <>
+                <p><strong>1. O QUE SÃO COOKIES?</strong></p>
+                <p>Cookies são pequenos arquivos de texto salvos em seu navegador para melhorar a agilidade e experiência enquanto utiliza a plataforma Crazy Art.</p>
+                <p><strong>2. COMO USAMOS</strong></p>
+                <p>Utilizamos apenas cookies essenciais/estritamente necessários. Eles são úteis para manter sua sessão conectada com segurança, para funcionalidade do carrinho de compras e para registrar se o aviso de consentimento da LGPD foi aceito.</p>
+                <p><strong>3. GERENCIAMENTO DE COOKIES</strong></p>
+                <p>A maioria dos navegadores permite que você gerencie ou bloqueie os cookies. Você pode limpar ou modificar seu consentimento através das configurações de privacidade de seu navegador a qualquer momento. Tenha em mente que o bloqueio pode afetar as funções de login e carrinho do nosso sistema.</p>
+              </>
+            )}
+          </div>
+          <div className="p-4 border-t border-zinc-800 flex justify-end">
+            <button onClick={() => setLegalModal(null)} className="px-6 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg font-bold transition">FECHAR</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (role === 'guest') {
     return (
@@ -130,6 +199,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
         </main>
         <VirtualAssistant />
         <Footer />
+        <LegalModals />
       </div>
     );
   }
@@ -292,6 +362,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             </main>
             <VirtualAssistant />
             <Footer />
+            <LegalModals />
         </div>
     );
   }
@@ -412,6 +483,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
               <Footer />
           </div>
         </main>
+        <LegalModals />
       </div>
     </div>
   );

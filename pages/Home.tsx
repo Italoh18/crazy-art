@@ -28,6 +28,7 @@ export default function Home() {
     street: '', number: '', zipCode: '',
     password: '', confirmPassword: ''
   });
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   
   const { loginAdmin, loginClient, role, logout, currentCustomer } = useAuth();
   const { carouselImages, addCustomer, trustedCompanies, faviconUrl } = useData();
@@ -137,8 +138,13 @@ export default function Home() {
     e.preventDefault();
     setError('');
     
-    if (!regData.name || !regData.cpf || !regData.phone || !regData.password || !regData.confirmPassword) {
+    if (!regData.name || !regData.phone || !regData.password || !regData.confirmPassword) {
         setError('Por favor, preencha todos os campos obrigatórios.');
+        return;
+    }
+
+    if (!acceptedTerms) {
+        setError('Você precisa aceitar os Termos de Uso do site para prosseguir.');
         return;
     }
 
@@ -691,8 +697,8 @@ export default function Home() {
                             <input name="phone" required placeholder="(99) 99999-9999" value={regData.phone} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition font-mono" />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">CPF / CNPJ</label>
-                            <input name="cpf" required placeholder="000.000.000-00" value={regData.cpf} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition font-mono" />
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">CPF / CNPJ (Apenas se quiser CPF na nota fiscal)</label>
+                            <input name="cpf" placeholder="000.000.000-00" value={regData.cpf} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition font-mono" />
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Email (Opcional)</label>
@@ -730,7 +736,20 @@ export default function Home() {
 
                     {error && <div className="text-red-500 text-center bg-red-500/10 py-3 rounded-xl border border-red-500/20 text-xs font-bold animate-shake">{error}</div>}
 
-                    <div className="pt-6 flex flex-col gap-3">
+                    <div className="flex items-center gap-3 pt-2">
+                        <input 
+                            type="checkbox" 
+                            id="terms" 
+                            checked={acceptedTerms} 
+                            onChange={(e) => setAcceptedTerms(e.target.checked)}
+                            className="w-4 h-4 rounded border-zinc-800 bg-black/40 text-primary accent-primary" 
+                        />
+                        <label htmlFor="terms" className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest cursor-pointer group hover:text-white transition">
+                            Eu li e concordo com os <span className="text-primary group-hover:text-amber-400 transition">Termos de uso do site</span>
+                        </label>
+                    </div>
+
+                    <div className="pt-4 flex flex-col gap-3">
                         <button type="submit" className="w-full bg-primary text-white font-black py-4 rounded-xl hover:bg-amber-600 transition shadow-lg shadow-primary/20 active:scale-95 uppercase tracking-widest text-sm">Criar Minha Conta</button>
                         <button type="button" onClick={() => { setIsRegisterMode(false); setError(''); }} className="w-full py-3 text-zinc-500 hover:text-white transition font-bold text-xs uppercase tracking-widest">Já tenho conta. Voltar ao Login</button>
                     </div>

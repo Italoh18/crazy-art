@@ -24,13 +24,15 @@ export default function CustomerDetails() {
       updateCustomer, deleteCustomer, deleteOrder, 
       addOrder, addProduct, updateOrder, updateOrderStatus, isLoading 
   } = useData();
-  const { role, currentCustomer } = useAuth();
+  const { role, currentCustomer, logout } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'open' | 'overdue' | 'paid'>('open');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [formData, setFormData] = useState<any>({});
+  
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // States para Pagamento Parcial
   const [isValueModalOpen, setIsValueModalOpen] = useState(false);
@@ -457,6 +459,22 @@ export default function CustomerDetails() {
       }
   };
 
+  const handleConfirmDeleteAccount = async () => {
+      if (!customer) return;
+      try {
+          await deleteCustomer(customer.id);
+          alert('Cadastro excluído com sucesso.');
+          if (role === 'client') {
+              logout();
+              navigate('/');
+          } else {
+              navigate('/customers');
+          }
+      } catch (err: any) {
+          alert('Erro ao excluir cadastro: ' + err.message);
+      }
+  };
+
   const handleOpenNewOrder = () => {
       setEditingOrderId(null);
       setNewOrderData({
@@ -741,8 +759,61 @@ export default function CustomerDetails() {
                         )}
                     </div>
                 </div>
+
+                {role === 'client' && (
+                    <button 
+                        onClick={() => setIsDeleteModalOpen(true)}
+                        className="w-full h-14 bg-red-900/10 hover:bg-red-900/30 border border-red-500/20 hover:border-red-500/50 text-red-500 rounded-3xl flex items-center justify-center gap-2 font-bold transition-all mt-4"
+                    >
+                        <Trash2 size={20} /> Excluir Cadastro
+                    </button>
+                )}
             </div>
         </div>
+
+        {isDeleteModalOpen && (
+            <div className="fixed inset-0 z-[100] flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl relative animate-scale-in">
+                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e]">
+                        <h2 className="text-lg font-bold text-red-500 flex items-center gap-2"><Trash2 size={18} /> Excluir Cadastro</h2>
+                        <button onClick={() => setIsDeleteModalOpen(false)} className="text-zinc-500 hover:text-white"><X size={20} /></button>
+                    </div>
+                    <div className="p-6 space-y-6">
+                        {allPayableOrders.length > 0 ? (
+                            <div className="text-center space-y-4">
+                                <AlertTriangle size={48} className="text-amber-500 mx-auto" />
+                                <h3 className="text-xl font-bold text-white">Existem pendências!</h3>
+                                <p className="text-zinc-400 text-sm">Para excluir seu cadastro, quite suas contas em aberto primeiro.</p>
+                                <p className="text-white font-bold text-lg border border-white/10 py-3 rounded-xl bg-white/5">
+                                    Total em aberto: R$ {allPayableOrders.reduce((acc, o) => acc + Number(o.total || 0), 0).toFixed(2).replace('.', ',')}
+                                </p>
+                                <button 
+                                    onClick={() => {
+                                        const amountToPay = allPayableOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
+                                        executePayment(allPayableOrders.map(o => o.id), amountToPay, 'Quitação para Exclusão de Cadastro');
+                                    }}
+                                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition flex items-center justify-center gap-2"
+                                >
+                                    <DollarSign size={18} /> Pagar tudo
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="text-center space-y-4">
+                                <Trash2 size={48} className="text-red-500 mx-auto" />
+                                <h3 className="text-xl font-bold text-white">Tem certeza?</h3>
+                                <p className="text-zinc-400 text-sm">Esta ação é irreversível. Todos os seus dados, histórico e configurações serão permanentemente removidos.</p>
+                                <button 
+                                    onClick={handleConfirmDeleteAccount}
+                                    className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold transition flex items-center justify-center gap-2"
+                                >
+                                    <Trash2 size={18} /> Sim, Excluir Cadastro
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
 
         {/* Modal de Troca de Senha */}
         {isPasswordModalOpen && (

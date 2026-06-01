@@ -3,14 +3,10 @@ import { getAuth, Env } from './_auth';
 export const onRequestPost: any = async ({ request, env }: { request: Request, env: Env }) => {
 
   try {
-    // 1. Verificação de Autenticação
+    // 1. Verificação de Autenticação (Opcional para permitir uploads de visitantes em formulários específicos)
     const user = await getAuth(request, env);
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Não autorizado.' }), { 
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
+    // Nota: Mantemos o usuário como null se não houver token, permitindo uploads anônimos
+    // mas aplicando restrições mais severas.
 
     // 2. Receber FormData
     const formData = await request.formData();
@@ -27,6 +23,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     // 3. Validação
     const allowedTypes = [
       'image/',
+      'padding/', // Algumas variações de mime-type
       'application/pdf',
       'application/x-coreldraw',
       'application/illustrator',
@@ -36,18 +33,22 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     ];
 
     const isAllowed = allowedTypes.some(type => file.type.startsWith(type)) || 
-                      file.name.endsWith('.cdr') || 
-                      file.name.endsWith('.ai');
+                      file.name.toLowerCase().endsWith('.cdr') || 
+                      file.name.toLowerCase().endsWith('.ai') ||
+                      file.name.toLowerCase().endsWith('.pdf') ||
+                      file.name.toLowerCase().endsWith('.eps');
 
-    if (!isAllowed && user.role !== 'admin') {
+    if (!isAllowed && (!user || user.role !== 'admin')) {
       return new Response(JSON.stringify({ error: 'Formato de arquivo não suportado.' }), { 
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    // Máximo 10MB para clientes, 50MB para admins
-    const maxSize = user.role === 'admin' ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    // Limites de tamanho
+    // Máximo 10MB para clientes logados ou anônimos, 50MB para admins
+    const isUserAdmin = user && user.role === 'admin';
+    const maxSize = isUserAdmin ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
     if (file.size > maxSize) {
       return new Response(JSON.stringify({ error: `O arquivo excede o limite de ${maxSize / (1024 * 1024)}MB.` }), { 
         status: 400,

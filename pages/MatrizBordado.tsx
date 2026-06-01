@@ -462,10 +462,14 @@ export default function MatrizBordado() {
                 </div>
 
                 <button 
-                  onClick={handleNextToSummary}
-                  className="w-full py-5 bg-primary text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+                  onClick={isAuthenticated ? handleNextToSummary : () => navigate('/login')}
+                  className={`w-full py-5 ${isAuthenticated ? 'bg-primary shadow-primary/20' : 'bg-red-500/10 border border-red-500/50 hover:bg-red-500/20 shadow-none'} text-white rounded-2xl font-black uppercase tracking-[0.1em] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 px-6 text-center`}
                 >
-                  Seguir para Pagamento <ArrowRight size={20} />
+                  {isAuthenticated ? (
+                    <>Seguir para Pagamento <ArrowRight size={20} /></>
+                  ) : (
+                    <>Faça login ou crie uma conta para prosseguir <ArrowRight size={20} /></>
+                  )}
                 </button>
             </div>
           </motion.div>

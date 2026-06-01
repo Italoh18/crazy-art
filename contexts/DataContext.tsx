@@ -164,8 +164,12 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     try {
       const res = await api.createClient(data);
       if (res && res.id) {
-          const newCustomer = normalizeCustomer(res);
+          const newCustomer = normalizeCustomer({
+              ...data,
+              id: res.id
+          });
           setCustomers(prev => [...prev, newCustomer]);
+          await loadData(true, ['customers']);
       } else {
           await loadData(true, ['customers']);
       }
@@ -206,7 +210,13 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     try {
       const res = await api.createProduct(data);
       if (res && res.id) {
-          setProducts(prev => [...prev, res]);
+          const newProduct = {
+              ...data,
+              id: res.id,
+              active: true
+          };
+          setProducts(prev => [...prev, newProduct]);
+          await loadData(true, ['products']);
       } else {
           await loadData(true, ['products']);
       }
@@ -248,7 +258,21 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
     try {
       const res = await api.createOrder(data);
       if (res && res.id) {
-          setOrders(prev => [res, ...prev]);
+          const newOrder = {
+              ...data,
+              id: res.id,
+              order_number: res.order_number || 0,
+              formattedOrderNumber: res.formattedOrderNumber || String(res.order_number || 0).padStart(5, '0'),
+              total: res.total || 0,
+              created_at: new Date().toISOString(),
+              order_date: data.order_date || data.orderDate || new Date().toISOString().split('T')[0],
+              due_date: data.due_date || data.dueDate || '',
+              status: data.status || 'open',
+              production_step: data.production_step || 'production',
+              client_name: data.client_name || ''
+          };
+          setOrders(prev => [newOrder, ...prev]);
+          await loadData(true, ['orders']);
       } else {
           await loadData(true, ['orders']);
       }

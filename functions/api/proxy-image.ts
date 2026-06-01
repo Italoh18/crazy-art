@@ -1,5 +1,7 @@
-export const onRequestGet: PagesFunction<Env> = async (context) => {
-  const url = new URL(context.request.url).searchParams.get('url');
+import { Env } from './_auth';
+
+export const onRequestGet: any = async ({ request }: { request: Request, env: Env }) => {
+  const url = new URL(request.url).searchParams.get('url');
   if (!url) {
     return new Response('Missing url', { status: 400 });
   }

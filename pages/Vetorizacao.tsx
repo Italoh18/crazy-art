@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ArrowLeft, Scissors, Sparkles, MessageSquare, Image as ImageIcon, 
   Upload, HelpCircle, CheckCircle2, CreditCard, Wallet, 
-  ArrowRight, Loader2, Info, ChevronRight, X, Palette, Hash, Ruler, Vector
+  ArrowRight, Loader2, Info, ChevronRight, X, Palette, Hash, Ruler
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
