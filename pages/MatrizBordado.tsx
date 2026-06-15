@@ -3,7 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ArrowLeft, Scissors, Sparkles, MessageSquare, Image as ImageIcon, 
   Upload, HelpCircle, CheckCircle2, CreditCard, Wallet, 
-  ArrowRight, Loader2, Info, ChevronRight, X, Palette, Hash, Ruler
+  ArrowRight, Loader2, Info, ChevronRight, X, Palette, Hash, Ruler,
+  Trash2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -185,7 +186,12 @@ export default function MatrizBordado() {
   };
 
   const calculateFinalPrice = () => {
-    return selectedProduct?.price || 0;
+    const basePrice = selectedProduct?.price || 0;
+    const colorCount = Number(analyzedColorCount);
+    if (!isNaN(colorCount) && colorCount > 1) {
+      return basePrice + (colorCount - 1) * 2;
+    }
+    return basePrice;
   };
 
   const handleSubmitRequest = async (method: 'credit' | 'online') => {
@@ -451,10 +457,15 @@ export default function MatrizBordado() {
                                <div className="mt-2">
                                    <label className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 mb-2 block">Tabela de cores identificadas</label>
                                    <div className="flex flex-wrap gap-2">
-                                       {analyzedColors.map((hex, idx) => (
-                                           <div key={idx} className="w-8 h-8 rounded-full border-2 border-zinc-800 shadow-sm" style={{ backgroundColor: hex }} title={hex} />
-                                       ))}
+                                       {(() => { const showTrash = typeof analyzedColorCount === 'number' && analyzedColorCount < analyzedColors.length; return analyzedColors.map((hex, idx) => (
+                                           <div key={idx} className="flex items-center gap-1.5 bg-zinc-950/40 p-1 rounded-full border border-zinc-800/50 shadow-sm"><div className="w-8 h-8 rounded-full border border-zinc-700/50 shadow-sm" style={{ backgroundColor: hex }} title={hex} />{showTrash && (<button type="button" onClick={() => setAnalyzedColors(prev => prev.filter((_, i) => i !== idx))} className="p-1 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-full transition mr-0.5" title="Remover cor excedente"><Trash2 size={12} className="text-red-400" /></button>)}</div>
+                                       )); })()}
                                    </div>
+                                   {typeof analyzedColorCount === 'number' && analyzedColorCount < analyzedColors.length && (
+                                       <p className="text-amber-500 text-[10px] uppercase font-bold mt-3 tracking-wider leading-relaxed">
+                                           Você tem que retirar a cor excedente. A cor retirada será unificada com a mais próxima.
+                                       </p>
+                                   )}
                                </div>
                            )}
                        </div>
