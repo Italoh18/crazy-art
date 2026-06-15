@@ -593,6 +593,27 @@ export default function MatrizBordado() {
                                            <div key={idx} className="flex items-center gap-1.5 bg-zinc-950/40 p-1 rounded-full border border-zinc-800/50 shadow-sm"><div className="w-8 h-8 rounded-full border border-zinc-700/50 shadow-sm" style={{ backgroundColor: hex }} title={hex} />{showTrash && (<button type="button" onClick={() => setAnalyzedColors(prev => prev.filter((_, i) => i !== idx))} className="p-1 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-full transition mr-0.5" title="Remover cor excedente"><Trash2 size={12} className="text-red-400" /></button>)}</div>
                                        )); })()}
                                    </div>
+                            {/* Real-time Order Value displaying base and increments */}
+                            <div className="mt-4 pt-4 border-t border-zinc-800 flex flex-col gap-2">
+                                <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-400">Resumo do preço em tempo real</span>
+                                <div className="grid grid-cols-1 gap-2 bg-black/35 p-3.5 rounded-xl border border-zinc-800/80">
+                                    <div className="flex justify-between items-center text-xs text-zinc-400">
+                                        <span className="font-medium">Valor Base do Bordado:</span>
+                                        <span className="font-mono font-bold text-white">R$ {(selectedProduct?.price || 0).toFixed(2)}</span>
+                                    </div>
+                                    {Number(analyzedColorCount) > 1 && (
+                                        <div className="flex justify-between items-center text-xs text-zinc-400">
+                                            <span className="font-medium">Acréscimo por cores adicionais ({Number(analyzedColorCount)} cores):</span>
+                                            <span className="font-mono font-bold text-[#ff8100]">+ R$ {((Number(analyzedColorCount) - 1) * 2).toFixed(2)}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between items-center pt-2 mt-1 border-t border-zinc-800/50">
+                                        <span className="text-xs uppercase font-extrabold text-primary">Valor Total Atual:</span>
+                                        <span className="text-base font-black text-primary font-mono">R$ {calculateFinalPrice().toFixed(2)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
                                    {typeof analyzedColorCount === 'number' && analyzedColorCount < analyzedColors.length && (
                                        <p className="text-amber-500 text-[10px] uppercase font-bold mt-3 tracking-wider leading-relaxed">
                                            Você tem que retirar a cor excedente. A cor retirada será unificada com a mais próxima.
