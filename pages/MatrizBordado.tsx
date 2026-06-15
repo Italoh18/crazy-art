@@ -4,7 +4,7 @@ import {
   ArrowLeft, Scissors, Sparkles, MessageSquare, Image as ImageIcon, 
   Upload, HelpCircle, CheckCircle2, CreditCard, Wallet, 
   ArrowRight, Loader2, Info, ChevronRight, X, Palette, Hash, Ruler,
-  Trash2
+  Trash2, User, Lock, Eye, EyeOff, UserPlus, MapPin
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,9 +17,141 @@ type MatrizStep = 'selection' | 'details' | 'summary' | 'completed';
 
 export default function MatrizBordado() {
   const navigate = useNavigate();
-  const { currentCustomer, role } = useAuth();
-  const { products, orders, loadData } = useData();
+  const { currentCustomer, role, loginAdmin, loginClient } = useAuth();
+  const { products, orders, loadData, addCustomer } = useData();
   const isAuthenticated = role !== 'guest';
+  
+  // Auth Modal States
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [loginMode, setLoginMode] = useState<'client' | 'admin'>('client');
+  const [inputValue, setInputValue] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [authError, setAuthError] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(true);
+  const [regData, setRegData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    cpf: '',
+    password: '',
+    confirmPassword: '',
+    street: '',
+    number: '',
+    zipCode: ''
+  });
+
+  const maskDocument = (value: string) => {
+    let v = value.replace(/\D/g, '');
+    if (v.length <= 11) {
+      return v.replace(/(\d{3})(\d)/, '$1.$2')
+              .replace(/(\d{3})(\d)/, '$1.$2')
+              .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+              .substring(0, 14);
+    } else {
+      return v.replace(/^(\d{2})(\d)/, '$1.$2')
+              .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+              .replace(/\.(\d{3})(\d)/, '.$1/$2')
+              .replace(/(\d{4})(\d)/, '$1-$2')
+              .substring(0, 18);
+    }
+  };
+
+  const maskPhone = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{5})(\d)/, '$1-$2')
+      .replace(/(-\d{4})\d+?$/, '$1');
+  };
+
+  const handleLoginInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      let value = e.target.value;
+      if (loginMode === 'client') {
+          if (value.length > 0 && value[0] !== value[0].toLowerCase()) {
+              value = value[0].toLowerCase() + value.slice(1);
+          }
+          setInputValue(value);
+      } else {
+          setInputValue(value);
+      }
+  };
+
+  const handleRegInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let { name, value } = e.target;
+    if (name === 'cpf') value = maskDocument(value);
+    if (name === 'phone') value = maskPhone(value);
+    setRegData({ ...regData, [name]: value });
+  };
+
+  const handleAuthLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    if (loginMode === 'admin') {
+      const success = await loginAdmin(inputValue, rememberMe);
+      if (success) {
+        setIsAuthModalOpen(false);
+      } else {
+        setAuthError('Código de acesso inválido.');
+      }
+    } else {
+      const success = await loginClient(inputValue, loginPassword, rememberMe);
+      if (success) {
+        setIsAuthModalOpen(false);
+      } else {
+        setAuthError('E-mail ou senha incorretos.');
+      }
+    }
+  };
+
+  const handleAuthRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    
+    if (!regData.name || !regData.phone || !regData.password || !regData.confirmPassword) {
+        setAuthError('Por favor, preencha todos os campos obrigatórios.');
+        return;
+    }
+
+    if (!acceptedTerms) {
+        setAuthError('Você precisa aceitar os Termos de Uso do site para prosseguir.');
+        return;
+    }
+
+    if (regData.password !== regData.confirmPassword) {
+        setAuthError('As senhas não coincidem.');
+        return;
+    }
+
+    try {
+        await addCustomer({
+            name: regData.name,
+            phone: regData.phone,
+            email: regData.email,
+            cpf: regData.cpf,
+            address: {
+                street: regData.street,
+                number: regData.number,
+                zipCode: regData.zipCode
+            },
+            creditLimit: 0.00,
+            password: regData.password
+        });
+        
+        const success = await loginClient(regData.email, regData.password);
+        if (success) {
+            setIsAuthModalOpen(false);
+        } else {
+            setIsRegisterMode(false);
+            setInputValue(regData.cpf);
+            setAuthError('Cadastro realizado! Agora faça seu login.');
+        }
+    } catch (err: any) {
+        setAuthError(err.message || 'Erro ao realizar cadastro.');
+    }
+  };
   
   const [step, setStep] = useState<MatrizStep>('selection');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -473,7 +605,7 @@ export default function MatrizBordado() {
                 </div>
 
                 <button 
-                  onClick={isAuthenticated ? handleNextToSummary : () => navigate('/login')}
+                  onClick={isAuthenticated ? handleNextToSummary : () => { setIsAuthModalOpen(true); setIsRegisterMode(false); setAuthError(''); }}
                   className={`w-full py-5 ${isAuthenticated ? 'bg-primary shadow-primary/20' : 'bg-red-500/10 border border-red-500/50 hover:bg-red-500/20 shadow-none'} text-white rounded-2xl font-black uppercase tracking-[0.1em] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 px-6 text-center`}
                 >
                   {isAuthenticated ? (
@@ -639,6 +771,172 @@ export default function MatrizBordado() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Auth Modal / Login & Register */}
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 z-[10000] flex justify-center items-start pt-12 md:pt-24 bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
+          <div className={`bg-zinc-900 border border-zinc-800 rounded-3xl w-full p-8 shadow-2xl relative overflow-hidden transition-all duration-500 ${isRegisterMode ? 'max-w-2xl max-h-[90vh]' : 'max-w-md'}`}>
+            <button onClick={() => setIsAuthModalOpen(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-transform hover:rotate-90 z-20"><X size={24} /></button>
+            
+            {!isRegisterMode ? (
+              <div className="animate-fade-in">
+                <div className="flex flex-col items-center mb-8 relative z-10">
+                    <div className="w-20 h-20 bg-black rounded-full flex items-center justify-center mb-4 ring-1 ring-zinc-800 shadow-xl">
+                        {loginMode === 'client' ? <User className="text-primary" size={40} strokeWidth={1.5} /> : <Lock className="text-secondary" size={40} strokeWidth={1.5} />}
+                    </div>
+                    <h2 className="text-2xl font-bold text-white uppercase tracking-wide" style={{ fontFamily: '"Times New Roman", Times, serif' }}>{loginMode === 'client' ? 'Área do Cliente' : 'Acesso Adm'}</h2>
+                    <p className="text-zinc-500 text-sm mt-2">{loginMode === 'client' ? 'Entre com seu e-mail e senha' : 'Digite o código administrativo'}</p>
+                </div>
+                
+                <form onSubmit={handleAuthLogin} className="space-y-5 relative z-10">
+                    <div className="space-y-4">
+                        <input 
+                            type="text" 
+                            placeholder={loginMode === 'client' ? "E-mail" : "Código de Acesso"} 
+                            className="w-full bg-black/50 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-wider" 
+                            value={inputValue} 
+                            onChange={handleLoginInputChange} 
+                            autoFocus 
+                        />
+                        {loginMode === 'client' && (
+                            <div className="relative">
+                                <input 
+                                    type={showPassword ? "text" : "password"} 
+                                    placeholder="Sua Senha" 
+                                    className="w-full bg-black/50 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-wider" 
+                                    value={loginPassword} 
+                                    onChange={(e) => setLoginPassword(e.target.value)} 
+                                />
+                                <button 
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                                >
+                                    {showPassword ? <Eye size={20} className="text-[#ff8100]" /> : <EyeOff size={20} className="text-[#ff8100]" />}
+                                </button>
+                            </div>
+                        )}
+                        
+                        <div className="flex items-center gap-2 px-1">
+                            <button 
+                                type="button"
+                                onClick={() => setRememberMe(!rememberMe)}
+                                className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${rememberMe ? 'bg-primary border-primary' : 'bg-black/50 border-zinc-700'}`}
+                            >
+                                {rememberMe && <div className="w-2.5 h-2.5 bg-black rounded-[1px]" />}
+                            </button>
+                            <span 
+                                className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest cursor-pointer hover:text-white transition-colors"
+                                onClick={() => setRememberMe(!rememberMe)}
+                            >
+                                Manter conectado
+                            </span>
+                        </div>
+                    </div>
+                    {authError && <div className="text-red-500 text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20 text-xs font-bold">{authError}</div>}
+                    <button type="submit" className="w-full bg-zinc-100 text-black font-bold py-4 rounded-xl hover:bg-white transition-all transform active:scale-95 uppercase tracking-wider text-sm shadow-xl">Entrar</button>
+                </form>
+
+                <div className="mt-8 flex flex-col items-center gap-4 relative z-10">
+                    {loginMode === 'client' && (
+                        <button 
+                            type="button"
+                            onClick={() => { setIsRegisterMode(true); setAuthError(''); }}
+                            className="text-sm font-bold text-primary hover:text-amber-400 transition-colors flex items-center gap-2 group"
+                        >
+                            <UserPlus size={16} className="group-hover:scale-110 transition-transform" />
+                            Ainda não tem conta? Cadastre-se
+                        </button>
+                    )}
+                    <button type="button" onClick={() => { setLoginMode(loginMode === 'client' ? 'admin' : 'client'); setAuthError(''); }} className="text-xs text-zinc-500 hover:text-white transition-colors border-b border-dashed border-zinc-700 hover:border-white pb-0.5">{loginMode === 'client' ? 'Acesso Administrativo' : 'Voltar para Login de Cliente'}</button>
+                </div>
+              </div>
+            ) : (
+              <div className="animate-fade-in overflow-y-auto max-h-[80vh] pr-1">
+                <div className="flex items-center gap-4 mb-8">
+                    <div className="p-3 bg-primary/10 rounded-2xl text-primary">
+                        <UserPlus size={28} />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-bold text-white uppercase tracking-wide font-heading" style={{ fontFamily: '"Times New Roman", Times, serif' }}>Novo Cadastro</h2>
+                        <p className="text-zinc-500 text-xs">Crie sua conta para acompanhar pedidos e comprar na loja.</p>
+                    </div>
+                </div>
+
+                <form onSubmit={handleAuthRegister} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="md:col-span-2">
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Nome Completo / Razão Social *</label>
+                            <input name="name" required value={regData.name} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition placeholder-zinc-800" placeholder="Seu nome" />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Telefone *</label>
+                            <input name="phone" required placeholder="(99) 99999-9999" value={regData.phone} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition font-mono" />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">CPF / CNPJ</label>
+                            <input name="cpf" placeholder="000.000.000-00" value={regData.cpf} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition font-mono" />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Email *</label>
+                            <input name="email" type="email" required value={regData.email} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" placeholder="exemplo@email.com" />
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Senha *</label>
+                            <input name="password" type="password" required value={regData.password} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" placeholder="******" />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Confirmar Senha *</label>
+                            <input name="confirmPassword" type="password" required value={regData.confirmPassword} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" placeholder="******" />
+                        </div>
+
+                        <div className="md:col-span-2 border-t border-zinc-800 pt-6 mt-2">
+                            <h3 className="font-bold text-zinc-400 mb-4 flex items-center gap-2 text-xs uppercase tracking-widest">
+                                <MapPin size={14} className="text-primary" /> Endereço de Entrega *
+                            </h3>
+                        </div>
+                        
+                        <div className="md:col-span-2">
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Rua *</label>
+                            <input name="street" required value={regData.street} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" placeholder="Nome da rua" />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">Número *</label>
+                            <input name="number" required value={regData.number} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" placeholder="123" />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 ml-1">CEP *</label>
+                            <input name="zipCode" required value={regData.zipCode} onChange={handleRegInputChange} className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition font-mono" placeholder="00000-000" />
+                        </div>
+                    </div>
+
+                    {authError && <div className="text-red-500 text-center bg-red-500/10 py-3 rounded-xl border border-red-500/20 text-xs font-bold">{authError}</div>}
+
+                    <div className="flex items-center gap-3 pt-2">
+                        <input 
+                            type="checkbox" 
+                            id="termsAuth" 
+                            required 
+                            checked={acceptedTerms} 
+                            onChange={(e) => setAcceptedTerms(e.target.checked)} 
+                            className="w-5 h-5 rounded border bg-black/50 border-zinc-800 text-primary focus:ring-primary" 
+                        />
+                        <label htmlFor="termsAuth" className="text-xs text-zinc-500 cursor-pointer select-none">
+                            Aceito os <a href="/termos" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Termos de Uso</a> e políticas de privacidade.
+                        </label>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-4 border-t border-zinc-800">
+                        <button type="button" onClick={() => { setIsRegisterMode(false); setAuthError(''); }} className="text-sm font-bold text-zinc-400 hover:text-white transition">Já tenho conta</button>
+                        <button type="submit" className="bg-primary text-white font-black px-8 py-4 rounded-xl hover:bg-amber-600 transition tracking-wider uppercase text-xs shadow-lg shadow-primary/20">Finalizar Cadastro</button>
+                    </div>
+                </form>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
