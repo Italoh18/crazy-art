@@ -1488,14 +1488,16 @@ export default function Shop() {
                     )}
                 </div>
 
-                <div className="flex items-center gap-4 mt-8">
-                    <div className="flex items-center gap-2 bg-black rounded-xl p-2 border border-zinc-800">
-                        <button onClick={() => setCurrentOrderQty(Math.max(1, Number(currentOrderQty) - 1))} className="p-2 text-zinc-500"><Minus size={16} /></button>
-                        <input type="number" value={currentOrderQty} onChange={(e) => setCurrentOrderQty(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-12 bg-transparent text-white text-center font-bold outline-none" />
-                        <button onClick={() => setCurrentOrderQty(Number(currentOrderQty) + 1)} className="p-2 text-zinc-500"><PlusIcon size={16} /></button>
+                {!wantsMoldAlteration && (
+                    <div className="flex items-center gap-4 mt-8">
+                        <div className="flex items-center gap-2 bg-black rounded-xl p-2 border border-zinc-800">
+                            <button onClick={() => setCurrentOrderQty(Math.max(1, Number(currentOrderQty) - 1))} className="p-2 text-zinc-500"><Minus size={16} /></button>
+                            <input type="number" value={currentOrderQty} onChange={(e) => setCurrentOrderQty(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-12 bg-transparent text-white text-center font-bold outline-none" />
+                            <button onClick={() => setCurrentOrderQty(Number(currentOrderQty) + 1)} className="p-2 text-zinc-500"><PlusIcon size={16} /></button>
+                        </div>
+                        <input type="text" placeholder="Obs. (Cor, Tamanho...)" className="flex-1 bg-black rounded-xl px-4 py-3 border border-zinc-800 text-white outline-none text-sm" value={currentOrderDesc} onChange={(e) => setCurrentOrderDesc(e.target.value)} />
                     </div>
-                    <input type="text" placeholder="Obs. (Cor, Tamanho...)" className="flex-1 bg-black rounded-xl px-4 py-3 border border-zinc-800 text-white outline-none text-sm" value={currentOrderDesc} onChange={(e) => setCurrentOrderDesc(e.target.value)} />
-                </div>
+                )}
             </div>
             
             <div className="grid grid-cols-2 gap-4">
