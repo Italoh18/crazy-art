@@ -7,7 +7,7 @@ export interface Env {
 export const onRequestPost: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
     const body = await request.json() as any;
-    const { orderId, title, amount, payerEmail, payerName, type: paymentType } = body;
+    const { orderId, title, amount, payerEmail, payerName, type: paymentType, successUrl: customSuccessUrl } = body;
 
     if (!env.MP_ACCESS_TOKEN) {
       console.error("[CreatePayment] Token ausente.");
@@ -61,7 +61,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     const notificationUrl = `${origin}/api/mp-webhook`;
 
     // URL de retorno customizada para cair direto no pedido ou área do cliente
-    const successUrl = `${origin}/minha-area?status=success&orderId=${externalRef}`;
+    const successUrl = customSuccessUrl ? `${origin}${customSuccessUrl}` : `${origin}/minha-area?status=success&orderId=${externalRef}`;
     const failureUrl = `${origin}/minha-area?status=failure`;
     const pendingUrl = `${origin}/minha-area?status=pending`;
 

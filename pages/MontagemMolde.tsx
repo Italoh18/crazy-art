@@ -5,7 +5,7 @@ import {
   Upload, HelpCircle, CheckCircle2, CreditCard, Wallet, 
   ArrowRight, Loader2, Info, ChevronRight, X, Phone, Plus, Trash2, FileText, Hourglass, Palette, Ticket
 } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { ImageUploadInput } from '../components/ImageUploadInput';
@@ -40,11 +40,17 @@ export default function MontagemMolde() {
   const [mainService, setMainService] = useState<CatalogService | null>(null);
   const [replicaService, setReplicaService] = useState<CatalogService | null>(null);
   
+  const location = useLocation();
+  
   // Form State
   const [step, setStep] = useState<'briefing' | 'summary' | 'completed'>('briefing');
   const [description, setDescription] = useState('');
   const [paperSize, setPaperSize] = useState('90cm');
-  const [layoutFileUrl, setLayoutFileUrl] = useState('');
+  const [layoutFileUrl, setLayoutFileUrl] = useState(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const queryUrl = searchParams.get('layout_url');
+    return queryUrl || location.state?.layoutUrl || '';
+  });
   const [showIncompleteError, setShowIncompleteError] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'online' | null>(null);
   const [showMoldesModal, setShowMoldesModal] = useState(false);

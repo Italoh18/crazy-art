@@ -68,6 +68,7 @@ export default function Shop() {
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [wantsDigitalGrid, setWantsDigitalGrid] = useState(false);
   const [wantsMoldAlteration, setWantsMoldAlteration] = useState(false);
+  const [isDigitalGridProcessing, setIsDigitalGridProcessing] = useState(false);
   
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [currentOrderDesc, setCurrentOrderDesc] = useState('');
@@ -328,6 +329,68 @@ export default function Shop() {
     
     setStep('detail');
     window.scrollTo(0, 0);
+  };
+
+  const handleAssembleDigitalGrid = async () => {
+      if (!viewingProduct) return;
+      
+      const artUrl = viewingProduct.imageUrl || viewingProduct.downloadLink || '';
+
+      if (isSubscriber) {
+          navigate('/montagem-molde', { state: { layoutUrl: artUrl } });
+          return;
+      }
+
+      if (role !== 'client' || !currentCustomer) {
+          setNotification({ message: 'Por favor, faça login ou registre-se na sua conta de cliente para prosseguir com a compra da arte.', type: 'error' });
+          return;
+      }
+
+      setIsDigitalGridProcessing(true);
+      try {
+          const itemsPayload = [{
+              productId: viewingProduct.id,
+              productName: viewingProduct.name,
+              quantity: 1,
+              unitPrice: viewingProduct.price,
+              total: viewingProduct.price,
+              type: viewingProduct.type || 'art'
+          }];
+
+          const orderData = {
+              client_id: currentCustomer.id,
+              description: `Compra de Arte p/ Montagem de Molde: ${viewingProduct.name}`,
+              items: itemsPayload,
+              total: viewingProduct.price,
+              size_list: null,
+              status: 'open',
+              source: 'shop' as const,
+              order_date: new Date().toISOString().split('T')[0],
+              due_date: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
+          };
+
+          const res = await addOrder(orderData);
+          
+          const customSuccessUrl = `/montagem-molde?layout_url=${encodeURIComponent(artUrl)}`;
+          
+          const payRes = await api.createPayment({
+              orderId: res.id,
+              title: `Compra de Arte: ${viewingProduct.name}`,
+              amount: viewingProduct.price,
+              payerEmail: currentCustomer.email,
+              payerName: currentCustomer.name,
+              successUrl: customSuccessUrl
+          });
+
+          if (payRes?.init_point) {
+              window.location.href = payRes.init_point;
+          } else {
+              throw new Error('Falha ao gerar link Mercado Pago');
+          }
+      } catch (e: any) {
+          setNotification({ message: 'Erro ao gerar pagamento da arte: ' + e.message, type: 'error' });
+          setIsDigitalGridProcessing(false);
+      }
   };
 
   const addToCart = () => {
@@ -1157,18 +1220,37 @@ export default function Shop() {
                 <div className="space-y-6 mt-6 pt-6 border-t border-zinc-800">
                     {isArt ? (
                         <div className="space-y-4">
-                            <div className="flex items-center justify-between p-4 bg-purple-900/10 rounded-xl border border-purple-500/20">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-purple-900/10 rounded-xl border border-purple-500/20 gap-4">
                                 <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-lg ${wantsDigitalGrid ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+                                    <div className="p-2 rounded-lg bg-purple-600 text-white">
                                         <Layers size={20} />
                                     </div>
                                     <div>
                                         <h4 className="font-bold text-white text-sm">Montar grade digital?</h4>
-                                        <p className="text-[10px] text-zinc-500">Serviço com custo adicional por item.</p>
+                                        <p className="text-[10px] text-zinc-400">
+                                            {isSubscriber 
+                                                ? "Assinantes vão direto p/ a Montagem de Molde com esta arte anexada!" 
+                                                : "Compre esta arte e seja redirecionado direto p/ a Montagem de Molde com ela."}
+                                        </p>
                                     </div>
                                 </div>
-                                <button type="button" onClick={() => { setWantsDigitalGrid(!wantsDigitalGrid); if (!wantsDigitalGrid && sizeList.length === 0) addListRow(); }} className={`w-12 h-7 rounded-full transition relative flex items-center px-1 ${wantsDigitalGrid ? 'bg-purple-600' : 'bg-zinc-800'}`}>
-                                    <div className={`w-5 h-5 bg-white rounded-full transition ${wantsDigitalGrid ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                                <button 
+                                    type="button" 
+                                    disabled={isDigitalGridProcessing}
+                                    onClick={handleAssembleDigitalGrid} 
+                                    className="w-full sm:w-auto px-4 py-2.5 bg-purple-600 text-white font-bold text-xs rounded-xl hover:bg-purple-500 transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-500/10 disabled:opacity-50 whitespace-nowrap"
+                                >
+                                    {isDigitalGridProcessing ? (
+                                        <>
+                                            <Loader2 size={14} className="animate-spin" />
+                                            <span>Processando...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Layers size={14} />
+                                            <span>{isSubscriber ? "Ir p/ Montagem de Molde" : "Pagar e Montar Grade"}</span>
+                                        </>
+                                    )}
                                 </button>
                             </div>
 
