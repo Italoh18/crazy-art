@@ -4,7 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   ArrowLeft, Search, ShoppingCart, 
   CheckCircle, AlertOctagon, Send, X, Trash2, Minus, 
-  Plus as PlusIcon, CreditCard, Loader2, MessageCircle, 
+  Plus as PlusIcon, CreditCard, Loader2, MessageCircle, MessageSquare, 
   Lock, UserPlus, ChevronRight, ListChecks, Upload, 
   Info, AlertTriangle, Wallet, Check, Film, FileText, Layers, Hash, ToggleLeft, ToggleRight,
   Coins, Ticket, Palette, CloudDownload, Filter, ArrowUpRight, Zap, Image as ImageIcon, Sparkles, Tag, Crown, Scissors, ShoppingBag, Wrench
