@@ -135,7 +135,10 @@ export default function Shop() {
     // Tipo 'art' é elegível se houver algum item do tipo 'art' ou correspondente a matrizes/estampas
     if (couponType === 'art') {
       const hasArt = cart.some(item => {
-        return item.product.type === 'art' || item.product.type === 'stamp' || item.product.category?.toLowerCase() === 'estampas';
+        return item.product.type === 'art' || 
+               (item.product.type as string) === 'stamp' || 
+               (item.product as any).category?.toLowerCase() === 'estampas' ||
+               (item.product.subcategory || '').toLowerCase().includes('estampas');
       });
       return {
         eligible: hasArt,
@@ -871,7 +874,7 @@ export default function Shop() {
             return (
             <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-primary/50 transition group h-full flex flex-col relative">
                 <div onClick={() => openProduct(item)} className="cursor-pointer flex-1 flex flex-col">
-                    <div className="h-56 bg-zinc-800 flex items-center justify-center relative overflow-hidden">
+                    <div className={`${isArt ? 'aspect-square' : 'h-56'} bg-zinc-800 flex items-center justify-center relative overflow-hidden`}>
                         {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" /> : isArt ? <Palette size={64} className="text-purple-500/50" /> : <ShoppingBag size={64} className="text-zinc-700" />}
                         
                         <div className={`absolute bottom-3 right-3 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase backdrop-blur-md ${showFree ? 'bg-gradient-to-r from-purple-600 to-pink-600' : isArt ? 'bg-purple-600/80' : 'bg-black/60'}`}>
