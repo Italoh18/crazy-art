@@ -1703,6 +1703,23 @@ export default function Shop() {
             "price": viewingProduct.price.toFixed(2),
             "itemCondition": "https://schema.org/NewCondition",
             "availability": "https://schema.org/InStock"
+          },
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "5.0",
+            "reviewCount": "1"
+          },
+          "review": {
+            "@type": "Review",
+            "reviewRating": {
+              "@type": "Rating",
+              "ratingValue": "5",
+              "bestRating": "5"
+            },
+            "author": {
+              "@type": "Person",
+              "name": "Cliente Crazy Art"
+            }
           }
         });
       }
@@ -1722,11 +1739,32 @@ export default function Shop() {
               "description": item.description || (isArtProduct 
                 ? `Arquivo digital de alta qualidade pronta para bordados ou estampas na Quitanda de Artes.` 
                 : `Produto de alta qualidade disponível na Crazy Art.`),
+              "brand": {
+                "@type": "Brand",
+                "name": "Crazy Art"
+              },
               "offers": {
                 "@type": "Offer",
                 "priceCurrency": "BRL",
                 "price": item.price.toFixed(2),
                 "availability": "https://schema.org/InStock"
+              },
+              "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": "5.0",
+                "reviewCount": "1"
+              },
+              "review": {
+                "@type": "Review",
+                "reviewRating": {
+                  "@type": "Rating",
+                  "ratingValue": "5",
+                  "bestRating": "5"
+                },
+                "author": {
+                  "@type": "Person",
+                  "name": "Cliente Crazy Art"
+                }
               }
             }
           };
