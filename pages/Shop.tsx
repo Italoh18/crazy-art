@@ -14,6 +14,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { Product, Order, SizeListItem, Coupon, ItemType } from '../types';
 import { api } from '../src/services/api';
+import { ImageUploadInput } from '../components/ImageUploadInput';
 
 type ShopStep = 'list' | 'detail' | 'questionnaire' | 'checkout' | 'success';
 
@@ -22,6 +23,13 @@ interface CartItem {
     quantity: number;
     description?: string;
     tempId: string;
+    sizeList?: any[];
+    layoutOption?: 'sim' | 'precisa' | null;
+    moldOption?: 'sim' | 'precisa' | null;
+    artLink?: string;
+    artExtrasDesc?: string;
+    wantsDigitalGrid?: boolean;
+    wantsMoldAlteration?: boolean;
 }
 
 // Categorias visíveis apenas na aba "Estampas"
@@ -59,6 +67,7 @@ export default function Shop() {
   const [activeArtCategory, setActiveArtCategory] = useState('Todos');
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [wantsDigitalGrid, setWantsDigitalGrid] = useState(false);
+  const [wantsMoldAlteration, setWantsMoldAlteration] = useState(false);
   
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [currentOrderDesc, setCurrentOrderDesc] = useState('');
@@ -314,6 +323,7 @@ export default function Shop() {
     setArtLink('');
     setArtExtrasDesc('');
     setWantsDigitalGrid(false);
+    setWantsMoldAlteration(false);
     setIsGlobalSimple(false);
     
     setStep('detail');
@@ -323,12 +333,13 @@ export default function Shop() {
   const addToCart = () => {
       if (!viewingProduct) return;
       const extraData = {
-          sizeList: (hasSizeList || wantsDigitalGrid) ? sizeList : [],
+          sizeList: hasSizeList ? sizeList : [],
           layoutOption,
           moldOption,
           artLink,
           artExtrasDesc,
-          wantsDigitalGrid
+          wantsDigitalGrid,
+          wantsMoldAlteration
       };
       addToCartGlobal(viewingProduct, Number(currentOrderQty) || 1, currentOrderDesc, extraData);
       setViewingProduct(null);
@@ -338,12 +349,13 @@ export default function Shop() {
   const buyNow = () => {
       if (!viewingProduct) return;
       const extraData = {
-          sizeList: (hasSizeList || wantsDigitalGrid) ? sizeList : [],
+          sizeList: hasSizeList ? sizeList : [],
           layoutOption,
           moldOption,
           artLink,
           artExtrasDesc,
-          wantsDigitalGrid
+          wantsDigitalGrid,
+          wantsMoldAlteration
       };
       addToCartGlobal(viewingProduct, Number(currentOrderQty) || 1, currentOrderDesc, extraData);
       setViewingProduct(null);
@@ -427,7 +439,8 @@ export default function Shop() {
               mold_option: item.moldOption,
               art_link: item.artLink,
               art_extras_desc: item.artExtrasDesc,
-              wants_digital_grid: item.wantsDigitalGrid ? 1 : 0
+              wants_digital_grid: item.wantsDigitalGrid ? 1 : 0,
+              wants_mold_alteration: item.wantsMoldAlteration ? 1 : 0
           });
 
           const findServicePrice = (n: string, d: number) => {
@@ -507,6 +520,7 @@ export default function Shop() {
                 if (i.artExtrasDesc) desc += ` [Obs: ${i.artExtrasDesc}]`;
                 if (i.artLink) desc += ` [Link: ${i.artLink}]`;
                 if (i.wantsDigitalGrid) desc += ` [GRADE DIGITAL]`;
+                if (i.wantsMoldAlteration) desc += ` [ALTERAÇÃO DE MOLDE]`;
                 return desc;
             }).join('; '),
             items: items,
@@ -1142,19 +1156,62 @@ export default function Shop() {
                 {/* Questionnaire integrated into Detail Step */}
                 <div className="space-y-6 mt-6 pt-6 border-t border-zinc-800">
                     {isArt ? (
-                        <div className="flex items-center justify-between p-4 bg-purple-900/10 rounded-xl border border-purple-500/20">
-                            <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-lg ${wantsDigitalGrid ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
-                                    <Layers size={20} />
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 bg-purple-900/10 rounded-xl border border-purple-500/20">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-lg ${wantsDigitalGrid ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+                                        <Layers size={20} />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-white text-sm">Montar grade digital?</h4>
+                                        <p className="text-[10px] text-zinc-500">Serviço com custo adicional por item.</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h4 className="font-bold text-white text-sm">Montar grade digital?</h4>
-                                    <p className="text-[10px] text-zinc-500">Serviço com custo adicional por item.</p>
-                                </div>
+                                <button type="button" onClick={() => { setWantsDigitalGrid(!wantsDigitalGrid); if (!wantsDigitalGrid && sizeList.length === 0) addListRow(); }} className={`w-12 h-7 rounded-full transition relative flex items-center px-1 ${wantsDigitalGrid ? 'bg-purple-600' : 'bg-zinc-800'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full transition ${wantsDigitalGrid ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                                </button>
                             </div>
-                            <button onClick={() => { setWantsDigitalGrid(!wantsDigitalGrid); if (!wantsDigitalGrid && sizeList.length === 0) addListRow(); }} className={`w-12 h-7 rounded-full transition relative flex items-center px-1 ${wantsDigitalGrid ? 'bg-purple-600' : 'bg-zinc-800'}`}>
-                                <div className={`w-5 h-5 bg-white rounded-full transition ${wantsDigitalGrid ? 'translate-x-5' : 'translate-x-0'}`}></div>
-                            </button>
+
+                            {/* ALTERAÇÃO DE MOLDE Selector */}
+                            <div className="flex items-center justify-between p-4 bg-purple-900/10 rounded-xl border border-purple-500/20">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-lg ${wantsMoldAlteration ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+                                        <Scissors size={20} />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-white text-sm">ALTERAÇÃO DE MOLDE</h4>
+                                        <p className="text-[10px] text-zinc-500">alterar molde?</p>
+                                    </div>
+                                </div>
+                                <button type="button" onClick={() => setWantsMoldAlteration(!wantsMoldAlteration)} className={`w-12 h-7 rounded-full transition relative flex items-center px-1 ${wantsMoldAlteration ? 'bg-purple-600' : 'bg-zinc-800'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full transition ${wantsMoldAlteration ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                                </button>
+                            </div>
+
+                            {wantsMoldAlteration && (
+                                <div className="animate-fade-in space-y-4 bg-zinc-950 border border-zinc-800 rounded-xl p-4">
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1 ml-1">O que precisa ser alterado?</label>
+                                        <textarea
+                                            className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-white text-xs outline-none focus:border-primary transition min-h-[60px]"
+                                            placeholder="Descreva detalhadamente o que deseja alterar no molde..."
+                                            value={artExtrasDesc}
+                                            onChange={(e) => setArtExtrasDesc(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <ImageUploadInput
+                                            label="Subir Arquivos de Referência (PNG, JPG, PDF - Máx 5MB)"
+                                            placeholder="Fazer Upload do arquivo ou cole o link..."
+                                            accept=".png,.jpg,.jpeg,.pdf"
+                                            maxSizeMB={5}
+                                            value={artLink}
+                                            onChange={(url) => setArtLink(url)}
+                                        />
+                                        <p className="text-[9px] text-zinc-500 mt-1 ml-1">Permitidos arquivos PNG, JPG e PDF de até 5MB.</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ) : (viewingProduct?.type === 'product' && (
                         <div className="flex items-center justify-between p-4 bg-zinc-950 rounded-xl border border-zinc-800">
@@ -1167,13 +1224,13 @@ export default function Shop() {
                                     <p className="text-[10px] text-zinc-500">Nomes, números e tamanhos.</p>
                                 </div>
                             </div>
-                            <button onClick={() => { setHasSizeList(!hasSizeList); if (!hasSizeList && sizeList.length === 0) addListRow(); }} className={`w-12 h-7 rounded-full transition relative flex items-center px-1 ${hasSizeList ? 'bg-primary' : 'bg-zinc-800'}`}>
+                            <button type="button" onClick={() => { setHasSizeList(!hasSizeList); if (!hasSizeList && sizeList.length === 0) addListRow(); }} className={`w-12 h-7 rounded-full transition relative flex items-center px-1 ${hasSizeList ? 'bg-primary' : 'bg-zinc-800'}`}>
                                 <div className={`w-5 h-5 bg-white rounded-full transition ${hasSizeList ? 'translate-x-5' : 'translate-x-0'}`}></div>
                             </button>
                         </div>
                     ))}
 
-                    {(hasSizeList || wantsDigitalGrid) && (
+                    {hasSizeList && (
                         <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 space-y-3 animate-fade-in">
                             <div className="flex justify-between items-center mb-4 border-b border-zinc-800 pb-2">
                                 <span className="text-[10px] font-bold text-zinc-500 uppercase">Lista de Produção ({calculateTotalItemsInList()})</span>
@@ -1249,7 +1306,7 @@ export default function Shop() {
                         </div>
                     )}
 
-                    {(layoutOption === 'sim' || moldOption === 'sim' || isArt) && (
+                    {(layoutOption === 'sim' || moldOption === 'sim') && (
                         <div className="animate-fade-in space-y-4 pt-4 border-t border-zinc-800">
                             <div>
                                 <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1 ml-1">Logos extras / Observações</label>

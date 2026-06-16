@@ -13,6 +13,7 @@ export interface CartItem {
     artLink?: string;
     artExtrasDesc?: string;
     wantsDigitalGrid?: boolean;
+    wantsMoldAlteration?: boolean;
 }
 
 interface CartContextType {
