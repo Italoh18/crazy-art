@@ -46,44 +46,63 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const offset = (page - 1) * limit;
       const isPaged = url.searchParams.has('page') || url.searchParams.has('limit');
 
-      let totalCount = 0;
-      if (isPaged) {
-        const countResult: any = await env.DB.prepare('SELECT COUNT(*) as total FROM feedbacks').first();
-        totalCount = countResult?.total || 0;
+      // 1. Busca os feedbacks normais
+      let feedbacks: any[] = [];
+      try {
+        const fResults = await env.DB.prepare('SELECT id, type, content, user_name, created_at, is_read FROM feedbacks').all();
+        feedbacks = fResults.results || [];
+      } catch (e: any) {
+        console.error("Erro ao buscar feedbacks:", e.message);
       }
 
-      let query = 'SELECT * FROM feedbacks ORDER BY created_at DESC';
-      let params: any[] = [];
-      
-      if (isPaged) {
-        query += ' LIMIT ? OFFSET ?';
-        params.push(limit, offset);
-      } else {
-        query += ' LIMIT 1000';
+      // 2. Busca os comentários de item se a tabela existir
+      let comments: any[] = [];
+      try {
+        const cResults = await env.DB.prepare(
+          'SELECT id, "comentario" as type, ("Comentou no item [" || product_name || "]: " || comment) as content, user_name, created_at, is_read FROM item_comments'
+        ).all();
+        comments = cResults.results || [];
+      } catch (e: any) {
+        console.warn("Tabela item_comments pode não existir ainda em feedbacks GET:", e.message);
       }
 
-      const { results } = params.length > 0 ? await env.DB.prepare(query).bind(...params).all() : await env.DB.prepare(query).all();
-      
+      // 3. Combina e ordena por data de criação de forma decrescente
+      const merged = [...feedbacks, ...comments].sort((a, b) => {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+
       if (isPaged) {
+        const paginated = merged.slice(offset, offset + limit);
         return Response.json({
-          data: results || [],
-          total: totalCount,
+          data: paginated,
+          total: merged.length,
           page,
           limit
         });
       }
-      return Response.json(results || []);
+      
+      return Response.json(merged);
     }
 
     // PUT: Marcar como lido
     if (request.method === 'PUT' && id) {
         await env.DB.prepare('UPDATE feedbacks SET is_read = 1 WHERE id = ?').bind(id).run();
+        try {
+          await env.DB.prepare('UPDATE item_comments SET is_read = 1 WHERE id = ?').bind(id).run();
+        } catch (e: any) {
+          console.warn("Ignorado erro ao atualizar comentário como lido:", e.message);
+        }
         return Response.json({ success: true });
     }
 
     // DELETE: Remover
     if (request.method === 'DELETE' && id) {
       await env.DB.prepare('DELETE FROM feedbacks WHERE id = ?').bind(id).run();
+      try {
+        await env.DB.prepare('DELETE FROM item_comments WHERE id = ?').bind(id).run();
+      } catch (e: any) {
+        console.warn("Ignorado erro ao deletar comentário:", e.message);
+      }
       return Response.json({ success: true });
     }
 

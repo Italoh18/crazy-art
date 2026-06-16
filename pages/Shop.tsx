@@ -77,6 +77,69 @@ export default function Shop() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
+  // States para Comentarios (Reviews)
+  const [comments, setComments] = useState<any[]>([]);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  const loadComments = async (productId: string) => {
+    setCommentsLoading(true);
+    try {
+      const res = await fetch(`/api/comments?product_id=${productId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setComments(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      console.error("Erro ao carregar comentários:", e);
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCommentText.trim() || !viewingProduct) return;
+    setSubmittingComment(true);
+    try {
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '';
+      const res = await fetch('/api/comments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          productId: viewingProduct.id,
+          productName: viewingProduct.name,
+          comment: newCommentText.trim()
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.comment) {
+          setComments(prev => [data.comment, ...prev]);
+          setNewCommentText('');
+        }
+      } else {
+        const err = await res.json() as any;
+        alert(err.error || "Erro ao publicar comentário.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao enviar comentário.");
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  useEffect(() => {
+    if (viewingProduct && step === 'detail') {
+      loadComments(viewingProduct.id);
+    }
+  }, [viewingProduct, step]);
+
   // States para Cupom
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
@@ -927,6 +990,88 @@ export default function Shop() {
     </div>
   );
 
+  const renderCommentsSection = () => {
+    const isLoggedIn = role === 'admin' || role === 'client';
+
+    return (
+      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 text-left space-y-4">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+          <MessageSquare size={16} className="text-primary" />
+          Comentários e Avaliações
+        </h3>
+
+        {/* Form para Adicionar Comentário */}
+        {isLoggedIn ? (
+          <form onSubmit={handleAddComment} className="space-y-3">
+            <div>
+              <textarea
+                value={newCommentText}
+                onChange={(e) => setNewCommentText(e.target.value)}
+                placeholder="Escreva seu comentário..."
+                rows={3}
+                required
+                className="w-full bg-zinc-950 border border-zinc-850 rounded-xl p-3 text-xs text-white focus:border-primary outline-none transition resize-none placeholder-zinc-600"
+              />
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={submittingComment || !newCommentText.trim()}
+                className="px-4 py-2 bg-primary text-white font-bold text-[10px] rounded-xl hover:bg-opacity-90 active:scale-95 transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {submittingComment ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Send size={12} />
+                    Comentar
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 text-center text-[10px] text-zinc-500">
+            Você precisa estar <span className="font-bold text-zinc-400">logado</span> para deixar um comentário.
+          </div>
+        )}
+
+        {/* Lista de Comentários */}
+        <div className="space-y-3 max-h-[250px] overflow-y-auto custom-scrollbar pr-1">
+          {commentsLoading ? (
+            <p className="text-[10px] text-zinc-500 py-2 text-center">Carregando comentários...</p>
+          ) : comments.length === 0 ? (
+            <div className="text-center py-4 text-[10px] text-zinc-500 border border-dashed border-zinc-850 rounded-xl">
+              Nenhum comentário publicado. Seja o primeiro!
+            </div>
+          ) : (
+            comments.map((c: any) => (
+              <div key={c.id} className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-850">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[9px] font-bold text-zinc-300">
+                      {c.user_name ? c.user_name[0].toUpperCase() : 'U'}
+                    </div>
+                    <span className="text-[10px] font-bold text-white">{c.user_name || 'Usuário'}</span>
+                  </div>
+                  <span className="text-[8px] text-zinc-550">
+                    {c.created_at ? new Date(c.created_at).toLocaleDateString() : ''}
+                  </span>
+                </div>
+                <p className="text-[10px] text-zinc-300 leading-relaxed pl-6">
+                  "{c.comment}"
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderStepDetail = () => {
     const dynamicPrice = viewingProduct ? getProductPriceForQuantity(viewingProduct, Number(currentOrderQty) || 1) : 0;
     const hasDiscount = viewingProduct && dynamicPrice < viewingProduct.price;
@@ -935,13 +1080,16 @@ export default function Shop() {
 
     return (
     <div className="animate-fade-in max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
-        <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 aspect-square flex items-center justify-center relative">
-            {viewingProduct?.imageUrl ? <img src={viewingProduct.imageUrl} className="w-full h-full object-cover" /> : (viewingProduct?.type as string) === 'art' ? <Palette size={120} className="text-purple-500/20" /> : <ShoppingBag size={120} className="text-zinc-800" />}
-            {(viewingProduct?.type as string) === 'art' && (
-                <div className="absolute top-4 right-4 bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
-                    <CloudDownload size={12} /> Digital
-                </div>
-            )}
+        <div className="flex flex-col space-y-6">
+            <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 aspect-square flex items-center justify-center relative flex-shrink-0">
+                {viewingProduct?.imageUrl ? <img src={viewingProduct.imageUrl} className="w-full h-full object-cover" /> : (viewingProduct?.type as string) === 'art' ? <Palette size={120} className="text-purple-500/20" /> : <ShoppingBag size={120} className="text-zinc-800" />}
+                {(viewingProduct?.type as string) === 'art' && (
+                    <div className="absolute top-4 right-4 bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
+                        <CloudDownload size={12} /> Digital
+                    </div>
+                )}
+            </div>
+            {renderCommentsSection()}
         </div>
         <div className="flex flex-col justify-center space-y-8">
             <div>

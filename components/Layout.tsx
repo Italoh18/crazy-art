@@ -17,12 +17,38 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isClientMenuOpen, setIsClientMenuOpen] = React.useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false);
   const [legalModal, setLegalModal] = useState<'termos' | 'cookies' | 'privacidade' | null>(null);
+  const [hasUnreadFeedbacks, setHasUnreadFeedbacks] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
   const { role, logout, currentCustomer } = useAuth();
   const { cartCount } = useCart();
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (role !== 'admin') return;
+
+    const checkFeedbacks = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const res = await fetch('/api/feedbacks', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const items = Array.isArray(data) ? data : [];
+          const unread = items.some((f: any) => f.is_read === 0);
+          setHasUnreadFeedbacks(unread);
+        }
+      } catch (e) {
+        console.error("Erro ao verificar feedbacks na Sidebar:", e);
+      }
+    };
+
+    checkFeedbacks();
+    const interval = setInterval(checkFeedbacks, 45000);
+    return () => clearInterval(interval);
+  }, [role, location.pathname]);
   
   const CartButton = () => {
     if (role === 'admin') return null; // Admin doesn't need cart usually, but user asked for it in header. 
@@ -417,7 +443,15 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-crazy-gradient rounded-r-full shadow-[0_0_10px_#f59e0b]"></div>
                 )}
                 <item.icon size={20} className={`relative z-10 transition-transform duration-300 ${active ? 'text-primary scale-110 drop-shadow-md' : 'group-hover:text-zinc-200'}`} />
-                <span className={`relative z-10 font-medium tracking-wide ${active ? 'font-semibold' : ''}`}>{item.name}</span>
+                <span className={`relative z-10 font-medium tracking-wide flex items-center justify-between w-full ${active ? 'font-semibold' : ''}`}>
+                  <span>{item.name}</span>
+                  {item.name === 'Feedbacks' && hasUnreadFeedbacks && (
+                    <span className="relative flex h-2.5 w-2.5 mr-1 flex-shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_8px_#ef4444]"></span>
+                    </span>
+                  )}
+                </span>
                 
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               </Link>

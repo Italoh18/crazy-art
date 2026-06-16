@@ -4,7 +4,7 @@ import { AlertTriangle, Lightbulb, ThumbsUp, Heart, Check, Trash2, Search, Filte
 
 interface Feedback {
   id: string;
-  type: 'erro' | 'sugestao' | 'reclamacao' | 'agradecimento';
+  type: 'erro' | 'sugestao' | 'reclamacao' | 'agradecimento' | 'comentario';
   content: string;
   user_name: string;
   created_at: string;
@@ -60,6 +60,7 @@ export default function Feedbacks() {
           case 'sugestao': return <Lightbulb className="text-amber-500" />;
           case 'reclamacao': return <ThumbsUp className="text-blue-500 rotate-180" />;
           case 'agradecimento': return <Heart className="text-pink-500" />;
+          case 'comentario': return <MessageSquare className="text-purple-400 animate-pulse" />;
           default: return <MessageSquare className="text-zinc-500" />;
       }
   };
@@ -70,6 +71,7 @@ export default function Feedbacks() {
           case 'sugestao': return 'Sugestão';
           case 'reclamacao': return 'Reclamação';
           case 'agradecimento': return 'Agradecimento';
+          case 'comentario': return 'Comentário em Arte';
           default: return type;
       }
   };
@@ -88,7 +90,7 @@ export default function Feedbacks() {
             </div>
             <div>
                 <h1 className="text-3xl font-bold text-white tracking-tight">Central de Feedbacks</h1>
-                <p className="text-zinc-400 text-sm mt-1">Mensagens recebidas pelo Assistente Virtual.</p>
+                <p className="text-zinc-400 text-sm mt-1">Mensagens recebidas pelo Assistente Virtual e Comentários nas Artes.</p>
             </div>
         </div>
 
@@ -116,6 +118,7 @@ export default function Feedbacks() {
                     <option value="sugestao">Sugestões</option>
                     <option value="reclamacao">Reclamações</option>
                     <option value="agradecimento">Agradecimentos</option>
+                    <option value="comentario">Comentários</option>
                 </select>
             </div>
         </div>
