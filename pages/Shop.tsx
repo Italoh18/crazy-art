@@ -7,7 +7,7 @@ import {
   Plus as PlusIcon, CreditCard, Loader2, MessageCircle, MessageSquare, 
   Lock, UserPlus, ChevronRight, ListChecks, Upload, 
   Info, AlertTriangle, Wallet, Check, Film, FileText, Layers, Hash, ToggleLeft, ToggleRight,
-  Coins, Ticket, Palette, CloudDownload, Filter, ArrowUpRight, Zap, Image as ImageIcon, Sparkles, Tag, Crown, Scissors, ShoppingBag, Wrench
+  Coins, Ticket, Palette, CloudDownload, Filter, ArrowUpRight, Zap, Image as ImageIcon, Sparkles, Tag, Crown, Scissors, ShoppingBag, Wrench, Star
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -51,6 +51,17 @@ export const ART_COLOR_FILTERS = [
     { name: 'Rosa', hex: '#EC4899' },
 ];
 
+const parseComment = (rawComment: string) => {
+  if (!rawComment) return { rating: null, text: '' };
+  const match = rawComment.match(/^\[RATING:(\d)\](.*)$/s);
+  if (match) {
+    const rating = parseInt(match[1], 10);
+    const text = match[2];
+    return { rating, text };
+  }
+  return { rating: null, text: rawComment };
+};
+
 export default function Shop() {
   const { products, addOrder, orders, validateCoupon, loadData } = useData();
   const { role, currentCustomer } = useAuth();
@@ -91,6 +102,7 @@ export default function Shop() {
   // States para Comentarios (Reviews)
   const [comments, setComments] = useState<any[]>([]);
   const [newCommentText, setNewCommentText] = useState('');
+  const [newCommentRating, setNewCommentRating] = useState<number>(5);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
 
@@ -111,7 +123,7 @@ export default function Shop() {
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCommentText.trim() || !viewingProduct) return;
+    if ((!newCommentText.trim() && !newCommentRating) || !viewingProduct) return;
     setSubmittingComment(true);
     try {
       const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '';
@@ -124,7 +136,7 @@ export default function Shop() {
         body: JSON.stringify({
           productId: viewingProduct.id,
           productName: viewingProduct.name,
-          comment: newCommentText.trim()
+          comment: `[RATING:${newCommentRating}]${newCommentText.trim()}`
         })
       });
       if (res.ok) {
@@ -132,6 +144,7 @@ export default function Shop() {
         if (data.success && data.comment) {
           setComments(prev => [data.comment, ...prev]);
           setNewCommentText('');
+          setNewCommentRating(5);
         }
       } else {
         const err = await res.json() as any;
@@ -1082,20 +1095,44 @@ export default function Shop() {
         {/* Form para Adicionar Comentário */}
         {isLoggedIn ? (
           <form onSubmit={handleAddComment} className="space-y-3">
+            {/* Campo de Estrelas */}
+            <div className="flex items-center gap-2 bg-zinc-950/40 p-2.5 rounded-xl border border-zinc-850">
+              <span className="text-[10px] text-zinc-400 font-medium">Sua avaliação:</span>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setNewCommentRating(star)}
+                    className="focus:outline-none transition-transform active:scale-125 duration-150"
+                  >
+                    <Star
+                      size={16}
+                      className={`${
+                        star <= newCommentRating 
+                          ? 'fill-amber-400 text-amber-400' 
+                          : 'text-zinc-650 hover:text-zinc-550'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              <span className="text-[9px] text-zinc-500">({newCommentRating} {newCommentRating === 1 ? 'estrela' : 'estrelas'})</span>
+            </div>
+
             <div>
               <textarea
                 value={newCommentText}
                 onChange={(e) => setNewCommentText(e.target.value)}
-                placeholder="Escreva seu comentário..."
+                placeholder="Escreva seu comentário (opcional)..."
                 rows={3}
-                required
                 className="w-full bg-zinc-950 border border-zinc-850 rounded-xl p-3 text-xs text-white focus:border-primary outline-none transition resize-none placeholder-zinc-600"
               />
             </div>
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={submittingComment || !newCommentText.trim()}
+                disabled={submittingComment}
                 className="px-4 py-2 bg-primary text-white font-bold text-[10px] rounded-xl hover:bg-opacity-90 active:scale-95 transition flex items-center gap-1.5 disabled:opacity-50"
               >
                 {submittingComment ? (
@@ -1106,7 +1143,7 @@ export default function Shop() {
                 ) : (
                   <>
                     <Send size={12} />
-                    Comentar
+                    Avaliar e Comentar
                   </>
                 )}
               </button>
@@ -1114,7 +1151,7 @@ export default function Shop() {
           </form>
         ) : (
           <div className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 text-center text-[10px] text-zinc-500">
-            Você precisa estar <span className="font-bold text-zinc-400">logado</span> para deixar um comentário.
+            Você precisa estar <span className="font-bold text-zinc-400">logado</span> para deixar um comentário ou avaliação.
           </div>
         )}
 
@@ -1127,24 +1164,44 @@ export default function Shop() {
               Nenhum comentário publicado. Seja o primeiro!
             </div>
           ) : (
-            comments.map((c: any) => (
-              <div key={c.id} className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-850">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[9px] font-bold text-zinc-300">
-                      {c.user_name ? c.user_name[0].toUpperCase() : 'U'}
+            comments.map((c: any) => {
+              const { rating, text } = parseComment(c.comment);
+              return (
+                <div key={c.id} className="bg-zinc-950/60 p-3 rounded-xl border border-zinc-850">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[9px] font-bold text-zinc-300">
+                        {c.user_name ? c.user_name[0].toUpperCase() : 'U'}
+                      </div>
+                      <span className="text-[10px] font-bold text-white">{c.user_name || 'Usuário'}</span>
+                      {rating && (
+                        <div className="flex gap-0.5 ml-1 bg-zinc-905 px-1.5 py-0.5 rounded-md border border-zinc-800/60">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              size={10}
+                              className={star <= rating ? 'fill-amber-400 text-amber-400' : 'text-zinc-700'}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <span className="text-[10px] font-bold text-white">{c.user_name || 'Usuário'}</span>
+                    <span className="text-[8px] text-zinc-550">
+                      {c.created_at ? new Date(c.created_at).toLocaleDateString() : ''}
+                    </span>
                   </div>
-                  <span className="text-[8px] text-zinc-550">
-                    {c.created_at ? new Date(c.created_at).toLocaleDateString() : ''}
-                  </span>
+                  {text ? (
+                    <p className="text-[10px] text-zinc-300 leading-relaxed pl-6">
+                      "{text}"
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-zinc-500 italic pl-6">
+                      Sem comentário de texto.
+                    </p>
+                  )}
                 </div>
-                <p className="text-[10px] text-zinc-300 leading-relaxed pl-6">
-                  "{c.comment}"
-                </p>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
