@@ -184,6 +184,14 @@ export const api = {
     const res = await fetch(`/api/coupons?_t=${Date.now()}`, { headers: getHeaders() });
     return handleResponse(res);
   },
+  async getClientCoupons() {
+    const res = await fetch(`/api/client-coupons?_t=${Date.now()}`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
+  async claimClientCoupon(code: string) {
+    const res = await fetch('/api/client-coupons', { method: 'POST', headers: getHeaders(), body: JSON.stringify({ code }) });
+    return handleResponse(res);
+  },
   async validateCoupon(code: string) {
     const res = await fetch(`/api/coupons?code=${encodeURIComponent(code)}`, { headers: getHeaders() });
     return handleResponse(res);

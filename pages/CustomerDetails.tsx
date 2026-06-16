@@ -9,7 +9,7 @@ import {
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
   Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal,
   Coins, Lock, RotateCcw, CloudDownload, Sparkles, ChevronRight, Upload, MessageCircle,
-  Crown
+  Crown, Ticket, Tag, Percent
 } from 'lucide-react';
 import { api } from '../src/services/api';
 import { SizeListItem, Order } from '../types';
@@ -158,13 +158,80 @@ export default function CustomerDetails() {
       try {
           await api.updateEmail(customer!.id, newEmail);
           setIsEmailModalOpen(false);
-          alert("Email atualizado com sucesso! Faça login novamente se necessário.");
+          alert("Email updated successfully! Please login again if necessary.");
           window.location.reload();
       } catch (e: any) {
           setSecurityError(e.message || "Erro ao atualizar email.");
       } finally {
           setIsLoadingSecurity(false);
       }
+  };
+
+  const [clientCoupons, setClientCoupons] = useState<any[]>([]);
+  const [newCouponCode, setNewCouponCode] = useState('');
+  const [claimError, setClaimError] = useState('');
+  const [claimSuccess, setClaimSuccess] = useState('');
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [isLoadingCoupons, setIsLoadingCoupons] = useState(false);
+
+  const loadClientCoupons = async () => {
+    if (!activeId) return;
+    setIsLoadingCoupons(true);
+    try {
+      const url = `/api/client-coupons?_t=${Date.now()}${role === 'admin' ? `&clientId=${activeId}` : ''}`;
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '';
+      const res = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setClientCoupons(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingCoupons(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeId) {
+      loadClientCoupons();
+    }
+  }, [activeId]);
+
+  const handleClaimCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCouponCode.trim() || !activeId) return;
+    setIsClaiming(true);
+    setClaimError('');
+    setClaimSuccess('');
+    try {
+      const url = `/api/client-coupons${role === 'admin' ? `?clientId=${activeId}` : ''}`;
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '';
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ code: newCouponCode })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao adicionar cupom.');
+      }
+      setClaimSuccess('Cupom adicionado com sucesso!');
+      setNewCouponCode('');
+      loadClientCoupons();
+    } catch (err: any) {
+      setClaimError(err.message || 'Erro ao adicionar cupom.');
+    } finally {
+      setIsClaiming(false);
+    }
   };
 
   useEffect(() => {
@@ -756,6 +823,102 @@ export default function CustomerDetails() {
                             <Link to="/my-orders" className="text-xs font-bold text-red-400 hover:text-red-300 underline mt-1 block">
                                 Ver pendências em Meus Pedidos
                             </Link>
+                        )}
+                    </div>
+                </div>
+
+                {/* Seção Meus Cupons */}
+                <div className="w-full bg-[#121215] border border-white/5 rounded-3xl p-6 space-y-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 bg-[#ff8100]/10 text-primary rounded-xl">
+                            <Ticket size={24} />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-white">Meus Cupons</h3>
+                            <p className="text-zinc-500 text-xs">Cupons fidelidade e ofertas personalizadas</p>
+                        </div>
+                    </div>
+
+                    {/* Resgatar Cupom */}
+                    <form onSubmit={handleClaimCoupon} className="space-y-2 pt-2 border-t border-white/5">
+                        <label className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 block">Adicionar Código à Lista</label>
+                        <div className="flex gap-2">
+                            <input 
+                                type="text"
+                                placeholder="DIGITE O CÓDIGO DO CUPOM"
+                                className="flex-1 bg-black/50 border border-zinc-800 rounded-xl px-4 py-2 text-xs text-white focus:border-primary outline-none transition uppercase tracking-wider placeholder:text-zinc-700"
+                                value={newCouponCode}
+                                onChange={(e) => setNewCouponCode(e.target.value)}
+                            />
+                            <button 
+                                type="submit" 
+                                disabled={isClaiming || !newCouponCode.trim()}
+                                className="bg-primary hover:bg-amber-600 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1"
+                            >
+                                {isClaiming ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Adicionar
+                            </button>
+                        </div>
+                        {claimError && <p className="text-red-500 text-[10px] uppercase font-bold tracking-widest mt-1">{claimError}</p>}
+                        {claimSuccess && <p className="text-emerald-500 text-[10px] uppercase font-bold tracking-widest mt-1">{claimSuccess}</p>}
+                    </form>
+
+                    {/* Lista de Cupons */}
+                    <div className="space-y-2 pt-2 border-t border-white/5">
+                        <label className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 block">Meus Cupons Salvos</label>
+                        {isLoadingCoupons ? (
+                            <div className="flex items-center justify-center py-4 text-zinc-500 gap-2">
+                                <Loader2 size={14} className="animate-spin" />
+                                <span className="text-xs">Carregando seus cupons...</span>
+                            </div>
+                        ) : clientCoupons.length === 0 ? (
+                            <div className="text-center py-6 bg-black/25 rounded-2xl border border-dashed border-zinc-800/80">
+                                <Tag size={18} className="text-zinc-700 mx-auto mb-1.5 opacity-40" />
+                                <p className="text-xs text-zinc-500">Nenhum cupom ativo na sua conta.</p>
+                            </div>
+                        ) : (
+                            <div className="max-h-[180px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                                {clientCoupons.map((c) => {
+                                    const nowMs = Date.now();
+                                    const expiresMs = new Date(c.expires_at).getTime();
+                                    const isExpired = expiresMs <= nowMs;
+                                    const isUsed = c.is_used === 1;
+                                    const isInactive = isExpired || isUsed;
+
+                                    return (
+                                        <div 
+                                            key={c.id} 
+                                            className={`p-3 rounded-2xl border flex items-center justify-between transition-all ${
+                                                isInactive 
+                                                    ? 'bg-zinc-950/20 border-zinc-900/60 opacity-60' 
+                                                    : 'bg-zinc-900/40 hover:bg-zinc-900/80 border-zinc-800/80'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`p-2 rounded-xl ${isInactive ? 'bg-zinc-950 text-zinc-600' : 'bg-[#ff8100]/10 text-primary'}`}>
+                                                    <Percent size={14} />
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`font-mono font-bold text-xs uppercase ${isInactive ? 'text-zinc-500 line-through' : 'text-white'}`}>{c.code}</span>
+                                                        <span className={`text-[9px] uppercase px-1.5 py-0.5 rounded font-extrabold ${
+                                                            isUsed 
+                                                                ? 'bg-red-500/10 text-red-100 border border-red-500/20' 
+                                                                : isExpired 
+                                                                    ? 'bg-zinc-800 text-zinc-500' 
+                                                                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                                        }`}>
+                                                            {isUsed ? 'Usado' : isExpired ? 'Expirou' : `${c.percentage}% OFF`}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[10px] text-zinc-500 mt-0.5 flex items-center gap-1">
+                                                        <Clock size={10} /> Validade: {new Date(c.expires_at).toLocaleDateString('pt-BR')}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         )}
                     </div>
                 </div>

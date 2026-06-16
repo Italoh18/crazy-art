@@ -146,6 +146,15 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         discount
       ).run();
 
+      // Invalida o cupom se o usuário utilizou um
+      const coupon_code = body.couponCode || body.coupon_code || body.coupon;
+      if (coupon_code && client_id) {
+          const cleanCouponCode = String(coupon_code).toUpperCase().trim();
+          await env.DB.prepare(
+              'UPDATE client_coupons SET is_used = 1 WHERE client_id = ? AND code = ? AND is_used = 0'
+          ).bind(client_id, cleanCouponCode).run();
+      }
+
       const items = Array.isArray(body.items) ? body.items : [];
       let calculatedTotal = 0;
       let calculatedCost = 0;
