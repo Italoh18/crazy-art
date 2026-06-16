@@ -69,6 +69,7 @@ export default function Shop() {
   const [wantsDigitalGrid, setWantsDigitalGrid] = useState(false);
   const [wantsMoldAlteration, setWantsMoldAlteration] = useState(false);
   const [isDigitalGridProcessing, setIsDigitalGridProcessing] = useState(false);
+  const [showFullDesc, setShowFullDesc] = useState(false);
   
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [currentOrderDesc, setCurrentOrderDesc] = useState('');
@@ -326,6 +327,7 @@ export default function Shop() {
     setWantsDigitalGrid(false);
     setWantsMoldAlteration(false);
     setIsGlobalSimple(false);
+    setShowFullDesc(false);
     
     setStep('detail');
     window.scrollTo(0, 0);
@@ -1209,7 +1211,32 @@ export default function Shop() {
 
             <div className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800">
                 <h4 className="text-xs font-bold text-zinc-500 uppercase mb-3">Descrição</h4>
-                <p className="text-zinc-300 leading-relaxed mb-4">{viewingProduct?.description || 'Nenhum detalhe adicional.'}</p>
+                {(() => {
+                    const desc = viewingProduct?.description || 'Nenhum detalhe adicional.';
+                    const descLines = desc.split('\n');
+                    const hasMoreThanFiveLines = descLines.length > 5;
+                    const displayText = showFullDesc || !hasMoreThanFiveLines 
+                        ? desc 
+                        : descLines.slice(0, 5).join('\n');
+
+                    return (
+                        <div className="mb-4">
+                            <p className="text-zinc-300 leading-relaxed whitespace-pre-line text-xs sm:text-sm">
+                                {displayText}
+                                {!showFullDesc && hasMoreThanFiveLines && '...'}
+                            </p>
+                            {hasMoreThanFiveLines && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowFullDesc(!showFullDesc)}
+                                    className="text-purple-400 hover:text-purple-300 transition-all font-bold text-xs mt-2 flex items-center gap-1 focus:outline-none"
+                                >
+                                    {showFullDesc ? 'Mostrar menos' : 'Mostrar mais'}
+                                </button>
+                            )}
+                        </div>
+                    );
+                })()}
                 {viewingProduct?.type === 'art' && (
                     <div className="bg-purple-900/10 p-3 rounded-lg border border-purple-500/20 mb-4 text-xs text-purple-300">
                         Este é um produto digital. Você receberá o link para download automaticamente após a confirmação do pagamento.
