@@ -1213,19 +1213,18 @@ export default function Shop() {
                 <h4 className="text-xs font-bold text-zinc-500 uppercase mb-3">Descrição</h4>
                 {(() => {
                     const desc = viewingProduct?.description || 'Nenhum detalhe adicional.';
-                    const descLines = desc.split('\n');
-                    const hasMoreThanFiveLines = descLines.length > 5;
-                    const displayText = showFullDesc || !hasMoreThanFiveLines 
+                    const hasMoreThanLimit = desc.length > 180;
+                    const displayText = showFullDesc || !hasMoreThanLimit 
                         ? desc 
-                        : descLines.slice(0, 5).join('\n');
+                        : desc.slice(0, 180);
 
                     return (
                         <div className="mb-4">
                             <p className="text-zinc-300 leading-relaxed whitespace-pre-line text-xs sm:text-sm">
                                 {displayText}
-                                {!showFullDesc && hasMoreThanFiveLines && '...'}
+                                {!showFullDesc && hasMoreThanLimit && '...'}
                             </p>
-                            {hasMoreThanFiveLines && (
+                            {hasMoreThanLimit && (
                                 <button
                                     type="button"
                                     onClick={() => setShowFullDesc(!showFullDesc)}
