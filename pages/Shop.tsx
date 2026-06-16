@@ -83,6 +83,68 @@ export default function Shop() {
   const [couponError, setCouponError] = useState('');
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
 
+  // States para lista de cupons salvos do cliente
+  const [clientCoupons, setClientCoupons] = useState<any[]>([]);
+  const [showCouponList, setShowCouponList] = useState(false);
+  const [isLoadingCoupons, setIsLoadingCoupons] = useState(false);
+
+  const loadClientCoupons = async () => {
+    if (role !== 'client' || !currentCustomer) return;
+    setIsLoadingCoupons(true);
+    try {
+      const url = `/api/client-coupons?_t=${Date.now()}`;
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '';
+      const res = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setClientCoupons(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingCoupons(false);
+    }
+  };
+
+  useEffect(() => {
+    if (role === 'client' && currentCustomer) {
+      loadClientCoupons();
+    }
+  }, [role, currentCustomer]);
+
+  const isCouponEligibleForShop = (couponType: string) => {
+    // Tipo 'all' e 'product' são sempre elegíveis na loja
+    if (couponType === 'all' || couponType === 'product') {
+      return { eligible: true };
+    }
+    // Tipo 'service' é elegível se houver algum serviço ou itens adicionais de modelagem/layout
+    if (couponType === 'service') {
+      const hasService = cart.some(item => {
+        return !item.wantsDigitalGrid && (item.layoutOption === 'precisa' || item.moldOption === 'precisa' || item.wantsDigitalGrid);
+      });
+      return {
+        eligible: hasService,
+        message: 'Disponível apenas para Serviços contratados'
+      };
+    }
+    // Tipo 'art' é elegível se houver algum item do tipo 'art' ou correspondente a matrizes/estampas
+    if (couponType === 'art') {
+      const hasArt = cart.some(item => {
+        return item.product.type === 'art' || item.product.type === 'stamp' || item.product.category?.toLowerCase() === 'estampas';
+      });
+      return {
+        eligible: hasArt,
+        message: 'Disponível apenas para Matrizes de Bordado / Artes Prontas'
+      };
+    }
+    return { eligible: true };
+  };
+
   // Verifica se é assinante
   const isSubscriber = currentCustomer?.isSubscriber;
 
@@ -1165,6 +1227,7 @@ export default function Shop() {
                                 className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary outline-none text-sm uppercase font-mono"
                                 value={couponCode}
                                 onChange={(e) => setCouponCode(e.target.value)}
+                                onFocus={() => { if (role === 'client' && clientCoupons.length > 0) setShowCouponList(true); }}
                                 disabled={!!appliedCoupon}
                             />
                         </div>
@@ -1178,6 +1241,71 @@ export default function Shop() {
                             </button>
                         )}
                     </div>
+
+                    {role === 'client' && clientCoupons.length > 0 && !appliedCoupon && (
+                        <div className="space-y-2">
+                            <button 
+                                type="button"
+                                onClick={() => setShowCouponList(!showCouponList)}
+                                className="text-zinc-400 hover:text-white text-xs flex items-center gap-1.5 font-bold uppercase tracking-wider transition bg-zinc-900/40 hover:bg-zinc-900 px-3 py-1.5 rounded-xl border border-white/5 active:scale-95"
+                            >
+                                <Ticket size={13} className="text-[#ff8100]" />
+                                {showCouponList ? 'Ocultar meus cupons' : 'Ver meus cupons salvos'} ({clientCoupons.length})
+                            </button>
+                            
+                            {showCouponList && (
+                                <div className="bg-black/60 border border-zinc-850 p-3 rounded-2xl space-y-2 max-h-[160px] overflow-y-auto scrollbar-thin">
+                                    {clientCoupons.map((c) => {
+                                        const eligibility = isCouponEligibleForShop(c.type);
+                                        const nowMs = Date.now();
+                                        const expiresMs = new Date(c.expires_at).getTime();
+                                        const isExpired = expiresMs <= nowMs;
+                                        const isUsed = c.is_used === 1;
+                                        
+                                        const itemDisabled = !eligibility.eligible || isExpired || isUsed;
+
+                                        return (
+                                            <div 
+                                                key={c.id}
+                                                onClick={() => {
+                                                    if (!itemDisabled) {
+                                                        setCouponCode(c.code);
+                                                        setShowCouponList(false);
+                                                    }
+                                                }}
+                                                className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
+                                                    itemDisabled 
+                                                        ? 'bg-zinc-950/20 border-zinc-900/60 opacity-40 cursor-not-allowed' 
+                                                        : 'bg-zinc-900/50 hover:bg-zinc-900 border-zinc-800/80 cursor-pointer active:scale-[0.98]'
+                                                }`}
+                                            >
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-mono font-bold text-xs text-white uppercase">{c.code}</span>
+                                                        <span className="text-[10px] text-primary font-bold">{c.percentage}% OFF</span>
+                                                    </div>
+                                                    <p className="text-[10px] text-zinc-500 mt-0.5">
+                                                        {isUsed ? 'Utilizado' : isExpired ? 'Expirado' : `Validade: ${new Date(c.expires_at).toLocaleDateString('pt-BR')}`}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    {!eligibility.eligible ? (
+                                                        <span className="text-[9px] text-[#ff8100] font-bold uppercase">{eligibility.message}</span>
+                                                    ) : isUsed ? (
+                                                        <span className="text-[9px] text-red-500 font-bold uppercase">Usado</span>
+                                                    ) : isExpired ? (
+                                                        <span className="text-[9px] text-zinc-500 font-bold uppercase">Expirado</span>
+                                                    ) : (
+                                                        <span className="text-[10px] text-emerald-400 font-bold uppercase">Inserir</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
                     
                     {couponError && <p className="text-xs text-red-500">{couponError}</p>}
                     {appliedCoupon && <p className="text-xs text-emerald-500 flex items-center gap-1"><Check size={12} /> Cupom aplicado! {appliedCoupon.percentage}% OFF em itens elegíveis.</p>}

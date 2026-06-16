@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Scissors, Sparkles, MessageSquare, Image as ImageIcon, 
   Upload, HelpCircle, CheckCircle2, CreditCard, Wallet, 
-  ArrowRight, Loader2, Info, ChevronRight, X, Phone, Plus, Trash2, FileText, Hourglass, Palette
+  ArrowRight, Loader2, Info, ChevronRight, X, Phone, Plus, Trash2, FileText, Hourglass, Palette, Ticket
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -82,6 +82,54 @@ export default function MontagemMolde() {
   const [couponData, setCouponData] = useState<{ code: string, percentage: number } | null>(null);
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   const [couponError, setCouponError] = useState('');
+
+  // States para lista de cupons salvos do cliente
+  const [clientCoupons, setClientCoupons] = useState<any[]>([]);
+  const [showCouponList, setShowCouponList] = useState(false);
+  const [isLoadingCoupons, setIsLoadingCoupons] = useState(false);
+
+  const loadClientCoupons = async () => {
+    if (role !== 'client' || !currentCustomer) return;
+    setIsLoadingCoupons(true);
+    try {
+      const url = `/api/client-coupons?_t=${Date.now()}`;
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '';
+      const res = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setClientCoupons(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingCoupons(false);
+    }
+  };
+
+  useEffect(() => {
+    if (role === 'client' && currentCustomer) {
+      loadClientCoupons();
+    }
+  }, [role, currentCustomer]);
+
+  const isCouponEligibleForMold = (couponType: string) => {
+    // Montagem Molde é um serviço. Logo tipo 'all' ou 'service' é elegível.
+    if (couponType === 'all' || couponType === 'service') {
+      return { eligible: true };
+    }
+    if (couponType === 'product') {
+      return { eligible: false, message: 'Disponível apenas para Produtos da Loja' };
+    }
+    if (couponType === 'art') {
+      return { eligible: false, message: 'Disponível apenas para Matrizes / Artes Prontas' };
+    }
+    return { eligible: true };
+  };
   
   // Replicas State
   const [hasReplicas, setHasReplicas] = useState(false);
@@ -587,6 +635,7 @@ export default function MontagemMolde() {
                                     type="text"
                                     value={couponCode}
                                     onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                                    onFocus={() => { if (role === 'client' && clientCoupons.length > 0) setShowCouponList(true); }}
                                     placeholder="CÓDIGO"
                                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition uppercase"
                                 />
@@ -604,6 +653,72 @@ export default function MontagemMolde() {
                                 {isValidatingCoupon ? <Loader2 className="animate-spin" size={16} /> : 'Aplicar'}
                             </button>
                         </div>
+
+                        {role === 'client' && clientCoupons.length > 0 && !couponData && (
+                            <div className="space-y-4 pt-1 text-left">
+                                <button 
+                                    type="button"
+                                    onClick={() => setShowCouponList(!showCouponList)}
+                                    className="text-zinc-400 hover:text-white text-[10px] flex items-center gap-1.5 font-bold uppercase tracking-wider transition bg-zinc-900/40 hover:bg-zinc-900 px-3 py-1.5 rounded-xl border border-white/5 active:scale-95 animate-fade-in"
+                                >
+                                    <Ticket size={11} className="text-[#ff8100]" />
+                                    {showCouponList ? 'Ocultar meus cupons' : 'Ver meus cupons salvos'} ({clientCoupons.length})
+                                </button>
+                                
+                                {showCouponList && (
+                                    <div className="bg-black/60 border border-zinc-850 p-3 rounded-2xl space-y-2 max-h-[160px] overflow-y-auto scrollbar-thin">
+                                        {clientCoupons.map((c) => {
+                                            const eligibility = isCouponEligibleForMold(c.type);
+                                            const nowMs = Date.now();
+                                            const expiresMs = new Date(c.expires_at).getTime();
+                                            const isExpired = expiresMs <= nowMs;
+                                            const isUsed = c.is_used === 1;
+                                            
+                                            const itemDisabled = !eligibility.eligible || isExpired || isUsed;
+
+                                            return (
+                                                <div 
+                                                    key={c.id}
+                                                    onClick={() => {
+                                                        if (!itemDisabled) {
+                                                            setCouponCode(c.code);
+                                                            setShowCouponList(false);
+                                                        }
+                                                    }}
+                                                    className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
+                                                        itemDisabled 
+                                                            ? 'bg-zinc-950/20 border-zinc-900/60 opacity-40 cursor-not-allowed' 
+                                                            : 'bg-zinc-900/50 hover:bg-zinc-900 border-zinc-800/80 cursor-pointer active:scale-[0.98]'
+                                                    }`}
+                                                >
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-mono font-bold text-xs text-white uppercase">{c.code}</span>
+                                                            <span className="text-[10px] text-primary font-bold">{c.percentage}% OFF</span>
+                                                        </div>
+                                                        <p className="text-[10px] text-zinc-500 mt-0.5">
+                                                            {isUsed ? 'Utilizado' : isExpired ? 'Expirado' : `Validade: ${new Date(c.expires_at).toLocaleDateString('pt-BR')}`}
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        {!eligibility.eligible ? (
+                                                            <span className="text-[9px] text-[#ff8100] font-bold uppercase">{eligibility.message}</span>
+                                                        ) : isUsed ? (
+                                                            <span className="text-[9px] text-red-500 font-bold uppercase">Usado</span>
+                                                        ) : isExpired ? (
+                                                            <span className="text-[9px] text-zinc-500 font-bold uppercase">Expirado</span>
+                                                        ) : (
+                                                            <span className="text-[10px] text-emerald-400 font-bold uppercase">Inserir</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {couponError && <p className="text-red-500 text-[10px] font-bold uppercase">{couponError}</p>}
                         {couponData && <p className="text-emerald-500 text-[10px] font-bold uppercase">Cupom aplicado: {couponData.percentage}% de desconto!</p>}
                     </div>
