@@ -1362,8 +1362,88 @@ export default function Shop() {
     </div>
   );
 
+  const renderSchemaOrg = () => {
+    try {
+      const schemas: any[] = [];
+
+      // 1. Se estiver visualizando detalhes de um item, adiciona o Schema de Produto único
+      if (step === 'detail' && viewingProduct) {
+        const isArtProduct = (viewingProduct.type as string) === 'art';
+        schemas.push({
+          "@context": "https://schema.org/",
+          "@type": "Product",
+          "@id": `https://crazyart.com.br/shop?item=${viewingProduct.id}`,
+          "name": viewingProduct.name,
+          "image": viewingProduct.imageUrl || "",
+          "description": viewingProduct.description || (isArtProduct 
+            ? `Arquivo digital de alta qualidade pronta para bordados ou estampas na Quitanda de Artes da Crazy Art.` 
+            : `Produto de alta qualidade disponível na Crazy Art.`),
+          "category": isArtProduct ? "Design/Craft/Digital Art" : "Apparel/Product",
+          "brand": {
+            "@type": "Brand",
+            "name": "Crazy Art"
+          },
+          "offers": {
+            "@type": "Offer",
+            "priceCurrency": "BRL",
+            "price": viewingProduct.price.toFixed(2),
+            "itemCondition": "https://schema.org/NewCondition",
+            "availability": "https://schema.org/InStock"
+          }
+        });
+      }
+
+      // 2. Se estiver na aba Quitanda de Artes, indexa a lista de itens ativa como ItemList schema
+      if (activeTab === 'art' && filteredItems && filteredItems.length > 0) {
+        const listElements = filteredItems.map((item, index) => {
+          const isArtProduct = (item.type as string) === 'art';
+          return {
+            "@type": "ListItem",
+            "position": index + 1,
+            "item": {
+              "@type": "Product",
+              "@id": `https://crazyart.com.br/shop?item=${item.id}`,
+              "name": item.name,
+              "image": item.imageUrl || "",
+              "description": item.description || (isArtProduct 
+                ? `Arquivo digital de alta qualidade pronta para bordados ou estampas na Quitanda de Artes.` 
+                : `Produto de alta qualidade disponível na Crazy Art.`),
+              "offers": {
+                "@type": "Offer",
+                "priceCurrency": "BRL",
+                "price": item.price.toFixed(2),
+                "availability": "https://schema.org/InStock"
+              }
+            }
+          };
+        });
+
+        schemas.push({
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          "name": "Quitanda de Artes - Catálogo de Matrizes de Bordado e Estampas",
+          "description": "Explorar o catálogo completo de arquivos digitais, matrizes de bordados e layouts prontos da Quitanda de Artes na Crazy Art.",
+          "numberOfItems": filteredItems.length,
+          "itemListElement": listElements
+        });
+      }
+
+      return schemas.map((schema, idx) => (
+        <script
+          key={`jsonld-schema-${idx}`}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      ));
+    } catch (e) {
+      console.error("Erro ao gerar JSON-LD:", e);
+      return null;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-zinc-950 text-text p-6 pb-32 relative">
+      {renderSchemaOrg()}
       <div className="max-w-7xl mx-auto mb-12 flex items-center justify-between">
         <div className="flex items-center space-x-4">
             <button onClick={() => step === 'detail' ? setStep('list') : step === 'questionnaire' ? setStep('list') : step === 'checkout' ? setStep('questionnaire') : navigate('/')} className="p-3 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white rounded-full transition hover:scale-110 active:scale-95">
