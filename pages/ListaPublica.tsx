@@ -12,6 +12,46 @@ const sizes: Record<string, string[]> = {
   infantil: ['RN', '2', '4', '6', '8', '10', '12', '14', '16']
 };
 
+const sortSizeListItems = (items: SizeListItem[]): SizeListItem[] => {
+  const categoryOrder: Record<string, number> = {
+    unisex: 1,
+    infantil: 2,
+    feminina: 3
+  };
+
+  const unisexSizesDesc = ['XG5', 'XG4', 'XG3', 'XG2', 'XG1', 'EG', 'GG', 'G', 'M', 'P', 'PP'];
+  const infantilSizesDesc = ['16', '14', '12', '10', '8', '6', '4', '2', 'RN'];
+  const femininaSizesDesc = ['XG5', 'XG4', 'XG3', 'XG2', 'XG1', 'EG', 'GG', 'G', 'M', 'P', 'PP'];
+
+  const getSizeWeight = (category: string, size: string): number => {
+    const s = (size || '').trim().toUpperCase();
+    if (category === 'unisex') {
+      const idx = unisexSizesDesc.indexOf(s);
+      return idx !== -1 ? idx : 999;
+    }
+    if (category === 'infantil') {
+      const idx = infantilSizesDesc.indexOf(s);
+      return idx !== -1 ? idx : 999;
+    }
+    if (category === 'feminina') {
+      const idx = femininaSizesDesc.indexOf(s);
+      return idx !== -1 ? idx : 999;
+    }
+    return 999;
+  };
+
+  return [...items].sort((a, b) => {
+    const catA = categoryOrder[a.category] || 999;
+    const catB = categoryOrder[b.category] || 999;
+    if (catA !== catB) {
+      return catA - catB;
+    }
+    const weightA = getSizeWeight(a.category, a.size);
+    const weightB = getSizeWeight(b.category, b.size);
+    return weightA - weightB;
+  });
+};
+
 export default function ListaPublica() {
   const { id } = useParams<{ id: string }>();
   const [listTitle, setListTitle] = useState('Lista Pública');
@@ -101,6 +141,9 @@ export default function ListaPublica() {
           }
         }
         
+        // 2.3 Sort the merged list as requested
+        const sortedMergedList = sortSizeListItems(mergedList);
+        
         // 3. Write merged list using PUT
         const putResponse = await fetch(`/api/public-lists?id=${encodeURIComponent(id)}`, {
           method: 'PUT',
@@ -109,13 +152,13 @@ export default function ListaPublica() {
           },
           body: JSON.stringify({
             title: listTitle,
-            items: mergedList
+            items: sortedMergedList
           })
         });
 
         if (putResponse.ok) {
-          setItems(mergedList);
-          setOriginalSnapshotItems(JSON.parse(JSON.stringify(mergedList)));
+          setItems(sortedMergedList);
+          setOriginalSnapshotItems(JSON.parse(JSON.stringify(sortedMergedList)));
           setSaveSuccess(true);
           setTimeout(() => setSaveSuccess(false), 4000);
         } else {
