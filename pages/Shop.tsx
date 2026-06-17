@@ -666,6 +666,37 @@ export default function Shop() {
     }
   };
 
+  const handleConfirmOrderWithCredit = async () => {
+    if (!lastCreatedOrder) return;
+    setIsProcessing(true);
+    try {
+        const response = await fetch(`/api/orders?id=${encodeURIComponent(lastCreatedOrder.id)}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            },
+            body: JSON.stringify({
+                confirm_with_credit: true
+            })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Erro ao processar confirmação de crédito');
+        }
+
+        // Aguarda carregar dados atualizados antes de concluir
+        await loadData(true);
+        clearCart();
+        setStep('success');
+    } catch (err: any) {
+        setNotification({ message: 'Erro ao faturar no crédito: ' + err.message, type: 'error' });
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+
   // Cálculo do Limite Disponível Real (Crédito - Pedidos Abertos)
   const availableCredit = useMemo(() => {
     if (!currentCustomer) return 0;
@@ -1574,7 +1605,14 @@ export default function Shop() {
     const discountedTotal = calculateDiscountedTotal();
     
     return (
-        <div className="animate-fade-in max-w-xl mx-auto space-y-6">
+        <div className="animate-fade-in max-w-xl mx-auto space-y-6 relative">
+            {isProcessing && (
+                <div className="absolute inset-0 bg-black/75 backdrop-blur-md flex flex-col items-center justify-center rounded-3xl z-50">
+                    <Loader2 className="animate-spin text-primary mb-4" size={48} />
+                    <p className="text-white font-black text-xs uppercase tracking-widest animate-pulse">Processando seu Pedido...</p>
+                    <p className="text-zinc-500 text-[10px] uppercase tracking-wider mt-2 text-center px-8 leading-relaxed max-w-md">Estamos faturando com seu saldo de crédito fidelidade e notificando nossos administradores. Aguarde um instante.</p>
+                </div>
+            )}
             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
                 <div className="p-8 border-b border-zinc-800 bg-zinc-950">
                     <h2 className="text-2xl font-bold text-white mb-2">Resumo do Pedido</h2>
@@ -1698,11 +1736,18 @@ export default function Shop() {
                     <div className="pt-6 space-y-4">
                         <div className={canAddToAccount ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-4"}>
                             {canAddToAccount && (
-                                <button onClick={() => { clearCart(); setStep('success'); }} className="w-full bg-zinc-100 text-black py-4 rounded-2xl font-bold hover:bg-white transition flex flex-col items-center justify-center shadow-xl uppercase tracking-wider text-xs sm:text-sm">
+                                <button 
+                                    onClick={handleConfirmOrderWithCredit} 
+                                    disabled={isProcessing}
+                                    className="w-full bg-zinc-100 text-black py-4 rounded-2xl font-bold hover:bg-white transition flex flex-col items-center justify-center shadow-xl uppercase tracking-wider text-xs sm:text-sm disabled:opacity-50"
+                                >
                                     <div className="flex items-center gap-2">
-                                        <Wallet size={18} /> Adicionar à Conta
+                                        {isProcessing ? <Loader2 className="animate-spin text-black" size={18} /> : <Wallet size={18} />} 
+                                        {isProcessing ? 'PROCESSANDO...' : 'Adicionar à Conta'}
                                     </div>
-                                    <span className="text-[9px] text-zinc-500 font-bold">Disponível: R$ {availableCredit.toFixed(2)}</span>
+                                    {!isProcessing && (
+                                        <span className="text-[9px] text-zinc-500 font-bold">Disponível: R$ {availableCredit.toFixed(2)}</span>
+                                    )}
                                 </button>
                             )}
                             <button 

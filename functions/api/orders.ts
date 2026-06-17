@@ -226,6 +226,68 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
       }
 
+      if (body.confirm_with_credit === true) {
+          // 1. Confirmar pedido e alterar status do pagamento
+          await env.DB.prepare("UPDATE orders SET is_confirmed = 1, payment_method = 'credit', payment_status = 'paid', status = 'open' WHERE id = ?")
+            .bind(String(id))
+            .run();
+          
+          // 2. Buscar informações para notificações
+          const orderInfo: any = await env.DB.prepare(`
+              SELECT o.*, c.name as client_name, c.email as client_email
+              FROM orders o
+              JOIN clients c ON o.client_id = c.id
+              WHERE o.id = ?
+          `).bind(id).first();
+
+          if (orderInfo) {
+              const formattedNum = String(orderInfo.order_number).padStart(5, '0');
+              const nowTs = new Date().toISOString();
+
+              // 3. Notificação In-App para Admin
+              const adminNotifMsg = `Pedido #${formattedNum} finalizado usando Crédito Fidelidade por ${orderInfo.client_name}.`;
+              await env.DB.prepare(`
+                  INSERT INTO notifications (
+                      id, target_role, type, title, message, created_at, reference_id, is_read
+                  ) VALUES (?, 'admin', 'success', 'Novo Pedido em Crédito', ?, ?, ?, 0)
+              `).bind(
+                  crypto.randomUUID(),
+                  adminNotifMsg,
+                  nowTs,
+                  id
+              ).run();
+
+              // 4. Push Notification para Admin
+              try {
+                  await notifyAdminsPush(env, {
+                      title: 'Novo Pedido em Crédito',
+                      body: adminNotifMsg,
+                      url: '/orders'
+                  });
+              } catch (e) {
+                  console.error('Error sending push notification to admins:', e);
+              }
+
+              // 5. Enviar e-mail de alerta para Admin
+              try {
+                  const emailAdmin = await getRenderedTemplate(env, 'newOrderAdmin', {
+                      orderNumber: formattedNum,
+                      customerName: orderInfo.client_name,
+                      total: Number(orderInfo.total).toFixed(2)
+                  });
+                  await sendEmail(env, {
+                      to: getAdminEmail(env),
+                      subject: `[Crazy Art] Novo Pedido #${formattedNum} - Pago em Crédito`,
+                      html: emailAdmin.html
+                  });
+              } catch (e) {
+                  console.error('Error sending email to admin:', e);
+              }
+          }
+
+          return Response.json({ success: true });
+      }
+
       // Atalho para confirmação rápida ou status
       if (body.hasOwnProperty('is_confirmed')) {
           await env.DB.prepare('UPDATE orders SET is_confirmed = ? WHERE id = ?')
