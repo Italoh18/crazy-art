@@ -1196,6 +1196,7 @@ export default function CustomerDetails() {
                                         <th className="p-3">Qtd</th>
                                         <th className="p-3">Nº Camisa</th>
                                         <th className="p-3">Nome Camisa</th>
+                                        <th className="p-3">Short / Calção</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5 text-xs text-zinc-300 font-mono">
@@ -1206,6 +1207,13 @@ export default function CustomerDetails() {
                                           <td className="p-3">{item.isSimple ? (item.quantity || 1) : 1}</td>
                                           <td className="p-3">{item.isSimple ? "-" : (item.number || "-")}</td>
                                           <td className="p-3 uppercase">{item.isSimple ? "-" : (item.name || "-")}</td>
+                                          <td className="p-3">
+                                            {item.isConjunto ? (
+                                              <span className="text-primary font-bold">
+                                                {item.shortSize || 'M'}{item.isSimple ? '' : ` (${item.shortNumber || item.number || '00'})`}
+                                              </span>
+                                            ) : '-'}
+                                          </td>
                                         </tr>
                                       ))}
                                     </tbody>
@@ -1232,68 +1240,109 @@ export default function CustomerDetails() {
 
                               <div className="space-y-3 max-h-80 overflow-y-auto pr-1 scrollbar-thin">
                                 {editedPublicListItems.map((item) => (
-                                  <div key={item.id} className="grid grid-cols-1 sm:grid-cols-12 gap-2 p-2 bg-zinc-900 border border-white/5 rounded-xl items-end">
-                                    <div className="sm:col-span-3">
-                                      <select 
-                                        value={item.category} 
-                                        onChange={(e) => updatePublicListRow(item.id, 'category', e.target.value as any)} 
-                                        className="w-full bg-zinc-900 border border-white/10 rounded-lg text-xs text-white p-1.5 outline-none font-bold"
-                                      >
-                                        <option value="unisex">Unisex</option>
-                                        <option value="feminina">Feminina</option>
-                                        <option value="infantil">Infantil</option>
-                                      </select>
-                                    </div>
-                                    <div className="sm:col-span-2">
-                                      <select 
-                                        value={item.size} 
-                                        onChange={(e) => updatePublicListRow(item.id, 'size', e.target.value)} 
-                                        className="w-full bg-zinc-900 border border-white/10 rounded-lg text-xs text-white p-1.5 outline-none font-bold align-middle"
-                                      >
-                                        {listSizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
-                                      </select>
-                                    </div>
-
-                                    {item.isSimple ? (
-                                      <div className="sm:col-span-6">
-                                        <input 
-                                          type="number" 
-                                          min="1" 
-                                          value={item.quantity || 1} 
-                                          onChange={(e) => updatePublicListRow(item.id, 'quantity', parseInt(e.target.value) || 1)} 
-                                          className="w-full bg-zinc-909 border border-white/10 rounded-lg p-1.5 text-xs text-white text-center font-bold font-mono" 
-                                        />
+                                  <div key={item.id} className="space-y-2 p-3 bg-zinc-900 border border-white/5 rounded-xl">
+                                    <div className="flex justify-between items-center pb-1.5 border-b border-white/5">
+                                      <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Integrante</span>
+                                      <div className="flex gap-2">
+                                        <button 
+                                          onClick={() => updatePublicListRow(item.id, 'isConjunto', !item.isConjunto)}
+                                          className={`px-2 py-0.5 rounded text-[9px] font-black uppercase transition-all flex items-center gap-1 ${item.isConjunto ? 'bg-primary text-black' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
+                                        >
+                                          {item.isConjunto ? 'Com Short (Sim)' : 'Adicionar Short?'}
+                                        </button>
+                                        <button 
+                                          onClick={() => removePublicListRow(item.id)} 
+                                          className="text-zinc-500 hover:text-red-500 transition"
+                                        >
+                                          <Trash2 size={12} />
+                                        </button>
                                       </div>
-                                    ) : (
-                                      <>
-                                        <div className="sm:col-span-2">
-                                          <input 
-                                            type="text" 
-                                            placeholder="Nº"
-                                            value={item.number || ''} 
-                                            onChange={(e) => updatePublicListRow(item.id, 'number', e.target.value)} 
-                                            className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white font-bold text-center placeholder:text-zinc-700" 
-                                          />
-                                        </div>
-                                        <div className="sm:col-span-4">
-                                          <input 
-                                            type="text" 
-                                            placeholder="NOME"
-                                            value={item.name || ''} 
-                                            onChange={(e) => updatePublicListRow(item.id, 'name', e.target.value)} 
-                                            className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white uppercase font-bold placeholder:text-zinc-700" 
-                                          />
-                                        </div>
-                                      </>
-                                    )}
+                                    </div>
 
-                                    <div className="sm:col-span-1 flex items-end">
-                                      <button 
-                                        onClick={() => removePublicListRow(item.id)} 
-                                        className="w-full p-1.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition flex items-center justify-center"
-                                      >
-                                        <Trash2 size={14} />
-                                      </button>
+                                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                                      <div className="sm:col-span-3">
+                                        <select 
+                                          value={item.category} 
+                                          onChange={(e) => updatePublicListRow(item.id, 'category', e.target.value as any)} 
+                                          className="w-full bg-[#121215] border border-white/10 rounded-lg text-xs text-white p-1.5 outline-none font-bold"
+                                        >
+                                          <option value="unisex">Unisex</option>
+                                          <option value="feminina">Feminina</option>
+                                          <option value="infantil">Infantil</option>
+                                        </select>
+                                      </div>
+                                      <div className="sm:col-span-2">
+                                        <select 
+                                          value={item.size} 
+                                          onChange={(e) => updatePublicListRow(item.id, 'size', e.target.value)} 
+                                          className="w-full bg-[#121215] border border-white/10 rounded-lg text-xs text-white p-1.5 outline-none font-bold align-middle"
+                                        >
+                                          {listSizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                      </div>
+
+                                      {item.isSimple ? (
+                                        <div className={`${item.isConjunto ? 'sm:col-span-3' : 'sm:col-span-7'}`}>
+                                          <input 
+                                            type="number" 
+                                            min="1" 
+                                            value={item.quantity || 1} 
+                                            onChange={(e) => updatePublicListRow(item.id, 'quantity', parseInt(e.target.value) || 1)} 
+                                            className="w-full bg-[#121215] border border-white/10 rounded-lg p-1.5 text-xs text-white text-center font-bold font-mono" 
+                                          />
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <div className="sm:col-span-2">
+                                            <input 
+                                              type="text" 
+                                              placeholder="Nº"
+                                              value={item.number || ''} 
+                                              onChange={(e) => {
+                                                updatePublicListRow(item.id, 'number', e.target.value);
+                                                if (item.isConjunto) {
+                                                  updatePublicListRow(item.id, 'shortNumber', e.target.value);
+                                                }
+                                              }} 
+                                              className="w-full bg-[#121215] border border-white/10 rounded-lg p-1.5 text-xs text-white font-bold text-center placeholder:text-zinc-700" 
+                                            />
+                                          </div>
+                                          <div className={`${item.isConjunto ? 'sm:col-span-3' : 'sm:col-span-5'}`}>
+                                            <input 
+                                              type="text" 
+                                              placeholder="Nome"
+                                              value={item.name || ''} 
+                                              onChange={(e) => updatePublicListRow(item.id, 'name', e.target.value)} 
+                                              className="w-full bg-[#121215] border border-white/10 rounded-lg p-1.5 text-xs text-white uppercase font-bold placeholder:text-zinc-700" 
+                                            />
+                                          </div>
+                                        </>
+                                      )}
+
+                                      {item.isConjunto && (
+                                        <>
+                                          <div className="sm:col-span-2">
+                                            <select 
+                                              value={item.shortSize || listSizes[item.category][2]} 
+                                              onChange={(e) => updatePublicListRow(item.id, 'shortSize', e.target.value)} 
+                                              className="w-full bg-[#121215] border border-primary/30 rounded-lg text-xs text-white p-1.5 outline-none font-bold"
+                                            >
+                                              {listSizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                          </div>
+                                          {!item.isSimple && (
+                                            <div className="sm:col-span-2">
+                                              <input 
+                                                type="text" 
+                                                placeholder="Nº Sh"
+                                                value={item.shortNumber || item.number || ''} 
+                                                onChange={(e) => updatePublicListRow(item.id, 'shortNumber', e.target.value)} 
+                                                className="w-full bg-[#121215] border border-primary/30 rounded-lg p-1.5 text-xs text-white text-center font-bold" 
+                                              />
+                                            </div>
+                                          )}
+                                        </>
+                                      )}
                                     </div>
                                   </div>
                                 ))}

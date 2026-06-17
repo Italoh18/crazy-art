@@ -70,6 +70,7 @@ export interface SizeListItem {
   shortNumber: string;
   quantity?: number; 
   isSimple?: boolean; 
+  isConjunto?: boolean;
 }
 
 export interface Order {
