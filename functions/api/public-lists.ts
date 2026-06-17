@@ -24,6 +24,13 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
     // GET handler
     if (method === 'GET') {
       if (clientIdParam) {
+        if (url.searchParams.get('all') === 'true') {
+          const lists: any = await env.DB.prepare('SELECT * FROM public_lists WHERE client_id = ? ORDER BY created_at DESC').bind(clientIdParam).all();
+          return new Response(JSON.stringify(lists.results || []), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
         let list: any = await env.DB.prepare('SELECT * FROM public_lists WHERE client_id = ?').bind(clientIdParam).first();
 
         if (!list) {
@@ -75,6 +82,14 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
         }
 
         const clientId = user.clientId;
+
+        if (url.searchParams.get('all') === 'true') {
+          const lists: any = await env.DB.prepare('SELECT * FROM public_lists WHERE client_id = ? ORDER BY created_at DESC').bind(clientId).all();
+          return new Response(JSON.stringify(lists.results || []), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
         let list: any = await env.DB.prepare('SELECT * FROM public_lists WHERE client_id = ?').bind(clientId).first();
 
         if (!list) {
@@ -102,6 +117,53 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
       }
 
       return new Response(JSON.stringify({ error: 'Parâmetros inválidos' }), { status: 400 });
+    }
+
+    // POST handler (Criação de nova lista)
+    if (method === 'POST') {
+      const user = await getAuth(request, env);
+      let clientId = clientIdParam;
+      if (!clientId) {
+        if (!user || !user.clientId) {
+          return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
+        }
+        clientId = user.clientId;
+      }
+
+      const body = await request.json() as any;
+      const title = body.title || 'Nova Lista Pública';
+      const newId = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      await env.DB.prepare(`
+        INSERT INTO public_lists (id, client_id, title, items, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(
+        newId,
+        clientId,
+        title,
+        '[]',
+        now,
+        now
+      ).run();
+
+      const created = await env.DB.prepare('SELECT * FROM public_lists WHERE id = ?').bind(newId).first();
+      return new Response(JSON.stringify(created), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // DELETE handler (Exclusão de lista)
+    if (method === 'DELETE') {
+      if (!listId) {
+        return new Response(JSON.stringify({ error: 'ID da lista é obrigatório' }), { status: 400 });
+      }
+
+      await env.DB.prepare('DELETE FROM public_lists WHERE id = ?').bind(listId).run();
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     // PUT handler

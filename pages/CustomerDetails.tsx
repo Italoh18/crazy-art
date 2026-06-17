@@ -176,6 +176,8 @@ export default function CustomerDetails() {
 
   // --- Public List States & Helpers ---
   const [publicList, setPublicList] = useState<any | null>(null);
+  const [publicLists, setPublicLists] = useState<any[]>([]);
+  const [newListName, setNewListName] = useState('');
   const [isLoadingPublicList, setIsLoadingPublicList] = useState(false);
   const [isEditingPublicList, setIsEditingPublicList] = useState(false);
   const [editedPublicListItems, setEditedPublicListItems] = useState<SizeListItem[]>([]);
@@ -190,14 +192,14 @@ export default function CustomerDetails() {
     infantil: ['RN', '2', '4', '6', '8', '10', '12', '14', '16']
   };
 
-  const loadPublicList = async () => {
+  const loadPublicLists = async () => {
     if (!activeId) return;
     setIsLoadingPublicList(true);
     try {
       const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '';
       const url = role === 'admin' 
-        ? `/api/public-lists?client_id=${activeId}`
-        : `/api/public-lists?my_list=true`;
+        ? `/api/public-lists?client_id=${activeId}&all=true`
+        : `/api/public-lists?my_list=true&all=true`;
 
       const res = await fetch(url, {
         headers: {
@@ -207,20 +209,87 @@ export default function CustomerDetails() {
       });
       if (res.ok) {
         const data = await res.json();
-        setPublicList(data);
-        if (data.items) {
-          const parsed = typeof data.items === 'string' ? JSON.parse(data.items) : data.items;
-          setEditedPublicListItems(parsed);
-          if (parsed.length > 0) {
-            const hasComplex = parsed.some((item: any) => !item.isSimple);
-            setIsListSimpleMode(!hasComplex);
+        const lists = Array.isArray(data) ? data : [];
+        setPublicLists(lists);
+        
+        // Se houver uma lista ativa sendo editada/visualizada, atualizá-la
+        if (publicList) {
+          const updated = lists.find((l: any) => l.id === publicList.id);
+          if (updated) {
+            setPublicList(updated);
+            const parsed = typeof updated.items === 'string' ? JSON.parse(updated.items) : updated.items;
+            setEditedPublicListItems(parsed);
           }
         }
       }
     } catch (e) {
-      console.error('Erro ao buscar lista pública:', e);
+      console.error('Erro ao buscar listas públicas:', e);
     } finally {
       setIsLoadingPublicList(false);
+    }
+  };
+
+  const loadPublicList = loadPublicLists;
+
+  const handleCreatePublicList = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newListName.trim()) {
+      alert("Por favor, digite o nome da lista.");
+      return;
+    }
+    try {
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '';
+      const url = role === 'admin' 
+        ? `/api/public-lists?client_id=${activeId}`
+        : `/api/public-lists`;
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ title: newListName })
+      });
+
+      if (res.ok) {
+        setNewListName('');
+        await loadPublicLists();
+        alert('Lista criada com sucesso!');
+      } else {
+        alert('Erro ao criar lista.');
+      }
+    } catch (e) {
+      console.error('Erro ao criar lista pública:', e);
+      alert('Erro ao conectar ao servidor.');
+    }
+  };
+
+  const handleDeletePublicList = async (listIdToDelete: string) => {
+    if (!confirm("Tem certeza que deseja excluir esta lista? Todos os dados contidos nela serão deletados definitivamente.")) return;
+    try {
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '';
+      const res = await fetch(`/api/public-lists?id=${listIdToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+
+      if (res.ok) {
+        await loadPublicLists();
+        if (publicList?.id === listIdToDelete) {
+          setPublicList(null);
+          setEditedPublicListItems([]);
+          setIsEditingPublicList(false);
+        }
+        alert('Lista de produção excluída com sucesso.');
+      } else {
+        alert('Erro ao excluir lista.');
+      }
+    } catch (e) {
+      console.error('Erro ao excluir lista pública:', e);
+      alert('Erro ao conectar ao servidor.');
     }
   };
 
@@ -1116,261 +1185,346 @@ export default function CustomerDetails() {
                         </div>
                       ) : (
                         <>
-                          {/* Compartilhamento */}
-                          {publicList && (
-                            <div className="space-y-2">
-                              <h4 className="text-xs uppercase font-extrabold tracking-widest text-zinc-400">Link de Compartilhamento</h4>
-                              <div className="flex gap-2">
-                                <input 
-                                  type="text" 
-                                  readOnly 
-                                  value={`${window.location.origin}/lista-publica/${publicList.id}`} 
-                                  className="flex-1 bg-zinc-950 border border-white/5 rounded-xl px-4 py-3 text-xs text-zinc-300 font-mono focus:outline-none"
-                                />
-                                <button 
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(`${window.location.origin}/lista-publica/${publicList.id}`);
-                                    setCopiedLink(true);
-                                    setTimeout(() => setCopiedLink(false), 2000);
-                                  }}
-                                  className="px-4 bg-primary text-black hover:bg-amber-400 font-bold rounded-xl text-xs uppercase tracking-wider flex items-center gap-1.5 transition"
-                                >
-                                  {copiedLink ? <Check size={14} /> : <Copy size={14} />}
-                                  {copiedLink ? "Copiado" : "Copiar"}
-                                </button>
-                              </div>
-                              <p className="text-[10px] text-zinc-500 uppercase tracking-widest leading-relaxed">
-                                Compartilhe este link com quem irá preencher as camisas/tamanhos.
-                              </p>
-                            </div>
-                          )}
+                          {/* Se nenhuma lista estiver ativa, mostrar Gerenciador de Listas */}
+                          {!publicList ? (
+                            <div className="space-y-6">
+                              {/* Form de Criação */}
+                              <form onSubmit={handleCreatePublicList} className="space-y-3">
+                                <h4 className="text-xs uppercase font-extrabold tracking-widest text-zinc-400">Criar Nova Lista Pública</h4>
+                                <div className="flex gap-2">
+                                  <input 
+                                    type="text" 
+                                    placeholder="Digite o nome da lista (ex: Uniformes Time A, Escola Primária...)" 
+                                    value={newListName}
+                                    onChange={(e) => setNewListName(e.target.value)}
+                                    className="flex-1 bg-zinc-950 border border-white/5 rounded-xl px-4 py-3 text-xs text-white focus:border-primary focus:outline-none font-bold"
+                                  />
+                                  <button 
+                                    type="submit"
+                                    className="px-6 bg-primary text-black hover:bg-amber-400 font-extrabold rounded-xl text-xs uppercase tracking-wider flex items-center gap-2 transition whitespace-nowrap"
+                                  >
+                                    <Plus size={14} />
+                                    Criar Lista
+                                  </button>
+                                </div>
+                              </form>
 
-                          {/* Lista e Controles */}
-                          {!isEditingPublicList ? (
-                            <div className="space-y-4">
-                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                                <div>
-                                  <h4 className="text-xs uppercase font-extrabold tracking-widest text-zinc-400">Itens Atuais na Lista</h4>
-                                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
-                                    Total de Integrantes: <span className="text-white font-bold">{editedPublicListItems.reduce((acc, item) => acc + (item.isSimple ? (item.quantity || 1) : 1), 0)}</span>
-                                  </p>
-                                </div>
-                                <div className="flex gap-2 w-full sm:w-auto">
-                                  <button 
-                                    onClick={() => {
-                                      setEditedPublicListItems(publicList?.items ? (typeof publicList.items === 'string' ? JSON.parse(publicList.items) : publicList.items) : []);
-                                      setIsEditingPublicList(true);
-                                    }}
-                                    className="flex-1 sm:flex-initial px-4 py-2 bg-zinc-800 hover:bg-zinc-700 hover:text-white text-zinc-300 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition"
-                                  >
-                                    <Edit size={12} /> Ver / Editar
-                                  </button>
-                                  <button 
-                                    onClick={handlePrintPublicList}
-                                    className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 hover:text-white text-zinc-300 rounded-xl text-xs flex items-center justify-center transition"
-                                    title="Imprimir"
-                                  >
-                                    <Printer size={14} />
-                                  </button>
-                                  <button 
-                                    onClick={handleDownloadPublicListPDF}
-                                    className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 hover:text-white text-zinc-300 rounded-xl text-xs flex items-center justify-center transition"
-                                    title="Baixar em PDF"
-                                  >
-                                    <Download size={14} />
-                                  </button>
-                                </div>
+                              {/* Listagem das Listas */}
+                              <div className="space-y-3">
+                                <h4 className="text-xs uppercase font-extrabold tracking-widest text-zinc-400">Suas Listas Criadas</h4>
+                                {publicLists.length === 0 ? (
+                                  <div className="py-10 text-center bg-zinc-950 border border-white/5 rounded-2xl text-zinc-500 text-xs uppercase tracking-wider font-semibold">
+                                    Nenhuma lista criada ainda. Digite um nome acima para começar!
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {publicLists.map((list) => {
+                                      const itemsCount = typeof list.items === 'string' ? JSON.parse(list.items).length : (list.items?.length || 0);
+                                      return (
+                                        <div key={list.id} className="p-4 bg-zinc-950 border border-white/5 hover:border-white/10 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition">
+                                          <div>
+                                            <h5 className="text-sm font-bold text-white font-mono uppercase tracking-wide">{list.title}</h5>
+                                            <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-0.5">
+                                              {itemsCount} integrantes cadastrados
+                                            </p>
+                                          </div>
+                                          <div className="flex gap-2 self-end sm:self-auto">
+                                            <button 
+                                              onClick={() => {
+                                                setPublicList(list);
+                                                const parsed = typeof list.items === 'string' ? JSON.parse(list.items) : list.items;
+                                                setEditedPublicListItems(parsed || []);
+                                                setIsEditingPublicList(false);
+                                              }}
+                                              className="px-4 py-2 bg-zinc-900 border border-white/5 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition"
+                                            >
+                                              <Eye size={12} /> Ver / Editar
+                                            </button>
+                                            <button 
+                                              onClick={() => handleDeletePublicList(list.id)}
+                                              className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition"
+                                              title="Excluir Lista"
+                                            >
+                                              <Trash2 size={14} />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </div>
-
-                              {editedPublicListItems.length === 0 ? (
-                                <div className="py-8 text-center bg-zinc-950 border border-white/5 rounded-2xl text-zinc-500 text-xs uppercase tracking-wider font-semibold">
-                                  Lista vazia. Clique em "Ver / Editar" para adicionar ou compartilhe o link público.
-                                </div>
-                              ) : (
-                                <div className="overflow-x-auto rounded-2xl border border-white/5 bg-zinc-950 max-h-60 custom-scrollbar">
-                                  <table className="w-full text-left border-collapse">
-                                    <thead>
-                                      <tr className="border-b border-white/5 text-[9px] uppercase tracking-widest text-zinc-500 font-bold bg-zinc-900/60 font-mono">
-                                        <th className="p-3">Categoria</th>
-                                        <th className="p-3">Tamanho</th>
-                                        <th className="p-3">Qtd</th>
-                                        <th className="p-3">Nº Camisa</th>
-                                        <th className="p-3">Nome Camisa</th>
-                                        <th className="p-3">Short / Calção</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/5 text-xs text-zinc-300 font-mono">
-                                      {editedPublicListItems.map((item) => (
-                                        <tr key={item.id} className="hover:bg-white/[0.02] transition">
-                                          <td className="p-3 uppercase">{item.category}</td>
-                                          <td className="p-3 font-semibold text-white">{item.size}</td>
-                                          <td className="p-3">{item.isSimple ? (item.quantity || 1) : 1}</td>
-                                          <td className="p-3">{item.isSimple ? "-" : (item.number || "-")}</td>
-                                          <td className="p-3 uppercase">{item.isSimple ? "-" : (item.name || "-")}</td>
-                                          <td className="p-3">
-                                            {item.isConjunto ? (
-                                              <span className="text-primary font-bold">
-                                                {item.shortSize || 'M'}{item.isSimple ? '' : ` (${item.shortNumber || item.number || '00'})`}
-                                              </span>
-                                            ) : '-'}
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )}
                             </div>
                           ) : (
-                            /* Painel de Edição Completa da Lista Pública */
-                            <div className="space-y-4 bg-zinc-950 p-4 md:p-6 rounded-2xl border border-white/5">
-                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                                <div>
-                                  <h4 className="text-sm font-bold text-white font-mono uppercase tracking-wider">Edição da Lista Pública</h4>
-                                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mt-0.5">Permissão Exclusiva de Criador</p>
-                                </div>
+                            /* Painel de Exibição / Edição de Lista Específica Selecionada */
+                            <div className="space-y-6">
+                              <div className="flex justify-between items-center bg-zinc-950 p-3 rounded-2xl border border-white/5">
                                 <button 
-                                  onClick={toggleListSimpleMode} 
-                                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase transition ${isListSimpleMode ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-900 border-white/5 text-zinc-400'}`}
+                                  onClick={() => setPublicList(null)}
+                                  className="px-3 py-1.5 bg-zinc-90 w-auto bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:bg-zinc-850 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition"
                                 >
-                                  <span>Grade Sem Nomes</span>
-                                  {isListSimpleMode ? <ToggleRight size={16} className="text-primary" /> : <ToggleLeft size={16} />}
+                                  <ArrowLeft size={12} /> Voltar para Minhas Listas
                                 </button>
+                                <span className="text-[10px] font-black text-primary uppercase font-mono tracking-widest bg-primary/10 px-3 py-1 rounded-lg border border-primary/20">
+                                  Lista Selecionada: {publicList.title}
+                                </span>
                               </div>
 
-                              <div className="space-y-3 max-h-80 overflow-y-auto pr-1 scrollbar-thin">
-                                {editedPublicListItems.map((item) => (
-                                  <div key={item.id} className="space-y-2 p-3 bg-zinc-900 border border-white/5 rounded-xl">
-                                    <div className="flex justify-between items-center pb-1.5 border-b border-white/5">
-                                      <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Integrante</span>
-                                      <div className="flex gap-2">
-                                        <button 
-                                          onClick={() => updatePublicListRow(item.id, 'isConjunto', !item.isConjunto)}
-                                          className={`px-2 py-0.5 rounded text-[9px] font-black uppercase transition-all flex items-center gap-1 ${item.isConjunto ? 'bg-primary text-black' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
-                                        >
-                                          {item.isConjunto ? 'Com Short (Sim)' : 'Adicionar Short?'}
-                                        </button>
-                                        <button 
-                                          onClick={() => removePublicListRow(item.id)} 
-                                          className="text-zinc-500 hover:text-red-500 transition"
-                                        >
-                                          <Trash2 size={12} />
-                                        </button>
-                                      </div>
+                              {/* Compartilhamento */}
+                              <div className="space-y-2">
+                                <h4 className="text-xs uppercase font-extrabold tracking-widest text-zinc-400">Link de Compartilhamento</h4>
+                                <div className="flex gap-2">
+                                  <input 
+                                    type="text" 
+                                    readOnly 
+                                    value={`${window.location.origin}/lista-publica/${publicList.id}`} 
+                                    className="flex-1 bg-zinc-950 border border-white/5 rounded-xl px-4 py-3 text-xs text-zinc-300 font-mono focus:outline-none"
+                                  />
+                                  <button 
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(`${window.location.origin}/lista-publica/${publicList.id}`);
+                                      setCopiedLink(true);
+                                      setTimeout(() => setCopiedLink(false), 2000);
+                                    }}
+                                    className="px-4 bg-primary text-black hover:bg-amber-400 font-bold rounded-xl text-xs uppercase tracking-wider flex items-center gap-1.5 transition whitespace-nowrap"
+                                  >
+                                    {copiedLink ? <Check size={14} /> : <Copy size={14} />}
+                                    {copiedLink ? "Copiado" : "Copiar"}
+                                  </button>
+                                </div>
+                                <p className="text-[10px] text-zinc-500 uppercase tracking-widest leading-relaxed">
+                                  Compartilhe este link com quem irá preencher as camisas/tamanhos desta lista pública.
+                                </p>
+                              </div>
+
+                              {/* Lista e Controles */}
+                              {!isEditingPublicList ? (
+                                <div className="space-y-4">
+                                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                    <div>
+                                      <h4 className="text-xs uppercase font-extrabold tracking-widest text-zinc-400 font-mono">{publicList.title} - Itens Atuais</h4>
+                                      <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
+                                        Total de Integrantes: <span className="text-white font-bold">{editedPublicListItems.reduce((acc, item) => acc + (item.isSimple ? (item.quantity || 1) : 1), 0)}</span>
+                                      </p>
                                     </div>
+                                    <div className="flex gap-2 w-full sm:w-auto">
+                                      <button 
+                                        onClick={() => {
+                                          setEditedPublicListItems(publicList?.items ? (typeof publicList.items === 'string' ? JSON.parse(publicList.items) : publicList.items) : []);
+                                          setIsEditingPublicList(true);
+                                        }}
+                                        className="flex-1 sm:flex-initial px-4 py-2 bg-zinc-800 hover:bg-zinc-700 hover:text-white text-zinc-300 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition"
+                                      >
+                                        <Edit size={12} /> Ver / Editar
+                                      </button>
+                                      <button 
+                                        onClick={handlePrintPublicList}
+                                        className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 hover:text-white text-zinc-300 rounded-xl text-xs flex items-center justify-center transition"
+                                        title="Imprimir"
+                                      >
+                                        <Printer size={14} />
+                                      </button>
+                                      <button 
+                                        onClick={handleDownloadPublicListPDF}
+                                        className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 hover:text-white text-zinc-300 rounded-xl text-xs flex items-center justify-center transition"
+                                        title="Baixar em PDF"
+                                      >
+                                        <Download size={14} />
+                                      </button>
+                                    </div>
+                                  </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
-                                      <div className="sm:col-span-3">
-                                        <select 
-                                          value={item.category} 
-                                          onChange={(e) => updatePublicListRow(item.id, 'category', e.target.value as any)} 
-                                          className="w-full bg-[#121215] border border-white/10 rounded-lg text-xs text-white p-1.5 outline-none font-bold"
-                                        >
-                                          <option value="unisex">Unisex</option>
-                                          <option value="feminina">Feminina</option>
-                                          <option value="infantil">Infantil</option>
-                                        </select>
-                                      </div>
-                                      <div className="sm:col-span-2">
-                                        <select 
-                                          value={item.size} 
-                                          onChange={(e) => updatePublicListRow(item.id, 'size', e.target.value)} 
-                                          className="w-full bg-[#121215] border border-white/10 rounded-lg text-xs text-white p-1.5 outline-none font-bold align-middle"
-                                        >
-                                          {listSizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                      </div>
+                                  {editedPublicListItems.length === 0 ? (
+                                    <div className="py-8 text-center bg-zinc-950 border border-white/5 rounded-2xl text-zinc-500 text-xs uppercase tracking-wider font-semibold">
+                                      Lista vazia. Clique em "Ver / Editar" para adicionar integrantes a esta lista.
+                                    </div>
+                                  ) : (
+                                    <div className="overflow-x-auto rounded-2xl border border-white/5 bg-zinc-950 max-h-60 custom-scrollbar">
+                                      <table className="w-full text-left border-collapse">
+                                        <thead>
+                                          <tr className="border-b border-white/5 text-[9px] uppercase tracking-widest text-zinc-500 font-bold bg-zinc-900/60 font-mono">
+                                            <th className="p-3">Categoria</th>
+                                            <th className="p-3">Tamanho</th>
+                                            <th className="p-3">Qtd</th>
+                                            <th className="p-3">Nº Camisa</th>
+                                            <th className="p-3">Nome Camisa</th>
+                                            <th className="p-3">Short / Calção</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-white/5 text-xs text-zinc-300 font-mono">
+                                          {editedPublicListItems.map((item) => (
+                                            <tr key={item.id} className="hover:bg-white/[0.02] transition">
+                                              <td className="p-3 uppercase">{item.category}</td>
+                                              <td className="p-3 font-semibold text-white">{item.size}</td>
+                                              <td className="p-3">{item.isSimple ? (item.quantity || 1) : 1}</td>
+                                              <td className="p-3">{item.isSimple ? "-" : (item.number || "-")}</td>
+                                              <td className="p-3 uppercase">{item.isSimple ? "-" : (item.name || "-")}</td>
+                                              <td className="p-3">
+                                                {item.isConjunto ? (
+                                                  <span className="text-primary font-bold">
+                                                    {item.shortSize || 'M'}{item.isSimple ? '' : ` (${item.shortNumber || item.number || '00'})`}
+                                                  </span>
+                                                ) : '-'}
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                /* Painel de Edição Completa da Lista Pública */
+                                <div className="space-y-4 bg-zinc-950 p-4 md:p-6 rounded-2xl border border-white/5">
+                                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                    <div>
+                                      <h4 className="text-sm font-bold text-white font-mono uppercase tracking-wider">Edição da Lista Pública</h4>
+                                      <p className="text-[9px] text-zinc-500 uppercase tracking-widest mt-0.5">Permissão Exclusiva de Criador</p>
+                                    </div>
+                                    <button 
+                                      onClick={toggleListSimpleMode} 
+                                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase transition ${isListSimpleMode ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-900 border-white/5 text-zinc-400'}`}
+                                    >
+                                      <span>Grade Sem Nomes</span>
+                                      {isListSimpleMode ? <ToggleRight size={16} className="text-primary" /> : <ToggleLeft size={16} />}
+                                    </button>
+                                  </div>
 
-                                      {item.isSimple ? (
-                                        <div className={`${item.isConjunto ? 'sm:col-span-3' : 'sm:col-span-7'}`}>
-                                          <input 
-                                            type="number" 
-                                            min="1" 
-                                            value={item.quantity || 1} 
-                                            onChange={(e) => updatePublicListRow(item.id, 'quantity', parseInt(e.target.value) || 1)} 
-                                            className="w-full bg-[#121215] border border-white/10 rounded-lg p-1.5 text-xs text-white text-center font-bold font-mono" 
-                                          />
+                                  <div className="space-y-3 max-h-80 overflow-y-auto pr-1 scrollbar-thin">
+                                    {editedPublicListItems.map((item) => (
+                                      <div key={item.id} className="space-y-2 p-3 bg-[#121215] border border-white/10 rounded-xl">
+                                        <div className="flex justify-between items-center pb-1.5 border-b border-white/5">
+                                          <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Integrante</span>
+                                          <div className="flex gap-2">
+                                            <button 
+                                              onClick={() => updatePublicListRow(item.id, 'isConjunto', !item.isConjunto)}
+                                              className={`px-2 py-0.5 rounded text-[9px] font-black uppercase transition-all flex items-center gap-1 ${item.isConjunto ? 'bg-primary text-black' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
+                                            >
+                                              {item.isConjunto ? 'Com Short (Sim)' : 'Adicionar Short?'}
+                                            </button>
+                                            <button 
+                                              onClick={() => removePublicListRow(item.id)} 
+                                              className="text-zinc-500 hover:text-red-500 transition"
+                                            >
+                                              <Trash2 size={12} />
+                                            </button>
+                                          </div>
                                         </div>
-                                      ) : (
-                                        <>
-                                          <div className="sm:col-span-2">
-                                            <input 
-                                              type="text" 
-                                              placeholder="Nº"
-                                              value={item.number || ''} 
-                                              onChange={(e) => {
-                                                updatePublicListRow(item.id, 'number', e.target.value);
-                                                if (item.isConjunto) {
-                                                  updatePublicListRow(item.id, 'shortNumber', e.target.value);
-                                                }
-                                              }} 
-                                              className="w-full bg-[#121215] border border-white/10 rounded-lg p-1.5 text-xs text-white font-bold text-center placeholder:text-zinc-700" 
-                                            />
-                                          </div>
-                                          <div className={`${item.isConjunto ? 'sm:col-span-3' : 'sm:col-span-5'}`}>
-                                            <input 
-                                              type="text" 
-                                              placeholder="Nome"
-                                              value={item.name || ''} 
-                                              onChange={(e) => updatePublicListRow(item.id, 'name', e.target.value)} 
-                                              className="w-full bg-[#121215] border border-white/10 rounded-lg p-1.5 text-xs text-white uppercase font-bold placeholder:text-zinc-700" 
-                                            />
-                                          </div>
-                                        </>
-                                      )}
 
-                                      {item.isConjunto && (
-                                        <>
+                                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                                          <div className={item.isConjunto && !item.isSimple ? "sm:col-span-2" : "sm:col-span-3"}>
+                                            <select 
+                                              value={item.category} 
+                                              onChange={(e) => updatePublicListRow(item.id, 'category', e.target.value as any)} 
+                                              className="w-full bg-[#121215] border border-white/10 rounded-lg text-xs text-white p-1.5 outline-none font-bold"
+                                            >
+                                              <option value="unisex">Unisex</option>
+                                              <option value="feminina">Feminina</option>
+                                              <option value="infantil">Infantil</option>
+                                            </select>
+                                          </div>
                                           <div className="sm:col-span-2">
                                             <select 
-                                              value={item.shortSize || listSizes[item.category][2]} 
-                                              onChange={(e) => updatePublicListRow(item.id, 'shortSize', e.target.value)} 
-                                              className="w-full bg-[#121215] border border-primary/30 rounded-lg text-xs text-white p-1.5 outline-none font-bold"
+                                              value={item.size} 
+                                              onChange={(e) => updatePublicListRow(item.id, 'size', e.target.value)} 
+                                              className="w-full bg-[#121215] border border-white/10 rounded-lg text-xs text-white p-1.5 outline-none font-bold align-middle"
                                             >
                                               {listSizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
                                             </select>
                                           </div>
-                                          {!item.isSimple && (
-                                            <div className="sm:col-span-2">
+
+                                          {item.isSimple ? (
+                                            <div className={item.isConjunto ? "sm:col-span-4" : "sm:col-span-7"}>
                                               <input 
-                                                type="text" 
-                                                placeholder="Nº Sh"
-                                                value={item.shortNumber || item.number || ''} 
-                                                onChange={(e) => updatePublicListRow(item.id, 'shortNumber', e.target.value)} 
-                                                className="w-full bg-[#121215] border border-primary/30 rounded-lg p-1.5 text-xs text-white text-center font-bold" 
+                                                type="number" 
+                                                min="1" 
+                                                value={item.quantity || 1} 
+                                                onChange={(e) => updatePublicListRow(item.id, 'quantity', parseInt(e.target.value) || 1)} 
+                                                className="w-full bg-[#121215] border border-white/10 rounded-lg p-1.5 text-xs text-white text-center font-bold font-mono" 
                                               />
                                             </div>
+                                          ) : (
+                                            <>
+                                              <div className={item.isConjunto ? "sm:col-span-1" : "sm:col-span-2"}>
+                                                <input 
+                                                  type="text" 
+                                                  placeholder="Nº"
+                                                  value={item.number || ''} 
+                                                  onChange={(e) => {
+                                                    updatePublicListRow(item.id, 'number', e.target.value);
+                                                    if (item.isConjunto) {
+                                                      updatePublicListRow(item.id, 'shortNumber', e.target.value);
+                                                    }
+                                                  }} 
+                                                  className="w-full bg-[#121215] border border-white/10 rounded-lg p-1.5 text-xs text-white font-bold text-center placeholder:text-zinc-700 px-1" 
+                                                />
+                                              </div>
+                                              <div className={item.isConjunto ? "sm:col-span-3" : "sm:col-span-5"}>
+                                                <input 
+                                                  type="text" 
+                                                  placeholder="Nome"
+                                                  value={item.name || ''} 
+                                                  onChange={(e) => updatePublicListRow(item.id, 'name', e.target.value)} 
+                                                  className="w-full bg-[#121215] border border-white/10 rounded-lg p-1.5 text-xs text-white uppercase font-bold placeholder:text-zinc-700" 
+                                                />
+                                              </div>
+                                            </>
                                           )}
-                                        </>
-                                      )}
-                                    </div>
+
+                                          {item.isConjunto && (
+                                            <>
+                                              <div className={item.isSimple ? "sm:col-span-3" : "sm:col-span-2"}>
+                                                <select 
+                                                  value={item.shortSize || listSizes[item.category][2]} 
+                                                  onChange={(e) => updatePublicListRow(item.id, 'shortSize', e.target.value)} 
+                                                  className="w-full bg-[#121215] border border-primary/30 rounded-lg text-xs text-white p-1.5 outline-none font-bold"
+                                                >
+                                                  {listSizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
+                                                </select>
+                                              </div>
+                                              {!item.isSimple && (
+                                                <div className="sm:col-span-2">
+                                                  <input 
+                                                    type="text" 
+                                                    placeholder="Nº Sh"
+                                                    value={item.shortNumber || item.number || ''} 
+                                                    onChange={(e) => updatePublicListRow(item.id, 'shortNumber', e.target.value)} 
+                                                    className="w-full bg-[#121215] border border-primary/30 rounded-lg p-1.5 text-xs text-white text-center font-bold" 
+                                                  />
+                                                </div>
+                                              )}
+                                            </>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+
+                                    <button 
+                                      onClick={addPublicListRow} 
+                                      className="w-full py-2.5 border border-dashed border-white/10 hover:border-primary text-zinc-500 hover:text-primary rounded-xl text-[10px] uppercase font-bold tracking-widest flex items-center justify-center gap-1.5 transition"
+                                    >
+                                      <Plus size={12} /> Adicionar Integrante
+                                    </button>
                                   </div>
-                                ))}
 
-                                <button 
-                                  onClick={addPublicListRow} 
-                                  className="w-full py-2.5 border border-dashed border-white/10 hover:border-primary text-zinc-500 hover:text-primary rounded-xl text-[10px] uppercase font-bold tracking-widest flex items-center justify-center gap-1.5 transition"
-                                >
-                                  <Plus size={12} /> Adicionar Integrante
-                                </button>
-                              </div>
-
-                              <div className="pt-4 border-t border-white/5 flex gap-2">
-                                <button 
-                                  onClick={() => setIsEditingPublicList(false)}
-                                  className="flex-1 py-2 bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:bg-zinc-850 rounded-xl text-xs font-bold uppercase tracking-wider transition"
-                                >
-                                  Cancelar
-                                </button>
-                                <button 
-                                  onClick={handleSavePublicListFromProfile}
-                                  disabled={isSavingPublicList}
-                                  className="flex-1 py-2 bg-primary text-black hover:bg-amber-400 font-extrabold rounded-xl text-xs uppercase tracking-wider transition disabled:opacity-50 flex items-center justify-center gap-1.5"
-                                >
-                                  {isSavingPublicList ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                                  {isSavingPublicList ? "Salvando..." : "Salvar Alterações"}
-                                </button>
-                              </div>
+                                  <div className="pt-4 border-t border-white/5 flex gap-2">
+                                    <button 
+                                      onClick={() => setIsEditingPublicList(false)}
+                                      className="flex-1 py-2 bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:bg-zinc-850 rounded-xl text-xs font-bold uppercase tracking-wider transition"
+                                    >
+                                      Cancelar
+                                    </button>
+                                    <button 
+                                      onClick={handleSavePublicListFromProfile}
+                                      disabled={isSavingPublicList}
+                                      className="flex-1 py-2 bg-primary text-black hover:bg-amber-400 font-extrabold rounded-xl text-xs uppercase tracking-wider transition disabled:opacity-50 flex items-center justify-center gap-1.5"
+                                    >
+                                      {isSavingPublicList ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                                      {isSavingPublicList ? "Salvando..." : "Salvar Alterações"}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </>

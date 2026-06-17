@@ -235,7 +235,7 @@ export default function ListaPublica() {
                           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                             
                             {/* Tipo / Gênero */}
-                            <div className="sm:col-span-3">
+                            <div className={item.isConjunto && !item.isSimple ? "sm:col-span-2" : "sm:col-span-3"}>
                               <label className="block text-[8px] font-black text-zinc-500 uppercase mb-1 tracking-widest">Tipo de Grade</label>
                               <select 
                                 value={item.category} 
@@ -262,7 +262,7 @@ export default function ListaPublica() {
 
                             {/* Condicional: isSimple */}
                             {item.isSimple ? (
-                              <div className={`${item.isConjunto ? 'sm:col-span-3' : 'sm:col-span-7'}`}>
+                              <div className={item.isConjunto ? "sm:col-span-4" : "sm:col-span-7"}>
                                 <label className="block text-[8px] font-black text-zinc-500 uppercase mb-1 tracking-widest">Qtd Peças</label>
                                 <input 
                                   type="number" 
@@ -275,7 +275,7 @@ export default function ListaPublica() {
                             ) : (
                               <>
                                 {/* Número Camisa */}
-                                <div className="sm:col-span-2">
+                                <div className={item.isConjunto ? "sm:col-span-1" : "sm:col-span-2"}>
                                   <label className="block text-[8px] font-black text-zinc-500 uppercase mb-1 tracking-widest">Nº Camisa</label>
                                   <input 
                                     type="text" 
@@ -287,11 +287,11 @@ export default function ListaPublica() {
                                         updateListRow(item.id, 'shortNumber', e.target.value);
                                       }
                                     }} 
-                                    className="w-full bg-[#121215] border border-zinc-800 focus:border-primary rounded-xl p-2.5 text-xs text-white font-mono font-bold text-center placeholder:text-zinc-700" 
+                                    className="w-full bg-[#121215] border border-zinc-800 focus:border-primary rounded-xl p-2.5 text-xs text-white font-mono font-bold text-center placeholder:text-zinc-700 px-1" 
                                   />
                                 </div>
                                 {/* Nome Camisa */}
-                                <div className={`${item.isConjunto ? 'sm:col-span-3' : 'sm:col-span-5'}`}>
+                                <div className={item.isConjunto ? "sm:col-span-3" : "sm:col-span-5"}>
                                   <label className="block text-[8px] font-black text-zinc-500 uppercase mb-1 tracking-widest">Nome na Camisa</label>
                                   <input 
                                     type="text" 
@@ -308,7 +308,7 @@ export default function ListaPublica() {
                             {item.isConjunto && (
                               <>
                                 {/* Tamanho Short */}
-                                <div className="sm:col-span-2">
+                                <div className={item.isSimple ? "sm:col-span-3" : "sm:col-span-2"}>
                                   <label className="block text-[8px] font-black text-primary uppercase mb-1 tracking-widest">Tam Short</label>
                                   <select 
                                     value={item.shortSize || sizes[item.category][2]} 
