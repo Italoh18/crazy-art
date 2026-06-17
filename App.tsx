@@ -43,6 +43,7 @@ const MontagemMolde = lazy(() => import('./pages/MontagemMolde'));
 const MatrizBordado = lazy(() => import('./pages/MatrizBordado'));
 const Vetorizacao = lazy(() => import('./pages/Vetorizacao'));
 const MoldesManager = lazy(() => import('./pages/MoldesManager'));
+const ListaPublica = lazy(() => import('./pages/ListaPublica'));
 
 const LoadingScreen = () => {
   const [messageIndex, setMessageIndex] = useState(0);
@@ -109,6 +110,7 @@ const AppRoutes = () => {
                 <Route path="/montagem-molde" element={<MontagemMolde />} />
                 <Route path="/matriz-bordado" element={<MatrizBordado />} />
                 <Route path="/vetorizacao" element={<Vetorizacao />} />
+                <Route path="/lista-publica/:id" element={<ListaPublica />} />
                 <Route path="/minha-area" element={<ClientRoute />} />
                 <Route path="/my-orders" element={<ClientOrdersRoute />} />
                 <Route path="/statement" element={<StatementRoute />} /> {/* Nova Rota */}

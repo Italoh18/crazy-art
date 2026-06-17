@@ -12,3 +12,14 @@ ALTER TABLE orders ADD COLUMN finished_at TEXT;
 
 -- 4. Adicionar coluna paid_at (se não existir)
 ALTER TABLE orders ADD COLUMN paid_at TEXT;
+
+-- 5. Criar tabela public_lists para a grade de pedidos públicos e compartilhamento
+CREATE TABLE IF NOT EXISTS public_lists (
+  id TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  items TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+

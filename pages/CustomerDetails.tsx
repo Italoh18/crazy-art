@@ -9,7 +9,7 @@ import {
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
   Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal,
   Coins, Lock, RotateCcw, CloudDownload, Sparkles, ChevronRight, Upload, MessageCircle,
-  Crown, Ticket, Tag, Percent
+  Crown, Ticket, Tag, Percent, Copy, Printer, Download, ToggleLeft, ToggleRight, RefreshCw
 } from 'lucide-react';
 import { api } from '../src/services/api';
 import { SizeListItem, Order } from '../types';
@@ -174,6 +174,304 @@ export default function CustomerDetails() {
   const [isClaiming, setIsClaiming] = useState(false);
   const [isLoadingCoupons, setIsLoadingCoupons] = useState(false);
 
+  // --- Public List States & Helpers ---
+  const [publicList, setPublicList] = useState<any | null>(null);
+  const [isLoadingPublicList, setIsLoadingPublicList] = useState(false);
+  const [isEditingPublicList, setIsEditingPublicList] = useState(false);
+  const [editedPublicListItems, setEditedPublicListItems] = useState<SizeListItem[]>([]);
+  const [isSavingPublicList, setIsSavingPublicList] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [isExpandedPublicList, setIsExpandedPublicList] = useState(false);
+  const [isListSimpleMode, setIsListSimpleMode] = useState(false);
+
+  const listSizes: Record<string, string[]> = {
+    unisex: ['PP', 'P', 'M', 'G', 'GG', 'EG', 'XG1', 'XG2', 'XG3', 'XG4', 'XG5'],
+    feminina: ['PP', 'P', 'M', 'G', 'GG', 'EG', 'XG1'],
+    infantil: ['RN', '2', '4', '6', '8', '10', '12', '14', '16']
+  };
+
+  const loadPublicList = async () => {
+    if (!activeId) return;
+    setIsLoadingPublicList(true);
+    try {
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '';
+      const url = role === 'admin' 
+        ? `/api/public-lists?client_id=${activeId}`
+        : `/api/public-lists?my_list=true`;
+
+      const res = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPublicList(data);
+        if (data.items) {
+          const parsed = typeof data.items === 'string' ? JSON.parse(data.items) : data.items;
+          setEditedPublicListItems(parsed);
+          if (parsed.length > 0) {
+            const hasComplex = parsed.some((item: any) => !item.isSimple);
+            setIsListSimpleMode(!hasComplex);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao buscar lista pública:', e);
+    } finally {
+      setIsLoadingPublicList(false);
+    }
+  };
+
+  const handleSavePublicListFromProfile = async () => {
+    if (!publicList?.id) return;
+    setIsSavingPublicList(true);
+    try {
+      const res = await fetch(`/api/public-lists?id=${encodeURIComponent(publicList.id)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: publicList.title || 'Lista Pública de Pedido',
+          items: editedPublicListItems
+        })
+      });
+      if (res.ok) {
+        alert('Lista pública atualizada com sucesso!');
+        setIsEditingPublicList(false);
+        loadPublicList();
+      } else {
+        alert('Erro ao salvar as alterações da lista.');
+      }
+    } catch (error) {
+      alert('Erro de conexão ao salvar a lista.');
+    } finally {
+      setIsSavingPublicList(false);
+    }
+  };
+
+  const addPublicListRow = () => {
+    const defaultCategory = 'unisex';
+    const newItem: SizeListItem = {
+      id: crypto.randomUUID(),
+      category: defaultCategory,
+      size: listSizes[defaultCategory][2], // 'M'
+      number: '',
+      name: '',
+      shortSize: listSizes[defaultCategory][2],
+      shortNumber: '',
+      quantity: 1,
+      isSimple: isListSimpleMode
+    };
+    setEditedPublicListItems((prev) => [...prev, newItem]);
+  };
+
+  const removePublicListRow = (rowId: string) => {
+    setEditedPublicListItems((prev) => prev.filter((item) => item.id !== rowId));
+  };
+
+  const updatePublicListRow = (rowId: string, field: keyof SizeListItem, value: any) => {
+    setEditedPublicListItems((prev) =>
+      prev.map((item) => {
+        if (item.id === rowId) {
+          const updated = { ...item, [field]: value };
+          if (field === 'category') {
+            updated.size = listSizes[value][0];
+            updated.shortSize = listSizes[value][0];
+          }
+          return updated;
+        }
+        return item;
+      })
+    );
+  };
+
+  const toggleListSimpleMode = () => {
+    const newSimple = !isListSimpleMode;
+    setIsListSimpleMode(newSimple);
+    setEditedPublicListItems((prev) =>
+      prev.map((item) => ({
+        ...item,
+        isSimple: newSimple
+      }))
+    );
+  };
+
+  const handleDownloadPublicListPDF = async () => {
+    if (!publicList) return;
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
+      const itemsToRender = typeof publicList.items === 'string' ? JSON.parse(publicList.items) : publicList.items;
+      
+      doc.setFontSize(22);
+      doc.setTextColor(190, 155, 60);
+      doc.text("CRAZY ART", 105, 20, { align: 'center' });
+      
+      doc.setFontSize(14);
+      doc.setTextColor(60, 60, 60);
+      doc.text("Relatório de Lista Pública de Produção", 105, 28, { align: 'center' });
+      
+      doc.setFontSize(10);
+      doc.text(`Cliente: ${customer?.name || 'Cliente'}`, 15, 40);
+      doc.text(`Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}`, 15, 45);
+      doc.text(`Título da Lista: ${publicList.title}`, 15, 50);
+      
+      doc.setDrawColor(200, 200, 200);
+      doc.line(15, 53, 195, 53);
+      
+      let y = 62;
+      doc.setFontSize(10);
+      doc.setFont("Helvetica", "bold");
+      doc.text("Tipo Grade", 15, y);
+      doc.text("Tam", 45, y);
+      doc.text("Qtd", 65, y);
+      doc.text("Nº Camisa", 90, y);
+      doc.text("Nome na Camisa", 125, y);
+      
+      doc.line(15, y + 3, 195, y + 3);
+      y += 10;
+      
+      doc.setFont("Helvetica", "normal");
+      if (!itemsToRender || itemsToRender.length === 0) {
+        doc.text("Nenhum item preenchido nesta lista.", 15, y);
+      } else {
+        itemsToRender.forEach((item: any) => {
+          if (y > 270) {
+            doc.addPage();
+            y = 20;
+            doc.setFont("Helvetica", "bold");
+            doc.text("Tipo Grade", 15, y);
+            doc.text("Tam", 45, y);
+            doc.text("Qtd", 65, y);
+            doc.text("Nº Camisa", 90, y);
+            doc.text("Nome na Camisa", 125, y);
+            doc.line(15, y + 3, 195, y + 3);
+            y += 10;
+            doc.setFont("Helvetica", "normal");
+          }
+          
+          doc.text(String(item.category || 'unisex').toUpperCase(), 15, y);
+          doc.text(String(item.size || ''), 45, y);
+          
+          const qty = item.isSimple ? String(item.quantity || 1) : "1";
+          doc.text(qty, 65, y);
+          
+          const num = item.isSimple ? "-" : String(item.number || '');
+          doc.text(num, 90, y);
+          
+          const name = item.isSimple ? "-" : String(item.name || '').toUpperCase();
+          doc.text(name, 125, y);
+          
+          y += 8;
+        });
+      }
+      
+      const totalPecas = itemsToRender ? itemsToRender.reduce((sum: number, item: any) => sum + (item.isSimple ? Number(item.quantity || 1) : 1), 0) : 0;
+      y += 5;
+      doc.line(15, y, 195, y);
+      y += 8;
+      doc.setFont("Helvetica", "bold");
+      doc.text(`Total de Peças Final: ${totalPecas}`, 15, y);
+      
+      doc.save(`lista_publica_${customer?.name || 'cliente'}.pdf`);
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao gerar PDF.");
+    }
+  };
+
+  const handlePrintPublicList = () => {
+    if (!publicList) return;
+    const itemsToPrint = typeof publicList.items === 'string' ? JSON.parse(publicList.items) : publicList.items;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert("Por favor, ative os popups para imprimir.");
+      return;
+    }
+    
+    const itemsHtml = itemsToPrint && itemsToPrint.length > 0 
+      ? itemsToPrint.map((item: any) => `
+        <tr style="border-bottom: 1px solid #ddd;">
+          <td style="padding: 10px; text-transform: uppercase;">${item.category || 'unisex'}</td>
+          <td style="padding: 10px; font-weight: bold;">${item.size || ''}</td>
+          <td style="padding: 10px;">${item.isSimple ? (item.quantity || 1) : 1}</td>
+          <td style="padding: 10px; font-family: monospace;">${item.isSimple ? '-' : (item.number || '')}</td>
+          <td style="padding: 10px; text-transform: uppercase;">${item.isSimple ? '-' : (item.name || '')}</td>
+        </tr>
+      `).join('')
+      : '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #777;">Nenhum item preenchido</td></tr>';
+
+    const totalPecas = itemsToPrint ? itemsToPrint.reduce((sum: number, item: any) => sum + (item.isSimple ? Number(item.quantity || 1) : 1), 0) : 0;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Crazy Art - Lista Pública de Produção</title>
+          <style>
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 40px; color: #333; }
+            h1 { text-align: center; color: #be9b3c; margin-bottom: 5px; }
+            h3 { text-align: center; color: #666; font-weight: normal; margin-top: 0; margin-bottom: 30px; }
+            .info-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+            .info-table td { padding: 5px 0; font-size: 14px; }
+            .items-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            .items-table th { background-color: #f7f7f7; text-align: left; padding: 12px 10px; font-size: 13px; text-transform: uppercase; border-bottom: 2px solid #ddd; }
+            .items-table td { font-size: 13px; }
+            .total-section { margin-top: 30px; font-size: 16px; font-weight: bold; border-top: 2px solid #ddd; padding-top: 15px; }
+            @media print {
+              body { margin: 20px; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>CRAZY ART</h1>
+          <h3>Lista de Produção</h3>
+          
+          <table class="info-table">
+            <tr>
+              <td><strong>Cliente:</strong> ${customer?.name || 'Cliente'}</td>
+              <td style="text-align: right;"><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</td>
+            </tr>
+            <tr>
+              <td><strong>Título da Lista:</strong> ${publicList.title}</td>
+              <td style="text-align: right;"><strong>Status:</strong> Ativa</td>
+            </tr>
+          </table>
+
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Tipo Grade</th>
+                <th>Tam</th>
+                <th>Qtd</th>
+                <th>Nº Camisa</th>
+                <th>Nome na Camisa</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+
+          <div class="total-section">
+            Total de Peças: ${totalPecas}
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+
   const loadClientCoupons = async () => {
     if (!activeId) return;
     setIsLoadingCoupons(true);
@@ -200,6 +498,7 @@ export default function CustomerDetails() {
   useEffect(() => {
     if (activeId) {
       loadClientCoupons();
+      loadPublicList();
     }
   }, [activeId]);
 
@@ -789,21 +1088,247 @@ export default function CustomerDetails() {
                 )}
 
                 {/* Botão Lista Pública */}
-                <button 
-                    onClick={() => alert("Funcionalidade de Lista Pública em breve!")}
-                    className="w-full h-32 bg-[#121215] hover:bg-[#18181b] border border-white/5 hover:border-white/10 rounded-3xl flex items-center justify-between px-8 transition-all group hover:scale-[1.02]"
-                >
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl group-hover:bg-emerald-500 group-hover:text-white transition-colors">
-                            <ListChecks size={32} />
+                <div className="w-full space-y-4">
+                  <button 
+                      onClick={() => setIsExpandedPublicList(!isExpandedPublicList)}
+                      className={`w-full h-32 bg-[#121215] hover:bg-[#18181b] border ${isExpandedPublicList ? 'border-emerald-500/30' : 'border-white/5'} hover:border-white/10 rounded-3xl flex items-center justify-between px-8 transition-all group hover:scale-[1.01]`}
+                  >
+                      <div className="flex items-center gap-4">
+                          <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                              <ListChecks size={32} />
+                          </div>
+                          <div className="text-left">
+                              <h3 className="text-xl font-bold text-white">Lista Pública</h3>
+                              <p className="text-zinc-500 text-sm">
+                                {publicList ? `${editedPublicListItems.reduce((acc, item) => acc + (item.isSimple ? (item.quantity || 1) : 1), 0)} itens integrados` : "Envie sua lista para impressão"}
+                              </p>
+                          </div>
+                      </div>
+                      <ChevronRight className={`text-zinc-600 group-hover:text-white transition-all ${isExpandedPublicList ? 'rotate-90' : ''}`} size={24} />
+                  </button>
+
+                  {isExpandedPublicList && (
+                    <div className="w-full bg-[#121215]/80 border border-white/5 rounded-3xl p-6 md:p-8 space-y-6">
+                      {isLoadingPublicList ? (
+                        <div className="py-10 flex flex-col items-center justify-center gap-2">
+                          <Loader2 className="animate-spin text-primary" size={24} />
+                          <span className="text-xs uppercase tracking-wider text-zinc-500">Buscando informações da lista...</span>
                         </div>
-                        <div className="text-left">
-                            <h3 className="text-xl font-bold text-white">Lista Pública</h3>
-                            <p className="text-zinc-500 text-sm">Envie sua lista para impressão</p>
-                        </div>
+                      ) : (
+                        <>
+                          {/* Compartilhamento */}
+                          {publicList && (
+                            <div className="space-y-2">
+                              <h4 className="text-xs uppercase font-extrabold tracking-widest text-zinc-400">Link de Compartilhamento</h4>
+                              <div className="flex gap-2">
+                                <input 
+                                  type="text" 
+                                  readOnly 
+                                  value={`${window.location.origin}/lista-publica/${publicList.id}`} 
+                                  className="flex-1 bg-zinc-950 border border-white/5 rounded-xl px-4 py-3 text-xs text-zinc-300 font-mono focus:outline-none"
+                                />
+                                <button 
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(`${window.location.origin}/lista-publica/${publicList.id}`);
+                                    setCopiedLink(true);
+                                    setTimeout(() => setCopiedLink(false), 2000);
+                                  }}
+                                  className="px-4 bg-primary text-black hover:bg-amber-400 font-bold rounded-xl text-xs uppercase tracking-wider flex items-center gap-1.5 transition"
+                                >
+                                  {copiedLink ? <Check size={14} /> : <Copy size={14} />}
+                                  {copiedLink ? "Copiado" : "Copiar"}
+                                </button>
+                              </div>
+                              <p className="text-[10px] text-zinc-500 uppercase tracking-widest leading-relaxed">
+                                Compartilhe este link com quem irá preencher as camisas/tamanhos.
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Lista e Controles */}
+                          {!isEditingPublicList ? (
+                            <div className="space-y-4">
+                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                <div>
+                                  <h4 className="text-xs uppercase font-extrabold tracking-widest text-zinc-400">Itens Atuais na Lista</h4>
+                                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
+                                    Total de Integrantes: <span className="text-white font-bold">{editedPublicListItems.reduce((acc, item) => acc + (item.isSimple ? (item.quantity || 1) : 1), 0)}</span>
+                                  </p>
+                                </div>
+                                <div className="flex gap-2 w-full sm:w-auto">
+                                  <button 
+                                    onClick={() => {
+                                      setEditedPublicListItems(publicList?.items ? (typeof publicList.items === 'string' ? JSON.parse(publicList.items) : publicList.items) : []);
+                                      setIsEditingPublicList(true);
+                                    }}
+                                    className="flex-1 sm:flex-initial px-4 py-2 bg-zinc-800 hover:bg-zinc-700 hover:text-white text-zinc-300 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition"
+                                  >
+                                    <Edit size={12} /> Ver / Editar
+                                  </button>
+                                  <button 
+                                    onClick={handlePrintPublicList}
+                                    className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 hover:text-white text-zinc-300 rounded-xl text-xs flex items-center justify-center transition"
+                                    title="Imprimir"
+                                  >
+                                    <Printer size={14} />
+                                  </button>
+                                  <button 
+                                    onClick={handleDownloadPublicListPDF}
+                                    className="px-3 py-2 bg-zinc-800 hover:bg-zinc-700 hover:text-white text-zinc-300 rounded-xl text-xs flex items-center justify-center transition"
+                                    title="Baixar em PDF"
+                                  >
+                                    <Download size={14} />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {editedPublicListItems.length === 0 ? (
+                                <div className="py-8 text-center bg-zinc-950 border border-white/5 rounded-2xl text-zinc-500 text-xs uppercase tracking-wider font-semibold">
+                                  Lista vazia. Clique em "Ver / Editar" para adicionar ou compartilhe o link público.
+                                </div>
+                              ) : (
+                                <div className="overflow-x-auto rounded-2xl border border-white/5 bg-zinc-950 max-h-60 custom-scrollbar">
+                                  <table className="w-full text-left border-collapse">
+                                    <thead>
+                                      <tr className="border-b border-white/5 text-[9px] uppercase tracking-widest text-zinc-500 font-bold bg-zinc-900/60 font-mono">
+                                        <th className="p-3">Categoria</th>
+                                        <th className="p-3">Tamanho</th>
+                                        <th className="p-3">Qtd</th>
+                                        <th className="p-3">Nº Camisa</th>
+                                        <th className="p-3">Nome Camisa</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5 text-xs text-zinc-300 font-mono">
+                                      {editedPublicListItems.map((item) => (
+                                        <tr key={item.id} className="hover:bg-white/[0.02] transition">
+                                          <td className="p-3 uppercase">{item.category}</td>
+                                          <td className="p-3 font-semibold text-white">{item.size}</td>
+                                          <td className="p-3">{item.isSimple ? (item.quantity || 1) : 1}</td>
+                                          <td className="p-3">{item.isSimple ? "-" : (item.number || "-")}</td>
+                                          <td className="p-3 uppercase">{item.isSimple ? "-" : (item.name || "-")}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            /* Painel de Edição Completa da Lista Pública */
+                            <div className="space-y-4 bg-zinc-950 p-4 md:p-6 rounded-2xl border border-white/5">
+                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                <div>
+                                  <h4 className="text-sm font-bold text-white font-mono uppercase tracking-wider">Edição da Lista Pública</h4>
+                                  <p className="text-[9px] text-zinc-500 uppercase tracking-widest mt-0.5">Permissão Exclusiva de Criador</p>
+                                </div>
+                                <button 
+                                  onClick={toggleListSimpleMode} 
+                                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase transition ${isListSimpleMode ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-900 border-white/5 text-zinc-400'}`}
+                                >
+                                  <span>Grade Sem Nomes</span>
+                                  {isListSimpleMode ? <ToggleRight size={16} className="text-primary" /> : <ToggleLeft size={16} />}
+                                </button>
+                              </div>
+
+                              <div className="space-y-3 max-h-80 overflow-y-auto pr-1 scrollbar-thin">
+                                {editedPublicListItems.map((item) => (
+                                  <div key={item.id} className="grid grid-cols-1 sm:grid-cols-12 gap-2 p-2 bg-zinc-900 border border-white/5 rounded-xl items-end">
+                                    <div className="sm:col-span-3">
+                                      <select 
+                                        value={item.category} 
+                                        onChange={(e) => updatePublicListRow(item.id, 'category', e.target.value as any)} 
+                                        className="w-full bg-zinc-900 border border-white/10 rounded-lg text-xs text-white p-1.5 outline-none font-bold"
+                                      >
+                                        <option value="unisex">Unisex</option>
+                                        <option value="feminina">Feminina</option>
+                                        <option value="infantil">Infantil</option>
+                                      </select>
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                      <select 
+                                        value={item.size} 
+                                        onChange={(e) => updatePublicListRow(item.id, 'size', e.target.value)} 
+                                        className="w-full bg-zinc-900 border border-white/10 rounded-lg text-xs text-white p-1.5 outline-none font-bold align-middle"
+                                      >
+                                        {listSizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
+                                      </select>
+                                    </div>
+
+                                    {item.isSimple ? (
+                                      <div className="sm:col-span-6">
+                                        <input 
+                                          type="number" 
+                                          min="1" 
+                                          value={item.quantity || 1} 
+                                          onChange={(e) => updatePublicListRow(item.id, 'quantity', parseInt(e.target.value) || 1)} 
+                                          className="w-full bg-zinc-909 border border-white/10 rounded-lg p-1.5 text-xs text-white text-center font-bold font-mono" 
+                                        />
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <div className="sm:col-span-2">
+                                          <input 
+                                            type="text" 
+                                            placeholder="Nº"
+                                            value={item.number || ''} 
+                                            onChange={(e) => updatePublicListRow(item.id, 'number', e.target.value)} 
+                                            className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white font-bold text-center placeholder:text-zinc-700" 
+                                          />
+                                        </div>
+                                        <div className="sm:col-span-4">
+                                          <input 
+                                            type="text" 
+                                            placeholder="NOME"
+                                            value={item.name || ''} 
+                                            onChange={(e) => updatePublicListRow(item.id, 'name', e.target.value)} 
+                                            className="w-full bg-zinc-900 border border-white/10 rounded-lg p-1.5 text-xs text-white uppercase font-bold placeholder:text-zinc-700" 
+                                          />
+                                        </div>
+                                      </>
+                                    )}
+
+                                    <div className="sm:col-span-1 flex items-end">
+                                      <button 
+                                        onClick={() => removePublicListRow(item.id)} 
+                                        className="w-full p-1.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition flex items-center justify-center"
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+
+                                <button 
+                                  onClick={addPublicListRow} 
+                                  className="w-full py-2.5 border border-dashed border-white/10 hover:border-primary text-zinc-500 hover:text-primary rounded-xl text-[10px] uppercase font-bold tracking-widest flex items-center justify-center gap-1.5 transition"
+                                >
+                                  <Plus size={12} /> Adicionar Integrante
+                                </button>
+                              </div>
+
+                              <div className="pt-4 border-t border-white/5 flex gap-2">
+                                <button 
+                                  onClick={() => setIsEditingPublicList(false)}
+                                  className="flex-1 py-2 bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:bg-zinc-850 rounded-xl text-xs font-bold uppercase tracking-wider transition"
+                                >
+                                  Cancelar
+                                </button>
+                                <button 
+                                  onClick={handleSavePublicListFromProfile}
+                                  disabled={isSavingPublicList}
+                                  className="flex-1 py-2 bg-primary text-black hover:bg-amber-400 font-extrabold rounded-xl text-xs uppercase tracking-wider transition disabled:opacity-50 flex items-center justify-center gap-1.5"
+                                >
+                                  {isSavingPublicList ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                                  {isSavingPublicList ? "Salvando..." : "Salvar Alterações"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
-                    <ChevronRight className="text-zinc-600 group-hover:text-white transition-colors" size={24} />
-                </button>
+                  )}
+                </div>
 
                 {/* Status Financeiro */}
                 <div className={`w-full p-6 rounded-3xl border flex items-center gap-4 ${hasOverdue ? 'bg-red-500/5 border-red-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
