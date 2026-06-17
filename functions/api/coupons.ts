@@ -103,7 +103,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           return new Response(JSON.stringify({ error: `Erro no banco de dados ao criar/distribuir cupom: ${dbError.message}` }), { status: 500 });
       }
 
-      return Response.json({ success: true, id: newId });
+      const newCoupon = {
+        id: newId,
+        code: cleanCode,
+        percentage: percentageNum,
+        type: couponType,
+        created_at: now
+      };
+      return Response.json(newCoupon);
     }
 
     // DELETE: Remover Cupom (Apenas Admin)
@@ -113,6 +120,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
       }
 
+      // Remover os registros vinculados a clientes primeiro para evitar erro de Foreign Key
+      await env.DB.prepare('DELETE FROM client_coupons WHERE coupon_id = ?').bind(id).run();
       await env.DB.prepare('DELETE FROM coupons WHERE id = ?').bind(id).run();
       return Response.json({ success: true });
     }

@@ -329,7 +329,7 @@ export default function Coupons() {
                                       </span>
                                   </td>
                                   <td className="px-6 py-4 text-xs font-mono">
-                                      {new Date(coupon.created_at).toLocaleDateString()}
+                                      {coupon.created_at ? new Date(coupon.created_at).toLocaleDateString() : '-'}
                                   </td>
                                   <td className="px-6 py-4 text-right">
                                       <div className="flex items-center justify-end gap-2">

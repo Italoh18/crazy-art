@@ -397,8 +397,8 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const addCoupon = async (data: any) => {
       try {
           const res = await api.addCoupon(data);
-          if (res && res.id) {
-              setCoupons(prev => [...prev, res]);
+          if (res && res.id && res.code) {
+              setCoupons(prev => [res, ...prev]);
           } else {
               await loadCoupons();
           }
