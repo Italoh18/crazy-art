@@ -75,28 +75,32 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         } else if (assignType === 'all') {
           const { results: allClients } = await env.DB.prepare('SELECT id FROM clients').all();
           if (allClients && allClients.length > 0) {
+            const statements = [];
             for (const client of allClients) {
               const clientCouponId = crypto.randomUUID();
-              await env.DB.prepare(
-                'INSERT INTO client_coupons (id, client_id, coupon_id, code, percentage, type, claimed_at, expires_at, is_used) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)'
-              ).bind(
-                clientCouponId,
-                client.id,
-                newId,
-                cleanCode,
-                percentageNum,
-                couponType,
-                now,
-                expiresAt
-              ).run();
+              statements.push(
+                env.DB.prepare(
+                  'INSERT INTO client_coupons (id, client_id, coupon_id, code, percentage, type, claimed_at, expires_at, is_used) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)'
+                ).bind(
+                  clientCouponId,
+                  client.id,
+                  newId,
+                  cleanCode,
+                  percentageNum,
+                  couponType,
+                  now,
+                  expiresAt
+                )
+              );
             }
+            await env.DB.batch(statements);
           }
         }
       } catch (dbError: any) {
-          if (dbError.message.includes('UNIQUE')) {
+          if (dbError.message && dbError.message.includes('UNIQUE')) {
               return new Response(JSON.stringify({ error: 'Código de cupom já existe.' }), { status: 409 });
           }
-          throw dbError;
+          return new Response(JSON.stringify({ error: `Erro no banco de dados ao criar/distribuir cupom: ${dbError.message}` }), { status: 500 });
       }
 
       return Response.json({ success: true, id: newId });
