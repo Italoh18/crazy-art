@@ -9,7 +9,8 @@ import {
   Wallet, Loader2, ArrowLeft, Cloud, Clock, CreditCard,
   Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal,
   Coins, Lock, RotateCcw, CloudDownload, Sparkles, ChevronRight, Upload, MessageCircle,
-  Crown, Ticket, Tag, Percent, Copy, Printer, Download, ToggleLeft, ToggleRight, RefreshCw
+  Crown, Ticket, Tag, Percent, Copy, Printer, Download, ToggleLeft, ToggleRight, RefreshCw,
+  Palette, Image
 } from 'lucide-react';
 import { api } from '../src/services/api';
 import { SizeListItem, Order } from '../types';
@@ -213,6 +214,9 @@ export default function CustomerDetails() {
   const [claimSuccess, setClaimSuccess] = useState('');
   const [isClaiming, setIsClaiming] = useState(false);
   const [isLoadingCoupons, setIsLoadingCoupons] = useState(false);
+
+  const [purchasedArts, setPurchasedArts] = useState<any[]>([]);
+  const [isLoadingPurchasedArts, setIsLoadingPurchasedArts] = useState(false);
 
   // --- Public List States & Helpers ---
   const [publicList, setPublicList] = useState<any | null>(null);
@@ -656,10 +660,34 @@ export default function CustomerDetails() {
     }
   };
 
+  const loadPurchasedArts = async () => {
+    if (!activeId) return;
+    setIsLoadingPurchasedArts(true);
+    try {
+      const url = `/api/purchased-arts?_t=${Date.now()}${role === 'admin' ? `&clientId=${activeId}` : ''}`;
+      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '';
+      const res = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPurchasedArts(data);
+      }
+    } catch (e) {
+      console.error("Error loading purchased arts:", e);
+    } finally {
+      setIsLoadingPurchasedArts(false);
+    }
+  };
+
   useEffect(() => {
     if (activeId) {
       loadClientCoupons();
       loadPublicList();
+      loadPurchasedArts();
     }
   }, [activeId]);
 
@@ -1149,8 +1177,9 @@ export default function CustomerDetails() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Coluna Esquerda: Dados Cadastrais */}
-            <div className="bg-[#121215] border border-white/5 rounded-3xl p-8 relative overflow-hidden">
+            {/* Coluna Esquerda: Dados Cadastrais e Artes Adquiridas */}
+            <div className="space-y-8">
+                <div className="bg-[#121215] border border-white/5 rounded-3xl p-8 relative overflow-hidden">
                 <div className="flex justify-between items-center mb-8">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2">
                         <User className="text-primary" size={24} />
@@ -1213,6 +1242,63 @@ export default function CustomerDetails() {
                             {customer?.address?.street ? `${customer.address.street}, ${customer.address.number} - ${customer.address.zipCode}` : 'Endereço não cadastrado'}
                         </p>
                     </div>
+                </div>
+            </div>
+
+            {/* Artes Adquiridas Section */}
+                <div id="acquired-arts-sec" className="bg-[#121215] border border-white/5 rounded-3xl p-8 relative overflow-hidden">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                            <Palette className="text-[#a855f7]" size={24} />
+                            Artes Adquiridas
+                        </h2>
+                    </div>
+
+                    {isLoadingPurchasedArts ? (
+                        <div className="flex items-center justify-center py-10 text-zinc-500">
+                            <Loader2 size={24} className="animate-spin mr-2" />
+                            Carregando suas artes...
+                        </div>
+                    ) : purchasedArts.length === 0 ? (
+                        <div className="text-center py-8 text-zinc-500 space-y-4">
+                            <Image size={40} className="mx-auto opacity-20 text-zinc-400" />
+                            <p className="text-sm">Você ainda não adquiriu nenhuma arte da Quitanda.</p>
+                            <Link to="/quitanda_de_art" className="inline-block text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl px-4 py-2 transition mt-2">
+                                Visitar a Quitanda de Artes
+                            </Link>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {purchasedArts.map((art) => {
+                                const purchaseDate = art.purchased_at 
+                                    ? new Date(art.purchased_at).toLocaleDateString('pt-BR') 
+                                    : '---';
+
+                                return (
+                                    <div key={art.art_id || art.art_name} className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col justify-between hover:border-zinc-800 transition">
+                                        <div className="space-y-1">
+                                            <p className="text-white font-medium truncate text-sm" title={art.art_name}>{art.art_name}</p>
+                                            <p className="text-xs text-zinc-500">Comprado em: {purchaseDate}</p>
+                                        </div>
+                                        {art.download_link ? (
+                                            <a 
+                                                href={art.download_link} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer" 
+                                                className="mt-3 w-full text-center text-xs font-bold bg-[#7c3aed] text-white rounded-lg py-2 transition hover:bg-[#6d28d9] flex items-center justify-center gap-1"
+                                            >
+                                                <Download size={14} /> Baixar Arte
+                                            </a>
+                                        ) : (
+                                            <span className="mt-3 w-full text-center text-xs text-zinc-500 border border-white/5 rounded-lg py-2">
+                                                Aguardando link
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
 

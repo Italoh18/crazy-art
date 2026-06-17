@@ -402,6 +402,32 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         updateParams.push(String(id));
 
         await env.DB.prepare(updateQuery).bind(...updateParams).run();
+
+        if (body.status === 'paid') {
+          try {
+            const ordClient: any = await env.DB.prepare('SELECT client_id FROM orders WHERE id = ?').bind(id).first();
+            if (ordClient && ordClient.client_id) {
+              const { results: items } = await env.DB.prepare('SELECT catalog_id, name, download_link, type FROM order_items WHERE order_id = ?').bind(id).all();
+              const artItems = (items || []).filter((i: any) => i.type === 'art');
+              for (const art of artItems) {
+                await env.DB.prepare(`
+                  INSERT OR IGNORE INTO client_purchased_arts (id, client_id, art_id, art_name, download_link, purchased_at)
+                  VALUES (?, ?, ?, ?, ?, ?)
+                `).bind(
+                  crypto.randomUUID(),
+                  ordClient.client_id,
+                  String(art.catalog_id || 'manual'),
+                  String(art.name || 'Arte Digital'),
+                  art.download_link ? String(art.download_link) : null,
+                  new Date().toISOString()
+                ).run();
+              }
+            }
+          } catch (err: any) {
+            console.warn("[OrdersAPI] Failed to insert purchased arts on admin status set to paid:", err.message);
+          }
+        }
+
         return Response.json({ success: true });
       }
 

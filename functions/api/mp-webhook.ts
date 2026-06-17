@@ -247,7 +247,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             // 3. Atualiza Pedido para Pago ATOMICAMENTE
             // Verifica se possui produtos para mover para produção automaticamente
             const { results: items } = await env.DB.prepare(`
-                SELECT type FROM order_items WHERE order_id = ?
+                SELECT type, catalog_id, name, download_link FROM order_items WHERE order_id = ?
             `).bind(orderId).all();
             
             const hasProducts = (items || []).some((i: any) => i.type === 'product');
@@ -260,6 +260,26 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             if (meta.changes === 0) {
                 console.log(`[Webhook] Pedido ${orderId} já processado simultaneamente por outra instância.`);
                 continue;
+            }
+
+            // Registrar artes compradas de forma robusta e segura
+            try {
+              const artItems = (items || []).filter((i: any) => i.type === 'art');
+              for (const art of artItems) {
+                await env.DB.prepare(`
+                  INSERT OR IGNORE INTO client_purchased_arts (id, client_id, art_id, art_name, download_link, purchased_at)
+                  VALUES (?, ?, ?, ?, ?, ?)
+                `).bind(
+                  crypto.randomUUID(),
+                  orderInfo.client_id,
+                  String(art.catalog_id || 'manual'),
+                  String(art.name || 'Arte Digital'),
+                  art.download_link ? String(art.download_link) : null,
+                  nowTs
+                ).run();
+              }
+            } catch (err: any) {
+              console.warn("[Webhook] Tabela client_purchased_arts inexistente ou erro ao registrar artes:", err.message);
             }
 
             // 4. Atualiza o limite do cliente agora que temos certeza que fomos nós que processamos o pagamento
