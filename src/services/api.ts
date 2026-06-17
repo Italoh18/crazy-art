@@ -196,7 +196,7 @@ export const api = {
     const res = await fetch(`/api/coupons?code=${encodeURIComponent(code)}`, { headers: getHeaders() });
     return handleResponse(res);
   },
-  async addCoupon(data: { code: string, percentage: number, type: string }) {
+  async addCoupon(data: { code: string, percentage: number, type: string, assignType?: string, assignClientId?: string }) {
     const res = await fetch('/api/coupons', { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
     return handleResponse(res);
   },

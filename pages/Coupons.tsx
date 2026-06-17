@@ -1,30 +1,48 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useData } from '../contexts/DataContext';
+import { api } from '../src/services/api';
 import { Plus, Trash2, Ticket, Percent, Tag, Share2, Copy, Download, X, Mail, MessageCircle, Facebook, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Coupons() {
   const { coupons, loadCoupons, addCoupon, deleteCoupon } = useData();
-  const [formData, setFormData] = useState({ code: '', percentage: '', type: 'all' });
+  const [formData, setFormData] = useState({ code: '', percentage: '', type: 'all', assignType: 'none', assignClientId: '' });
+  const [clients, setClients] = useState<any[]>([]);
   const [sharingCoupon, setSharingCoupon] = useState<any>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   useEffect(() => {
       loadCoupons();
+      // Carrega os clientes para a lista de destinação do cupom
+      const fetchClients = async () => {
+          try {
+              const data = await api.getClients();
+              setClients(Array.isArray(data) ? data : []);
+          } catch (e) {
+              console.error("Erro ao carregar clientes para cupons:", e);
+          }
+      };
+      fetchClients();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.code || !formData.percentage) return;
+    if (formData.assignType === 'specific' && !formData.assignClientId) {
+      alert('Por favor, selecione um cliente.');
+      return;
+    }
 
     await addCoupon({
         code: formData.code,
         percentage: parseFloat(formData.percentage),
-        type: formData.type
+        type: formData.type,
+        assignType: formData.assignType,
+        assignClientId: formData.assignClientId
     });
     
-    setFormData({ code: '', percentage: '', type: 'all' });
+    setFormData({ code: '', percentage: '', type: 'all', assignType: 'none', assignClientId: '' });
   };
 
   const getTypeLabel = (type: string) => {
@@ -183,58 +201,96 @@ export default function Coupons() {
         <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Plus size={18} className="text-primary" /> Novo Cupom
         </h2>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          <div>
-            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Código do Cupom</label>
-            <div className="relative">
-                <input
-                type="text"
-                placeholder="Ex: PROMO10"
-                className="w-full bg-black/50 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary outline-none transition uppercase font-mono tracking-wider"
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                />
-                <Tag className="absolute left-3 top-3.5 text-zinc-500" size={16} />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Código do Cupom</label>
+              <div className="relative">
+                  <input
+                  type="text"
+                  placeholder="Ex: PROMO10"
+                  className="w-full bg-black/50 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary outline-none transition uppercase font-mono tracking-wider"
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                  />
+                  <Tag className="absolute left-3 top-3.5 text-zinc-500" size={16} />
+              </div>
             </div>
-          </div>
-          
-          <div>
-            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Desconto (%)</label>
-            <div className="relative">
-                <input
-                type="number"
-                placeholder="10"
-                min="1"
-                max="100"
-                className="w-full bg-black/50 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary outline-none transition font-mono"
-                value={formData.percentage}
-                onChange={(e) => setFormData({ ...formData, percentage: e.target.value })}
-                />
-                <Percent className="absolute left-3 top-3.5 text-zinc-500" size={16} />
+            
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Desconto (%)</label>
+              <div className="relative">
+                  <input
+                  type="number"
+                  placeholder="10"
+                  min="1"
+                  max="100"
+                  className="w-full bg-black/50 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary outline-none transition font-mono"
+                  value={formData.percentage}
+                  onChange={(e) => setFormData({ ...formData, percentage: e.target.value })}
+                  />
+                  <Percent className="absolute left-3 top-3.5 text-zinc-500" size={16} />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Aplicar em</label>
+              <select
+                  className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition appearance-none cursor-pointer"
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              >
+                  <option value="all">Toda a Loja</option>
+                  <option value="product">Apenas Produtos</option>
+                  <option value="service">Apenas Serviços</option>
+                  <option value="art">Artes Prontas</option>
+              </select>
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Aplicar em</label>
-            <select
-                className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition appearance-none cursor-pointer"
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end pt-2 border-t border-zinc-800/40">
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Destinar Cupom</label>
+              <select
+                  className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition appearance-none cursor-pointer text-sm"
+                  value={formData.assignType}
+                  onChange={(e) => setFormData({ ...formData, assignType: e.target.value, assignClientId: '' })}
+              >
+                  <option value="none">Uso Geral (Público)</option>
+                  <option value="all">Todos os Clientes</option>
+                  <option value="specific">Cliente Específico</option>
+              </select>
+            </div>
+
+            {formData.assignType === 'specific' ? (
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Selecionar Cliente de Destino</label>
+                <select
+                    required
+                    className="w-full bg-black/50 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition appearance-none cursor-pointer text-sm"
+                    value={formData.assignClientId}
+                    onChange={(e) => setFormData({ ...formData, assignClientId: e.target.value })}
+                >
+                    <option value="">Selecione um cliente...</option>
+                    {clients.map(c => (
+                        <option key={c.id} value={c.id}>
+                            {c.name} {c.email ? `(${c.email})` : ''}
+                        </option>
+                    ))}
+                </select>
+              </div>
+            ) : (
+              <div className="hidden md:block" />
+            )}
+
+            <button 
+              type="submit"
+              className="bg-primary hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 text-sm h-[46px]"
             >
-                <option value="all">Toda a Loja</option>
-                <option value="product">Apenas Produtos</option>
-                <option value="service">Apenas Serviços</option>
-                <option value="art">Artes Prontas</option>
-            </select>
+              <Plus size={18} />
+              <span>Criar Cupom</span>
+            </button>
           </div>
-
-          <button 
-            type="submit"
-            className="bg-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-amber-600 transition flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:scale-105 active:scale-95"
-          >
-            <Plus size={18} />
-            <span>Criar Cupom</span>
-          </button>
         </form>
       </div>
 

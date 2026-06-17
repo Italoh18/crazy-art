@@ -39,6 +39,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const newId = crypto.randomUUID();
       const now = new Date().toISOString();
       const cleanCode = String(body.code).toUpperCase().trim().replace(/\s/g, '');
+      const percentageNum = Number(body.percentage);
+      const couponType = String(body.type || 'all');
 
       try {
         await env.DB.prepare(
@@ -46,10 +48,50 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         ).bind(
             newId,
             cleanCode,
-            Number(body.percentage),
-            String(body.type || 'all'),
+            percentageNum,
+            couponType,
             now
         ).run();
+
+        // Destinar o cupom se solicitado
+        const assignType = body.assignType || 'none';
+        const nowObj = new Date();
+        const expiresAt = new Date(nowObj.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+        if (assignType === 'specific' && body.assignClientId) {
+          const clientCouponId = crypto.randomUUID();
+          await env.DB.prepare(
+            'INSERT INTO client_coupons (id, client_id, coupon_id, code, percentage, type, claimed_at, expires_at, is_used) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)'
+          ).bind(
+            clientCouponId,
+            body.assignClientId,
+            newId,
+            cleanCode,
+            percentageNum,
+            couponType,
+            now,
+            expiresAt
+          ).run();
+        } else if (assignType === 'all') {
+          const { results: allClients } = await env.DB.prepare('SELECT id FROM clients').all();
+          if (allClients && allClients.length > 0) {
+            for (const client of allClients) {
+              const clientCouponId = crypto.randomUUID();
+              await env.DB.prepare(
+                'INSERT INTO client_coupons (id, client_id, coupon_id, code, percentage, type, claimed_at, expires_at, is_used) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)'
+              ).bind(
+                clientCouponId,
+                client.id,
+                newId,
+                cleanCode,
+                percentageNum,
+                couponType,
+                now,
+                expiresAt
+              ).run();
+            }
+          }
+        }
       } catch (dbError: any) {
           if (dbError.message.includes('UNIQUE')) {
               return new Response(JSON.stringify({ error: 'Código de cupom já existe.' }), { status: 409 });
