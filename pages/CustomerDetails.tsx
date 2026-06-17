@@ -181,6 +181,7 @@ export default function CustomerDetails() {
   const [isLoadingPublicList, setIsLoadingPublicList] = useState(false);
   const [isEditingPublicList, setIsEditingPublicList] = useState(false);
   const [editedPublicListItems, setEditedPublicListItems] = useState<SizeListItem[]>([]);
+  const [originalSnapshotPublicListItems, setOriginalSnapshotPublicListItems] = useState<SizeListItem[]>([]);
   const [isSavingPublicList, setIsSavingPublicList] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isExpandedPublicList, setIsExpandedPublicList] = useState(false);
@@ -219,6 +220,7 @@ export default function CustomerDetails() {
             setPublicList(updated);
             const parsed = typeof updated.items === 'string' ? JSON.parse(updated.items) : updated.items;
             setEditedPublicListItems(parsed);
+            setOriginalSnapshotPublicListItems(JSON.parse(JSON.stringify(parsed)));
           }
         }
       }
@@ -281,6 +283,7 @@ export default function CustomerDetails() {
         if (publicList?.id === listIdToDelete) {
           setPublicList(null);
           setEditedPublicListItems([]);
+          setOriginalSnapshotPublicListItems([]);
           setIsEditingPublicList(false);
         }
         alert('Lista de produção excluída com sucesso.');
@@ -297,22 +300,68 @@ export default function CustomerDetails() {
     if (!publicList?.id) return;
     setIsSavingPublicList(true);
     try {
-      const res = await fetch(`/api/public-lists?id=${encodeURIComponent(publicList.id)}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          title: publicList.title || 'Lista Pública de Pedido',
-          items: editedPublicListItems
-        })
-      });
-      if (res.ok) {
-        alert('Lista pública atualizada com sucesso!');
-        setIsEditingPublicList(false);
-        loadPublicList();
+      // 1. Fetch latest list items from DB
+      const getRes = await fetch(`/api/public-lists?id=${encodeURIComponent(publicList.id)}`);
+      if (getRes.ok) {
+        const data = await getRes.json();
+        const dbItems: SizeListItem[] = data.items 
+          ? (typeof data.items === 'string' ? JSON.parse(data.items) : data.items) 
+          : [];
+
+        // 2. Perform safe merge using local edits, current server items, and snapshot baseline
+        const snapshotIds = new Set(originalSnapshotPublicListItems.map((item) => item.id));
+        const localIds = new Set(editedPublicListItems.map((item) => item.id));
+        const localMap = new Map(editedPublicListItems.map((item) => [item.id, item]));
+
+        const mergedList: SizeListItem[] = [];
+
+        // Process DB items
+        for (const dbItem of dbItems) {
+          if (localIds.has(dbItem.id)) {
+            // Local user kept and possibly modified this item
+            mergedList.push(localMap.get(dbItem.id)!);
+          } else {
+            if (snapshotIds.has(dbItem.id)) {
+              // Existed when we loaded, but not in local edits -> local user explicitly deleted it
+            } else {
+              // Did not exist in our snapshot -> added by someone else while we were editing. Keep it!
+              mergedList.push(dbItem);
+            }
+          }
+        }
+
+        // Process new local items
+        const dbIds = new Set(dbItems.map((item) => item.id));
+        for (const localItem of editedPublicListItems) {
+          if (!dbIds.has(localItem.id) && !snapshotIds.has(localItem.id)) {
+            // Brand new item added locally -> keep it!
+            mergedList.push(localItem);
+          }
+        }
+
+        // 3. Save merged list using PUT
+        const res = await fetch(`/api/public-lists?id=${encodeURIComponent(publicList.id)}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            title: publicList.title || 'Lista Pública de Pedido',
+            items: mergedList
+          })
+        });
+
+        if (res.ok) {
+          setEditedPublicListItems(mergedList);
+          setOriginalSnapshotPublicListItems(JSON.parse(JSON.stringify(mergedList)));
+          alert('Lista pública atualizada com sucesso!');
+          setIsEditingPublicList(false);
+          loadPublicList();
+        } else {
+          alert('Erro ao salvar as alterações da lista.');
+        }
       } else {
-        alert('Erro ao salvar as alterações da lista.');
+        alert('Erro ao sincronizar dados da lista antes de salvar.');
       }
     } catch (error) {
       alert('Erro de conexão ao salvar a lista.');
@@ -1234,6 +1283,7 @@ export default function CustomerDetails() {
                                                 setPublicList(list);
                                                 const parsed = typeof list.items === 'string' ? JSON.parse(list.items) : list.items;
                                                 setEditedPublicListItems(parsed || []);
+                                                 setOriginalSnapshotPublicListItems(parsed ? JSON.parse(JSON.stringify(parsed)) : []);
                                                 setIsEditingPublicList(false);
                                               }}
                                               className="px-4 py-2 bg-zinc-900 border border-white/5 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition"
@@ -1311,6 +1361,8 @@ export default function CustomerDetails() {
                                       <button 
                                         onClick={() => {
                                           setEditedPublicListItems(publicList?.items ? (typeof publicList.items === 'string' ? JSON.parse(publicList.items) : publicList.items) : []);
+                                           const parsedPublicInit = publicList?.items ? (typeof publicList.items === 'string' ? JSON.parse(publicList.items) : publicList.items) : [];
+                                           setOriginalSnapshotPublicListItems(JSON.parse(JSON.stringify(parsedPublicInit)));
                                           setIsEditingPublicList(true);
                                         }}
                                         className="flex-1 sm:flex-initial px-4 py-2 bg-zinc-800 hover:bg-zinc-700 hover:text-white text-zinc-300 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition"
@@ -2665,6 +2717,17 @@ export default function CustomerDetails() {
                     </div>
                 </div>
             </div>
+        )}
+        {isSavingPublicList && (
+          <div id="saving-public-list-overlay" className="fixed inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-50">
+            <div className="bg-zinc-950/90 border border-white/5 p-8 rounded-3xl flex flex-col items-center space-y-4 max-w-sm text-center shadow-2xl animate-fade-in">
+              <Loader2 className="animate-spin text-primary stroke-[3]" size={48} />
+              <h3 className="text-white text-lg font-bold font-mono uppercase tracking-widest text-primary">anotando tudo</h3>
+              <p className="text-xs text-zinc-500 uppercase tracking-widest leading-relaxed">
+                Sincronizando as alterações feitas por outros integrantes antes de salvar seu progresso.
+              </p>
+            </div>
+          </div>
         )}
     </div>
   );

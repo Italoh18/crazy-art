@@ -17,6 +17,7 @@ export default function ListaPublica() {
   const [listTitle, setListTitle] = useState('Lista Pública');
   const [clientName, setClientName] = useState('');
   const [items, setItems] = useState<SizeListItem[]>([]);
+  const [originalSnapshotItems, setOriginalSnapshotItems] = useState<SizeListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -38,6 +39,7 @@ export default function ListaPublica() {
         if (data.items) {
           const parsed = typeof data.items === 'string' ? JSON.parse(data.items) : data.items;
           setItems(parsed);
+          setOriginalSnapshotItems(JSON.parse(JSON.stringify(parsed)));
           
           // Se houver algum item sem nome/número, inicia o isGlobalSimple de acordo
           if (parsed.length > 0) {
@@ -60,22 +62,67 @@ export default function ListaPublica() {
     setIsSaving(true);
     setSaveSuccess(false);
     try {
-      const response = await fetch(`/api/public-lists?id=${encodeURIComponent(id)}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          title: listTitle,
-          items: items
-        })
-      });
+      // 1. Fetch latest items from the database behind the loading indicator
+      const getResponse = await fetch(`/api/public-lists?id=${encodeURIComponent(id)}`);
+      if (getResponse.ok) {
+        const data = await getResponse.json();
+        const dbItems: SizeListItem[] = data.items 
+          ? (typeof data.items === 'string' ? JSON.parse(data.items) : data.items) 
+          : [];
+        
+        // 2. Perform safe merge using local edits, current server items, and snapshot baseline
+        const snapshotIds = new Set(originalSnapshotItems.map((item) => item.id));
+        const localIds = new Set(items.map((item) => item.id));
+        const localMap = new Map(items.map((item) => [item.id, item]));
+        
+        const mergedList: SizeListItem[] = [];
+        
+        // Process DB items
+        for (const dbItem of dbItems) {
+          if (localIds.has(dbItem.id)) {
+            // Local user kept and possibly modified this item
+            mergedList.push(localMap.get(dbItem.id)!);
+          } else {
+            if (snapshotIds.has(dbItem.id)) {
+              // Existed when we loaded, but not in local edits -> local user explicitly deleted it
+            } else {
+              // Did not exist in our snapshot -> added by someone else while we were editing. Keep it!
+              mergedList.push(dbItem);
+            }
+          }
+        }
+        
+        // Process new local items
+        const dbIds = new Set(dbItems.map((item) => item.id));
+        for (const localItem of items) {
+          if (!dbIds.has(localItem.id) && !snapshotIds.has(localItem.id)) {
+            // Brand new item added locally -> keep it!
+            mergedList.push(localItem);
+          }
+        }
+        
+        // 3. Write merged list using PUT
+        const putResponse = await fetch(`/api/public-lists?id=${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            title: listTitle,
+            items: mergedList
+          })
+        });
 
-      if (response.ok) {
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 4000);
+        if (putResponse.ok) {
+          setItems(mergedList);
+          setOriginalSnapshotItems(JSON.parse(JSON.stringify(mergedList)));
+          setSaveSuccess(true);
+          setTimeout(() => setSaveSuccess(false), 4000);
+        } else {
+          alert('Erro ao salvar as alterações da lista.');
+        }
       } else {
-        alert('Erro ao salvar as alterações da lista.');
+        alert('Erro ao sincronizar dados da lista antes de salvar.');
       }
     } catch (error) {
       alert('Erro de conexão ao salvar a lista.');
@@ -386,6 +433,17 @@ export default function ListaPublica() {
         </div>
 
       </div>
+      {isSaving && (
+        <div id="saving-overlay" className="fixed inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-50 animate-fade-in">
+          <div className="bg-zinc-950/90 border border-white/5 p-8 rounded-3xl flex flex-col items-center space-y-4 max-w-sm text-center shadow-2xl">
+            <Loader2 className="animate-spin text-primary stroke-[3]" size={48} />
+            <h3 className="text-white text-lg font-bold font-mono uppercase tracking-widest text-primary">anotando tudo</h3>
+            <p className="text-xs text-zinc-500 uppercase tracking-widest leading-relaxed">
+              Sincronizando as alterações feitas por outros integrantes antes de salvar seu progresso.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
