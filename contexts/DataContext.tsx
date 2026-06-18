@@ -13,6 +13,8 @@ interface DataContextType {
   moldes: Molde[];
   faviconUrl: string | null;
   mockupBaseUrl: string | null;
+  mockupCollars: any[];
+  updateMockupCollars: (collars: any[]) => Promise<void>;
   isLoading: boolean;
   addCustomer: (customer: any) => Promise<void>;
   updateCustomer: (id: string, data: any) => Promise<any>;
@@ -71,6 +73,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [moldes, setMoldes] = useState<Molde[]>([]);
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
   const [mockupBaseUrl, setMockupBaseUrl] = useState<string | null>(null);
+  const [mockupCollars, setMockupCollars] = useState<any[]>([]);
   const [driveFiles, setDriveFiles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -136,6 +139,13 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
         const settings = results[5].value || {};
         if (settings.favicon_url) setFaviconUrl(settings.favicon_url);
         if (settings.mockup_base_url) setMockupBaseUrl(settings.mockup_base_url);
+        if (settings.mockup_collars) {
+          try {
+            setMockupCollars(JSON.parse(settings.mockup_collars));
+          } catch (_) {
+            setMockupCollars([]);
+          }
+        }
       }
       if (results[6].status === 'fulfilled' && results[6].value !== null) setCoupons(results[6].value || []);
       if (results[7].status === 'fulfilled' && results[7].value !== null) {
@@ -497,6 +507,15 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       }
   };
 
+  const updateMockupCollars = async (collars: any[]) => {
+      try {
+          await api.updateSetting('mockup_collars', JSON.stringify(collars));
+          setMockupCollars(collars);
+      } catch (e: any) {
+          alert(e.message);
+      }
+  };
+
   const loadDriveFiles = async (folder?: string) => {
       // Throttle drive file loading
       const cacheKey = `drive_${folder || 'root'}`;
@@ -558,7 +577,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   return (
     <DataContext.Provider value={{ 
       customers, products, orders, carouselImages, trustedCompanies, coupons, moldes, faviconUrl, 
-      mockupBaseUrl, isLoading, 
+      mockupBaseUrl, mockupCollars, updateMockupCollars, isLoading,  
       addCustomer, updateCustomer, deleteCustomer,
       addProduct, updateProduct, deleteProduct, 
       addOrder, updateOrder, deleteOrder, updateOrderStatus, updateProductionStep,
