@@ -82,7 +82,7 @@ const URLImage = ({ imageProps, isSelected, onSelect, onChange }: {
 };
 
 export default function LayoutBuilder() {
-  const { mockupBaseUrl } = useData();
+  const { mockupBaseUrl, mockupBackgroundUrl } = useData();
   const [images, setImages] = useState<MockupImage[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -113,7 +113,7 @@ export default function LayoutBuilder() {
   const currentMockupUrl = mockupBaseUrl || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1000&auto=format&fit=crop';
   
   const [mockupImg] = useImage(currentMockupUrl);
-  const [bgImg] = useImage(localBgUrl);
+  const [bgImg] = useImage(localBgUrl || mockupBackgroundUrl || '');
 
   const handleMouseDown = (e: any) => {
     // Button 2 is the right mouse click
@@ -389,8 +389,10 @@ export default function LayoutBuilder() {
                             {mockupImg && (
                                 <KonvaImage 
                                     image={mockupImg} 
-                                    width={720} 
-                                    height={720} 
+                                    width={mockupImg.width} 
+                                    height={mockupImg.height} 
+                                    x={(720 - mockupImg.width) / 2}
+                                    y={(720 - mockupImg.height) / 2}
                                     listening={false}
                                 />
                             )}

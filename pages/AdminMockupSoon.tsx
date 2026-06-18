@@ -12,13 +12,99 @@ export default function AdminMockupSoon() {
     mockupCollars, 
     updateMockupCollars,
     mockupCuffs,
-    updateMockupCuffs
+    updateMockupCuffs,
+    mockupParts,
+    updateMockupParts
   } = useData();
   
   const [baseUrl, setBaseUrl] = useState('');
   const [backgroundUrl, setBackgroundUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // States for SVG parts mapping / naming
+  const [isPartsModalOpen, setIsPartsModalOpen] = useState(false);
+  const [tempPartsList, setTempPartsList] = useState<any[]>([]);
+  const [svgContent, setSvgContent] = useState<string>('');
+  const [svgLoadError, setSvgLoadError] = useState<string>('');
+  const [selectedSelector, setSelectedSelector] = useState<string | null>(null);
+  const [selectedPartName, setSelectedPartName] = useState<string>('');
+
+  useEffect(() => {
+    if (isPartsModalOpen && baseUrl) {
+      setSvgLoadError('');
+      fetch(baseUrl)
+        .then(res => {
+          if (!res.ok) throw new Error('Não foi possível carregar o arquivo SVG.');
+          return res.text();
+        })
+        .then(text => {
+          if (!text.includes('<svg')) {
+            throw new Error('O arquivo carregado não parece ser um SVG válido.');
+          }
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(text, 'image/svg+xml');
+          const svgEl = doc.querySelector('svg');
+          if (svgEl) {
+            const interactiveTags = ['path', 'polygon', 'rect', 'circle', 'ellipse', 'g'];
+            interactiveTags.forEach(tag => {
+              const elements = doc.querySelectorAll(tag);
+              elements.forEach((el, i) => {
+                el.setAttribute('data-svg-index', `${tag}-${i}`);
+                el.setAttribute('class', 'interactive-svg-part transition-all duration-200');
+              });
+            });
+            const serializer = new XMLSerializer();
+            setSvgContent(serializer.serializeToString(svgEl));
+          } else {
+            setSvgContent(text);
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          setSvgLoadError(err.message || 'Erro ao carregar o SVG.');
+        });
+    }
+  }, [isPartsModalOpen, baseUrl]);
+
+  const handleBaseUrlUploadComplete = (url: string) => {
+    setBaseUrl(url);
+    const isSvg = url.toLowerCase().includes('.svg') || url.startsWith('data:image/svg+xml');
+    if (isSvg) {
+      setTempPartsList(Array.isArray(mockupParts) ? mockupParts : []);
+      setIsPartsModalOpen(true);
+    }
+  };
+
+  const handleSavePartName = () => {
+    if (!selectedSelector) return;
+    const name = selectedPartName.trim();
+    
+    let updated = [...tempPartsList];
+    if (name === '') {
+      updated = updated.filter(p => p.selector !== selectedSelector);
+    } else {
+      const existingIndex = updated.findIndex(p => p.selector === selectedSelector);
+      if (existingIndex !== -1) {
+        updated[existingIndex] = { ...updated[existingIndex], name };
+      } else {
+        updated.push({
+          id: Date.now().toString(),
+          selector: selectedSelector,
+          name
+        });
+      }
+    }
+    
+    setTempPartsList(updated);
+    setSelectedSelector(null);
+    setSelectedPartName('');
+  };
+
+  const handleSaveParts = async () => {
+    await updateMockupParts(tempPartsList);
+    setIsPartsModalOpen(false);
+  };
 
   // States for Golas management
   const [newCollarName, setNewCollarName] = useState('');
@@ -320,11 +406,24 @@ export default function AdminMockupSoon() {
               <ImageUploadInput 
                 label="Imagem do Mockup (Frente e Verso Juntos)"
                 value={baseUrl}
-                onChange={setBaseUrl}
+                onChange={handleBaseUrlUploadComplete}
                 placeholder="https://..."
                 category="mockups"
               />
               <p className="text-[10px] text-zinc-500">Este arquivo será a base da ferramenta "Monte seu Layout". Use um arquivo (SVG ou PNG) que já mostre os dois lados da camisa.</p>
+
+              {baseUrl && (baseUrl.toLowerCase().includes('.svg') || baseUrl.startsWith('data:image/svg+xml')) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTempPartsList(Array.isArray(mockupParts) ? mockupParts : []);
+                    setIsPartsModalOpen(true);
+                  }}
+                  className="w-full bg-zinc-950 text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 text-xs font-bold py-3 px-3 rounded-lg transition flex items-center justify-center gap-1.5"
+                >
+                  <Settings2 size={13} className="text-primary" /> Mapear Partes do SVG ({Array.isArray(mockupParts) ? mockupParts.length : 0} registradas)
+                </button>
+              )}
             </div>
           </div>
 
@@ -727,6 +826,222 @@ export default function AdminMockupSoon() {
                 className="px-6 py-2 bg-primary hover:bg-amber-600 rounded-lg text-xs font-bold text-white transition flex items-center gap-1.5"
               >
                 <Check size={14} /> Confirmar Posição
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Mapear Partes do SVG */}
+      {isPartsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col my-8">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 bg-zinc-955 border-b border-zinc-800">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Settings2 size={18} className="text-primary" /> Mapear Partes do SVG
+                </h3>
+                <p className="text-zinc-500 text-[10px] uppercase font-mono tracking-wider mt-0.5">Defina e nomeie áreas interativas para a fabricação</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPartsModalOpen(false)}
+                className="p-1.5 bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-lg transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-8 overflow-y-auto max-h-[60vh]">
+              {/* Left Column: SVG Rendering */}
+              <div className="md:col-span-2 space-y-4">
+                <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest block">Clique nas partes do SVG para nomeá-las</span>
+                
+                {svgLoadError ? (
+                  <div className="p-8 bg-red-500/10 border border-red-500/20 text-red-500 rounded-xl text-center text-xs">
+                    {svgLoadError}
+                  </div>
+                ) : svgContent ? (
+                  <div className="relative">
+                    {/* Dynamic Stylings */}
+                    <style dangerouslySetInnerHTML={{ __html: `
+                      .interactive-svg-part {
+                        cursor: pointer !important;
+                        transition: all 0.2s ease-in-out;
+                      }
+                      .interactive-svg-part:hover {
+                        fill: rgba(245, 158, 11, 0.45) !important;
+                        stroke: #f59e0b !important;
+                        stroke-width: 2.5px !important;
+                      }
+                      ${tempPartsList.map(part => `
+                        [data-svg-index="${part.selector}"] {
+                          fill: rgba(59, 130, 246, 0.3) !important;
+                          stroke: #3b82f6 !important;
+                          stroke-width: 2px !important;
+                        }
+                      `).join('\n')}
+                      ${selectedSelector ? `
+                        [data-svg-index="${selectedSelector}"] {
+                          fill: rgba(245, 158, 11, 0.5) !important;
+                          stroke: #f59e0b !important;
+                          stroke-width: 3px !important;
+                        }
+                      ` : ''}
+                    `}} />
+                    
+                    <div 
+                      id="interactive-svg-container"
+                      dangerouslySetInnerHTML={{ __html: svgContent }} 
+                      onClick={(e) => {
+                        const target = e.target as SVGElement;
+                        if (!target) return;
+                        
+                        let current: SVGElement | null = target;
+                        let dataIndex: string | null = null;
+                        
+                        while (current && current !== (e.currentTarget as any)) {
+                          dataIndex = current.getAttribute('data-svg-index');
+                          if (dataIndex) {
+                            break;
+                          }
+                          current = current.parentElement as any;
+                        }
+                        
+                        if (dataIndex) {
+                          setSelectedSelector(dataIndex);
+                          const existing = tempPartsList.find(p => p.selector === dataIndex);
+                          if (existing) {
+                            setSelectedPartName(existing.name);
+                          } else {
+                            setSelectedPartName('');
+                          }
+                        }
+                      }}
+                      className="w-full min-h-[350px] flex items-center justify-center bg-zinc-950/50 rounded-2xl border border-zinc-800/80 p-4 transition-all duration-300 [&>svg]:max-w-full [&>svg]:max-h-[380px] [&>svg]:w-auto [&>svg]:h-auto [&_path]:stroke-zinc-700/50 [&_polygon]:stroke-zinc-700/50"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-12 bg-zinc-950/40 rounded-2xl border border-zinc-850">
+                    <div className="w-10 h-10 border-2 border-t-primary border-zinc-850 rounded-full animate-spin mb-3"></div>
+                    <p className="text-xs text-zinc-500">Processando e indexando arquivo vetorial SVG...</p>
+                  </div>
+                )}
+                
+                {selectedSelector && (
+                  <div className="bg-zinc-950/80 p-5 rounded-2xl border border-zinc-800/80 space-y-3 shadow-lg">
+                    <div className="flex items-center justify-between text-xs font-mono text-zinc-500">
+                      <span>Selector: <b className="text-zinc-400">{selectedSelector}</b></span>
+                      <button 
+                        type="button"
+                        onClick={() => { setSelectedSelector(null); setSelectedPartName(''); }}
+                        className="text-zinc-500 hover:text-white transition"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5 block">Nome do Componente/Parte</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text"
+                          placeholder="Ex: Manga Direita, Frente, Costas, Gola..."
+                          className="flex-1 bg-black/40 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
+                          value={selectedPartName}
+                          onChange={e => setSelectedPartName(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSavePartName();
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSavePartName}
+                          className="bg-primary hover:bg-amber-600 px-4 py-2 rounded-lg font-bold text-xs text-white transition flex items-center gap-1 shadow-lg shadow-primary/15"
+                        >
+                          <Check size={14} /> Salvar Parte
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Active Mapped Parts List */}
+              <div className="space-y-4 flex flex-col justify-between h-full bg-zinc-950/50 border border-zinc-850 p-5 rounded-2xl">
+                <div>
+                  <h4 className="text-xs font-bold text-white mb-1 tracking-tight">Partes Mapeadas</h4>
+                  <p className="text-[10px] text-zinc-500 leading-normal mb-4">Veja e exclua áreas mapeadas do seu vetor de mockup.</p>
+                  
+                  <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                    {tempPartsList.map(part => (
+                      <div key={part.id} className="flex items-center justify-between p-3 rounded-xl bg-zinc-900 border border-zinc-800/60 group hover:border-zinc-700 transition duration-150">
+                        <div>
+                          <p className="text-xs font-bold text-zinc-100">{part.name}</p>
+                          <p className="text-[9px] text-zinc-500 font-mono tracking-wider mt-0.5">{part.selector}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedSelector(part.selector);
+                              setSelectedPartName(part.name);
+                            }}
+                            className="p-1.5 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-lg transition"
+                            title="Editar parte"
+                          >
+                            <Settings2 size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTempPartsList(prev => prev.filter(p => p.id !== part.id));
+                              if (selectedSelector === part.selector) {
+                                setSelectedSelector(null);
+                                setSelectedPartName('');
+                              }
+                            }}
+                            className="p-1.5 hover:bg-zinc-800/60 text-zinc-500 hover:text-red-500 rounded-lg transition"
+                            title="Excluir parte"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {tempPartsList.length === 0 && (
+                      <div className="text-center py-10 opacity-70">
+                        <div className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center mx-auto mb-2 text-zinc-500">
+                          <Settings2 size={14} />
+                        </div>
+                        <p className="text-[10px] text-zinc-500 italic px-4">Nenhuma parte mapeada. Clique diretamente em uma área da camiseta ao lado para começar.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 bg-zinc-950 border-t border-zinc-850">
+              <button
+                type="button"
+                onClick={() => setIsPartsModalOpen(false)}
+                className="px-4 py-2 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-lg text-xs font-bold text-zinc-400 hover:text-white transition"
+              >
+                Descartar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveParts}
+                className="px-6 py-2 bg-primary hover:bg-amber-600 rounded-lg text-xs font-bold text-white transition flex items-center gap-1.5 shadow-lg shadow-primary/10"
+              >
+                <Check size={14} /> Salvar Configurações de Partes
               </button>
             </div>
           </div>

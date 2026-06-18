@@ -18,6 +18,8 @@ interface DataContextType {
   updateMockupCollars: (collars: any[]) => Promise<void>;
   mockupCuffs: any[];
   updateMockupCuffs: (cuffs: any[]) => Promise<void>;
+  mockupParts: any[];
+  updateMockupParts: (parts: any[]) => Promise<void>;
   isLoading: boolean;
   addCustomer: (customer: any) => Promise<void>;
   updateCustomer: (id: string, data: any) => Promise<any>;
@@ -80,6 +82,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [mockupBackgroundUrl, setMockupBackgroundUrl] = useState<string | null>(null);
   const [mockupCollars, setMockupCollars] = useState<any[]>([]);
   const [mockupCuffs, setMockupCuffs] = useState<any[]>([]);
+  const [mockupParts, setMockupParts] = useState<any[]>([]);
   const [driveFiles, setDriveFiles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -158,6 +161,13 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
             setMockupCuffs(JSON.parse(settings.mockup_cuffs));
           } catch (_) {
             setMockupCuffs([]);
+          }
+        }
+        if (settings.mockup_parts) {
+          try {
+            setMockupParts(JSON.parse(settings.mockup_parts));
+          } catch (_) {
+            setMockupParts([]);
           }
         }
       }
@@ -548,6 +558,15 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       }
   };
 
+  const updateMockupParts = async (parts: any[]) => {
+      try {
+          await api.updateSetting('mockup_parts', JSON.stringify(parts));
+          setMockupParts(parts);
+      } catch (e: any) {
+          alert(e.message);
+      }
+  };
+
   const loadDriveFiles = async (folder?: string) => {
       // Throttle drive file loading
       const cacheKey = `drive_${folder || 'root'}`;
@@ -609,7 +628,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   return (
     <DataContext.Provider value={{ 
       customers, products, orders, carouselImages, trustedCompanies, coupons, moldes, faviconUrl, 
-      mockupBaseUrl, mockupBackgroundUrl, mockupCollars, updateMockupCollars, mockupCuffs, updateMockupCuffs, isLoading,  
+      mockupBaseUrl, mockupBackgroundUrl, mockupCollars, updateMockupCollars, mockupCuffs, updateMockupCuffs, mockupParts, updateMockupParts, isLoading,  
       addCustomer, updateCustomer, deleteCustomer,
       addProduct, updateProduct, deleteProduct, 
       addOrder, updateOrder, deleteOrder, updateOrderStatus, updateProductionStep,
