@@ -21,8 +21,8 @@ const URLImage = ({ imageProps, isSelected, onSelect, onChange }: {
   isSelected: boolean, 
   onSelect: () => void,
   onChange: (newProps: MockupImage) => void 
-}) => {
-  const [img] = useImage(imageProps.url);
+  }) => {
+  const [img] = useImage(imageProps.url, 'anonymous');
   const shapeRef = useRef<any>(null);
   const trRef = useRef<any>(null);
 
@@ -82,7 +82,7 @@ const URLImage = ({ imageProps, isSelected, onSelect, onChange }: {
 };
 
 export default function LayoutBuilder() {
-  const { mockupBaseUrl, mockupBackgroundUrl, mockupBaseX, mockupBaseY, mockupBaseWidth, mockupCollars } = useData();
+  const { mockupBaseUrl, mockupBackgroundUrl, mockupBaseX, mockupBaseY, mockupBaseWidth, mockupCollars, loadData } = useData();
   const [images, setImages] = useState<MockupImage[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -99,11 +99,17 @@ export default function LayoutBuilder() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (loadData) {
+      loadData(true);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!containerRef.current) return;
     const observer = new ResizeObserver((entries) => {
       for (let entry of entries) {
         const { width, height } = entry.contentRect;
-        const size = Math.min(width, height) || width || 720;
+         const size = Math.min(width, height) || width || 720;
         setContainerSize({ width: size, height: size });
       }
     });
@@ -115,9 +121,9 @@ export default function LayoutBuilder() {
   
   const collarsList = Array.isArray(mockupCollars) ? mockupCollars : [];
   const activeCollar = collarsList.find(c => c.id === selectedCollarId);
-  const [mockupImg] = useImage(currentMockupUrl);
-  const [bgImg] = useImage(localBgUrl || mockupBackgroundUrl || '');
-  const [collarImg] = useImage(activeCollar?.svgUrl || '');
+  const [mockupImg] = useImage(currentMockupUrl, 'anonymous');
+  const [bgImg] = useImage(localBgUrl || mockupBackgroundUrl || '', 'anonymous');
+  const [collarImg] = useImage(activeCollar?.svgUrl || '', 'anonymous');
 
   const handleMouseDown = (e: any) => {
     // Button 2 is the right mouse click
@@ -469,56 +475,18 @@ export default function LayoutBuilder() {
             </div>
         </div>
 
-        {/* SIDEBAR DIREITA - FERRAMENTAS EM BREVE */}
+        {/* SIDEBAR DIREITA - CUSTOMIZAÇÃO DE MODELAGEM */}
         <div className="flex w-64 lg:w-80 border-l border-white/5 bg-zinc-950 p-6 flex-col gap-6 overflow-y-auto shrink-0 select-none">
           <div className="border-b border-white/5 pb-4">
              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                 <Sparkles size={16} className="text-[#a855f7]" />
-                 Ferramentas
+                 <Wrench size={16} className="text-primary" />
+                 Modelagem
              </h2>
-             <span className="text-[9px] font-mono font-semibold text-[#a855f7] bg-[#a855f7]/10 px-2 py-0.5 rounded-full uppercase tracking-widest mt-1 block w-fit">em breve</span>
-          </div>
-
-          <div className="space-y-4">
-            {/* Ferramenta 1: Filtros de Imagem */}
-            <div className="p-4 bg-[#121215]/50 border border-white/5 rounded-2xl relative overflow-hidden opacity-60">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-zinc-300">Filtros de Cor</span>
-                <span className="text-[8px] font-mono font-bold bg-[#a855f7]/10 text-[#a855f7] px-2 py-0.5 rounded-full uppercase tracking-wider">breve</span>
-              </div>
-              <p className="text-[10px] text-zinc-500 leading-relaxed">Ajustes de matiz, saturação, brilho e contraste nas estampas.</p>
-            </div>
-
-            {/* Ferramenta 2: Texturas 3D / Mockup Pro */}
-            <div className="p-4 bg-[#121215]/50 border border-white/5 rounded-2xl relative overflow-hidden opacity-60">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-zinc-300">Texturas & Sombras</span>
-                <span className="text-[8px] font-mono font-bold bg-[#a855f7]/10 text-[#a855f7] px-2 py-0.5 rounded-full uppercase tracking-wider">breve</span>
-              </div>
-              <p className="text-[10px] text-zinc-500 leading-relaxed">Sobreposição de dobras e profundidade realistas para tecido.</p>
-            </div>
-
-            {/* Ferramenta 3: Biblioteca de Moldes */}
-            <div className="p-4 bg-[#121215]/50 border border-white/5 rounded-2xl relative overflow-hidden opacity-60">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-zinc-300">Biblioteca de Moldes</span>
-                <span className="text-[8px] font-mono font-bold bg-[#a855f7]/10 text-[#a855f7] px-2 py-0.5 rounded-full uppercase tracking-wider">breve</span>
-              </div>
-              <p className="text-[10px] text-zinc-500 leading-relaxed">Acesse dezenas de novos moldes de vestuário e acessórios.</p>
-            </div>
-
-            {/* Ferramenta 4: Perspectiva Avançada */}
-            <div className="p-4 bg-[#121215]/50 border border-white/5 rounded-2xl relative overflow-hidden opacity-60">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-zinc-300">Perspectiva 3D</span>
-                <span className="text-[8px] font-mono font-bold bg-[#a855f7]/10 text-[#a855f7] px-2 py-0.5 rounded-full uppercase tracking-wider">breve</span>
-              </div>
-              <p className="text-[10px] text-zinc-500 leading-relaxed">Distorção inteligente de estampa para acompanhar as curvas do tecido.</p>
-            </div>
+             <span className="text-[9px] font-mono font-semibold text-zinc-500 uppercase tracking-widest mt-1 block">Ajustes & Componentes</span>
           </div>
 
           {/* Seletor de Gola */}
-          <div className="border-t border-white/5 pt-6 space-y-4">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-xs font-bold text-white uppercase tracking-wider">Gola do Mockup</h3>
@@ -527,14 +495,14 @@ export default function LayoutBuilder() {
               {selectedCollarId && (
                 <button
                   onClick={() => setSelectedCollarId('')}
-                  className="text-[10px] text-zinc-500 hover:text-white font-medium transition cursor-pointer"
+                  className="text-[10px] text-zinc-500 hover:text-white font-medium transition cursor-pointer bg-transparent border-none p-0"
                 >
                   Remover Gola
                 </button>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-3 max-h-[350px] overflow-y-auto pr-1">
               {collarsList.map((collar) => {
                 const isSelected = selectedCollarId === collar.id;
                 return (
