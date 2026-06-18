@@ -1715,11 +1715,11 @@ export default function CustomerDetails() {
                 </div>
 
                 {/* Status Financeiro */}
-                <div className={`w-full p-6 rounded-3xl border flex items-center gap-4 ${hasOverdue ? 'bg-red-500/5 border-red-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
-                    <div className={`p-3 rounded-full ${hasOverdue ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                <div className={`w-full p-6 rounded-3xl border flex items-start gap-4 ${hasOverdue ? 'bg-red-500/5 border-red-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
+                    <div className={`p-3 rounded-full mt-0.5 ${hasOverdue ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
                         {hasOverdue ? <AlertTriangle size={24} /> : <CheckCircle size={24} />}
                     </div>
-                    <div>
+                    <div className="flex-1">
                         <h3 className={`text-lg font-bold ${hasOverdue ? 'text-red-400' : 'text-emerald-400'}`}>
                             {hasOverdue ? 'Faturas em Aberto' : 'Você está em dia!'}
                         </h3>
@@ -1728,11 +1728,20 @@ export default function CustomerDetails() {
                                 ? 'Existem pendências financeiras em sua conta.' 
                                 : 'Parabéns, não constam pendências financeiras.'}
                         </p>
-                        {hasOverdue && (
-                            <Link to="/my-orders" className="text-xs font-bold text-red-400 hover:text-red-300 underline mt-1 block">
-                                Ver pendências em Meus Pedidos
+                        <div className="mt-3">
+                            <Link 
+                                id="btn-my-orders" 
+                                to="/my-orders" 
+                                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                                    hasOverdue 
+                                        ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 hover:border-red-500/30' 
+                                        : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/30'
+                                }`}
+                            >
+                                <Package size={14} />
+                                {hasOverdue ? 'Ver Meus Pedidos e Pendências' : 'Meus Pedidos'}
                             </Link>
-                        )}
+                        </div>
                     </div>
                 </div>
 
