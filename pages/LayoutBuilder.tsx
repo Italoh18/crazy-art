@@ -82,7 +82,7 @@ const URLImage = ({ imageProps, isSelected, onSelect, onChange }: {
 };
 
 export default function LayoutBuilder() {
-  const { mockupBaseUrl, mockupBackgroundUrl } = useData();
+  const { mockupBaseUrl, mockupBackgroundUrl, mockupBaseX, mockupBaseY, mockupBaseWidth } = useData();
   const [images, setImages] = useState<MockupImage[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -386,16 +386,22 @@ export default function LayoutBuilder() {
                                     listening={false}
                                 />
                             )}
-                            {mockupImg && (
-                                <KonvaImage 
-                                    image={mockupImg} 
-                                    width={mockupImg.width} 
-                                    height={mockupImg.height} 
-                                    x={(720 - mockupImg.width) / 2}
-                                    y={(720 - mockupImg.height) / 2}
-                                    listening={false}
-                                />
-                            )}
+                            {mockupImg && (() => {
+                                const w = 720 * ((mockupBaseWidth ?? 100) / 100);
+                                const h = mockupImg ? (mockupImg.height / mockupImg.width) * w : 720;
+                                const x = (720 * ((mockupBaseX ?? 50) / 100)) - (w / 2);
+                                const y = (720 * ((mockupBaseY ?? 50) / 100)) - (h / 2);
+                                return (
+                                    <KonvaImage 
+                                        image={mockupImg} 
+                                        width={w} 
+                                        height={h} 
+                                        x={x}
+                                        y={y}
+                                        listening={false}
+                                    />
+                                );
+                            })()}
                             {images.map((img, i) => (
                                 <URLImage
                                     key={img.id}

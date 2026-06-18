@@ -13,6 +13,10 @@ interface DataContextType {
   moldes: Molde[];
   faviconUrl: string | null;
   mockupBaseUrl: string | null;
+  mockupBaseX: number;
+  mockupBaseY: number;
+  mockupBaseWidth: number;
+  updateMockupBasePosition: (x: number, y: number, width: number) => Promise<void>;
   mockupBackgroundUrl: string | null;
   mockupCollars: any[];
   updateMockupCollars: (collars: any[]) => Promise<void>;
@@ -79,6 +83,9 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [moldes, setMoldes] = useState<Molde[]>([]);
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
   const [mockupBaseUrl, setMockupBaseUrl] = useState<string | null>(null);
+  const [mockupBaseX, setMockupBaseX] = useState<number>(50);
+  const [mockupBaseY, setMockupBaseY] = useState<number>(50);
+  const [mockupBaseWidth, setMockupBaseWidth] = useState<number>(100);
   const [mockupBackgroundUrl, setMockupBackgroundUrl] = useState<string | null>(null);
   const [mockupCollars, setMockupCollars] = useState<any[]>([]);
   const [mockupCuffs, setMockupCuffs] = useState<any[]>([]);
@@ -148,6 +155,9 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
         const settings = results[5].value || {};
         if (settings.favicon_url) setFaviconUrl(settings.favicon_url);
         if (settings.mockup_base_url) setMockupBaseUrl(settings.mockup_base_url);
+        if (settings.mockup_base_x) setMockupBaseX(Number(settings.mockup_base_x));
+        if (settings.mockup_base_y) setMockupBaseY(Number(settings.mockup_base_y));
+        if (settings.mockup_base_width) setMockupBaseWidth(Number(settings.mockup_base_width));
         if (settings.mockup_background_url) setMockupBackgroundUrl(settings.mockup_background_url);
         if (settings.mockup_collars) {
           try {
@@ -531,6 +541,21 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       }
   };
 
+  const updateMockupBasePosition = async (x: number, y: number, width: number) => {
+      try {
+          await Promise.all([
+              api.updateSetting('mockup_base_x', String(x)),
+              api.updateSetting('mockup_base_y', String(y)),
+              api.updateSetting('mockup_base_width', String(width))
+          ]);
+          setMockupBaseX(x);
+          setMockupBaseY(y);
+          setMockupBaseWidth(width);
+      } catch (e: any) {
+          alert(e.message);
+      }
+  };
+
   const updateMockupBackground = async (url: string) => {
       try {
           await api.updateSetting('mockup_background_url', url);
@@ -628,7 +653,8 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   return (
     <DataContext.Provider value={{ 
       customers, products, orders, carouselImages, trustedCompanies, coupons, moldes, faviconUrl, 
-      mockupBaseUrl, mockupBackgroundUrl, mockupCollars, updateMockupCollars, mockupCuffs, updateMockupCuffs, mockupParts, updateMockupParts, isLoading,  
+      mockupBaseUrl, mockupBaseX, mockupBaseY, mockupBaseWidth, updateMockupBasePosition,
+      mockupBackgroundUrl, mockupCollars, updateMockupCollars, mockupCuffs, updateMockupCuffs, mockupParts, updateMockupParts, isLoading,  
       addCustomer, updateCustomer, deleteCustomer,
       addProduct, updateProduct, deleteProduct, 
       addOrder, updateOrder, deleteOrder, updateOrderStatus, updateProductionStep,

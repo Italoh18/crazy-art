@@ -7,6 +7,10 @@ export default function AdminMockupSoon() {
   const { 
     mockupBaseUrl, 
     updateMockupBase, 
+    mockupBaseX,
+    mockupBaseY,
+    mockupBaseWidth,
+    updateMockupBasePosition,
     mockupBackgroundUrl,
     updateMockupBackground,
     mockupCollars, 
@@ -19,6 +23,9 @@ export default function AdminMockupSoon() {
   
   const [baseUrl, setBaseUrl] = useState('');
   const [backgroundUrl, setBackgroundUrl] = useState('');
+  const [baseX, setBaseX] = useState(50);
+  const [baseY, setBaseY] = useState(50);
+  const [baseWidth, setBaseWidth] = useState(100);
   const [isSaving, setIsSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -33,7 +40,10 @@ export default function AdminMockupSoon() {
   useEffect(() => {
     if (isPartsModalOpen && baseUrl) {
       setSvgLoadError('');
-      fetch(baseUrl)
+      const fetchUrl = baseUrl.startsWith('data:') 
+        ? baseUrl 
+        : `/api/proxy-image?url=${encodeURIComponent(baseUrl)}`;
+      fetch(fetchUrl)
         .then(res => {
           if (!res.ok) throw new Error('Não foi possível carregar o arquivo SVG.');
           return res.text();
@@ -137,6 +147,18 @@ export default function AdminMockupSoon() {
   }, [mockupBaseUrl]);
 
   useEffect(() => {
+    if (mockupBaseX !== undefined) setBaseX(mockupBaseX);
+  }, [mockupBaseX]);
+
+  useEffect(() => {
+    if (mockupBaseY !== undefined) setBaseY(mockupBaseY);
+  }, [mockupBaseY]);
+
+  useEffect(() => {
+    if (mockupBaseWidth !== undefined) setBaseWidth(mockupBaseWidth);
+  }, [mockupBaseWidth]);
+
+  useEffect(() => {
     if (mockupBackgroundUrl) setBackgroundUrl(mockupBackgroundUrl);
   }, [mockupBackgroundUrl]);
 
@@ -149,7 +171,8 @@ export default function AdminMockupSoon() {
     setIsSaving(true);
     await Promise.all([
       updateMockupBase(baseUrl.trim()),
-      updateMockupBackground(backgroundUrl.trim())
+      updateMockupBackground(backgroundUrl.trim()),
+      updateMockupBasePosition(baseX, baseY, baseWidth)
     ]);
     setIsSaving(false);
     setSuccess(true);
@@ -424,6 +447,78 @@ export default function AdminMockupSoon() {
                   <Settings2 size={13} className="text-primary" /> Mapear Partes do SVG ({Array.isArray(mockupParts) ? mockupParts.length : 0} registradas)
                 </button>
               )}
+
+              {baseUrl && (
+                <div className="bg-zinc-950/80 p-4 rounded-xl border border-zinc-800/80 space-y-4">
+                  <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest block">Dimensão e Posição da Camisa</span>
+                  
+                  <div className="space-y-3 font-mono text-zinc-400">
+                    <div>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="text-zinc-500 font-bold uppercase text-[10px]">Largura / Escala</span>
+                        <span className="text-white text-[11px] font-bold">{baseWidth}%</span>
+                      </div>
+                      <input 
+                        type="range"
+                        min="10"
+                        max="200"
+                        step="1"
+                        className="w-full accent-primary bg-black/40 h-1.5 rounded-lg appearance-none cursor-pointer"
+                        value={baseWidth}
+                        onChange={e => setBaseWidth(Number(e.target.value))}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-zinc-500 font-bold uppercase text-[10px]">Posição X</span>
+                          <span className="text-white text-[11px] font-bold">{baseX}%</span>
+                        </div>
+                        <input 
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="1"
+                          className="w-full accent-primary bg-black/40 h-1.5 rounded-lg appearance-none cursor-pointer"
+                          value={baseX}
+                          onChange={e => setBaseX(Number(e.target.value))}
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-zinc-500 font-bold uppercase text-[10px]">Posição Y</span>
+                          <span className="text-white text-[11px] font-bold">{baseY}%</span>
+                        </div>
+                        <input 
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="1"
+                          className="w-full accent-primary bg-black/40 h-1.5 rounded-lg appearance-none cursor-pointer"
+                          value={baseY}
+                          onChange={e => setBaseY(Number(e.target.value))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBaseWidth(100);
+                          setBaseX(50);
+                          setBaseY(50);
+                        }}
+                        className="text-[9px] hover:text-white text-zinc-500 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 px-3 py-1 rounded transition"
+                      >
+                        Resetar Padrão
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -444,14 +539,26 @@ export default function AdminMockupSoon() {
             </div>
 
             {baseUrl && (
-              <div className="mt-6 p-4 rounded-xl border border-white/5 bg-black/20 flex items-center justify-between">
-                <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Preview Ativo</span>
-                <img 
-                  src={baseUrl} 
-                  alt="Url Preview" 
-                  className="w-12 h-12 object-contain rounded border border-white/10"
-                  onError={(e) => e.currentTarget.style.display = 'none'} 
-                />
+              <div className="mt-6 p-4 rounded-xl border border-white/5 bg-black/20 flex flex-col justify-between">
+                <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider mb-2 block">Pré-visualização do Enquadramento (Workspace)</span>
+                <div className="aspect-square w-full max-w-[190px] mx-auto bg-zinc-950 border border-zinc-850 rounded-xl relative overflow-hidden flex items-center justify-center">
+                  <img 
+                    src={baseUrl} 
+                    style={{
+                      position: 'absolute',
+                      width: `${baseWidth}%`,
+                      left: `${baseX}%`,
+                      top: `${baseY}%`,
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                    className="object-contain max-h-full transition-all duration-75"
+                    onError={(e) => e.currentTarget.style.display = 'none'} 
+                  />
+                  {/* Subtle axes crosshair for calibration guidance */}
+                  <div className="absolute inset-0 border border-dashed border-zinc-850/20 pointer-events-none"></div>
+                  <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-zinc-800/40 pointer-events-none"></div>
+                  <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-zinc-805/40 pointer-events-none"></div>
+                </div>
               </div>
             )}
           </div>
