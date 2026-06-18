@@ -4,7 +4,15 @@ import { Save, Image as ImageIcon, Sparkles, Layers, Check, Plus, Trash2, X, Set
 import { ImageUploadInput } from '../components/ImageUploadInput';
 
 export default function AdminMockupSoon() {
-  const { mockupBaseUrl, updateMockupBase, mockupCollars, updateMockupCollars } = useData();
+  const { 
+    mockupBaseUrl, 
+    updateMockupBase, 
+    mockupCollars, 
+    updateMockupCollars,
+    mockupCuffs,
+    updateMockupCuffs
+  } = useData();
+  
   const [baseUrl, setBaseUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -12,12 +20,17 @@ export default function AdminMockupSoon() {
   // States for Golas management
   const [newCollarName, setNewCollarName] = useState('');
   const [newCollarUrl, setNewCollarUrl] = useState('');
+
+  // States for Punhos (Cuffs) management
+  const [newCuffName, setNewCuffName] = useState('');
+  const [newCuffUrl, setNewCuffUrl] = useState('');
   
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingCollar, setEditingCollar] = useState<any | null>(null);
-  const [tempCollarUrl, setTempCollarUrl] = useState('');
-  const [tempCollarName, setTempCollarName] = useState('');
+  const [modalType, setModalType] = useState<'collar' | 'cuff'>('collar');
+  const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [tempItemUrl, setTempItemUrl] = useState('');
+  const [tempItemName, setTempItemName] = useState('');
   const [tempPosition, setTempPosition] = useState({ x: 50, y: 30, width: 25 });
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -34,8 +47,9 @@ export default function AdminMockupSoon() {
     if (mockupBaseUrl) setBaseUrl(mockupBaseUrl);
   }, [mockupBaseUrl]);
 
-  // Safe collars list reference
+  // Safe list references
   const collarsList = Array.isArray(mockupCollars) ? mockupCollars : [];
+  const cuffsList = Array.isArray(mockupCuffs) ? mockupCuffs : [];
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +60,7 @@ export default function AdminMockupSoon() {
     setTimeout(() => setSuccess(false), 3000);
   };
 
-  // Drag and drop event listeners
+  // Drag and drop event listeners for alignment modal
   useEffect(() => {
     if (!dragState) return;
 
@@ -110,58 +124,117 @@ export default function AdminMockupSoon() {
     }
     
     // Auto open position modal of the newly uploaded SVG
-    setTempCollarUrl(url);
-    setTempCollarName(name);
+    setTempItemUrl(url);
+    setTempItemName(name);
     setTempPosition({ x: 50, y: 25, width: 25 });
-    setEditingCollar(null);
+    setEditingItem(null);
+    setModalType('collar');
     setIsModalOpen(true);
   };
 
-  const openPositionModal = (collar: any | null) => {
-    if (collar) {
-      setEditingCollar(collar);
-      setTempCollarUrl(collar.svgUrl);
-      setTempCollarName(collar.name);
-      setTempPosition({ x: collar.x, y: collar.y, width: collar.width });
-    } else {
-      if (!newCollarName.trim() || !newCollarUrl) return;
-      setEditingCollar(null);
-      setTempCollarUrl(newCollarUrl);
-      setTempCollarName(newCollarName.trim());
-      setTempPosition({ x: 50, y: 25, width: 25 });
+  const handleCuffUploadComplete = (url: string) => {
+    setNewCuffUrl(url);
+    let name = newCuffName.trim();
+    if (!name) {
+      name = `Punho ${cuffsList.length + 1}`;
+      setNewCuffName(name);
     }
-    setIsModalOpen(true);
-  };
-
-  const handleSaveCollarPosition = async () => {
-    let updatedList = [...collarsList];
     
-    if (editingCollar) {
-      updatedList = updatedList.map(c => c.id === editingCollar.id ? {
-        ...c,
-        name: tempCollarName.trim() || c.name,
-        svgUrl: tempCollarUrl,
-        x: tempPosition.x,
-        y: tempPosition.y,
-        width: tempPosition.width
-      } : c);
+    // Auto open position modal of the newly uploaded SVG
+    setTempItemUrl(url);
+    setTempItemName(name);
+    setTempPosition({ x: 50, y: 55, width: 25 });
+    setEditingItem(null);
+    setModalType('cuff');
+    setIsModalOpen(true);
+  };
+
+  const openPositionModal = (item: any | null, type: 'collar' | 'cuff') => {
+    setModalType(type);
+    if (item) {
+      setEditingItem(item);
+      setTempItemUrl(item.svgUrl);
+      setTempItemName(item.name);
+      setTempPosition({ x: item.x, y: item.y, width: item.width });
     } else {
-      const newCollarObj = {
-        id: Date.now().toString(),
-        name: tempCollarName.trim() || `Gola ${collarsList.length + 1}`,
-        svgUrl: tempCollarUrl,
-        x: tempPosition.x,
-        y: tempPosition.y,
-        width: tempPosition.width
-      };
-      updatedList.push(newCollarObj);
+      if (type === 'collar') {
+        if (!newCollarName.trim() || !newCollarUrl) return;
+        setEditingItem(null);
+        setTempItemUrl(newCollarUrl);
+        setTempItemName(newCollarName.trim());
+        setTempPosition({ x: 50, y: 25, width: 25 });
+      } else {
+        if (!newCuffName.trim() || !newCuffUrl) return;
+        setEditingItem(null);
+        setTempItemUrl(newCuffUrl);
+        setTempItemName(newCuffName.trim());
+        setTempPosition({ x: 50, y: 55, width: 15 });
+      }
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleSaveItemPosition = async () => {
+    if (modalType === 'collar') {
+      let updatedList = [...collarsList];
       
-      // Reset input fields
-      setNewCollarName('');
-      setNewCollarUrl('');
+      if (editingItem) {
+        updatedList = updatedList.map(c => c.id === editingItem.id ? {
+          ...c,
+          name: tempItemName.trim() || c.name,
+          svgUrl: tempItemUrl,
+          x: tempPosition.x,
+          y: tempPosition.y,
+          width: tempPosition.width
+        } : c);
+      } else {
+        const newCollarObj = {
+          id: Date.now().toString(),
+          name: tempItemName.trim() || `Gola ${collarsList.length + 1}`,
+          svgUrl: tempItemUrl,
+          x: tempPosition.x,
+          y: tempPosition.y,
+          width: tempPosition.width
+        };
+        updatedList.push(newCollarObj);
+        
+        // Reset input fields
+        setNewCollarName('');
+        setNewCollarUrl('');
+      }
+
+      await updateMockupCollars(updatedList);
+    } else {
+      let updatedList = [...cuffsList];
+      
+      if (editingItem) {
+        updatedList = updatedList.map(c => c.id === editingItem.id ? {
+          ...c,
+          name: tempItemName.trim() || c.name,
+          svgUrl: tempItemUrl,
+          x: tempPosition.x,
+          y: tempPosition.y,
+          width: tempPosition.width
+        } : c);
+      } else {
+        const newCuffObj = {
+          id: Date.now().toString(),
+          name: tempItemName.trim() || `Punho ${cuffsList.length + 1}`,
+          svgUrl: tempItemUrl,
+          x: tempPosition.x,
+          y: tempPosition.y,
+          width: tempPosition.width
+        };
+        updatedList.push(newCuffObj);
+        
+        // Reset input fields
+        setNewCuffName('');
+        setNewCuffUrl('');
+      }
+
+      await updateMockupCuffs(updatedList);
     }
 
-    await updateMockupCollars(updatedList);
     setIsModalOpen(false);
   };
 
@@ -169,6 +242,13 @@ export default function AdminMockupSoon() {
     if (confirm("Deseja realmente excluir este modelo de gola?")) {
       const updated = collarsList.filter(c => c.id !== id);
       await updateMockupCollars(updated);
+    }
+  };
+
+  const handleDeleteCuff = async (id: string) => {
+    if (confirm("Deseja realmente excluir este modelo de punho?")) {
+      const updated = cuffsList.filter(c => c.id !== id);
+      await updateMockupCuffs(updated);
     }
   };
 
@@ -277,7 +357,7 @@ export default function AdminMockupSoon() {
               <button
                 type="button"
                 disabled={!newCollarName.trim() || !newCollarUrl}
-                onClick={() => openPositionModal(null)}
+                onClick={() => openPositionModal(null, 'collar')}
                 className="w-full bg-primary hover:bg-amber-600 disabled:opacity-50 disabled:hover:bg-primary text-white text-xs font-bold py-2.5 px-4 rounded-lg transition flex items-center justify-center gap-2"
               >
                 <Plus size={14} /> Posicionar & Adicionar Gola
@@ -325,7 +405,7 @@ export default function AdminMockupSoon() {
 
                 <button
                   type="button"
-                  onClick={() => openPositionModal(collar)}
+                  onClick={() => openPositionModal(collar, 'collar')}
                   className="w-full mt-4 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 text-xs font-bold py-2 px-3 rounded-lg transition flex items-center justify-center gap-1.5"
                 >
                   <Settings2 size={13} /> Ajustar Posição
@@ -337,6 +417,115 @@ export default function AdminMockupSoon() {
               <div className="border border-dashed border-zinc-800 rounded-xl p-8 flex flex-col items-center justify-center text-center min-h-[180px] h-full col-span-1 md:col-span-1 lg:col-span-2">
                 <Layers size={36} className="text-zinc-700 mb-2" />
                 <p className="text-zinc-500 text-xs font-medium">Nenhuma gola customizada adicionada ainda.</p>
+                <p className="text-zinc-650 text-[10px] mt-1 max-w-[240px]">Preencha o nome e faça upload do SVG ao lado para começar.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* --- Punhos Custom Section --- */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-xl">
+          <div className="flex items-center justify-between mb-6 border-b border-zinc-800 pb-4">
+            <div>
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Layers size={20} className="text-primary" /> Modelos de Punhos (SVG)
+              </h2>
+              <p className="text-zinc-500 text-xs mt-1">Gerencie os recortes de punho adicionais que serão posicionados sobre o mockup base.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Form for adding cuff */}
+            <div className="bg-zinc-950 border border-zinc-855/60 rounded-xl p-5 flex flex-col justify-between space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-zinc-300 uppercase tracking-wider mb-3">Adicionar Novo Punho</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1 block">Nome do Punho</label>
+                    <input 
+                      type="text"
+                      placeholder="Ex: Punho Elástico, Punho Dobrado..."
+                      className="w-full bg-black/40 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
+                      value={newCuffName}
+                      onChange={e => setNewCuffName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <ImageUploadInput 
+                      label="Arquivo SVG do Punho"
+                      value={newCuffUrl}
+                      onChange={handleCuffUploadComplete}
+                      placeholder="https://..."
+                      category="mockups"
+                      accept=".svg"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={!newCuffName.trim() || !newCuffUrl}
+                onClick={() => openPositionModal(null, 'cuff')}
+                className="w-full bg-primary hover:bg-amber-600 disabled:opacity-50 disabled:hover:bg-primary text-white text-xs font-bold py-2.5 px-4 rounded-lg transition flex items-center justify-center gap-2"
+              >
+                <Plus size={14} /> Posicionar & Adicionar Punho
+              </button>
+            </div>
+
+            {/* List cuffs */}
+            {cuffsList.map((cuff) => (
+              <div key={cuff.id} className="bg-zinc-950 border border-zinc-800 rounded-xl p-5 flex flex-col justify-between relative">
+                <div>
+                  <div className="flex items-center justify-between mb-3 border-b border-zinc-900 pb-2">
+                    <h4 className="font-bold text-white text-sm truncate pr-8">{cuff.name}</h4>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCuff(cuff.id)}
+                      className="p-1.5 text-zinc-500 hover:text-red-500 rounded hover:bg-zinc-900 transition absolute top-4 right-4"
+                      title="Excluir Punho"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  
+                  <div className="aspect-square bg-black/50 border border-zinc-800/40 rounded-lg p-2 flex items-center justify-center relative overflow-hidden h-32 w-full mx-auto mb-3">
+                    {baseUrl && (
+                      <img src={baseUrl} className="absolute inset-0 w-full h-full object-contain opacity-20 pointer-events-none" />
+                    )}
+                    <img 
+                      src={cuff.svgUrl} 
+                      style={{
+                        position: 'absolute',
+                        left: `${cuff.x}%`,
+                        top: `${cuff.y}%`,
+                        width: `${cuff.width}%`,
+                        transform: 'translate(-50%, -50%)',
+                      }}
+                      className="object-contain max-h-full pointer-events-none"
+                    />
+                  </div>
+                  
+                  <div className="space-y-1 text-[10px] text-zinc-500 font-mono">
+                    <div>Posição: X: {cuff.x}%, Y: {cuff.y}%</div>
+                    <div>Largura: {cuff.width}%</div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => openPositionModal(cuff, 'cuff')}
+                  className="w-full mt-4 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 text-xs font-bold py-2 px-3 rounded-lg transition flex items-center justify-center gap-1.5"
+                >
+                  <Settings2 size={13} /> Ajustar Posição
+                </button>
+              </div>
+            ))}
+
+            {cuffsList.length === 0 && (
+              <div className="border border-dashed border-zinc-800 rounded-xl p-8 flex flex-col items-center justify-center text-center min-h-[180px] h-full col-span-1 md:col-span-1 lg:col-span-2">
+                <Layers size={36} className="text-zinc-700 mb-2" />
+                <p className="text-zinc-500 text-xs font-medium">Nenhum punho customizado adicionado ainda.</p>
                 <p className="text-zinc-650 text-[10px] mt-1 max-w-[240px]">Preencha o nome e faça upload do SVG ao lado para começar.</p>
               </div>
             )}
@@ -378,9 +567,9 @@ export default function AdminMockupSoon() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
               <div>
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Settings2 size={18} className="text-primary" /> Posicionar Gola: {tempCollarName}
+                  <Settings2 size={18} className="text-primary" /> Posicionar {modalType === 'collar' ? 'Gola' : 'Punho'}: {tempItemName}
                 </h3>
-                <p className="text-zinc-500 text-[10px] mt-0.5">Arraste a gola para posicionar e puxe a borda azul para redimensionar.</p>
+                <p className="text-zinc-500 text-[10px] mt-0.5">Arraste o item para posicionar e puxe a borda azul para redimensionar.</p>
               </div>
               <button
                 type="button"
@@ -407,7 +596,7 @@ export default function AdminMockupSoon() {
                     </div>
                   )}
 
-                  {/* Overlaid Collar */}
+                  {/* Overlaid Item */}
                   <div 
                     style={{
                       position: 'absolute',
@@ -419,7 +608,7 @@ export default function AdminMockupSoon() {
                     className="absolute border border-dashed border-primary cursor-move flex items-center justify-center group"
                     onMouseDown={(e) => handleMouseDown(e, 'move')}
                   >
-                    <img src={tempCollarUrl} className="w-full h-full object-contain pointer-events-none" />
+                    <img src={tempItemUrl} className="w-full h-full object-contain pointer-events-none" />
                     
                     {/* Visual drag indicators */}
                     <div className="absolute inset-0 bg-primary/5 group-hover:bg-primary/10 pointer-events-none transition"></div>
@@ -490,7 +679,7 @@ export default function AdminMockupSoon() {
               </button>
               <button
                 type="button"
-                onClick={handleSaveCollarPosition}
+                onClick={handleSaveItemPosition}
                 className="px-6 py-2 bg-primary hover:bg-amber-600 rounded-lg text-xs font-bold text-white transition flex items-center gap-1.5"
               >
                 <Check size={14} /> Confirmar Posição
