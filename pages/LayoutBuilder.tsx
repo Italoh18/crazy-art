@@ -86,6 +86,10 @@ export default function LayoutBuilder() {
   const [images, setImages] = useState<MockupImage[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const isPanningRef = useRef(false);
+  const startPanRef = useRef({ x: 0, y: 0 });
   const [localBgUrl, setLocalBgUrl] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
@@ -94,6 +98,65 @@ export default function LayoutBuilder() {
   
   const [mockupImg] = useImage(currentMockupUrl);
   const [bgImg] = useImage(localBgUrl);
+
+  const handleMouseDown = (e: any) => {
+    // Button 2 is the right mouse click
+    const isRightClick = e.evt.button === 2;
+    if (isRightClick) {
+      isPanningRef.current = true;
+      setIsPanning(true);
+      startPanRef.current = {
+        x: e.evt.clientX - stagePos.x,
+        y: e.evt.clientY - stagePos.y,
+      };
+      setSelectedId(null);
+    } else {
+      if (e.target === e.target.getStage()) {
+        setSelectedId(null);
+      }
+    }
+  };
+
+  const handleMouseMove = (e: any) => {
+    if (!isPanningRef.current) return;
+    const newPos = {
+      x: e.evt.clientX - startPanRef.current.x,
+      y: e.evt.clientY - startPanRef.current.y,
+    };
+    setStagePos(newPos);
+  };
+
+  const handleMouseUp = () => {
+    isPanningRef.current = false;
+    setIsPanning(false);
+  };
+
+  const handleWheel = (e: any) => {
+    // Focus the area by preventing regular page scrolling while over the canvas
+    e.evt.preventDefault();
+    
+    const stage = e.target.getStage();
+    const oldScale = zoom;
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+
+    const mousePointTo = {
+      x: (pointer.x - stagePos.x) / oldScale,
+      y: (pointer.y - stagePos.y) / oldScale,
+    };
+
+    const scaleBy = 1.05;
+    let newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
+    newScale = Math.max(0.4, Math.min(5, newScale));
+
+    setZoom(newScale);
+
+    const newPos = {
+      x: pointer.x - mousePointTo.x * newScale,
+      y: pointer.y - mousePointTo.y * newScale,
+    };
+    setStagePos(newPos);
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -244,48 +307,65 @@ export default function LayoutBuilder() {
             
             {/* TOOLBAR */}
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex bg-zinc-900/80 backdrop-blur-md border border-white/5 rounded-full p-1 shadow-2xl">
-                <button onClick={() => setZoom(z => Math.max(0.5, z - 0.1))} className="p-2 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition">
+                <button onClick={() => setZoom(z => Math.max(0.4, z - 0.1))} className="p-2 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition">
                     <ZoomOut size={18} />
                 </button>
                 <div className="w-px h-8 bg-white/5 mx-1" />
-                <button onClick={() => setZoom(1)} className="px-3 text-xs font-mono text-zinc-500 hover:text-white transition">
+                <button onClick={() => { setZoom(1); setStagePos({ x: 0, y: 0 }); }} className="px-3 text-xs font-mono text-zinc-500 hover:text-white transition" title="Redefinir visualização">
                     {Math.round(zoom * 100)}%
                 </button>
                 <div className="w-px h-8 bg-white/5 mx-1" />
-                <button onClick={() => setZoom(z => Math.min(3, z + 0.1))} className="p-2 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition">
+                <button onClick={() => setZoom(z => Math.min(5, z + 0.1))} className="p-2 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition">
                     <ZoomIn size={18} />
                 </button>
             </div>
 
             {/* CANVAS WRAPPER */}
             <div 
-                className="flex-1 overflow-auto flex items-center justify-center p-8 lg:p-20 bg-[radial-gradient(#18181b_1px,transparent_1px)] bg-[size:40px_40px]"
+                className="flex-1 overflow-hidden flex items-center justify-center p-6 bg-[radial-gradient(#18181b_1px,transparent_1px)] bg-[size:40px_40px]"
                 onClick={() => setSelectedId(null)}
+                onContextMenu={(e) => {
+                    e.preventDefault(); // Impede o menu de contexto nativo para permitir arrastar com botão direito
+                }}
             >
                 <div 
-                    className="bg-white shadow-[0_0_80px_rgba(0,0,0,0.5)] rounded-2xl overflow-hidden relative"
-                    style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+                    id="mockup-view-frame"
+                    className={`bg-[#121215] shadow-[0_0_80px_rgba(0,0,0,0.6)] rounded-3xl overflow-hidden relative border border-white/5 transition-shadow ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+                    style={{ 
+                        width: '600px', 
+                        height: '600px',
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                    }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <Stage width={800} height={1000} onMouseDown={(e) => {
-                        if (e.target === e.target.getStage()) {
-                            setSelectedId(null);
-                        }
-                    }}>
+                    <Stage 
+                        width={600} 
+                        height={600} 
+                        scaleX={zoom}
+                        scaleY={zoom}
+                        x={stagePos.x}
+                        y={stagePos.y}
+                        onMouseDown={handleMouseDown}
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                        onWheel={handleWheel}
+                    >
                         <Layer>
                             {bgImg && (
                                 <KonvaImage 
                                     image={bgImg} 
-                                    width={800} 
-                                    height={1000} 
+                                    width={600} 
+                                    height={600} 
                                     listening={false}
                                 />
                             )}
                             {mockupImg && (
                                 <KonvaImage 
                                     image={mockupImg} 
-                                    width={800} 
-                                    height={1000} 
+                                    width={600} 
+                                    height={600} 
                                     listening={false}
                                 />
                             )}
@@ -307,16 +387,15 @@ export default function LayoutBuilder() {
                 </div>
             </div>
 
-            {/* LEGEND */}
-            <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none">
-                <div className="bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/5 flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Canal de Impressão Direto</span>
+            {/* LEGEND / FOOTER */}
+            <div className="w-full bg-zinc-950/80 border-t border-white/5 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 select-none">
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-[#a855f7] animate-pulse"></div>
+                    <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest font-bold">Canal de Impressão Direto</span>
                 </div>
-                <div className="flex gap-2">
-                    <div className="bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/5 text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
-                        Workspace: 800x1000px
-                    </div>
+                <div className="flex flex-wrap items-center justify-center gap-4 text-[10px] font-mono text-zinc-500 uppercase tracking-widest font-medium">
+                    <span>Atalhos: Scroll (Zoom) | Botão Direito do Mouse (Arrastar)</span>
+                    <span className="hidden sm:inline border-l border-white/10 pl-4">Workspace: 600x600px (1:1)</span>
                 </div>
             </div>
         </div>
