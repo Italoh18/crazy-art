@@ -1242,6 +1242,34 @@ export default function CustomerDetails() {
                             {customer?.address?.street ? `${customer.address.street}, ${customer.address.number} - ${customer.address.zipCode}` : 'Endereço não cadastrado'}
                         </p>
                     </div>
+
+                    {cloudUrl && (
+                        <div className="pt-2">
+                            <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest block mb-2">Acesso de Arquivos</label>
+                            <div className="flex items-center gap-3 bg-[#18181b] p-3 rounded-2xl border border-white/5">
+                                {isCloudLocked ? (
+                                    <button 
+                                        onClick={() => alert("O acesso à nuvem está bloqueado temporariamente devido a pendências financeiras. Por favor, regularize seus pedidos atrasados para liberar o acesso.")}
+                                        className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center font-black text-lg transition-all shadow-lg shadow-red-600/20 shrink-0"
+                                        title="Acessar Nuvem (Bloqueado por Pendências)"
+                                    >
+                                        M
+                                    </button>
+                                ) : (
+                                    <a 
+                                        href={cloudUrl} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center font-black text-lg transition-all shadow-lg shadow-red-600/20 shrink-0"
+                                        title="Acessar Nuvem"
+                                    >
+                                        M
+                                    </a>
+                                )}
+                                <span className="text-sm font-bold text-zinc-300">minha nuvem de arquivos</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1304,35 +1332,12 @@ export default function CustomerDetails() {
 
             {/* Coluna Direita: Ações e Status */}
             <div className="space-y-6">
-                {/* Botão Nuvem */}
-                {cloudUrl ? (
-                    <a 
-                        href={isCloudLocked ? undefined : cloudUrl} 
-                        target={isCloudLocked ? undefined : "_blank"}
-                        rel="noopener noreferrer"
-                        onClick={(e) => isCloudLocked && e.preventDefault()}
-                        className={`
-                            relative w-full h-40 rounded-3xl flex flex-col items-center justify-center gap-4 transition-all duration-300 group overflow-hidden border
-                            ${isCloudLocked 
-                                ? 'bg-red-900/10 border-red-500/20 cursor-not-allowed opacity-80' 
-                                : 'bg-gradient-to-br from-[#1e1b4b] to-[#0f0e26] border-indigo-500/30 hover:border-indigo-400 hover:shadow-2xl hover:shadow-indigo-900/20 hover:scale-[1.02]'
-                            }
-                        `}
-                    >
-                        <div className={`p-4 rounded-full ${isCloudLocked ? 'bg-red-500/10 text-red-500' : 'bg-indigo-500/10 text-indigo-400 group-hover:text-white group-hover:bg-indigo-500 transition-colors'}`}>
-                            {isCloudLocked ? <Lock size={40} /> : <Cloud size={40} />}
-                        </div>
-                        <div className="text-center">
-                            <h3 className={`text-2xl font-bold ${isCloudLocked ? 'text-red-400' : 'text-white'}`}>Acessar Nuvem</h3>
-                            {isCloudLocked && <p className="text-xs text-red-400 mt-1">Bloqueado: Regularize suas pendências</p>}
-                        </div>
-                    </a>
-                ) : (
-                    <div className="w-full h-40 rounded-3xl bg-zinc-900/50 border border-white/5 flex flex-col items-center justify-center gap-2 text-zinc-500">
-                        <Cloud size={32} className="opacity-20" />
-                        <p className="text-sm">Nuvem não configurada</p>
-                    </div>
-                )}
+                {/* Meus Layouts - Em Breve */}
+                <div className="relative w-full h-40 rounded-3xl bg-[#121215] border border-white/5 flex flex-col items-center justify-center gap-2 text-zinc-500">
+                    <Palette size={32} className="opacity-40 text-[#a855f7]" />
+                    <h3 className="text-lg font-bold text-zinc-400">meus layouts</h3>
+                    <span className="text-xs font-semibold text-[#a855f7] bg-[#a855f7]/10 px-2.5 py-0.5 rounded-full uppercase tracking-wider">em breve</span>
+                </div>
 
                 {/* Botão Lista Pública */}
                 <div className="w-full space-y-4">
