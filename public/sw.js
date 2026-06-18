@@ -21,8 +21,24 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Simple fetch handler to satisfy PWA criteria
-  event.respondWith(fetch(event.request));
+  // Apenas intercepta requisições locais do tipo GET para cumprir os requisitos de PWA
+  if (event.request.method !== 'GET') return;
+  if (!event.request.url.startsWith(self.location.origin)) return;
+  
+  // Evita interceptar chamadas de API para evitar conflitos de autenticação/dados
+  if (event.request.url.includes('/api/')) return;
+
+  // Permite que o navegador trate requisições de navegação nativamente.
+  // Isso previne que reloads (Ctrl+R) deem tela branca em sub-rotas SPA.
+  if (event.request.mode === 'navigate') {
+    return;
+  }
+
+  event.respondWith(
+    fetch(event.request).catch((err) => {
+      console.warn('[SW] Falha ao buscar recurso:', event.request.url, err);
+    })
+  );
 });
 
 // Push Notification Handling

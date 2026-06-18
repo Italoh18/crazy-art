@@ -28,7 +28,12 @@ if ('serviceWorker' in navigator) {
 
     // Quando o Service Worker ativo é substituído por um novo, recarrega a página automaticamente para aplicar as alterações
     let refreshing = false;
+    const hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController) {
+        // Se não havia um controller ativo anteriormente, esta é a primeira instalação. Não precisa recarregar!
+        return;
+      }
       if (!refreshing) {
         refreshing = true;
         console.log('Aplicativo atualizado com sucesso! Recarregando página...');
