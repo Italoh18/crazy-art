@@ -43,6 +43,7 @@ const MontagemMolde = lazy(() => import('./pages/MontagemMolde'));
 const MatrizBordado = lazy(() => import('./pages/MatrizBordado'));
 const Vetorizacao = lazy(() => import('./pages/Vetorizacao'));
 const MoldesManager = lazy(() => import('./pages/MoldesManager'));
+const AdminMockupSoon = lazy(() => import('./pages/AdminMockupSoon'));
 const ListaPublica = lazy(() => import('./pages/ListaPublica'));
 
 const LoadingScreen = () => {
@@ -127,6 +128,7 @@ const AppRoutes = () => {
                 <Route path="/identity" element={<ProtectedRoute requiredRole="admin"><Identity /></ProtectedRoute>} />
                 <Route path="/moldes" element={<ProtectedRoute requiredRole="admin"><MoldesManager /></ProtectedRoute>} />
                 <Route path="/feedbacks" element={<ProtectedRoute requiredRole="admin"><Feedbacks /></ProtectedRoute>} />
+                <Route path="/admin-mockup-soon" element={<ProtectedRoute requiredRole="admin"><AdminMockupSoon /></ProtectedRoute>} />
             </Routes>
         </Suspense>
     );

@@ -243,6 +243,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     { name: 'Identidade', path: '/identity', icon: Fingerprint },
     { name: 'Moldes', path: '/moldes', icon: Scissors },
     { name: 'Feedbacks', path: '/feedbacks', icon: MessageSquare },
+    { name: 'Mockup 2D', path: '/admin-mockup-soon', icon: Layers },
   ];
 
   const isActive = (path: string) => {
@@ -412,7 +413,8 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
 
       <aside className={`
         fixed inset-y-0 left-0 z-40 w-72 glass-panel border-r border-white/5 transform transition-transform duration-500 cubic-bezier(0.32, 0.72, 0, 1)
-        lg:translate-x-0 lg:static lg:inset-0
+        lg:translate-x-0 lg:static lg:inset-0 lg:h-full
+        flex flex-col h-full
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="flex items-center justify-center h-24 px-6 border-b border-white/5 bg-white/[0.02] gap-3">
