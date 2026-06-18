@@ -1,30 +1,26 @@
 
 import React, { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
-import { Save, Image as ImageIcon, Link as LinkIcon, Fingerprint, Check } from 'lucide-react';
+import { Save, Image as ImageIcon, Fingerprint, Check } from 'lucide-react';
 import { ImageUploadInput } from '../components/ImageUploadInput';
 
 export default function Identity() {
   const { 
-    faviconUrl, updateFavicon, 
-    mockupBaseUrl, updateMockupBase 
+    faviconUrl, updateFavicon
   } = useData();
   const [url, setUrl] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     if (faviconUrl) setUrl(faviconUrl);
-    if (mockupBaseUrl) setBaseUrl(mockupBaseUrl);
-  }, [faviconUrl, mockupBaseUrl]);
+  }, [faviconUrl]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     
     setIsSaving(true);
     if (url !== faviconUrl) await updateFavicon(url.trim());
-    if (baseUrl !== mockupBaseUrl) await updateMockupBase(baseUrl.trim());
     setIsSaving(false);
     
     setSuccess(true);
@@ -65,21 +61,32 @@ export default function Identity() {
                   </div>
               </div>
 
-              {/* Mockup Base */}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-xl">
-                  <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                      <ImageIcon size={20} className="text-primary" /> Mockup Base (SVG/Camisa)
-                  </h2>
+              {/* Cartão de Preview */}
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-xl flex flex-col items-center justify-center relative overflow-hidden min-h-[300px]">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-800/50 to-transparent pointer-events-none"></div>
                   
-                  <div className="space-y-6">
-                      <ImageUploadInput 
-                        label="Imagem do Mockup (Frente e Verso Juntos)"
-                        value={baseUrl}
-                        onChange={setBaseUrl}
-                        placeholder="https://..."
-                        category="mockups"
-                      />
-                      <p className="text-[10px] text-zinc-600">Este arquivo será a base da ferramenta "Monte seu Layout". Use um arquivo (SVG ou PNG) que já mostre os dois lados da camisa.</p>
+                  <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-8 relative z-10">Pré-visualização</h3>
+                  
+                  <div className="flex flex-col gap-4 items-center">
+                      <div className="relative z-10 p-4 bg-zinc-800 rounded-t-lg border border-zinc-700 w-64 flex items-center gap-3 shadow-lg">
+                          {url ? (
+                              <img 
+                                src={url} 
+                                alt="Favicon Preview" 
+                                className="w-4 h-4 object-contain"
+                                onError={(e) => e.currentTarget.style.display = 'none'} 
+                              />
+                          ) : (
+                              <div className="w-4 h-4 bg-zinc-600 rounded-sm"></div>
+                          )}
+                          <span className="text-xs text-zinc-300 font-medium">Crazy Art | Comunicação...</span>
+                          <div className="ml-auto text-zinc-500 text-[10px]">✕</div>
+                      </div>
+                      <div className="w-64 h-24 bg-white rounded-b-lg opacity-10"></div>
+                  </div>
+                  
+                  <div className="mt-8 text-center relative z-10">
+                      <p className="text-zinc-500 text-[10px]">Exemplo de como aparecerá no navegador</p>
                   </div>
               </div>
           </div>
@@ -109,37 +116,6 @@ export default function Identity() {
               </button>
           </div>
       </form>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Cartão de Preview */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-xl flex flex-col items-center justify-center relative overflow-hidden min-h-[300px]">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-800/50 to-transparent pointer-events-none"></div>
-              
-              <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-8 relative z-10">Pré-visualização</h3>
-              
-              <div className="flex flex-col gap-4 items-center">
-                  <div className="relative z-10 p-4 bg-zinc-800 rounded-t-lg border border-zinc-700 w-64 flex items-center gap-3 shadow-lg">
-                      {url ? (
-                          <img 
-                            src={url} 
-                            alt="Favicon Preview" 
-                            className="w-4 h-4 object-contain"
-                            onError={(e) => e.currentTarget.style.display = 'none'} 
-                          />
-                      ) : (
-                          <div className="w-4 h-4 bg-zinc-600 rounded-sm"></div>
-                      )}
-                      <span className="text-xs text-zinc-300 font-medium">Crazy Art | Comunicação...</span>
-                      <div className="ml-auto text-zinc-500 text-[10px]">✕</div>
-                  </div>
-                  <div className="w-64 h-24 bg-white rounded-b-lg opacity-10"></div>
-              </div>
-              
-              <div className="mt-8 text-center relative z-10">
-                  <p className="text-zinc-500 text-[10px]">Exemplo de como aparecerá no navegador</p>
-              </div>
-          </div>
-      </div>
     </div>
   );
 }

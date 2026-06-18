@@ -1,43 +1,114 @@
-import React from 'react';
-import { Sparkles, Layers, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useData } from '../contexts/DataContext';
+import { Save, Image as ImageIcon, Sparkles, Layers, Check } from 'lucide-react';
+import { ImageUploadInput } from '../components/ImageUploadInput';
 
 export default function AdminMockupSoon() {
-  const navigate = useNavigate();
+  const { mockupBaseUrl, updateMockupBase } = useData();
+  const [baseUrl, setBaseUrl] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    if (mockupBaseUrl) setBaseUrl(mockupBaseUrl);
+  }, [mockupBaseUrl]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    await updateMockupBase(baseUrl.trim());
+    setIsSaving(false);
+    setSuccess(true);
+    setTimeout(() => setSuccess(false), 3000);
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] p-6 text-center select-none relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#a855f7]/10 rounded-full blur-[100px] pointer-events-none"></div>
-
-      <div className="relative z-10 glass-panel border border-white/5 bg-zinc-950/40 p-12 rounded-3xl max-w-lg w-full flex flex-col items-center gap-6 shadow-[0_0_50px_rgba(168,85,247,0.05)]">
-        <div className="w-16 h-16 rounded-2xl bg-[#a855f7]/10 flex items-center justify-center border border-[#a855f7]/20 text-[#a855f7] animate-bounce-slow">
-          <Layers size={32} />
+    <div className="space-y-8 animate-fade-in pb-20 select-none">
+      <div className="flex items-center gap-4">
+        <div className="p-3 bg-zinc-800 rounded-xl text-white">
+          <Layers size={24} />
         </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-center gap-2 text-zinc-400 font-mono text-xs uppercase tracking-widest">
-            <Sparkles size={12} className="text-[#a855f7]" />
-            <span>Painel Administrativo</span>
-            <Sparkles size={12} className="text-[#a855f7]" />
-          </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Mockup 2D do Admin</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Mockup 2D</h1>
+          <p className="text-zinc-400 text-sm mt-1">Gerenciamento de Mockups e Modelos Base.</p>
         </div>
-
-        <p className="text-zinc-400 text-sm leading-relaxed max-w-sm">
-          A aba de controle de Mockups 2D para administradores está sendo desenvolvida. Em breve, você poderá gerenciar modelos de camisas, shorts e outros produtos diretamente deste painel!
-        </p>
-
-        <div className="w-full h-[1px] bg-white/5 my-2"></div>
-
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl text-neutral-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 transition-all font-medium text-sm group"
-        >
-          <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-          Voltar ao Dashboard
-        </button>
       </div>
+
+      <form onSubmit={handleSave} className="space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Card: Mockup Base */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-xl">
+            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <ImageIcon size={20} className="text-primary" /> Mockup Base (SVG/Camisa)
+            </h2>
+            
+            <div className="space-y-6">
+              <ImageUploadInput 
+                label="Imagem do Mockup (Frente e Verso Juntos)"
+                value={baseUrl}
+                onChange={setBaseUrl}
+                placeholder="https://..."
+                category="mockups"
+              />
+              <p className="text-[10px] text-zinc-500">Este arquivo será a base da ferramenta "Monte seu Layout". Use um arquivo (SVG ou PNG) que já mostre os dois lados da camisa.</p>
+            </div>
+          </div>
+
+          {/* Informações Úteis / Detalhes */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-xl flex flex-col justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <Sparkles size={20} className="text-[#a855f7]" /> Informações da Ferramenta
+              </h2>
+              <div className="space-y-4 text-sm text-zinc-400 leading-relaxed">
+                <p>
+                  O Mockup Base serve como base de colagem sob a qual os patrocinadores, logos e outros elementos gráficos são posicionados pelos usuários.
+                </p>
+                <p>
+                  Para um melhor resultado, utilize imagens com fundo transparente (PNG) ou vetoriais (SVG) que contenham ambas as visualizações (frente e verso) lado a lado em uma proporção uniforme (1:1).
+                </p>
+              </div>
+            </div>
+
+            {baseUrl && (
+              <div className="mt-6 p-4 rounded-xl border border-white/5 bg-black/20 flex items-center justify-between">
+                <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">Preview Ativo</span>
+                <img 
+                  src={baseUrl} 
+                  alt="Url Preview" 
+                  className="w-12 h-12 object-contain rounded border border-white/10"
+                  onError={(e) => e.currentTarget.style.display = 'none'} 
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-xl flex items-center justify-between">
+          <div className="hidden md:block">
+            <p className="text-zinc-500 text-xs">Certifique-se de salvar após as alterações para atualizar o Workspace do Mockup 2D.</p>
+          </div>
+          <button 
+            type="submit" 
+            disabled={isSaving}
+            className={`px-12 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 ${
+              success 
+              ? 'bg-emerald-600 text-white' 
+              : 'bg-primary text-white hover:bg-amber-600'
+            }`}
+          >
+            {success ? (
+              <>
+                <Check size={18} /> Salvo com Sucesso!
+              </>
+            ) : (
+              <>
+                <Save size={18} /> {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+              </>
+            )}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
