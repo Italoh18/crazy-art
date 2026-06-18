@@ -94,6 +94,22 @@ export default function LayoutBuilder() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
   
+  const [containerSize, setContainerSize] = useState({ width: 720, height: 720 });
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        const size = Math.min(width, height) || width || 720;
+        setContainerSize({ width: size, height: size });
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   const currentMockupUrl = mockupBaseUrl || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1000&auto=format&fit=crop';
   
   const [mockupImg] = useImage(currentMockupUrl);
@@ -136,7 +152,8 @@ export default function LayoutBuilder() {
     e.evt.preventDefault();
     
     const stage = e.target.getStage();
-    const oldScale = zoom;
+    const responsiveScale = containerSize.width / 720;
+    const oldScale = zoom * responsiveScale;
     const pointer = stage.getPointerPosition();
     if (!pointer) return;
 
@@ -146,11 +163,12 @@ export default function LayoutBuilder() {
     };
 
     const scaleBy = 1.05;
-    let newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
-    newScale = Math.max(0.4, Math.min(5, newScale));
+    let newZoom = e.evt.deltaY < 0 ? zoom * scaleBy : zoom / scaleBy;
+    newZoom = Math.max(0.4, Math.min(5, newZoom));
 
-    setZoom(newScale);
+    setZoom(newZoom);
 
+    const newScale = newZoom * responsiveScale;
     const newPos = {
       x: pointer.x - mousePointTo.x * newScale,
       y: pointer.y - mousePointTo.y * newScale,
@@ -337,21 +355,20 @@ export default function LayoutBuilder() {
             >
                 <div 
                     id="mockup-view-frame"
+                    ref={containerRef}
                     className={`bg-[#121215] shadow-[0_0_80px_rgba(0,0,0,0.6)] rounded-3xl overflow-hidden relative border border-white/5 transition-shadow ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
                     style={{ 
-                        width: '800px', 
-                        height: '800px',
-                        maxWidth: '100%',
-                        maxHeight: '100%',
+                        width: 'min(720px, 100%, calc(100vh - 240px))', 
+                        height: 'min(720px, 100%, calc(100vh - 240px))',
                         aspectRatio: '1 / 1',
                     }}
                     onClick={(e) => e.stopPropagation()}
                 >
                     <Stage 
-                        width={800} 
-                        height={800} 
-                        scaleX={zoom}
-                        scaleY={zoom}
+                        width={containerSize.width} 
+                        height={containerSize.height} 
+                        scaleX={zoom * (containerSize.width / 720)}
+                        scaleY={zoom * (containerSize.width / 720)}
                         x={stagePos.x}
                         y={stagePos.y}
                         onMouseDown={handleMouseDown}
@@ -364,16 +381,16 @@ export default function LayoutBuilder() {
                             {bgImg && (
                                 <KonvaImage 
                                     image={bgImg} 
-                                    width={800} 
-                                    height={800} 
+                                    width={720} 
+                                    height={720} 
                                     listening={false}
                                 />
                             )}
                             {mockupImg && (
                                 <KonvaImage 
                                     image={mockupImg} 
-                                    width={800} 
-                                    height={800} 
+                                    width={720} 
+                                    height={720} 
                                     listening={false}
                                 />
                             )}
@@ -403,7 +420,7 @@ export default function LayoutBuilder() {
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-4 text-[10px] font-mono text-zinc-500 uppercase tracking-widest font-medium">
                     <span className="text-center sm:text-left">Atalhos: Scroll (Zoom) | Botão Direito (Arrastar)</span>
-                    <span className="border-l border-white/10 pl-4">Workspace: 800x800px (1:1)</span>
+                    <span className="border-l border-white/10 pl-4">Workspace: 720x720px (1:1)</span>
                 </div>
             </div>
         </div>
