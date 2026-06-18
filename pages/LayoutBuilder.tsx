@@ -235,9 +235,9 @@ export default function LayoutBuilder() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-row overflow-hidden">
         {/* SIDEBAR CONTROLS */}
-        <div className="w-full lg:w-80 border-r border-white/5 bg-zinc-950 p-6 flex flex-col gap-6 overflow-y-auto shrink-0">
+        <div className="w-64 lg:w-80 border-r border-white/5 bg-zinc-950 p-6 flex flex-col gap-6 overflow-y-auto shrink-0">
           <div className="border-b border-white/5 pb-4">
              <h2 className="text-sm font-bold text-white flex items-center gap-2">
                  <Wrench size={16} className="text-primary" />
@@ -396,20 +396,20 @@ export default function LayoutBuilder() {
             </div>
 
             {/* LEGEND / FOOTER */}
-            <div className="w-full bg-zinc-950/80 border-t border-white/5 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 select-none">
+            <div className="w-full bg-zinc-950/80 border-t border-white/5 px-6 py-4 flex flex-row items-center justify-between gap-3 select-none">
                 <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-[#a855f7] animate-pulse"></div>
                     <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest font-bold">Canal de Impressão Direto</span>
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-4 text-[10px] font-mono text-zinc-500 uppercase tracking-widest font-medium">
-                    <span>Atalhos: Scroll (Zoom) | Botão Direito do Mouse (Arrastar)</span>
-                    <span className="hidden sm:inline border-l border-white/10 pl-4">Workspace: 800x800px (1:1)</span>
+                    <span className="text-center sm:text-left">Atalhos: Scroll (Zoom) | Botão Direito (Arrastar)</span>
+                    <span className="border-l border-white/10 pl-4">Workspace: 800x800px (1:1)</span>
                 </div>
             </div>
         </div>
 
         {/* SIDEBAR DIREITA - FERRAMENTAS EM BREVE */}
-        <div className="hidden xl:flex w-80 border-l border-white/5 bg-zinc-950 p-6 flex-col gap-6 overflow-y-auto shrink-0 select-none">
+        <div className="flex w-64 lg:w-80 border-l border-white/5 bg-zinc-950 p-6 flex-col gap-6 overflow-y-auto shrink-0 select-none">
           <div className="border-b border-white/5 pb-4">
              <h2 className="text-sm font-bold text-white flex items-center gap-2">
                  <Sparkles size={16} className="text-[#a855f7]" />
