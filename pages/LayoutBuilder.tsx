@@ -82,7 +82,7 @@ const URLImage = ({ imageProps, isSelected, onSelect, onChange }: {
 };
 
 export default function LayoutBuilder() {
-  const { mockupBaseUrl, mockupBackgroundUrl, mockupBaseX, mockupBaseY, mockupBaseWidth, mockupCollars, loadData } = useData();
+  const { mockupBaseUrl, mockupBackgroundUrl, mockupBaseX, mockupBaseY, mockupBaseWidth, mockupCollars, mockupParts, loadData } = useData();
   const [images, setImages] = useState<MockupImage[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -97,6 +97,12 @@ export default function LayoutBuilder() {
   
   const [containerSize, setContainerSize] = useState({ width: 720, height: 720 });
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Dynamic SVG parts customisations
+  const [svgText, setSvgText] = useState<string>('');
+  const [partColors, setPartColors] = useState<Record<string, string>>({});
+  const [partTextures, setPartTextures] = useState<Record<string, string>>({});
+  const [dynamicMockupUrl, setDynamicMockupUrl] = useState<string>('');
 
   useEffect(() => {
     if (loadData) {
@@ -118,10 +124,129 @@ export default function LayoutBuilder() {
   }, []);
 
   const currentMockupUrl = mockupBaseUrl || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1000&auto=format&fit=crop';
+
+  useEffect(() => {
+    if (!currentMockupUrl) {
+      setSvgText('');
+      return;
+    }
+    const fetchUrl = currentMockupUrl.startsWith('data:') 
+      ? currentMockupUrl 
+      : `/api/proxy-image?url=${encodeURIComponent(currentMockupUrl)}`;
+      
+    fetch(fetchUrl)
+      .then(res => {
+        if (!res.ok) throw new Error('Não foi possível carregar o arquivo SVG');
+        return res.text();
+      })
+      .then(text => {
+        if (text.includes('<svg')) {
+          setSvgText(text);
+        } else {
+          setSvgText('');
+        }
+      })
+      .catch(err => {
+        console.error('Erro ao buscar base SVG:', err);
+        setSvgText('');
+      });
+  }, [currentMockupUrl]);
+
+  useEffect(() => {
+    if (!svgText) {
+      setDynamicMockupUrl('');
+      return;
+    }
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgText, 'image/svg+xml');
+      const svgEl = doc.querySelector('svg');
+      if (!svgEl) {
+        setDynamicMockupUrl('');
+        return;
+      }
+
+      // Add interactive tags indexing (same as AdminMockupSoon.tsx)
+      const interactiveTags = ['path', 'polygon', 'rect', 'circle', 'ellipse', 'g'];
+      interactiveTags.forEach(tag => {
+        const elements = doc.querySelectorAll(tag);
+        elements.forEach((el, i) => {
+          el.setAttribute('data-svg-index', `${tag}-${i}`);
+        });
+      });
+
+      // Clear or create defs for patterns
+      let defsEl = svgEl.querySelector('defs');
+      if (!defsEl) {
+        defsEl = doc.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        svgEl.insertBefore(defsEl, svgEl.firstChild);
+      }
+
+      const activeParts = Array.isArray(mockupParts) ? mockupParts : [];
+      activeParts.forEach(part => {
+        const selector = part.selector;
+        const color = partColors[selector];
+        const texture = partTextures[selector];
+        const element = svgEl.querySelector(`[data-svg-index="${selector}"]`);
+
+        if (element) {
+          if (texture) {
+            const patternId = `pat-${selector.replace(/[^a-zA-Z0-9-]/g, '')}`;
+            
+            // Remove old pattern if exists
+            const oldPat = defsEl!.querySelector(`#${patternId}`);
+            if (oldPat) oldPat.remove();
+
+            const pattern = doc.createElementNS('http://www.w3.org/2000/svg', 'pattern');
+            pattern.setAttribute('id', patternId);
+            pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+            pattern.setAttribute('width', '100');
+            pattern.setAttribute('height', '100');
+
+            const patternImg = doc.createElementNS('http://www.w3.org/2000/svg', 'image');
+            patternImg.setAttributeNS('http://www.w3.org/1999/xlink', 'href', texture);
+            patternImg.setAttribute('x', '0');
+            patternImg.setAttribute('y', '0');
+            patternImg.setAttribute('width', '100');
+            patternImg.setAttribute('height', '100');
+            patternImg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+
+            pattern.appendChild(patternImg);
+            defsEl!.appendChild(pattern);
+
+            element.setAttribute('fill', `url(#${patternId})`);
+            const style = element.getAttribute('style') || '';
+            if (style) {
+              const updatedStyle = style.replace(/fill\s*:\s*[^;]+;?/gi, '');
+              element.setAttribute('style', updatedStyle);
+            }
+          } else if (color) {
+            element.setAttribute('fill', color);
+            const style = element.getAttribute('style') || '';
+            if (style) {
+              const updatedStyle = style.replace(/fill\s*:\s*[^;]+;?/gi, '');
+              element.setAttribute('style', updatedStyle);
+            }
+          }
+        }
+      });
+
+      const serializer = new XMLSerializer();
+      const updatedSvgString = serializer.serializeToString(svgEl);
+      
+      const encoded = encodeURIComponent(updatedSvgString)
+        .replace(/'/g, "%27")
+        .replace(/"/g, "%22");
+      const dataUrl = `data:image/svg+xml;charset=utf-8,${encoded}`;
+      setDynamicMockupUrl(dataUrl);
+    } catch (err) {
+      console.error('Erro ao gerar dynamic SVG:', err);
+    }
+  }, [svgText, partColors, partTextures, mockupParts]);
   
   const collarsList = Array.isArray(mockupCollars) ? mockupCollars : [];
   const activeCollar = collarsList.find(c => c.id === selectedCollarId);
-  const [mockupImg] = useImage(currentMockupUrl);
+  const [mockupImg] = useImage(dynamicMockupUrl || currentMockupUrl);
   const [bgImg] = useImage(localBgUrl || mockupBackgroundUrl || '');
   const [collarImg] = useImage(activeCollar?.svgUrl || '');
 
@@ -485,6 +610,142 @@ export default function LayoutBuilder() {
              <span className="text-[9px] font-mono font-semibold text-zinc-500 uppercase tracking-widest mt-1 block">Ajustes & Componentes</span>
           </div>
 
+          {/* Partes Mapeadas do SVG (Modelagem) */}
+          <div className="border-b border-white/5 pb-4 space-y-4">
+            <div>
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">Partes do Vestuário</h3>
+              <span className="text-[9px] text-zinc-500 font-mono">Personalização de Cores & Matrizes</span>
+            </div>
+
+            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+              {mockupParts && mockupParts.map((part) => {
+                const selector = part.selector;
+                const activeColor = partColors[selector] || '#ffffff';
+                const activeTexture = partTextures[selector];
+
+                return (
+                  <div 
+                    key={part.id} 
+                    className="p-3 bg-zinc-900 border border-white/5 rounded-xl space-y-3 hover:border-white/10 transition"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-zinc-200">{part.name}</span>
+                      <span className="text-[8px] font-mono text-zinc-500 bg-zinc-950 px-1.5 py-0.5 rounded border border-white/5 uppercase select-none">
+                        {part.selector}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Seletor de Cor */}
+                      <div className="flex items-center gap-2 bg-zinc-950/60 p-1.5 rounded-lg border border-white/5 relative">
+                        <input 
+                          type="color"
+                          id={`color-${part.id}`}
+                          value={activeColor}
+                          onChange={(e) => {
+                            setPartColors(prev => ({
+                              ...prev,
+                              [selector]: e.target.value
+                            }));
+                          }}
+                          className="w-7 h-7 rounded border-none bg-transparent cursor-pointer p-0"
+                        />
+                        <label 
+                          htmlFor={`color-${part.id}`}
+                          className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider cursor-pointer font-mono"
+                        >
+                          COR
+                        </label>
+                      </div>
+
+                      {/* Botão de Textura (Upload) */}
+                      <div className="flex items-center justify-center">
+                        <label className="w-full h-full flex items-center justify-center gap-1.5 bg-zinc-950/60 hover:bg-zinc-800/80 border border-white/5 hover:border-white/10 rounded-lg p-1.5 cursor-pointer text-zinc-400 hover:text-zinc-200 transition text-[10px] font-bold uppercase tracking-wider font-mono select-none">
+                          <Upload size={11} className="text-primary" />
+                          <span>Fundo</span>
+                          <input 
+                            type="file"
+                            accept="image/png, application/pdf"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+
+                              if (file.size > 5 * 1024 * 1024) {
+                                alert("O arquivo deve ter no máximo 5MB.");
+                                return;
+                              }
+
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                if (typeof reader.result === 'string') {
+                                  setPartTextures(prev => ({
+                                    ...prev,
+                                    [selector]: reader.result as string
+                                  }));
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Miniature Preview of Active Texture and resets */}
+                    {(activeTexture || partColors[selector]) && (
+                      <div className="flex items-center justify-between text-[9px] font-mono text-zinc-500 bg-zinc-950 p-1 rounded-md border border-white/5/60">
+                        <div className="flex items-center gap-1">
+                          {activeTexture ? (
+                            <>
+                              <div className="w-4 h-4 rounded bg-zinc-800 border border-white/10 overflow-hidden flex items-center justify-center">
+                                {activeTexture.startsWith('data:application/pdf') ? (
+                                  <span className="text-[6px] text-zinc-400">PDF</span>
+                                ) : (
+                                  <img src={activeTexture} className="object-cover w-full h-full" />
+                                )}
+                              </div>
+                              <span className="text-zinc-400">Com Fundo</span>
+                            </>
+                          ) : (
+                            <>
+                              <div className="w-3 h-3 rounded border border-white/10" style={{ backgroundColor: activeColor }}></div>
+                              <span className="text-zinc-400 uppercase">{activeColor}</span>
+                            </>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPartColors(prev => {
+                              const copy = { ...prev };
+                              delete copy[selector];
+                              return copy;
+                            });
+                            setPartTextures(prev => {
+                              const copy = { ...prev };
+                              delete copy[selector];
+                              return copy;
+                            });
+                          }}
+                          className="hover:text-red-400 text-zinc-500 transition cursor-pointer bg-transparent border-none p-0 mr-1"
+                        >
+                          Limpar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {!mockupParts || mockupParts.length === 0 ? (
+                <div className="text-center py-6 border border-dashed border-zinc-800 rounded-xl bg-zinc-950/40">
+                  <p className="text-[10px] text-zinc-500 italic">Nenhuma parte cadastrada pelo administrador.</p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
           {/* Seletor de Gola */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -502,40 +763,40 @@ export default function LayoutBuilder() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 max-h-[350px] overflow-y-auto pr-1">
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent snap-x">
               {collarsList.map((collar) => {
                 const isSelected = selectedCollarId === collar.id;
                 return (
                   <button
                     key={collar.id}
                     onClick={() => setSelectedCollarId(collar.id)}
-                    className={`p-3 rounded-xl border text-left transition duration-200 flex flex-col gap-2 relative group overflow-hidden cursor-pointer ${
+                    className={`w-20 shrink-0 p-2 rounded-xl border text-left transition duration-200 flex flex-col gap-1.5 relative group overflow-hidden cursor-pointer snap-start ${
                       isSelected 
                         ? 'bg-primary/10 border-primary text-white shadow-lg shadow-primary/5' 
                         : 'bg-[#121215]/40 border-white/5 hover:border-white/10 hover:bg-[#121215]/80 text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
-                    <div className="aspect-square w-full rounded-lg bg-zinc-950 flex items-center justify-center p-2 border border-white/5 relative group-hover:border-white/10 transition">
+                    <div className="aspect-square w-full rounded-lg bg-zinc-950 flex items-center justify-center p-1 border border-white/5 relative group-hover:border-white/10 transition">
                       <img 
                         src={collar.svgUrl} 
                         alt={collar.name} 
                         className="max-w-full max-h-full object-contain filter invert opacity-80"
                       />
                       {isSelected && (
-                        <div className="absolute top-1 right-1 bg-primary text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">
-                          ATIVO
+                        <div className="absolute top-0.5 right-0.5 bg-primary text-white text-[7px] font-bold px-1 py-0.2 rounded-full">
+                          ON
                         </div>
                       )}
                     </div>
-                    <div className="truncate text-[11px] font-bold mt-1 self-center w-full text-center">
+                    <div className="truncate text-[10px] font-bold self-center w-full text-center text-zinc-300">
                       {collar.name}
                     </div>
                   </button>
                 );
               })}
               {collarsList.length === 0 && (
-                <div className="col-span-2 text-center py-6 border border-dashed border-zinc-800 rounded-xl bg-zinc-950/40">
-                  <p className="text-[10px] text-zinc-500 italic">Nenhuma gola cadastrada pelo administrador.</p>
+                <div className="w-full text-center py-4 border border-dashed border-zinc-800 rounded-xl bg-zinc-950/40">
+                  <p className="text-[10px] text-zinc-500 italic">Nenhuma gola cadastrada.</p>
                 </div>
               )}
             </div>
