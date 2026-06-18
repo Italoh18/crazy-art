@@ -82,7 +82,7 @@ const URLImage = ({ imageProps, isSelected, onSelect, onChange }: {
 };
 
 export default function LayoutBuilder() {
-  const { mockupBaseUrl, mockupBackgroundUrl, mockupBaseX, mockupBaseY, mockupBaseWidth } = useData();
+  const { mockupBaseUrl, mockupBackgroundUrl, mockupBaseX, mockupBaseY, mockupBaseWidth, mockupCollars } = useData();
   const [images, setImages] = useState<MockupImage[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -91,6 +91,7 @@ export default function LayoutBuilder() {
   const isPanningRef = useRef(false);
   const startPanRef = useRef({ x: 0, y: 0 });
   const [localBgUrl, setLocalBgUrl] = useState<string>('');
+  const [selectedCollarId, setSelectedCollarId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
   
@@ -112,8 +113,11 @@ export default function LayoutBuilder() {
 
   const currentMockupUrl = mockupBaseUrl || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1000&auto=format&fit=crop';
   
+  const collarsList = Array.isArray(mockupCollars) ? mockupCollars : [];
+  const activeCollar = collarsList.find(c => c.id === selectedCollarId);
   const [mockupImg] = useImage(currentMockupUrl);
   const [bgImg] = useImage(localBgUrl || mockupBackgroundUrl || '');
+  const [collarImg] = useImage(activeCollar?.svgUrl || '');
 
   const handleMouseDown = (e: any) => {
     // Button 2 is the right mouse click
@@ -402,6 +406,38 @@ export default function LayoutBuilder() {
                                     />
                                 );
                             })()}
+                            {collarImg && activeCollar && (() => {
+                                const scaleF = (mockupBaseWidth ?? 100) / 100;
+                                const shirtCenterX = 720 * ((mockupBaseX ?? 50) / 100);
+                                const shirtCenterY = 720 * ((mockupBaseY ?? 50) / 100);
+
+                                const designedCenterX = 720 * ((activeCollar.x ?? 50) / 100);
+                                const designedCenterY = 720 * ((activeCollar.y ?? 50) / 100);
+                                const designedWidth = 720 * ((activeCollar.width ?? 25) / 100);
+
+                                const offsetX = designedCenterX - 360;
+                                const offsetY = designedCenterY - 360;
+
+                                const collarW = designedWidth * scaleF;
+                                const collarH = collarImg ? (collarImg.height / collarImg.width) * collarW : collarW;
+
+                                const collarCenterX = shirtCenterX + (offsetX * scaleF);
+                                const collarCenterY = shirtCenterY + (offsetY * scaleF);
+
+                                const collarX = collarCenterX - (collarW / 2);
+                                const collarY = collarCenterY - (collarH / 2);
+
+                                return (
+                                    <KonvaImage 
+                                        image={collarImg} 
+                                        width={collarW} 
+                                        height={collarH} 
+                                        x={collarX}
+                                        y={collarY}
+                                        listening={false}
+                                    />
+                                );
+                            })()}
                             {images.map((img, i) => (
                                 <URLImage
                                     key={img.id}
@@ -478,6 +514,62 @@ export default function LayoutBuilder() {
                 <span className="text-[8px] font-mono font-bold bg-[#a855f7]/10 text-[#a855f7] px-2 py-0.5 rounded-full uppercase tracking-wider">breve</span>
               </div>
               <p className="text-[10px] text-zinc-500 leading-relaxed">Distorção inteligente de estampa para acompanhar as curvas do tecido.</p>
+            </div>
+          </div>
+
+          {/* Seletor de Gola */}
+          <div className="border-t border-white/5 pt-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">Gola do Mockup</h3>
+                <span className="text-[9px] text-zinc-500 font-mono">Personalização do Molde</span>
+              </div>
+              {selectedCollarId && (
+                <button
+                  onClick={() => setSelectedCollarId('')}
+                  className="text-[10px] text-zinc-500 hover:text-white font-medium transition cursor-pointer"
+                >
+                  Remover Gola
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-1">
+              {collarsList.map((collar) => {
+                const isSelected = selectedCollarId === collar.id;
+                return (
+                  <button
+                    key={collar.id}
+                    onClick={() => setSelectedCollarId(collar.id)}
+                    className={`p-3 rounded-xl border text-left transition duration-200 flex flex-col gap-2 relative group overflow-hidden cursor-pointer ${
+                      isSelected 
+                        ? 'bg-primary/10 border-primary text-white shadow-lg shadow-primary/5' 
+                        : 'bg-[#121215]/40 border-white/5 hover:border-white/10 hover:bg-[#121215]/80 text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <div className="aspect-square w-full rounded-lg bg-zinc-950 flex items-center justify-center p-2 border border-white/5 relative group-hover:border-white/10 transition">
+                      <img 
+                        src={collar.svgUrl} 
+                        alt={collar.name} 
+                        className="max-w-full max-h-full object-contain filter invert opacity-80"
+                      />
+                      {isSelected && (
+                        <div className="absolute top-1 right-1 bg-primary text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">
+                          ATIVO
+                        </div>
+                      )}
+                    </div>
+                    <div className="truncate text-[11px] font-bold mt-1 self-center w-full text-center">
+                      {collar.name}
+                    </div>
+                  </button>
+                );
+              })}
+              {collarsList.length === 0 && (
+                <div className="col-span-2 text-center py-6 border border-dashed border-zinc-800 rounded-xl bg-zinc-950/40">
+                  <p className="text-[10px] text-zinc-500 italic">Nenhuma gola cadastrada pelo administrador.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
