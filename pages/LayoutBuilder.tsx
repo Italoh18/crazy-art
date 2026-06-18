@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Share2, Upload, Trash2, ZoomIn, ZoomOut, Maximize, RotateCcw, Image as ImageIcon, FileText } from 'lucide-react';
+import { ArrowLeft, Share2, Upload, Trash2, ZoomIn, ZoomOut, Maximize, RotateCcw, Image as ImageIcon, FileText, Wrench, Sparkles } from 'lucide-react';
 import { Stage, Layer, Image as KonvaImage, Transformer } from 'react-konva';
 import useImage from 'use-image';
 import { useData } from '../contexts/DataContext';
@@ -237,7 +237,14 @@ export default function LayoutBuilder() {
 
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* SIDEBAR CONTROLS */}
-        <div className="w-full lg:w-80 border-r border-white/5 bg-zinc-950 p-6 flex flex-col gap-6 overflow-y-auto">
+        <div className="w-full lg:w-80 border-r border-white/5 bg-zinc-950 p-6 flex flex-col gap-6 overflow-y-auto shrink-0">
+          <div className="border-b border-white/5 pb-4">
+             <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                 <Wrench size={16} className="text-primary" />
+                 Ferramentas
+             </h2>
+             <span className="text-[9px] font-mono font-semibold text-primary/80 uppercase tracking-widest mt-1 block">Painel Ativo</span>
+          </div>
           
           <div>
             <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 block">Fundo da Área</label>
@@ -303,7 +310,7 @@ export default function LayoutBuilder() {
         </div>
 
         {/* WORK AREA */}
-        <div className="flex-1 bg-black relative flex flex-col overflow-hidden">
+        <div className="flex-1 bg-black relative flex flex-col overflow-hidden items-center justify-center">
             
             {/* TOOLBAR */}
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex bg-zinc-900/80 backdrop-blur-md border border-white/5 rounded-full p-1 shadow-2xl">
@@ -322,7 +329,7 @@ export default function LayoutBuilder() {
 
             {/* CANVAS WRAPPER */}
             <div 
-                className="flex-1 overflow-hidden flex items-center justify-center p-6 bg-[radial-gradient(#18181b_1px,transparent_1px)] bg-[size:40px_40px]"
+                className="flex-1 w-full overflow-hidden flex items-center justify-center p-6 bg-[radial-gradient(#18181b_1px,transparent_1px)] bg-[size:40px_40px]"
                 onClick={() => setSelectedId(null)}
                 onContextMenu={(e) => {
                     e.preventDefault(); // Impede o menu de contexto nativo para permitir arrastar com botão direito
@@ -332,16 +339,17 @@ export default function LayoutBuilder() {
                     id="mockup-view-frame"
                     className={`bg-[#121215] shadow-[0_0_80px_rgba(0,0,0,0.6)] rounded-3xl overflow-hidden relative border border-white/5 transition-shadow ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
                     style={{ 
-                        width: '600px', 
-                        height: '600px',
+                        width: '800px', 
+                        height: '800px',
                         maxWidth: '100%',
                         maxHeight: '100%',
+                        aspectRatio: '1 / 1',
                     }}
                     onClick={(e) => e.stopPropagation()}
                 >
                     <Stage 
-                        width={600} 
-                        height={600} 
+                        width={800} 
+                        height={800} 
                         scaleX={zoom}
                         scaleY={zoom}
                         x={stagePos.x}
@@ -356,16 +364,16 @@ export default function LayoutBuilder() {
                             {bgImg && (
                                 <KonvaImage 
                                     image={bgImg} 
-                                    width={600} 
-                                    height={600} 
+                                    width={800} 
+                                    height={800} 
                                     listening={false}
                                 />
                             )}
                             {mockupImg && (
                                 <KonvaImage 
                                     image={mockupImg} 
-                                    width={600} 
-                                    height={600} 
+                                    width={800} 
+                                    height={800} 
                                     listening={false}
                                 />
                             )}
@@ -395,9 +403,58 @@ export default function LayoutBuilder() {
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-4 text-[10px] font-mono text-zinc-500 uppercase tracking-widest font-medium">
                     <span>Atalhos: Scroll (Zoom) | Botão Direito do Mouse (Arrastar)</span>
-                    <span className="hidden sm:inline border-l border-white/10 pl-4">Workspace: 600x600px (1:1)</span>
+                    <span className="hidden sm:inline border-l border-white/10 pl-4">Workspace: 800x800px (1:1)</span>
                 </div>
             </div>
+        </div>
+
+        {/* SIDEBAR DIREITA - FERRAMENTAS EM BREVE */}
+        <div className="hidden xl:flex w-80 border-l border-white/5 bg-zinc-950 p-6 flex-col gap-6 overflow-y-auto shrink-0 select-none">
+          <div className="border-b border-white/5 pb-4">
+             <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                 <Sparkles size={16} className="text-[#a855f7]" />
+                 Ferramentas
+             </h2>
+             <span className="text-[9px] font-mono font-semibold text-[#a855f7] bg-[#a855f7]/10 px-2 py-0.5 rounded-full uppercase tracking-widest mt-1 block w-fit">em breve</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Ferramenta 1: Filtros de Imagem */}
+            <div className="p-4 bg-[#121215]/50 border border-white/5 rounded-2xl relative overflow-hidden opacity-60">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-zinc-300">Filtros de Cor</span>
+                <span className="text-[8px] font-mono font-bold bg-[#a855f7]/10 text-[#a855f7] px-2 py-0.5 rounded-full uppercase tracking-wider">breve</span>
+              </div>
+              <p className="text-[10px] text-zinc-500 leading-relaxed">Ajustes de matiz, saturação, brilho e contraste nas estampas.</p>
+            </div>
+
+            {/* Ferramenta 2: Texturas 3D / Mockup Pro */}
+            <div className="p-4 bg-[#121215]/50 border border-white/5 rounded-2xl relative overflow-hidden opacity-60">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-zinc-300">Texturas & Sombras</span>
+                <span className="text-[8px] font-mono font-bold bg-[#a855f7]/10 text-[#a855f7] px-2 py-0.5 rounded-full uppercase tracking-wider">breve</span>
+              </div>
+              <p className="text-[10px] text-zinc-500 leading-relaxed">Sobreposição de dobras e profundidade realistas para tecido.</p>
+            </div>
+
+            {/* Ferramenta 3: Biblioteca de Moldes */}
+            <div className="p-4 bg-[#121215]/50 border border-white/5 rounded-2xl relative overflow-hidden opacity-60">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-zinc-300">Biblioteca de Moldes</span>
+                <span className="text-[8px] font-mono font-bold bg-[#a855f7]/10 text-[#a855f7] px-2 py-0.5 rounded-full uppercase tracking-wider">breve</span>
+              </div>
+              <p className="text-[10px] text-zinc-500 leading-relaxed">Acesse dezenas de novos moldes de vestuário e acessórios.</p>
+            </div>
+
+            {/* Ferramenta 4: Perspectiva Avançada */}
+            <div className="p-4 bg-[#121215]/50 border border-white/5 rounded-2xl relative overflow-hidden opacity-60">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-zinc-300">Perspectiva 3D</span>
+                <span className="text-[8px] font-mono font-bold bg-[#a855f7]/10 text-[#a855f7] px-2 py-0.5 rounded-full uppercase tracking-wider">breve</span>
+              </div>
+              <p className="text-[10px] text-zinc-500 leading-relaxed">Distorção inteligente de estampa para acompanhar as curvas do tecido.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
