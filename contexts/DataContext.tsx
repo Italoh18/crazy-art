@@ -13,6 +13,7 @@ interface DataContextType {
   moldes: Molde[];
   faviconUrl: string | null;
   mockupBaseUrl: string | null;
+  mockupBackgroundUrl: string | null;
   mockupCollars: any[];
   updateMockupCollars: (collars: any[]) => Promise<void>;
   mockupCuffs: any[];
@@ -43,6 +44,7 @@ interface DataContextType {
   loadData: (silent?: boolean) => Promise<void>;
   updateFavicon: (url: string) => Promise<void>;
   updateMockupBase: (url: string) => Promise<void>;
+  updateMockupBackground: (url: string) => Promise<void>;
   loadDriveFiles: (folder?: string) => Promise<void>;
   driveFiles: any[];
   addDriveFile: (data: any) => Promise<void>;
@@ -75,6 +77,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   const [moldes, setMoldes] = useState<Molde[]>([]);
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
   const [mockupBaseUrl, setMockupBaseUrl] = useState<string | null>(null);
+  const [mockupBackgroundUrl, setMockupBackgroundUrl] = useState<string | null>(null);
   const [mockupCollars, setMockupCollars] = useState<any[]>([]);
   const [mockupCuffs, setMockupCuffs] = useState<any[]>([]);
   const [driveFiles, setDriveFiles] = useState<any[]>([]);
@@ -142,6 +145,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
         const settings = results[5].value || {};
         if (settings.favicon_url) setFaviconUrl(settings.favicon_url);
         if (settings.mockup_base_url) setMockupBaseUrl(settings.mockup_base_url);
+        if (settings.mockup_background_url) setMockupBackgroundUrl(settings.mockup_background_url);
         if (settings.mockup_collars) {
           try {
             setMockupCollars(JSON.parse(settings.mockup_collars));
@@ -517,6 +521,15 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       }
   };
 
+  const updateMockupBackground = async (url: string) => {
+      try {
+          await api.updateSetting('mockup_background_url', url);
+          setMockupBackgroundUrl(url);
+      } catch (e: any) {
+          alert(e.message);
+      }
+  };
+
   const updateMockupCollars = async (collars: any[]) => {
       try {
           await api.updateSetting('mockup_collars', JSON.stringify(collars));
@@ -596,7 +609,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
   return (
     <DataContext.Provider value={{ 
       customers, products, orders, carouselImages, trustedCompanies, coupons, moldes, faviconUrl, 
-      mockupBaseUrl, mockupCollars, updateMockupCollars, mockupCuffs, updateMockupCuffs, isLoading,  
+      mockupBaseUrl, mockupBackgroundUrl, mockupCollars, updateMockupCollars, mockupCuffs, updateMockupCuffs, isLoading,  
       addCustomer, updateCustomer, deleteCustomer,
       addProduct, updateProduct, deleteProduct, 
       addOrder, updateOrder, deleteOrder, updateOrderStatus, updateProductionStep,
@@ -604,7 +617,7 @@ export const DataProvider = ({ children }: { children?: ReactNode }) => {
       addTrustedCompany, deleteTrustedCompany,
       addCoupon, deleteCoupon, validateCoupon, loadCoupons,
       addMolde, updateMolde, deleteMolde,
-      updateFavicon, updateMockupBase, loadData,
+      updateFavicon, updateMockupBase, updateMockupBackground, loadData,
       driveFiles, loadDriveFiles, addDriveFile, deleteDriveFile
     }}>
       {children}

@@ -7,6 +7,8 @@ export default function AdminMockupSoon() {
   const { 
     mockupBaseUrl, 
     updateMockupBase, 
+    mockupBackgroundUrl,
+    updateMockupBackground,
     mockupCollars, 
     updateMockupCollars,
     mockupCuffs,
@@ -14,6 +16,7 @@ export default function AdminMockupSoon() {
   } = useData();
   
   const [baseUrl, setBaseUrl] = useState('');
+  const [backgroundUrl, setBackgroundUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -47,6 +50,10 @@ export default function AdminMockupSoon() {
     if (mockupBaseUrl) setBaseUrl(mockupBaseUrl);
   }, [mockupBaseUrl]);
 
+  useEffect(() => {
+    if (mockupBackgroundUrl) setBackgroundUrl(mockupBackgroundUrl);
+  }, [mockupBackgroundUrl]);
+
   // Safe list references
   const collarsList = Array.isArray(mockupCollars) ? mockupCollars : [];
   const cuffsList = Array.isArray(mockupCuffs) ? mockupCuffs : [];
@@ -54,7 +61,10 @@ export default function AdminMockupSoon() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    await updateMockupBase(baseUrl.trim());
+    await Promise.all([
+      updateMockupBase(baseUrl.trim()),
+      updateMockupBackground(backgroundUrl.trim())
+    ]);
     setIsSaving(false);
     setSuccess(true);
     setTimeout(() => setSuccess(false), 3000);
@@ -265,6 +275,40 @@ export default function AdminMockupSoon() {
       </div>
 
       <form onSubmit={handleSave} className="space-y-8">
+        {/* Card: Fundo do Layout */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-xl">
+          <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+            <ImageIcon size={20} className="text-primary" /> Fundo do Layout (PNG)
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <ImageUploadInput 
+                label="Imagem de Fundo do Layout (PNG até 5MB)"
+                value={backgroundUrl}
+                onChange={setBackgroundUrl}
+                placeholder="https://..."
+                category="mockups"
+                accept=".png"
+                maxSizeMB={5}
+              />
+              <p className="text-[10px] text-zinc-500">Este arquivo de imagem (PNG) será usado como plano de fundo na ferramenta. Máximo de 5MB.</p>
+            </div>
+            {backgroundUrl && (
+              <div className="p-4 rounded-xl border border-white/5 bg-black/20 flex flex-col justify-between">
+                <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider mb-2 block">Visualização do Fundo</span>
+                <div className="flex items-center justify-center p-2 bg-zinc-950 rounded-lg border border-zinc-800/50">
+                  <img 
+                    src={backgroundUrl} 
+                    alt="Background Preview" 
+                    className="max-h-24 object-contain rounded"
+                    onError={(e) => e.currentTarget.style.display = 'none'} 
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Card: Mockup Base */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-xl">
