@@ -22,7 +22,7 @@ const URLImage = ({ imageProps, isSelected, onSelect, onChange }: {
   onSelect: () => void,
   onChange: (newProps: MockupImage) => void 
   }) => {
-  const [img] = useImage(imageProps.url, 'anonymous');
+  const [img] = useImage(imageProps.url);
   const shapeRef = useRef<any>(null);
   const trRef = useRef<any>(null);
 
@@ -121,9 +121,9 @@ export default function LayoutBuilder() {
   
   const collarsList = Array.isArray(mockupCollars) ? mockupCollars : [];
   const activeCollar = collarsList.find(c => c.id === selectedCollarId);
-  const [mockupImg] = useImage(currentMockupUrl, 'anonymous');
-  const [bgImg] = useImage(localBgUrl || mockupBackgroundUrl || '', 'anonymous');
-  const [collarImg] = useImage(activeCollar?.svgUrl || '', 'anonymous');
+  const [mockupImg] = useImage(currentMockupUrl);
+  const [bgImg] = useImage(localBgUrl || mockupBackgroundUrl || '');
+  const [collarImg] = useImage(activeCollar?.svgUrl || '');
 
   const handleMouseDown = (e: any) => {
     // Button 2 is the right mouse click
