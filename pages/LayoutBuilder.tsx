@@ -51,6 +51,10 @@ const CollarIcon = ({ collar }: { collar: any }) => {
   useEffect(() => {
     if (!collar.previewSelector || !collar.svgUrl) return;
     
+    // Check if previewSelector is a URL/base64 rather than a selector query
+    const isUrl = collar.previewSelector.startsWith('data:') || collar.previewSelector.startsWith('http') || collar.previewSelector.includes('/') || collar.previewSelector.includes('.');
+    if (isUrl) return;
+    
     const fetchUrl = collar.svgUrl.startsWith('data:') 
       ? collar.svgUrl 
       : `/api/proxy-image?url=${encodeURIComponent(collar.svgUrl)}`;
@@ -102,10 +106,34 @@ const CollarIcon = ({ collar }: { collar: any }) => {
       });
   }, [collar.svgUrl, collar.previewSelector]);
 
+  // Primary: Custom user uploaded transparent PNG icon
+  if (collar.iconUrl) {
+    return (
+      <img 
+        src={collar.iconUrl} 
+        alt={collar.name} 
+        className="max-w-[85%] max-h-[85%] object-contain select-none pointer-events-none transition duration-200 group-hover:scale-105"
+      />
+    );
+  }
+
+  // Secondary: Custom selector generated vector icon
   if (collar.previewSelector && svgStr) {
     return <div className="w-full h-full flex items-center justify-center p-1 shrink-0 select-none pointer-events-none" dangerouslySetInnerHTML={{ __html: svgStr }} />;
   }
 
+  // Tertiary: Fallback to previewSelector if it contains a URL
+  if (collar.previewSelector && (collar.previewSelector.startsWith('data:') || collar.previewSelector.startsWith('http') || collar.previewSelector.includes('/') || (collar.previewSelector.includes('.') && !collar.previewSelector.startsWith('.')))) {
+    return (
+      <img 
+        src={collar.previewSelector} 
+        alt={collar.name} 
+        className="max-w-[85%] max-h-[85%] object-contain select-none pointer-events-none transition duration-200 group-hover:scale-105"
+      />
+    );
+  }
+
+  // Quaternary: Fallback to general svg
   return (
     <img 
       src={collar.svgUrl} 

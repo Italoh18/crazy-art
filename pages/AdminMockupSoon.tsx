@@ -131,131 +131,8 @@ export default function AdminMockupSoon() {
   const [tempItemUrl, setTempItemUrl] = useState('');
   const [tempItemName, setTempItemName] = useState('');
   const [tempPreviewSelector, setTempPreviewSelector] = useState('');
+  const [tempCollarIconUrl, setTempCollarIconUrl] = useState('');
   const [tempPosition, setTempPosition] = useState({ x: 50, y: 30, width: 25 });
-
-  // SVG Visual Picker State & Helpers
-  const [isVisualPickerOpen, setIsVisualPickerOpen] = useState(false);
-  const [pickerSvgContent, setPickerSvgContent] = useState('');
-  const [pickerError, setPickerError] = useState('');
-  const [pickerHoveredSelector, setPickerHoveredSelector] = useState('');
-  const [pickerSelectedSelectors, setPickerSelectedSelectors] = useState<string[]>([]);
-
-  const getElementSelector = (el: Element): string => {
-    if (el.id) {
-      return `#${el.id}`;
-    }
-    const classes = Array.from(el.classList).filter(c => c && c.trim() !== '');
-    if (classes.length > 0) {
-      return `.${classes.join('.')}`;
-    }
-    const tagName = el.tagName.toLowerCase();
-    
-    let path = [];
-    let current: Element | null = el;
-    while (current && current.tagName && current.tagName.toLowerCase() !== 'svg') {
-      if (current.id) {
-        path.unshift(`#${current.id}`);
-        break;
-      }
-      const currTagName = current.tagName.toLowerCase();
-      
-      let sibling = current.previousElementSibling;
-      let index = 1;
-      while (sibling) {
-        if (sibling.tagName === current.tagName) {
-          index++;
-        }
-        sibling = sibling.previousElementSibling;
-      }
-      
-      path.unshift(`${currTagName}:nth-of-type(${index})`);
-      current = current.parentElement;
-    }
-    
-    if (path.length > 0) {
-      return path.join(' > ');
-    }
-    
-    return tagName;
-  };
-
-  const openVisualPicker = () => {
-    if (!tempItemUrl) {
-      alert("Por favor, faça upload do SVG da gola primeiro.");
-      return;
-    }
-    setPickerError('');
-    setPickerSvgContent('');
-    setPickerHoveredSelector('');
-    
-    const initialSelectors = tempPreviewSelector
-      ? tempPreviewSelector.split(',').map(s => s.trim()).filter(Boolean)
-      : [];
-    setPickerSelectedSelectors(initialSelectors);
-    
-    setIsVisualPickerOpen(true);
-
-    let decodePromise;
-    if (tempItemUrl.startsWith('data:image/svg+xml;base64,')) {
-      try {
-        const base64Content = tempItemUrl.split(',')[1];
-        decodePromise = Promise.resolve(atob(base64Content));
-      } catch (e: any) {
-        decodePromise = Promise.reject("Falha ao descriptografar SVG local.");
-      }
-    } else if (tempItemUrl.startsWith('data:image/svg+xml,')) {
-      try {
-        decodePromise = Promise.resolve(decodeURIComponent(tempItemUrl.split(',')[1]));
-      } catch (e: any) {
-        decodePromise = Promise.reject("Falha ao decodificar SVG local.");
-      }
-    } else {
-      const fetchUrl = tempItemUrl.startsWith('data:') 
-        ? tempItemUrl 
-        : `/api/proxy-image?url=${encodeURIComponent(tempItemUrl)}`;
-      decodePromise = fetch(fetchUrl).then(res => {
-        if (!res.ok) throw new Error("Erro ao baixar o arquivo SVG do servidor.");
-        return res.text();
-      });
-    }
-
-    decodePromise
-      .then(text => {
-        setPickerSvgContent(text);
-      })
-      .catch(err => {
-        console.error(err);
-        setPickerError("Não foi possível processar o SVG fornecido para visualização interativa.");
-      });
-  };
-
-  const handlePickerMouseOver = (e: React.MouseEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    if (target && target.tagName && target.tagName.toLowerCase() !== 'svg' && target.closest('svg')) {
-      const sel = getElementSelector(target);
-      setPickerHoveredSelector(sel);
-    }
-  };
-
-  const handlePickerMouseOut = () => {
-    setPickerHoveredSelector('');
-  };
-
-  const handlePickerClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    if (target && target.tagName && target.tagName.toLowerCase() !== 'svg' && target.closest('svg')) {
-      const sel = getElementSelector(target);
-      if (!sel) return;
-      
-      setPickerSelectedSelectors(prev => {
-        if (prev.includes(sel)) {
-          return prev.filter(s => s !== sel);
-        } else {
-          return [...prev, sel];
-        }
-      });
-    }
-  };
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<{
@@ -401,6 +278,7 @@ export default function AdminMockupSoon() {
       setTempItemName(item.name);
       setTempPosition({ x: item.x, y: item.y, width: item.width });
       setTempPreviewSelector(item.previewSelector || '');
+      setTempCollarIconUrl(item.iconUrl || '');
     } else {
       if (type === 'collar') {
         if (!newCollarName.trim() || !newCollarUrl) return;
@@ -409,6 +287,7 @@ export default function AdminMockupSoon() {
         setTempItemName(newCollarName.trim());
         setTempPosition({ x: 50, y: 25, width: 25 });
         setTempPreviewSelector('');
+        setTempCollarIconUrl('');
       } else {
         if (!newCuffName.trim() || !newCuffUrl) return;
         setEditingItem(null);
@@ -416,6 +295,7 @@ export default function AdminMockupSoon() {
         setTempItemName(newCuffName.trim());
         setTempPosition({ x: 50, y: 55, width: 15 });
         setTempPreviewSelector('');
+        setTempCollarIconUrl('');
       }
     }
     setIsModalOpen(true);
@@ -433,7 +313,8 @@ export default function AdminMockupSoon() {
           x: tempPosition.x,
           y: tempPosition.y,
           width: tempPosition.width,
-          previewSelector: tempPreviewSelector.trim()
+          previewSelector: tempPreviewSelector.trim(),
+          iconUrl: tempCollarIconUrl.trim()
         } : c);
       } else {
         const newCollarObj = {
@@ -443,7 +324,8 @@ export default function AdminMockupSoon() {
           x: tempPosition.x,
           y: tempPosition.y,
           width: tempPosition.width,
-          previewSelector: tempPreviewSelector.trim()
+          previewSelector: tempPreviewSelector.trim(),
+          iconUrl: tempCollarIconUrl.trim()
         };
         updatedList.push(newCollarObj);
         
@@ -780,11 +662,16 @@ export default function AdminMockupSoon() {
                   <div className="space-y-1 text-[10px] text-zinc-550 font-mono">
                     <div>Posição: X: {collar.x}%, Y: {collar.y}%</div>
                     <div>Largura: {collar.width}%</div>
-                    {collar.previewSelector && (
+                    {collar.iconUrl ? (
+                      <div className="text-[10px] text-emerald-400 font-bold mt-1 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        Ícone PNG ativo
+                      </div>
+                    ) : collar.previewSelector ? (
                       <div className="text-[10px] text-cyan-400 font-bold mt-1">
                         Ícone SVG: <span className="bg-cyan-950/40 text-cyan-300 px-1 py-0.5 rounded border border-cyan-800/30 font-mono text-[9px]">{collar.previewSelector}</span>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 
@@ -1052,30 +939,19 @@ export default function AdminMockupSoon() {
                 </div>
               </div>
 
-              {/* Collar Icon Preview Selector */}
+              {/* Collar Icon Image Upload */}
               {modalType === 'collar' && (
                 <div className="bg-zinc-950/60 p-4 rounded-xl border border-zinc-800/60 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] text-zinc-400 font-bold uppercase block">
-                      Seletor do Elemento SVG para Ícone (Opcional)
-                    </label>
-                    <button
-                      type="button"
-                      onClick={openVisualPicker}
-                      className="text-[10px] text-primary hover:text-amber-500 font-bold uppercase tracking-wider flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer transition select-none"
-                    >
-                      <Sparkles size={11} /> Selecionar gola no SVG
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    className="w-full bg-black/40 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition font-mono"
-                    placeholder="Ex: #gola-interna, .g-icone, path"
-                    value={tempPreviewSelector}
-                    onChange={(e) => setTempPreviewSelector(e.target.value)}
+                  <ImageUploadInput 
+                    label="Ícone da Gola na Ferramenta (PNG sem fundo)"
+                    value={tempCollarIconUrl}
+                    onChange={(url) => setTempCollarIconUrl(url)}
+                    placeholder="Faça upload de um PNG com fundo transparente..."
+                    category="mockups"
+                    accept="image/png"
                   />
-                  <p className="text-[9px] text-zinc-500 leading-normal">
-                    Se definido, apenas o elemento selecionado no SVG será renderizado como ícone na paleta (substituindo a imagem comum). Você pode clicar no botão <b>Selecionar gola no SVG</b> para escolher de forma interativa.
+                  <p className="text-[9px] text-zinc-400 leading-normal">
+                    Faça upload de uma imagem <b>PNG com fundo transparente</b> para ser exibida como ícone de seleção desta gola na paleta do construtor de layouts (substituindo a visualização padrão).
                   </p>
                 </div>
               )}
@@ -1318,158 +1194,6 @@ export default function AdminMockupSoon() {
         </div>
       )}
 
-      {/* SVG Asset Selector Modal Overlay */}
-      {isVisualPickerOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-xl bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-950">
-              <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Sparkles size={16} className="text-primary" /> Mapear Gola no SVG
-                </h3>
-                <p className="text-[10px] text-zinc-500 mt-0.5">Selecione uma ou mais partes do SVG clicando nelas. Elas ficarão destacadas em verde.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsVisualPickerOpen(false)}
-                className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto flex-1 flex flex-col items-center justify-center min-h-[350px] bg-zinc-900 gap-4">
-              {pickerError ? (
-                <div className="text-center p-4">
-                  <p className="text-xs text-red-500 font-bold">{pickerError}</p>
-                </div>
-              ) : pickerSvgContent ? (
-                <div className="w-full max-w-md border border-zinc-800 rounded-xl bg-zinc-950 p-6 flex flex-col items-center justify-center aspect-square relative selection-picker-parent shadow-inner overflow-hidden">
-                  <style dangerouslySetInnerHTML={{ __html: `
-                    #visual-picker-svg-container svg {
-                      width: 100%;
-                      height: 100%;
-                      max-height: 310px;
-                      object-fit: contain;
-                    }
-                    #visual-picker-svg-container path, 
-                    #visual-picker-svg-container polygon, 
-                    #visual-picker-svg-container rect, 
-                    #visual-picker-svg-container circle, 
-                    #visual-picker-svg-container ellipse, 
-                    #visual-picker-svg-container line {
-                      transition: all 0.1s ease-in-out;
-                      cursor: pointer !important;
-                    }
-                    #visual-picker-svg-container path:hover, 
-                    #visual-picker-svg-container polygon:hover, 
-                    #visual-picker-svg-container rect:hover, 
-                    #visual-picker-svg-container circle:hover, 
-                    #visual-picker-svg-container ellipse:hover, 
-                    #visual-picker-svg-container line:hover {
-                      fill: rgba(245, 158, 11, 0.4) !important;
-                      stroke: #f59e0b !important;
-                      stroke-width: 2px !important;
-                    }
-                    ${pickerSelectedSelectors.map(sel => {
-                      if (!sel) return '';
-                      return `
-                        #visual-picker-svg-container ${sel} {
-                          fill: rgba(34, 197, 94, 0.35) !important;
-                          stroke: #10b981 !important;
-                          stroke-width: 2.5px !important;
-                        }
-                        #visual-picker-svg-container ${sel}:hover {
-                          fill: rgba(34, 197, 94, 0.5) !important;
-                          stroke: #059669 !important;
-                          stroke-width: 3px !important;
-                        }
-                      `;
-                    }).join('\n')}
-                  `}} />
-                  <div
-                    id="visual-picker-svg-container"
-                    className="w-full h-full flex items-center justify-center [&_svg]:w-full [&_svg]:h-full"
-                    dangerouslySetInnerHTML={{ __html: pickerSvgContent }}
-                    onMouseOver={handlePickerMouseOver}
-                    onMouseOut={handlePickerMouseOut}
-                    onClick={handlePickerClick}
-                  />
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center">
-                  <div className="w-8 h-8 border-2 border-t-primary border-zinc-800 rounded-full animate-spin mb-2"></div>
-                  <p className="text-[11px] text-zinc-500">Processando e carregando gola SVG...</p>
-                </div>
-              )}
-
-              {/* Status Indicator */}
-              <div className="w-full space-y-2">
-                {pickerHoveredSelector && (
-                  <div className="px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 font-mono text-[9px] text-primary flex items-center gap-1.5 animate-pulse max-w-full truncate">
-                    <span className="text-zinc-500">Mapeando:</span>
-                    <span className="font-bold">{pickerHoveredSelector}</span>
-                  </div>
-                )}
-
-                {pickerSelectedSelectors.length > 0 && (
-                  <div className="p-3 rounded-lg bg-zinc-950 border border-zinc-800 space-y-1">
-                    <div className="flex justify-between items-center text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
-                      <span>Elementos Selecionados ({pickerSelectedSelectors.length})</span>
-                      <button 
-                        type="button" 
-                        onClick={() => setPickerSelectedSelectors([])}
-                        className="text-[9px] text-red-500 hover:text-red-400 transition bg-transparent border-none p-0 cursor-pointer"
-                      >
-                        Limpar Todos
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap gap-1 max-h-[60px] overflow-y-auto pt-1">
-                      {pickerSelectedSelectors.map((sel, idx) => (
-                        <div key={idx} className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[9px] font-mono text-emerald-400">
-                          <span>{sel}</span>
-                          <button
-                            type="button"
-                            onClick={() => setPickerSelectedSelectors(prev => prev.filter(s => s !== sel))}
-                            className="text-zinc-500 hover:text-zinc-300 ml-0.5"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-3 px-6 py-4 bg-zinc-950 border-t border-zinc-800">
-              <span className="text-[10px] text-zinc-500 font-mono">
-                {pickerSelectedSelectors.length === 0 ? "Nenhum elemento selecionado" : `${pickerSelectedSelectors.length} gola(s) selecionada(s)`}
-              </span>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsVisualPickerOpen(false)}
-                  className="px-4 py-2 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-lg text-xs font-bold text-zinc-400 hover:text-white transition"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTempPreviewSelector(pickerSelectedSelectors.join(', '));
-                    setIsVisualPickerOpen(false);
-                  }}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-emerald-950/20"
-                >
-                  <Check size={14} /> Confirmar Seleção
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
