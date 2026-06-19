@@ -217,6 +217,7 @@ export default function CustomerDetails() {
 
   const [purchasedArts, setPurchasedArts] = useState<any[]>([]);
   const [isLoadingPurchasedArts, setIsLoadingPurchasedArts] = useState(false);
+  const [copiedArtId, setCopiedArtId] = useState<string | null>(null);
 
   // --- Public List States & Helpers ---
   const [publicList, setPublicList] = useState<any | null>(null);
@@ -1309,18 +1310,37 @@ export default function CustomerDetails() {
                                             <p className="text-xs text-zinc-500">Comprado em: {purchaseDate}</p>
                                         </div>
                                         {art.download_link ? (
-                                            <a 
-                                                href={art.download_link} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer" 
-                                                className="mt-3 w-full text-center text-xs font-bold bg-[#7c3aed] text-white rounded-lg py-2 transition hover:bg-[#6d28d9] flex items-center justify-center gap-1"
-                                            >
-                                                <Download size={14} /> Baixar Arte
-                                            </a>
+                                            <div className="flex gap-2 mt-3 w-full">
+                                                <a 
+                                                    href={art.download_link} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer" 
+                                                    className="flex-1 text-center text-xs font-bold bg-[#7c3aed] text-white rounded-lg py-2 transition hover:bg-[#6d28d9] flex items-center justify-center gap-1"
+                                                >
+                                                    <Download size={14} /> Baixar Arte
+                                                </a>
+                                                <button
+                                                    onClick={() => {
+                                                        const id = art.art_id || art.art_name;
+                                                        navigator.clipboard.writeText(art.download_link);
+                                                        setCopiedArtId(id);
+                                                        setTimeout(() => setCopiedArtId(null), 2500);
+                                                    }}
+                                                    className={`px-3 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 border border-white/5 ${
+                                                        copiedArtId === (art.art_id || art.art_name)
+                                                            ? 'bg-emerald-600 text-white'
+                                                            : 'bg-zinc-800 hover:bg-zinc-750 text-zinc-300'
+                                                    }`}
+                                                    title="Copiar Link"
+                                                >
+                                                    <Copy size={14} />
+                                                    {copiedArtId === (art.art_id || art.art_name) && <span className="text-[10px]">Copiado</span>}
+                                                </button>
+                                            </div>
                                         ) : (
                                             <span className="mt-3 w-full text-center text-xs text-zinc-500 border border-white/5 rounded-lg py-2">
                                                 Aguardando link
-                                            </span>
+                                             </span>
                                         )}
                                     </div>
                                 );

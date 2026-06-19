@@ -166,7 +166,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           const p = Number(item.unitPrice || item.unit_price || item.price || 0);
           const c = Number(item.cost_price || item.costPrice || item.cost || 0);
           const subtotal = Number(item.total || (p * q));
-          const dl = item.downloadLink || (item.product ? item.product.downloadLink : null);
+          const dl = item.downloadLink || item.download_link || (item.product ? (item.product.downloadLink || item.product.download_link) : null);
           
           calculatedTotal += subtotal;
           calculatedCost += (c * q);
@@ -410,6 +410,17 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
               const { results: items } = await env.DB.prepare('SELECT catalog_id, name, download_link, type FROM order_items WHERE order_id = ?').bind(id).all();
               const artItems = (items || []).filter((i: any) => i.type === 'art');
               for (const art of artItems) {
+                let finalDl = art.download_link;
+                if (!finalDl && art.catalog_id && art.catalog_id !== 'manual') {
+                  try {
+                    const catalogItem: any = await env.DB.prepare('SELECT download_link FROM catalog WHERE id = ?').bind(art.catalog_id).first();
+                    if (catalogItem && catalogItem.download_link) {
+                      finalDl = catalogItem.download_link;
+                    }
+                  } catch (catalogErr) {
+                    console.error("Error retrieving catalog download link:", catalogErr);
+                  }
+                }
                 await env.DB.prepare(`
                   INSERT OR IGNORE INTO client_purchased_arts (id, client_id, art_id, art_name, download_link, purchased_at)
                   VALUES (?, ?, ?, ?, ?, ?)
@@ -418,7 +429,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                   ordClient.client_id,
                   String(art.catalog_id || 'manual'),
                   String(art.name || 'Arte Digital'),
-                  art.download_link ? String(art.download_link) : null,
+                  finalDl ? String(finalDl) : null,
                   new Date().toISOString()
                 ).run();
               }

@@ -266,6 +266,17 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             try {
               const artItems = (items || []).filter((i: any) => i.type === 'art');
               for (const art of artItems) {
+                let finalDl = art.download_link;
+                if (!finalDl && art.catalog_id && art.catalog_id !== 'manual') {
+                  try {
+                    const catalogItem: any = await env.DB.prepare('SELECT download_link FROM catalog WHERE id = ?').bind(art.catalog_id).first();
+                    if (catalogItem && catalogItem.download_link) {
+                      finalDl = catalogItem.download_link;
+                    }
+                  } catch (catalogErr) {
+                    console.error("Error retrieving catalog download link:", catalogErr);
+                  }
+                }
                 await env.DB.prepare(`
                   INSERT OR IGNORE INTO client_purchased_arts (id, client_id, art_id, art_name, download_link, purchased_at)
                   VALUES (?, ?, ?, ?, ?, ?)
@@ -274,7 +285,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                   orderInfo.client_id,
                   String(art.catalog_id || 'manual'),
                   String(art.name || 'Arte Digital'),
-                  art.download_link ? String(art.download_link) : null,
+                  finalDl ? String(finalDl) : null,
                   nowTs
                 ).run();
               }

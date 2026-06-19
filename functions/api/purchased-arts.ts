@@ -23,10 +23,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         SELECT DISTINCT 
           oi.catalog_id as art_id,
           oi.name as art_name,
-          oi.download_link,
+          COALESCE(oi.download_link, c.download_link) as download_link,
           COALESCE(o.paid_at, o.created_at) as purchased_at
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.id
+        LEFT JOIN catalog c ON oi.catalog_id = c.id
         WHERE o.client_id = ? 
           AND oi.type = 'art'
           AND (o.status IN ('paid', 'production', 'finished') OR o.paid_at IS NOT NULL)
@@ -40,9 +41,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     let explicitPurchasedArts: any[] = [];
     try {
       const { results } = await env.DB.prepare(`
-        SELECT art_id, art_name, download_link, purchased_at 
-        FROM client_purchased_arts 
-        WHERE client_id = ?
+        SELECT 
+          cpa.art_id, 
+          cpa.art_name, 
+          COALESCE(cpa.download_link, c.download_link) as download_link, 
+          cpa.purchased_at 
+        FROM client_purchased_arts cpa
+        LEFT JOIN catalog c ON cpa.art_id = c.id
+        WHERE cpa.client_id = ?
       `).bind(clientId).all();
       explicitPurchasedArts = results || [];
     } catch (err: any) {

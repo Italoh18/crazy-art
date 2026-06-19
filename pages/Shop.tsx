@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   ArrowLeft, Search, ShoppingCart, 
@@ -98,6 +98,43 @@ export default function Shop() {
   const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
+  // States para Polling do Pagamento
+  const [isPollingPayment, setIsPollingPayment] = useState(false);
+  const [pollingOrderPaidItems, setPollingOrderPaidItems] = useState<any[]>([]);
+  const pollTimerRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (isPollingPayment && lastCreatedOrder?.id) {
+       const checkStatus = async () => {
+         try {
+           const order = await api.getOrder(lastCreatedOrder.id);
+           if (order && (order.status === 'paid' || order.status === 'production' || order.status === 'finished' || order.payment_status === 'paid' || order.paid_at)) {
+             setIsPollingPayment(false);
+             if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+             
+             const items = order.items || [];
+             setPollingOrderPaidItems(items.filter((i: any) => i.type === 'art'));
+             
+             await loadData(true);
+             clearCart();
+             setStep('success');
+           }
+         } catch (e) {
+           console.error("Erro no polling do pagamento:", e);
+         }
+       };
+
+       checkStatus();
+       pollTimerRef.current = setInterval(checkStatus, 4000);
+    }
+
+    return () => {
+       if (pollTimerRef.current) {
+         clearInterval(pollTimerRef.current);
+       }
+    };
+  }, [isPollingPayment, lastCreatedOrder?.id]);
 
   // States para Comentarios (Reviews)
   const [comments, setComments] = useState<any[]>([]);
@@ -369,7 +406,8 @@ export default function Shop() {
               quantity: 1,
               unitPrice: viewingProduct.price,
               total: viewingProduct.price,
-              type: viewingProduct.type || 'art'
+              type: viewingProduct.type || 'art',
+              downloadLink: viewingProduct.downloadLink || null
           }];
 
           const orderData = {
@@ -398,7 +436,14 @@ export default function Shop() {
           });
 
           if (payRes?.init_point) {
-              window.location.href = payRes.init_point;
+              setLastCreatedOrder({
+                  ...res,
+                  items: itemsPayload,
+                  payment_url: payRes.init_point
+              });
+              setIsPollingPayment(true);
+              setStep('checkout');
+              window.open(payRes.init_point, '_blank');
           } else {
               throw new Error('Falha ao gerar link Mercado Pago');
           }
@@ -630,15 +675,26 @@ export default function Shop() {
             payerName: currentCustomer?.name
         });
         
-        // FIX: Redireciona na MESMA ABA para evitar confirmação precoce
-        // As back_urls do Mercado Pago cuidarão de trazer o usuário de volta para 'success' ou 'my-area'
-        if (res?.init_point) { 
-            window.location.href = res.init_point; 
+        const isArtPurchase = lastCreatedOrder?.items?.some((i: any) => i.type === 'art') || activeTab === 'art';
+        if (isArtPurchase) {
+            if (res?.init_point) {
+                setLastCreatedOrder(prev => prev ? { ...prev, payment_url: res.init_point } : null);
+                setIsPollingPayment(true);
+                window.open(res.init_point, '_blank');
+            } else {
+                throw new Error('Falha ao gerar link de pagamento Mercado Pago');
+            }
+        } else {
+            if (res?.init_point) { 
+                window.location.href = res.init_point; 
+            } else {
+                throw new Error('Falha ao gerar link de pagamento Mercado Pago');
+            }
         }
     } catch (e: any) {
         setNotification({ message: 'Erro ao gerar pagamento: ' + e.message, type: 'error' });
     } finally { 
-        // Não resetamos setIsProcessing para evitar que o botão fique habilitado durante o redirect
+        setIsProcessing(false);
     }
   };
 
@@ -1604,6 +1660,56 @@ export default function Shop() {
     const total = lastCreatedOrder?.total || 0;
     const discountedTotal = calculateDiscountedTotal();
     
+    if (isPollingPayment) {
+        return (
+            <div className="animate-fade-in max-w-xl mx-auto space-y-6 relative text-center py-12 px-4 bg-zinc-900 border border-zinc-800 rounded-3xl p-8">
+                <div className="w-20 h-20 bg-purple-500/10 text-purple-400 rounded-full flex items-center justify-center mx-auto mb-6 ring-8 ring-purple-500/5">
+                    <Loader2 className="animate-spin" size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-white uppercase tracking-wider">Aguardando Pagamento...</h3>
+                <p className="text-zinc-400 text-xs sm:text-sm leading-relaxed max-w-sm mx-auto">
+                    Abrimos o Mercado Pago em uma nova aba do seu navegador para você concluir o pagamento de forma segura.
+                </p>
+                <div className="bg-zinc-950 rounded-2xl border border-zinc-850 p-4 max-w-sm mx-auto text-left space-y-2">
+                    <div className="flex justify-between text-xs">
+                        <span className="text-zinc-500 uppercase">Pedido:</span>
+                        <span className="text-white font-mono font-bold">#{lastCreatedOrder?.order_number || lastCreatedOrder?.formattedOrderNumber}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                        <span className="text-zinc-500 uppercase">Item:</span>
+                        <span className="text-white font-bold truncate max-w-[200px]">{lastCreatedOrder?.items?.[0]?.productName || 'Arte Digital'}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                        <span className="text-zinc-500 uppercase">Valor:</span>
+                        <span className="text-purple-400 font-mono font-bold">R$ {Number(lastCreatedOrder?.total || 0).toFixed(2)}</span>
+                    </div>
+                </div>
+                <div className="space-y-3 pt-4">
+                    <button 
+                        onClick={() => {
+                            const url = lastCreatedOrder?.payment_url;
+                            if (url) window.open(url, '_blank');
+                        }} 
+                        className="w-full max-w-xs mx-auto bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-bold text-xs uppercase transition flex items-center justify-center gap-2 shadow-lg"
+                    >
+                        <ArrowUpRight size={14} /> Reabrir Página de Pagamento
+                    </button>
+                    <button 
+                        onClick={() => {
+                            setIsPollingPayment(false);
+                        }} 
+                        className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider hover:text-white transition"
+                    >
+                        Cancelar e Voltar
+                    </button>
+                </div>
+                <div className="text-[10px] text-zinc-500 flex items-center justify-center gap-2 pt-2 animate-pulse">
+                    <span className="inline-block w-2 h-2 rounded-full bg-purple-500"></span> Identificando pagamento automaticamente em tempo real...
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="animate-fade-in max-w-xl mx-auto space-y-6 relative">
             {isProcessing && (
@@ -1767,17 +1873,65 @@ export default function Shop() {
     );
   };
 
-  const renderStepSuccess = () => (
-    <div className="animate-fade-in flex flex-col items-center justify-center py-20 text-center max-w-md mx-auto">
-        <div className="w-24 h-24 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mb-8 ring-8 ring-emerald-500/5"><Check size={48} strokeWidth={3} /></div>
-        <h2 className="text-4xl font-bold text-white mb-4 font-heading">Pedido Confirmado!</h2>
-        <p className="text-zinc-400 mb-10 leading-relaxed">Seu pedido <strong>#{lastCreatedOrder?.order_number}</strong> foi recebido e já está em nossa fila de processamento.</p>
-        <div className="grid grid-cols-1 w-full gap-4">
-            <button onClick={() => navigate('/minha-area')} className="w-full bg-white text-black py-4 rounded-2xl font-bold hover:bg-zinc-200 transition">Ver Meus Pedidos</button>
-            <button onClick={() => window.open(`https://wa.me/5516994142665?text=Olá, acabei de fazer o pedido #${lastCreatedOrder?.order_number}`, '_blank')} className="w-full bg-[#25D366] text-white py-4 rounded-2xl font-bold hover:opacity-90 transition flex items-center justify-center gap-2"><MessageCircle size={20} /> Enviar no WhatsApp</button>
-        </div>
-    </div>
-  );
+  const renderStepSuccess = () => {
+    const isArtPurchase = pollingOrderPaidItems.length > 0 || (lastCreatedOrder?.items && lastCreatedOrder.items.some((i: any) => i.type === 'art')) || activeTab === 'art';
+    const artItemsToDisplay = pollingOrderPaidItems.length > 0 
+      ? pollingOrderPaidItems 
+      : (lastCreatedOrder?.items || []).filter((i: any) => i.type === 'art');
+
+    return (
+      <div className="animate-fade-in flex flex-col items-center justify-center py-20 text-center max-w-md mx-auto px-4">
+          <div className="w-24 h-24 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mb-8 ring-8 ring-emerald-500/5">
+              <Check size={48} strokeWidth={3} />
+          </div>
+          <h2 className="text-4xl font-bold text-white mb-2 font-heading">Pedido Confirmado!</h2>
+          <p className="text-zinc-400 mb-6 leading-relaxed text-sm">
+              Seu pedido <strong>#{lastCreatedOrder?.order_number || lastCreatedOrder?.formattedOrderNumber}</strong> foi pago e confirmado com sucesso!
+          </p>
+
+          {isArtPurchase && artItemsToDisplay.length > 0 && (
+              <div className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl p-4 mb-8 text-left space-y-4">
+                  <p className="text-xs font-bold text-purple-400 uppercase tracking-widest text-center border-b border-zinc-800 pb-2">
+                       Artes Adquiridas (Download Imediato)
+                  </p>
+                  <div className="space-y-3">
+                      {artItemsToDisplay.map((item: any, idx: number) => {
+                          const dlLin = item.downloadLink || item.download_link || (viewingProduct?.id === item.productId || viewingProduct?.name === item.productName ? viewingProduct?.downloadLink : null);
+                          return (
+                              <div key={idx} className="bg-zinc-900 border border-white/5 p-3 rounded-xl flex flex-col justify-between">
+                                  <div className="min-w-0 mb-2">
+                                      <p className="text-white text-xs font-bold truncate text-center" title={item.productName || item.name}>
+                                          {item.productName || item.name}
+                                      </p>
+                                  </div>
+                                  {dlLin ? (
+                                      <a 
+                                          href={dlLin} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer" 
+                                          className="w-full text-center text-xs font-bold bg-[#7c3aed] text-white rounded-lg py-2 transition hover:bg-[#6d28d9] flex items-center justify-center gap-1.5"
+                                      >
+                                          <CloudDownload size={14} /> Baixar Arte
+                                      </a>
+                                  ) : (
+                                      <div className="text-center text-[10px] text-zinc-500 bg-zinc-950 rounded-lg py-2 font-mono uppercase">
+                                          Processando arquivo...
+                                      </div>
+                                  )}
+                              </div>
+                          );
+                      })}
+                  </div>
+              </div>
+          )}
+
+          <div className="grid grid-cols-1 w-full gap-4">
+              <button onClick={() => navigate('/minha-area')} className="w-full bg-white text-black py-4 rounded-2xl font-bold hover:bg-zinc-200 transition">Ver Meus Pedidos</button>
+              <button onClick={() => window.open(`https://wa.me/5516994142665?text=Olá, acabei de realizar o pagamento do pedido #${lastCreatedOrder?.order_number || lastCreatedOrder?.formattedOrderNumber}`, '_blank')} className="w-full bg-[#25D366] text-white py-4 rounded-2xl font-bold hover:opacity-90 transition flex items-center justify-center gap-2"><MessageCircle size={20} /> Enviar no WhatsApp</button>
+          </div>
+      </div>
+    );
+  };
 
   const renderSchemaOrg = () => {
     try {
