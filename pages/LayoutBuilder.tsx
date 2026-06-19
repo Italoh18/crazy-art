@@ -61,26 +61,33 @@ const CollarIcon = ({ collar }: { collar: any }) => {
         try {
           const parser = new DOMParser();
           const doc = parser.parseFromString(text, 'image/svg+xml');
-          const element = doc.querySelector(collar.previewSelector);
-          if (element) {
-            let svgViewBox = doc.querySelector('svg')?.getAttribute('viewBox') || '0 0 100 100';
+          const svgNode = doc.querySelector('svg');
+          if (svgNode) {
+            // Inject dynamic stylesheet matching user's selected parts
+            const style = doc.createElementNS('http://www.w3.org/2000/svg', 'style');
+            style.textContent = `
+              svg * {
+                display: none !important;
+              }
+              svg, svg g, svg defs, ${collar.previewSelector}, ${collar.previewSelector} * {
+                display: block !important;
+                display: unset !important;
+              }
+              ${collar.previewSelector}, ${collar.previewSelector} * {
+                fill: none !important;
+                stroke: currentColor !important;
+                stroke-width: 2.5px !important;
+              }
+            `;
+            svgNode.appendChild(style);
             
-            const cloned = element.cloneNode(true) as Element;
-            cloned.setAttribute('fill', 'none');
-            cloned.setAttribute('stroke', 'currentColor');
-            cloned.setAttribute('stroke-width', '2');
-            
-            const childPaths = cloned.querySelectorAll('path, polygon, rect, circle, ellipse, line');
-            childPaths.forEach(cp => {
-              cp.setAttribute('fill', 'none');
-              cp.setAttribute('stroke', 'currentColor');
-              cp.setAttribute('stroke-width', '2');
-            });
+            svgNode.removeAttribute('style');
+            svgNode.removeAttribute('class');
+            svgNode.setAttribute('class', 'w-full h-full text-zinc-300 group-hover:text-white transition duration-200');
+            svgNode.style.color = 'currentColor';
 
             const serializer = new XMLSerializer();
-            const elementHtml = serializer.serializeToString(cloned);
-            
-            setSvgStr(`<svg viewBox="${svgViewBox}" class="w-full h-full text-zinc-300 group-hover:text-white transition duration-200" style="color: currentColor;">${elementHtml}</svg>`);
+            setSvgStr(serializer.serializeToString(svgNode));
           } else {
             setSvgStr('');
           }
@@ -96,7 +103,7 @@ const CollarIcon = ({ collar }: { collar: any }) => {
   }, [collar.svgUrl, collar.previewSelector]);
 
   if (collar.previewSelector && svgStr) {
-    return <div className="w-full h-full flex items-center justify-center p-1" dangerouslySetInnerHTML={{ __html: svgStr }} />;
+    return <div className="w-full h-full flex items-center justify-center p-1 shrink-0 select-none pointer-events-none" dangerouslySetInnerHTML={{ __html: svgStr }} />;
   }
 
   return (

@@ -138,6 +138,7 @@ export default function AdminMockupSoon() {
   const [pickerSvgContent, setPickerSvgContent] = useState('');
   const [pickerError, setPickerError] = useState('');
   const [pickerHoveredSelector, setPickerHoveredSelector] = useState('');
+  const [pickerSelectedSelectors, setPickerSelectedSelectors] = useState<string[]>([]);
 
   const getElementSelector = (el: Element): string => {
     if (el.id) {
@@ -186,6 +187,12 @@ export default function AdminMockupSoon() {
     setPickerError('');
     setPickerSvgContent('');
     setPickerHoveredSelector('');
+    
+    const initialSelectors = tempPreviewSelector
+      ? tempPreviewSelector.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+    setPickerSelectedSelectors(initialSelectors);
+    
     setIsVisualPickerOpen(true);
 
     let decodePromise;
@@ -238,8 +245,15 @@ export default function AdminMockupSoon() {
     const target = e.target as HTMLElement;
     if (target && target.tagName && target.tagName.toLowerCase() !== 'svg' && target.closest('svg')) {
       const sel = getElementSelector(target);
-      setTempPreviewSelector(sel);
-      setIsVisualPickerOpen(false);
+      if (!sel) return;
+      
+      setPickerSelectedSelectors(prev => {
+        if (prev.includes(sel)) {
+          return prev.filter(s => s !== sel);
+        } else {
+          return [...prev, sel];
+        }
+      });
     }
   };
 
@@ -1307,13 +1321,13 @@ export default function AdminMockupSoon() {
       {/* SVG Asset Selector Modal Overlay */}
       {isVisualPickerOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+          <div className="w-full max-w-xl bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-950">
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Sparkles size={16} className="text-primary" /> Selecionar Ícone da Gola no SVG
+                  <Sparkles size={16} className="text-primary" /> Mapear Gola no SVG
                 </h3>
-                <p className="text-[10px] text-zinc-500 mt-0.5">Passe o mouse por cima do SVG e clique sobre a área que deseja mapear como ícone.</p>
+                <p className="text-[10px] text-zinc-500 mt-0.5">Selecione uma ou mais partes do SVG clicando nelas. Elas ficarão destacadas em verde.</p>
               </div>
               <button
                 type="button"
@@ -1324,18 +1338,18 @@ export default function AdminMockupSoon() {
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto flex-1 flex flex-col items-center justify-center min-h-[300px] bg-zinc-900">
+            <div className="p-6 overflow-y-auto flex-1 flex flex-col items-center justify-center min-h-[350px] bg-zinc-900 gap-4">
               {pickerError ? (
                 <div className="text-center p-4">
                   <p className="text-xs text-red-500 font-bold">{pickerError}</p>
                 </div>
               ) : pickerSvgContent ? (
-                <div className="w-full max-w-sm border border-zinc-800 rounded-xl bg-zinc-950 p-6 flex flex-col items-center justify-center aspect-square relative selection-picker-parent shadow-inner overflow-hidden">
+                <div className="w-full max-w-md border border-zinc-800 rounded-xl bg-zinc-950 p-6 flex flex-col items-center justify-center aspect-square relative selection-picker-parent shadow-inner overflow-hidden">
                   <style dangerouslySetInnerHTML={{ __html: `
                     #visual-picker-svg-container svg {
                       width: 100%;
                       height: 100%;
-                      max-height: 280px;
+                      max-height: 310px;
                       object-fit: contain;
                     }
                     #visual-picker-svg-container path, 
@@ -1353,10 +1367,25 @@ export default function AdminMockupSoon() {
                     #visual-picker-svg-container circle:hover, 
                     #visual-picker-svg-container ellipse:hover, 
                     #visual-picker-svg-container line:hover {
-                      fill: rgba(245, 158, 11, 0.45) !important;
+                      fill: rgba(245, 158, 11, 0.4) !important;
                       stroke: #f59e0b !important;
-                      stroke-width: 2.5px !important;
+                      stroke-width: 2px !important;
                     }
+                    ${pickerSelectedSelectors.map(sel => {
+                      if (!sel) return '';
+                      return `
+                        #visual-picker-svg-container ${sel} {
+                          fill: rgba(34, 197, 94, 0.35) !important;
+                          stroke: #10b981 !important;
+                          stroke-width: 2.5px !important;
+                        }
+                        #visual-picker-svg-container ${sel}:hover {
+                          fill: rgba(34, 197, 94, 0.5) !important;
+                          stroke: #059669 !important;
+                          stroke-width: 3px !important;
+                        }
+                      `;
+                    }).join('\n')}
                   `}} />
                   <div
                     id="visual-picker-svg-container"
@@ -1374,22 +1403,69 @@ export default function AdminMockupSoon() {
                 </div>
               )}
 
-              {pickerHoveredSelector && (
-                <div className="mt-4 px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 font-mono text-[9px] text-primary flex items-center gap-1.5 animate-pulse max-w-full truncate">
-                  <span className="text-zinc-500">Elemento sob o cursor:</span>
-                  <span className="font-bold">{pickerHoveredSelector}</span>
-                </div>
-              )}
+              {/* Status Indicator */}
+              <div className="w-full space-y-2">
+                {pickerHoveredSelector && (
+                  <div className="px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 font-mono text-[9px] text-primary flex items-center gap-1.5 animate-pulse max-w-full truncate">
+                    <span className="text-zinc-500">Mapeando:</span>
+                    <span className="font-bold">{pickerHoveredSelector}</span>
+                  </div>
+                )}
+
+                {pickerSelectedSelectors.length > 0 && (
+                  <div className="p-3 rounded-lg bg-zinc-950 border border-zinc-800 space-y-1">
+                    <div className="flex justify-between items-center text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
+                      <span>Elementos Selecionados ({pickerSelectedSelectors.length})</span>
+                      <button 
+                        type="button" 
+                        onClick={() => setPickerSelectedSelectors([])}
+                        className="text-[9px] text-red-500 hover:text-red-400 transition bg-transparent border-none p-0 cursor-pointer"
+                      >
+                        Limpar Todos
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1 max-h-[60px] overflow-y-auto pt-1">
+                      {pickerSelectedSelectors.map((sel, idx) => (
+                        <div key={idx} className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[9px] font-mono text-emerald-400">
+                          <span>{sel}</span>
+                          <button
+                            type="button"
+                            onClick={() => setPickerSelectedSelectors(prev => prev.filter(s => s !== sel))}
+                            className="text-zinc-500 hover:text-zinc-300 ml-0.5"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 px-6 py-4 bg-zinc-950 border-t border-zinc-800">
-              <button
-                type="button"
-                onClick={() => setIsVisualPickerOpen(false)}
-                className="px-4 py-2 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-lg text-xs font-bold text-zinc-400 hover:text-white transition"
-              >
-                Voltar
-              </button>
+            <div className="flex items-center justify-between gap-3 px-6 py-4 bg-zinc-950 border-t border-zinc-800">
+              <span className="text-[10px] text-zinc-500 font-mono">
+                {pickerSelectedSelectors.length === 0 ? "Nenhum elemento selecionado" : `${pickerSelectedSelectors.length} gola(s) selecionada(s)`}
+              </span>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsVisualPickerOpen(false)}
+                  className="px-4 py-2 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 rounded-lg text-xs font-bold text-zinc-400 hover:text-white transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTempPreviewSelector(pickerSelectedSelectors.join(', '));
+                    setIsVisualPickerOpen(false);
+                  }}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-emerald-950/20"
+                >
+                  <Check size={14} /> Confirmar Seleção
+                </button>
+              </div>
             </div>
           </div>
         </div>
