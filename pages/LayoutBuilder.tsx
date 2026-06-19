@@ -61,7 +61,7 @@ const URLImage = ({ imageProps, isSelected, onSelect, onChange }: {
             x: node.x(),
             y: node.y(),
             width: Math.max(5, node.width() * scaleX),
-            height: Math.max(node.height() * scaleY),
+            height: Math.max(5, node.height() * scaleY),
             rotation: node.rotation(),
           });
         }}
@@ -108,6 +108,34 @@ export default function LayoutBuilder() {
   const [collarColor, setCollarColor] = useState<string>('#ffffff');
   const [collarSvgText, setCollarSvgText] = useState<string>('');
   const [dynamicCollarUrl, setDynamicCollarUrl] = useState<string>('');
+
+  const [selectedPartSelector, setSelectedPartSelector] = useState<string>('group:camisa');
+
+  const getGroupSelectors = (groupKey: string): string[] => {
+    const activeParts = Array.isArray(mockupParts) ? mockupParts : [];
+    if (groupKey === 'group:camisa') {
+      return activeParts.map(p => p.selector);
+    }
+    if (groupKey === 'group:mangas') {
+      return activeParts
+        .filter(p => {
+          const nameLower = (p.name || '').toLowerCase();
+          const selLower = (p.selector || '').toLowerCase();
+          return nameLower.includes('manga') || selLower.includes('manga') || nameLower.includes('sleeve') || selLower.includes('sleeve') || nameLower.includes('punho') || selLower.includes('punho') || nameLower.includes('cuff') || selLower.includes('cuff');
+        })
+        .map(p => p.selector);
+    }
+    if (groupKey === 'group:frente_costas') {
+      return activeParts
+        .filter(p => {
+          const nameLower = (p.name || '').toLowerCase();
+          const selLower = (p.selector || '').toLowerCase();
+          return nameLower.includes('frente') || selLower.includes('frente') || nameLower.includes('costa') || selLower.includes('costa') || nameLower.includes('verso') || selLower.includes('verso') || nameLower.includes('front') || selLower.includes('front') || nameLower.includes('back') || selLower.includes('back');
+        })
+        .map(p => p.selector);
+    }
+    return [];
+  };
 
   useEffect(() => {
     if (loadData) {
@@ -205,6 +233,9 @@ export default function LayoutBuilder() {
         const element = svgEl.querySelector(`[data-svg-index="${selector}"]`);
 
         if (element) {
+          const defaultColor = element.getAttribute('fill') || '#ffffff';
+          const activeColor = color || defaultColor;
+
           if (texture) {
             const patternId = `pat-${selector.replace(/[^a-zA-Z0-9-]/g, '')}`;
             
@@ -218,6 +249,15 @@ export default function LayoutBuilder() {
             pattern.setAttribute('patternContentUnits', 'objectBoundingBox');
             pattern.setAttribute('width', '1');
             pattern.setAttribute('height', '1');
+
+            // Draw a background rect first to maintain correct color underneath transparent cover PNG
+            const patternBg = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            patternBg.setAttribute('x', '0');
+            patternBg.setAttribute('y', '0');
+            patternBg.setAttribute('width', '1');
+            patternBg.setAttribute('height', '1');
+            patternBg.setAttribute('fill', activeColor);
+            pattern.appendChild(patternBg);
 
             const patternImg = doc.createElementNS('http://www.w3.org/2000/svg', 'image');
             patternImg.setAttributeNS('http://www.w3.org/1999/xlink', 'href', texture);
@@ -424,16 +464,31 @@ export default function LayoutBuilder() {
     const reader = new FileReader();
     reader.onload = (event) => {
       const url = event.target?.result as string;
-      const newImage: MockupImage = {
-        id: Math.random().toString(36).substr(2, 9),
-        url,
-        x: 100,
-        y: 100,
-        width: 150,
-        height: 150,
-        rotation: 0
+      const img = new Image();
+      img.onload = () => {
+        let width = 150;
+        let height = 150;
+        if (img.width > 0 && img.height > 0) {
+          if (img.width > img.height) {
+            width = 150;
+            height = 150 * (img.height / img.width);
+          } else {
+            height = 150;
+            width = 150 * (img.width / img.height);
+          }
+        }
+        const newImage: MockupImage = {
+          id: Math.random().toString(36).substring(2, 11),
+          url,
+          x: 100,
+          y: 100,
+          width,
+          height,
+          rotation: 0
+        };
+        setImages(prev => [...prev, newImage]);
       };
-      setImages(prev => [...prev, newImage]);
+      img.src = url;
     };
     reader.readAsDataURL(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -723,104 +778,198 @@ export default function LayoutBuilder() {
                <span className="text-[9px] text-zinc-500 font-mono">Personalização de Cores & Matrizes</span>
              </div>
  
-             <div className="space-y-2 pr-1">
-               {mockupParts && mockupParts.map((part) => {
-                 const selector = part.selector;
-                 const activeColor = partColors[selector] || '#ffffff';
-                 const activeTexture = partTextures[selector];
- 
+             <div className="space-y-4 pr-1">
+               <div className="relative">
+                 <select
+                   value={selectedPartSelector}
+                   onChange={(e) => setSelectedPartSelector(e.target.value)}
+                   className="w-full bg-zinc-900 border border-white/5 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-primary font-bold cursor-pointer"
+                 >
+                   <option value="">-- Selecione uma parte --</option>
+                   
+                   {/* Group options */}
+                   <optgroup label="Ações Rápidas (Grupos)">
+                     <option value="group:camisa">👕 Camisa Inteira (Geral)</option>
+                     <option value="group:mangas">🦾 Todas as Mangas</option>
+                     <option value="group:frente_costas">🔄 Frente e Costas</option>
+                   </optgroup>
+
+                   {/* Individual parts */}
+                   <optgroup label="Partes Individuais">
+                     {mockupParts && mockupParts.map((part: any) => (
+                       <option key={part.id} value={part.selector}>
+                         {part.name}
+                       </option>
+                     ))}
+                   </optgroup>
+                 </select>
+               </div>
+
+               {selectedPartSelector && (() => {
+                 let label = '';
+                 let currentColor = '#ffffff';
+                 let currentTexture = '';
+
+                 const isGroup = selectedPartSelector.startsWith('group:');
+                 
+                 if (isGroup) {
+                   if (selectedPartSelector === 'group:camisa') {
+                     label = 'Camisa Inteira';
+                   } else if (selectedPartSelector === 'group:mangas') {
+                     label = 'Todas as Mangas';
+                   } else if (selectedPartSelector === 'group:frente_costas') {
+                     label = 'Frente e Costa';
+                   }
+                 } else {
+                   const part = mockupParts.find((p: any) => p.selector === selectedPartSelector);
+                   label = part ? part.name : selectedPartSelector;
+                   currentColor = partColors[selectedPartSelector] || '#ffffff';
+                   currentTexture = partTextures[selectedPartSelector] || '';
+                 }
+
+                 const applyColor = (color: string) => {
+                   if (isGroup) {
+                     const targets = getGroupSelectors(selectedPartSelector);
+                     setPartColors(prev => {
+                       const updated = { ...prev };
+                       targets.forEach(sel => {
+                         updated[sel] = color;
+                       });
+                       return updated;
+                     });
+                   } else {
+                     setPartColors(prev => ({
+                       ...prev,
+                       [selectedPartSelector]: color
+                     }));
+                   }
+                 };
+
+                 const applyTexture = (textureData: string) => {
+                   if (isGroup) {
+                     const targets = getGroupSelectors(selectedPartSelector);
+                     setPartTextures(prev => {
+                       const updated = { ...prev };
+                       targets.forEach(sel => {
+                         updated[sel] = textureData;
+                       });
+                       return updated;
+                     });
+                   } else {
+                     setPartTextures(prev => ({
+                       ...prev,
+                       [selectedPartSelector]: textureData
+                     }));
+                   }
+                 };
+
+                 const clearCustomization = () => {
+                   if (isGroup) {
+                     const targets = getGroupSelectors(selectedPartSelector);
+                     setPartColors(prev => {
+                       const updated = { ...prev };
+                       targets.forEach(sel => delete updated[sel]);
+                       return updated;
+                     });
+                     setPartTextures(prev => {
+                       const updated = { ...prev };
+                       targets.forEach(sel => delete updated[sel]);
+                       return updated;
+                     });
+                   } else {
+                     setPartColors(prev => {
+                       const updated = { ...prev };
+                       delete updated[selectedPartSelector];
+                       return updated;
+                     });
+                     setPartTextures(prev => {
+                       const updated = { ...prev };
+                       delete updated[selectedPartSelector];
+                       return updated;
+                     });
+                   }
+                 };
+
                  return (
-                   <div 
-                     key={part.id} 
-                     className="flex items-center justify-between p-2 bg-zinc-900 border border-white/5 rounded-xl hover:border-white/10 transition gap-2"
-                   >
-                     <div className="flex flex-col min-w-0 flex-1">
-                       <span className="text-[11px] font-bold text-zinc-200 truncate">{part.name}</span>
-                       <span className="text-[8px] font-mono text-zinc-500 uppercase truncate">
-                         {part.selector}
-                       </span>
+                   <div className="bg-zinc-900/60 border border-white/5 rounded-2xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                     <div className="flex items-center justify-between">
+                       <span className="text-xs font-bold text-zinc-300 uppercase tracking-widest truncate max-w-[140px] block">Ajustes: {label}</span>
+                       {(isGroup || partColors[selectedPartSelector] || currentTexture) && (
+                         <button
+                           onClick={clearCustomization}
+                           type="button"
+                           className="text-[10px] text-red-500 hover:text-red-400 font-bold uppercase tracking-wider flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer"
+                         >
+                           <X size={10} /> Resetar
+                         </button>
+                       )}
                      </div>
- 
-                     <div className="flex items-center gap-2 shrink-0">
-                       {/* Selector de Cor */}
-                       <div className="relative w-6 h-6 rounded-md overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center cursor-pointer" title="Selecionar Cor">
-                         <input 
-                           type="color"
-                           value={activeColor}
-                           onChange={(e) => {
-                             setPartColors(prev => ({
-                               ...prev,
-                               [selector]: e.target.value
-                             }));
-                           }}
-                           className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 cursor-pointer p-0 border-none bg-transparent"
-                         />
-                         {/* Small preview block of selected color */}
-                         <div className="absolute inset-0.5 rounded pointer-events-none" style={{ backgroundColor: activeColor }}></div>
+
+                     <div className="space-y-2">
+                       <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Cor de Fundo da Parte</span>
+                       <div className="flex items-center gap-3">
+                         <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center cursor-pointer">
+                           <input
+                             type="color"
+                             value={currentColor}
+                             onChange={(e) => applyColor(e.target.value)}
+                             className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 cursor-pointer p-0 border-none bg-transparent"
+                           />
+                           <div className="absolute inset-1 rounded-lg pointer-events-none" style={{ backgroundColor: currentColor }}></div>
+                         </div>
+
+                         <div className="flex flex-wrap gap-1 flex-1">
+                           {['#ffffff', '#000000', '#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#ff8100'].map((c) => (
+                             <button
+                               key={c}
+                               type="button"
+                               onClick={() => applyColor(c)}
+                               className="w-5 h-5 rounded-md border border-white/10 hover:border-white/30 transition cursor-pointer box-border"
+                               style={{ backgroundColor: c }}
+                               title={c}
+                             />
+                           ))}
+                         </div>
                        </div>
- 
-                       {/* Botão de Textura (Upload) */}
-                       <label className="w-6 h-6 flex items-center justify-center rounded-md border border-white/10 bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition cursor-pointer" title="Upload Fundo (PNG/PDF)">
-                         <Upload size={12} className={activeTexture ? "text-green-400" : "text-primary"} />
+                     </div>
+
+                     <div className="space-y-2">
+                       <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Imagem / Estampa de Fundo</span>
+                       <label className="flex items-center gap-3 p-3 bg-zinc-950 hover:bg-zinc-800 border border-white/5 hover:border-white/10 rounded-xl cursor-pointer transition">
+                         <Upload size={16} className={currentTexture || isGroup ? "text-green-400" : "text-primary"} />
+                         <div className="flex-1 min-w-0">
+                           <span className="text-[11px] font-bold text-zinc-300 block truncate">
+                             {currentTexture ? 'Imagem Ativa (Trocar)' : 'Upload de Imagem'}
+                           </span>
+                           <span className="text-[8px] text-zinc-500 uppercase tracking-wider block font-mono">PNG transparente recomendada</span>
+                         </div>
                          <input 
                            type="file"
-                           accept="image/png, application/pdf"
+                           accept="image/*"
                            className="hidden"
                            onChange={(e) => {
                              const file = e.target.files?.[0];
                              if (!file) return;
- 
+
                              if (file.size > 5 * 1024 * 1024) {
                                alert("O arquivo deve ter no máximo 5MB.");
                                return;
                              }
- 
+
                              const reader = new FileReader();
                              reader.onload = () => {
                                if (typeof reader.result === 'string') {
-                                 setPartTextures(prev => ({
-                                   ...prev,
-                                   [selector]: reader.result as string
-                                 }));
+                                 applyTexture(reader.result);
                                }
                              };
                              reader.readAsDataURL(file);
                            }}
                          />
                        </label>
- 
-                       {/* Limpar (Reset) */}
-                       {(partColors[selector] || activeTexture) && (
-                         <button
-                           type="button"
-                           title="Limpar personalização"
-                           onClick={() => {
-                             setPartColors(prev => {
-                               const copy = { ...prev };
-                               delete copy[selector];
-                               return copy;
-                             });
-                             setPartTextures(prev => {
-                               const copy = { ...prev };
-                               delete copy[selector];
-                               return copy;
-                             });
-                           }}
-                           className="w-6 h-6 flex items-center justify-center rounded-md border border-red-500/10 bg-red-500/5 hover:bg-red-500/20 text-red-400 transition cursor-pointer"
-                         >
-                           <X size={12} />
-                         </button>
-                       )}
                      </div>
                    </div>
                  );
-               })}
- 
-               {!mockupParts || mockupParts.length === 0 ? (
-                 <div className="text-center py-4 border border-dashed border-zinc-800 rounded-xl bg-zinc-950/40">
-                   <p className="text-[10px] text-zinc-500 italic">Nenhuma parte cadastrada.</p>
-                 </div>
-               ) : null}
+               })()}
              </div>
            </div>
 
