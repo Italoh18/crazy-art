@@ -229,6 +229,15 @@ export default function LayoutBuilder() {
   const startPanRef = useRef({ x: 0, y: 0 });
   const [localBgUrl, setLocalBgUrl] = useState<string>('');
   const [selectedCollarId, setSelectedCollarId] = useState<string>('');
+  const hasInitializedCollarRef = useRef(false);
+
+  useEffect(() => {
+    const collarsList = Array.isArray(mockupCollars) ? mockupCollars : [];
+    if (collarsList.length > 0 && !hasInitializedCollarRef.current) {
+      setSelectedCollarId(collarsList[0].id);
+      hasInitializedCollarRef.current = true;
+    }
+  }, [mockupCollars]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
   
@@ -938,7 +947,7 @@ export default function LayoutBuilder() {
                          : 'bg-[#121215]/40 border-white/5 hover:border-white/10 hover:bg-[#121215]/80 text-zinc-400 hover:text-zinc-200'
                      }`}
                    >
-                     <div className="aspect-square w-full rounded-lg bg-zinc-950 flex items-center justify-center p-1 border border-white/5 relative group-hover:border-white/10 transition">
+                     <div className="aspect-square w-full flex items-center justify-center relative transition">
                        {/* Custom SVG selector icon replacing full image square preview if defined */}
                        <CollarIcon collar={collar} />
                        {isSelected && (
