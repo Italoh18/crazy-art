@@ -79,11 +79,6 @@ export default function AdminMockupSoon() {
 
   const handleBaseUrlUploadComplete = (url: string) => {
     setBaseUrl(url);
-    const isSvg = url.toLowerCase().includes('.svg') || url.startsWith('data:image/svg+xml');
-    if (isSvg) {
-      setTempPartsList(Array.isArray(mockupParts) ? mockupParts : []);
-      setIsPartsModalOpen(true);
-    }
   };
 
   const handleSavePartName = () => {
@@ -243,14 +238,6 @@ export default function AdminMockupSoon() {
       name = `Gola ${collarsList.length + 1}`;
       setNewCollarName(name);
     }
-    
-    // Auto open position modal of the newly uploaded SVG
-    setTempItemUrl(url);
-    setTempItemName(name);
-    setTempPosition({ x: 50, y: 25, width: 25 });
-    setEditingItem(null);
-    setModalType('collar');
-    setIsModalOpen(true);
   };
 
   const handleCuffUploadComplete = (url: string) => {
@@ -260,14 +247,6 @@ export default function AdminMockupSoon() {
       name = `Punho ${cuffsList.length + 1}`;
       setNewCuffName(name);
     }
-    
-    // Auto open position modal of the newly uploaded SVG
-    setTempItemUrl(url);
-    setTempItemName(name);
-    setTempPosition({ x: 50, y: 55, width: 25 });
-    setEditingItem(null);
-    setModalType('cuff');
-    setIsModalOpen(true);
   };
 
   const openPositionModal = (item: any | null, type: 'collar' | 'cuff') => {
