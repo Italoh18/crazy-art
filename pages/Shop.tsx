@@ -604,16 +604,7 @@ export default function Shop() {
 
   const calculateDiscountedTotal = () => {
       if (!lastCreatedOrder) return 0;
-      const originalTotal = lastCreatedOrder.total;
-      if (!appliedCoupon) return originalTotal;
-      let discountAmount = 0;
-      const { items } = calculateFinalOrder(); 
-      items.forEach(item => {
-          if (appliedCoupon.type === 'all' || (item.type as any) === appliedCoupon.type) {
-              discountAmount += item.total * (appliedCoupon.percentage / 100);
-          }
-      });
-      return Math.max(0, originalTotal - discountAmount);
+      return lastCreatedOrder.total;
   };
 
   const handleApplyCoupon = async () => {
@@ -636,6 +627,16 @@ export default function Shop() {
     setIsProcessing(true);
     try {
         const { items, total } = calculateFinalOrder();
+        
+        let discountAmount = 0;
+        if (appliedCoupon) {
+            items.forEach(item => {
+                if (appliedCoupon.type === 'all' || (item.type as any) === appliedCoupon.type) {
+                    discountAmount += item.total * (appliedCoupon.percentage / 100);
+                }
+            });
+        }
+
         const orderData = {
             client_id: currentCustomer.id,
             description: cart.map(i => {
@@ -648,13 +649,15 @@ export default function Shop() {
             }).join('; '),
             items: items,
             total: total,
+            discount: discountAmount,
+            couponCode: appliedCoupon ? appliedCoupon.code : null,
             size_list: null, // Now stored per-item in order_items
             status: 'open', source: 'shop',
             order_date: new Date().toISOString().split('T')[0],
             due_date: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
         };
         const res = await addOrder(orderData);
-        setLastCreatedOrder({ ...res, items }); 
+        setLastCreatedOrder({ ...res, items, discount: discountAmount, couponCode: appliedCoupon ? appliedCoupon.code : null }); 
         setStep('checkout');
     } finally { setIsProcessing(false); }
   };
@@ -1575,7 +1578,7 @@ export default function Shop() {
                     )}
                 </div>
 
-                {!wantsMoldAlteration && (
+                {!wantsMoldAlteration && viewingProduct?.type !== 'art' && (
                     <div className="flex items-center gap-4 mt-8">
                         <div className="flex items-center gap-2 bg-black rounded-xl p-2 border border-zinc-800">
                             <button onClick={() => setCurrentOrderQty(Math.max(1, Number(currentOrderQty) - 1))} className="p-2 text-zinc-500"><Minus size={16} /></button>
@@ -1640,13 +1643,128 @@ export default function Shop() {
                 ))}
             </div>
 
+            {/* Seção de Cupom em Revisar Pedido */}
+            <div className="bg-zinc-950/40 p-5 rounded-2xl border border-zinc-800 space-y-4">
+                <div className="flex justify-between items-center">
+                    <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Cupom de Desconto</p>
+                </div>
+                <div className="flex gap-2">
+                    <div className="relative flex-1">
+                        <Ticket className="absolute left-3 top-3.5 text-zinc-500" size={16} />
+                        <input 
+                            type="text"
+                            placeholder="Cupom de Desconto"
+                            className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary outline-none text-sm uppercase font-mono placeholder:text-zinc-600"
+                            value={couponCode}
+                            onChange={(e) => setCouponCode(e.target.value)}
+                            onFocus={() => { if (role === 'client' && clientCoupons.length > 0) setShowCouponList(true); }}
+                            disabled={!!appliedCoupon}
+                        />
+                    </div>
+                    {appliedCoupon ? (
+                        <button onClick={() => { setAppliedCoupon(null); setCouponCode(''); }} className="bg-zinc-800 hover:bg-red-500/20 text-zinc-400 hover:text-red-500 px-4 rounded-xl transition">
+                            <X size={18} />
+                        </button>
+                    ) : (
+                        <button onClick={handleApplyCoupon} disabled={!couponCode || isValidatingCoupon} className="bg-zinc-850 hover:bg-zinc-750 text-white px-5 rounded-xl font-bold text-xs transition disabled:opacity-50">
+                            {isValidatingCoupon ? <Loader2 className="animate-spin" size={16} /> : 'APLICAR'}
+                        </button>
+                    )}
+                </div>
+
+                {role === 'client' && clientCoupons.length > 0 && !appliedCoupon && (
+                    <div className="space-y-2">
+                        <button 
+                            type="button"
+                            onClick={() => setShowCouponList(!showCouponList)}
+                            className="text-zinc-400 hover:text-white text-xs flex items-center gap-1.5 font-bold uppercase tracking-wider transition bg-zinc-900/40 hover:bg-zinc-900 px-3 py-1.5 rounded-xl border border-white/5 active:scale-95"
+                        >
+                            <Ticket size={13} className="text-[#ff8100]" />
+                            {showCouponList ? 'Ocultar meus cupons' : 'Ver meus cupons salvos'} ({clientCoupons.length})
+                        </button>
+                        
+                        {showCouponList && (
+                            <div className="bg-black/60 border border-zinc-850 p-3 rounded-2xl space-y-2 max-h-[160px] overflow-y-auto scrollbar-thin">
+                                {clientCoupons.map((c) => {
+                                    const eligibility = isCouponEligibleForShop(c.type);
+                                    const nowMs = Date.now();
+                                    const expiresMs = new Date(c.expires_at).getTime();
+                                    const isExpired = expiresMs <= nowMs;
+                                    const isUsed = c.is_used === 1;
+                                    
+                                    const itemDisabled = !eligibility.eligible || isExpired || isUsed;
+
+                                    return (
+                                        <div 
+                                            key={c.id}
+                                            onClick={() => {
+                                                if (!itemDisabled) {
+                                                    setCouponCode(c.code);
+                                                    setShowCouponList(false);
+                                                }
+                                            }}
+                                            className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
+                                                itemDisabled 
+                                                    ? 'bg-zinc-950/20 border-zinc-900/60 opacity-40 cursor-not-allowed' 
+                                                    : 'bg-zinc-900/50 hover:bg-zinc-900 border-zinc-800/80 cursor-pointer active:scale-[0.98]'
+                                            }`}
+                                        >
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-mono font-bold text-xs text-white uppercase">{c.code}</span>
+                                                    <span className="text-[10px] text-primary font-bold">{c.percentage}% OFF</span>
+                                                </div>
+                                                <p className="text-[10px] text-zinc-500 mt-0.5">
+                                                    {isUsed ? 'Utilizado' : isExpired ? 'Expirado' : `Validade: ${new Date(c.expires_at).toLocaleDateString('pt-BR')}`}
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                {!eligibility.eligible ? (
+                                                    <span className="text-[9px] text-[#ff8100] font-bold uppercase">{eligibility.message}</span>
+                                                ) : isUsed ? (
+                                                    <span className="text-[9px] text-red-500 font-bold uppercase">Usado</span>
+                                                ) : isExpired ? (
+                                                    <span className="text-[9px] text-zinc-500 font-bold uppercase">Expirado</span>
+                                                ) : (
+                                                    <span className="text-[10px] text-emerald-400 font-bold uppercase">Inserir</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
+                
+                {couponError && <p className="text-xs text-red-500">{couponError}</p>}
+                {appliedCoupon && <p className="text-xs text-emerald-500 flex items-center gap-1"><Check size={12} /> Cupom aplicado! {appliedCoupon.percentage}% OFF em itens elegíveis.</p>}
+            </div>
+
             <div className="border-t border-zinc-800 pt-6 mt-6">
                 <button onClick={() => setStep('list')} className="w-full mb-6 py-4 border-2 border-dashed border-zinc-800 rounded-2xl text-zinc-500 hover:text-primary transition flex items-center justify-center gap-3 font-bold uppercase text-xs">
                     <PlusIcon size={18} /> Adicionar mais item
                 </button>
                 <div className="flex justify-between items-end mb-6">
                     <span className="text-zinc-500 text-sm font-bold uppercase">Total Estimado</span>
-                    <span className="text-3xl font-black text-white">R$ {calc.total.toFixed(2)}</span>
+                    <div className="text-right">
+                        {appliedCoupon && (
+                            <span className="block text-sm text-zinc-500 line-through">R$ {calc.total.toFixed(2)}</span>
+                        )}
+                        <span className="text-3xl font-black text-white">
+                            R$ {(() => {
+                                let disc = 0;
+                                if (appliedCoupon) {
+                                    calc.items.forEach(item => {
+                                        if (appliedCoupon.type === 'all' || (item.type as any) === appliedCoupon.type) {
+                                            disc += item.total * (appliedCoupon.percentage / 100);
+                                        }
+                                    });
+                                }
+                                return Math.max(0, calc.total - disc);
+                            })().toFixed(2)}
+                        </span>
+                    </div>
                 </div>
                 <button onClick={handleCreateOrder} disabled={isProcessing} className="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg hover:bg-amber-600 transition shadow-xl disabled:opacity-50 flex items-center justify-center gap-3">
                     {isProcessing ? <Loader2 className="animate-spin" /> : <ChevronRight />} PROSSEGUIR PARA PAGAMENTO
@@ -1737,107 +1855,35 @@ export default function Shop() {
                     
                     <div className="h-px bg-zinc-800"></div>
                     
-                    <div className="flex gap-2">
-                        <div className="relative flex-1">
-                            <Ticket className="absolute left-3 top-3.5 text-zinc-500" size={16} />
-                            <input 
-                                type="text"
-                                placeholder="Cupom de Desconto"
-                                className="w-full bg-black/40 border border-zinc-700 rounded-xl pl-10 pr-4 py-3 text-white focus:border-primary outline-none text-sm uppercase font-mono"
-                                value={couponCode}
-                                onChange={(e) => setCouponCode(e.target.value)}
-                                onFocus={() => { if (role === 'client' && clientCoupons.length > 0) setShowCouponList(true); }}
-                                disabled={!!appliedCoupon}
-                            />
-                        </div>
-                        {appliedCoupon ? (
-                            <button onClick={() => { setAppliedCoupon(null); setCouponCode(''); }} className="bg-zinc-800 hover:bg-red-500/20 text-zinc-400 hover:text-red-500 px-4 rounded-xl transition">
-                                <X size={18} />
-                            </button>
-                        ) : (
-                            <button onClick={handleApplyCoupon} disabled={!couponCode || isValidatingCoupon} className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 rounded-xl font-bold text-xs transition disabled:opacity-50">
-                                {isValidatingCoupon ? <Loader2 className="animate-spin" size={16} /> : 'APLICAR'}
-                            </button>
-                        )}
-                    </div>
+                    {(() => {
+                        const discountValue = lastCreatedOrder?.discount || 0;
+                        const finalAmount = lastCreatedOrder?.total || 0;
+                        const originalTotal = finalAmount + discountValue;
+                        const hasDiscount = lastCreatedOrder?.couponCode || discountValue > 0;
 
-                    {role === 'client' && clientCoupons.length > 0 && !appliedCoupon && (
-                        <div className="space-y-2">
-                            <button 
-                                type="button"
-                                onClick={() => setShowCouponList(!showCouponList)}
-                                className="text-zinc-400 hover:text-white text-xs flex items-center gap-1.5 font-bold uppercase tracking-wider transition bg-zinc-900/40 hover:bg-zinc-900 px-3 py-1.5 rounded-xl border border-white/5 active:scale-95"
-                            >
-                                <Ticket size={13} className="text-[#ff8100]" />
-                                {showCouponList ? 'Ocultar meus cupons' : 'Ver meus cupons salvos'} ({clientCoupons.length})
-                            </button>
-                            
-                            {showCouponList && (
-                                <div className="bg-black/60 border border-zinc-850 p-3 rounded-2xl space-y-2 max-h-[160px] overflow-y-auto scrollbar-thin">
-                                    {clientCoupons.map((c) => {
-                                        const eligibility = isCouponEligibleForShop(c.type);
-                                        const nowMs = Date.now();
-                                        const expiresMs = new Date(c.expires_at).getTime();
-                                        const isExpired = expiresMs <= nowMs;
-                                        const isUsed = c.is_used === 1;
-                                        
-                                        const itemDisabled = !eligibility.eligible || isExpired || isUsed;
+                        return (
+                            <>
+                                {hasDiscount && (
+                                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center justify-between text-xs text-emerald-400 animate-fade-in">
+                                        <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider font-mono">
+                                            <Ticket size={14} /> Cupom: {lastCreatedOrder?.couponCode || 'APLICADO'}
+                                        </span>
+                                        <span className="font-bold">R$ {discountValue.toFixed(2)} OFF</span>
+                                    </div>
+                                )}
 
-                                        return (
-                                            <div 
-                                                key={c.id}
-                                                onClick={() => {
-                                                    if (!itemDisabled) {
-                                                        setCouponCode(c.code);
-                                                        setShowCouponList(false);
-                                                    }
-                                                }}
-                                                className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
-                                                    itemDisabled 
-                                                        ? 'bg-zinc-950/20 border-zinc-900/60 opacity-40 cursor-not-allowed' 
-                                                        : 'bg-zinc-900/50 hover:bg-zinc-900 border-zinc-800/80 cursor-pointer active:scale-[0.98]'
-                                                }`}
-                                            >
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-mono font-bold text-xs text-white uppercase">{c.code}</span>
-                                                        <span className="text-[10px] text-primary font-bold">{c.percentage}% OFF</span>
-                                                    </div>
-                                                    <p className="text-[10px] text-zinc-500 mt-0.5">
-                                                        {isUsed ? 'Utilizado' : isExpired ? 'Expirado' : `Validade: ${new Date(c.expires_at).toLocaleDateString('pt-BR')}`}
-                                                    </p>
-                                                </div>
-                                                <div className="text-right">
-                                                    {!eligibility.eligible ? (
-                                                        <span className="text-[9px] text-[#ff8100] font-bold uppercase">{eligibility.message}</span>
-                                                    ) : isUsed ? (
-                                                        <span className="text-[9px] text-red-500 font-bold uppercase">Usado</span>
-                                                    ) : isExpired ? (
-                                                        <span className="text-[9px] text-zinc-500 font-bold uppercase">Expirado</span>
-                                                    ) : (
-                                                        <span className="text-[10px] text-emerald-400 font-bold uppercase">Inserir</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                <div className="flex justify-between items-center">
+                                    <span className="text-lg font-bold text-white">Valor Total</span>
+                                    <div className="text-right">
+                                        {discountValue > 0 && (
+                                            <span className="block text-sm text-zinc-500 line-through font-mono">R$ {originalTotal.toFixed(2)}</span>
+                                        )}
+                                        <span className="text-2xl font-black text-white font-mono">R$ {finalAmount.toFixed(2)}</span>
+                                    </div>
                                 </div>
-                            )}
-                        </div>
-                    )}
-                    
-                    {couponError && <p className="text-xs text-red-500">{couponError}</p>}
-                    {appliedCoupon && <p className="text-xs text-emerald-500 flex items-center gap-1"><Check size={12} /> Cupom aplicado! {appliedCoupon.percentage}% OFF em itens elegíveis.</p>}
-
-                    <div className="flex justify-between items-center">
-                        <span className="text-lg font-bold text-white">Valor Total</span>
-                        <div className="text-right">
-                            {appliedCoupon && (
-                                <span className="block text-sm text-zinc-500 line-through">R$ {total.toFixed(2)}</span>
-                            )}
-                            <span className="text-2xl font-black text-white font-mono">R$ {discountedTotal.toFixed(2)}</span>
-                        </div>
-                    </div>
+                            </>
+                        );
+                    })()}
 
                     <div className="pt-6 space-y-4">
                         <div className={canAddToAccount ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-4"}>
