@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Share2, Upload, Trash2, ZoomIn, ZoomOut, Maximize, RotateCcw, Image as ImageIcon, FileText, Wrench, Sparkles } from 'lucide-react';
+import { ArrowLeft, Share2, Upload, Trash2, ZoomIn, ZoomOut, Maximize, RotateCcw, Image as ImageIcon, FileText, Wrench, Sparkles, X } from 'lucide-react';
 import { Stage, Layer, Image as KonvaImage, Transformer } from 'react-konva';
 import useImage from 'use-image';
 import { useData } from '../contexts/DataContext';
@@ -182,7 +182,17 @@ export default function LayoutBuilder() {
         svgEl.insertBefore(defsEl, svgEl.firstChild);
       }
 
+      // Inject a <style> block inside the SVG to enforce the color overrides using !important
+      let styleEl = svgEl.querySelector('style#dynamic-part-styles');
+      if (!styleEl) {
+        styleEl = doc.createElementNS('http://www.w3.org/2000/svg', 'style');
+        styleEl.setAttribute('id', 'dynamic-part-styles');
+        svgEl.appendChild(styleEl);
+      }
+
       const activeParts = Array.isArray(mockupParts) ? mockupParts : [];
+      let styleRules = '';
+
       activeParts.forEach(part => {
         const selector = part.selector;
         const color = partColors[selector];
@@ -214,22 +224,24 @@ export default function LayoutBuilder() {
             pattern.appendChild(patternImg);
             defsEl!.appendChild(pattern);
 
-            element.setAttribute('fill', `url(#${patternId})`);
-            const style = element.getAttribute('style') || '';
-            if (style) {
-              const updatedStyle = style.replace(/fill\s*:\s*[^;]+;?/gi, '');
-              element.setAttribute('style', updatedStyle);
-            }
+            styleRules += `
+              [data-svg-index="${selector}"], [data-svg-index="${selector}"] * {
+                fill: url(#${patternId}) !important;
+                background-color: transparent !important;
+              }
+            `;
           } else if (color) {
-            element.setAttribute('fill', color);
-            const style = element.getAttribute('style') || '';
-            if (style) {
-              const updatedStyle = style.replace(/fill\s*:\s*[^;]+;?/gi, '');
-              element.setAttribute('style', updatedStyle);
-            }
+            styleRules += `
+              [data-svg-index="${selector}"], [data-svg-index="${selector}"] * {
+                fill: ${color} !important;
+                background-color: transparent !important;
+              }
+            `;
           }
         }
       });
+
+      styleEl.textContent = styleRules;
 
       const serializer = new XMLSerializer();
       const updatedSvgString = serializer.serializeToString(svgEl);
@@ -246,7 +258,21 @@ export default function LayoutBuilder() {
   
   const collarsList = Array.isArray(mockupCollars) ? mockupCollars : [];
   const activeCollar = collarsList.find(c => c.id === selectedCollarId);
-  const [mockupImg] = useImage(dynamicMockupUrl || currentMockupUrl);
+  
+  const [mockupImg, setMockupImg] = useState<HTMLImageElement | null>(null);
+  useEffect(() => {
+    const src = dynamicMockupUrl || currentMockupUrl;
+    if (!src) {
+      setMockupImg(null);
+      return;
+    }
+    const img = new window.Image();
+    img.src = src;
+    img.onload = () => {
+      setMockupImg(img);
+    };
+  }, [dynamicMockupUrl, currentMockupUrl]);
+
   const [bgImg] = useImage(localBgUrl || mockupBackgroundUrl || '');
   const [collarImg] = useImage(activeCollar?.svgUrl || '');
 
@@ -610,141 +636,113 @@ export default function LayoutBuilder() {
              <span className="text-[9px] font-mono font-semibold text-zinc-500 uppercase tracking-widest mt-1 block">Ajustes & Componentes</span>
           </div>
 
-          {/* Partes Mapeadas do SVG (Modelagem) */}
-          <div className="border-b border-white/5 pb-4 space-y-4">
-            <div>
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider">Partes do Vestuário</h3>
-              <span className="text-[9px] text-zinc-500 font-mono">Personalização de Cores & Matrizes</span>
-            </div>
-
-            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-              {mockupParts && mockupParts.map((part) => {
-                const selector = part.selector;
-                const activeColor = partColors[selector] || '#ffffff';
-                const activeTexture = partTextures[selector];
-
-                return (
-                  <div 
-                    key={part.id} 
-                    className="p-3 bg-zinc-900 border border-white/5 rounded-xl space-y-3 hover:border-white/10 transition"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-zinc-200">{part.name}</span>
-                      <span className="text-[8px] font-mono text-zinc-500 bg-zinc-950 px-1.5 py-0.5 rounded border border-white/5 uppercase select-none">
-                        {part.selector}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      {/* Seletor de Cor */}
-                      <div className="flex items-center gap-2 bg-zinc-950/60 p-1.5 rounded-lg border border-white/5 relative">
-                        <input 
-                          type="color"
-                          id={`color-${part.id}`}
-                          value={activeColor}
-                          onChange={(e) => {
-                            setPartColors(prev => ({
-                              ...prev,
-                              [selector]: e.target.value
-                            }));
-                          }}
-                          className="w-7 h-7 rounded border-none bg-transparent cursor-pointer p-0"
-                        />
-                        <label 
-                          htmlFor={`color-${part.id}`}
-                          className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider cursor-pointer font-mono"
-                        >
-                          COR
-                        </label>
-                      </div>
-
-                      {/* Botão de Textura (Upload) */}
-                      <div className="flex items-center justify-center">
-                        <label className="w-full h-full flex items-center justify-center gap-1.5 bg-zinc-950/60 hover:bg-zinc-800/80 border border-white/5 hover:border-white/10 rounded-lg p-1.5 cursor-pointer text-zinc-400 hover:text-zinc-200 transition text-[10px] font-bold uppercase tracking-wider font-mono select-none">
-                          <Upload size={11} className="text-primary" />
-                          <span>Fundo</span>
-                          <input 
-                            type="file"
-                            accept="image/png, application/pdf"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-
-                              if (file.size > 5 * 1024 * 1024) {
-                                alert("O arquivo deve ter no máximo 5MB.");
-                                return;
-                              }
-
-                              const reader = new FileReader();
-                              reader.onload = () => {
-                                if (typeof reader.result === 'string') {
-                                  setPartTextures(prev => ({
-                                    ...prev,
-                                    [selector]: reader.result as string
-                                  }));
-                                }
-                              };
-                              reader.readAsDataURL(file);
-                            }}
-                          />
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Miniature Preview of Active Texture and resets */}
-                    {(activeTexture || partColors[selector]) && (
-                      <div className="flex items-center justify-between text-[9px] font-mono text-zinc-500 bg-zinc-950 p-1 rounded-md border border-white/5/60">
-                        <div className="flex items-center gap-1">
-                          {activeTexture ? (
-                            <>
-                              <div className="w-4 h-4 rounded bg-zinc-800 border border-white/10 overflow-hidden flex items-center justify-center">
-                                {activeTexture.startsWith('data:application/pdf') ? (
-                                  <span className="text-[6px] text-zinc-400">PDF</span>
-                                ) : (
-                                  <img src={activeTexture} className="object-cover w-full h-full" />
-                                )}
-                              </div>
-                              <span className="text-zinc-400">Com Fundo</span>
-                            </>
-                          ) : (
-                            <>
-                              <div className="w-3 h-3 rounded border border-white/10" style={{ backgroundColor: activeColor }}></div>
-                              <span className="text-zinc-400 uppercase">{activeColor}</span>
-                            </>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPartColors(prev => {
-                              const copy = { ...prev };
-                              delete copy[selector];
-                              return copy;
-                            });
-                            setPartTextures(prev => {
-                              const copy = { ...prev };
-                              delete copy[selector];
-                              return copy;
-                            });
-                          }}
-                          className="hover:text-red-400 text-zinc-500 transition cursor-pointer bg-transparent border-none p-0 mr-1"
-                        >
-                          Limpar
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {!mockupParts || mockupParts.length === 0 ? (
-                <div className="text-center py-6 border border-dashed border-zinc-800 rounded-xl bg-zinc-950/40">
-                  <p className="text-[10px] text-zinc-500 italic">Nenhuma parte cadastrada pelo administrador.</p>
-                </div>
-              ) : null}
-            </div>
-          </div>
+           {/* Partes Mapeadas do SVG (Modelagem) */}
+           <div className="border-b border-white/5 pb-4 space-y-3">
+             <div>
+               <h3 className="text-xs font-bold text-white uppercase tracking-wider">Partes do Vestuário</h3>
+               <span className="text-[9px] text-zinc-500 font-mono">Personalização de Cores & Matrizes</span>
+             </div>
+ 
+             <div className="space-y-2 pr-1">
+               {mockupParts && mockupParts.map((part) => {
+                 const selector = part.selector;
+                 const activeColor = partColors[selector] || '#ffffff';
+                 const activeTexture = partTextures[selector];
+ 
+                 return (
+                   <div 
+                     key={part.id} 
+                     className="flex items-center justify-between p-2 bg-zinc-900 border border-white/5 rounded-xl hover:border-white/10 transition gap-2"
+                   >
+                     <div className="flex flex-col min-w-0 flex-1">
+                       <span className="text-[11px] font-bold text-zinc-200 truncate">{part.name}</span>
+                       <span className="text-[8px] font-mono text-zinc-500 uppercase truncate">
+                         {part.selector}
+                       </span>
+                     </div>
+ 
+                     <div className="flex items-center gap-2 shrink-0">
+                       {/* Selector de Cor */}
+                       <div className="relative w-6 h-6 rounded-md overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center cursor-pointer" title="Selecionar Cor">
+                         <input 
+                           type="color"
+                           value={activeColor}
+                           onChange={(e) => {
+                             setPartColors(prev => ({
+                               ...prev,
+                               [selector]: e.target.value
+                             }));
+                           }}
+                           className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 cursor-pointer p-0 border-none bg-transparent"
+                         />
+                         {/* Small preview block of selected color */}
+                         <div className="absolute inset-0.5 rounded pointer-events-none" style={{ backgroundColor: activeColor }}></div>
+                       </div>
+ 
+                       {/* Botão de Textura (Upload) */}
+                       <label className="w-6 h-6 flex items-center justify-center rounded-md border border-white/10 bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white transition cursor-pointer" title="Upload Fundo (PNG/PDF)">
+                         <Upload size={12} className={activeTexture ? "text-green-400" : "text-primary"} />
+                         <input 
+                           type="file"
+                           accept="image/png, application/pdf"
+                           className="hidden"
+                           onChange={(e) => {
+                             const file = e.target.files?.[0];
+                             if (!file) return;
+ 
+                             if (file.size > 5 * 1024 * 1024) {
+                               alert("O arquivo deve ter no máximo 5MB.");
+                               return;
+                             }
+ 
+                             const reader = new FileReader();
+                             reader.onload = () => {
+                               if (typeof reader.result === 'string') {
+                                 setPartTextures(prev => ({
+                                   ...prev,
+                                   [selector]: reader.result as string
+                                 }));
+                               }
+                             };
+                             reader.readAsDataURL(file);
+                           }}
+                         />
+                       </label>
+ 
+                       {/* Limpar (Reset) */}
+                       {(partColors[selector] || activeTexture) && (
+                         <button
+                           type="button"
+                           title="Limpar personalização"
+                           onClick={() => {
+                             setPartColors(prev => {
+                               const copy = { ...prev };
+                               delete copy[selector];
+                               return copy;
+                             });
+                             setPartTextures(prev => {
+                               const copy = { ...prev };
+                               delete copy[selector];
+                               return copy;
+                             });
+                           }}
+                           className="w-6 h-6 flex items-center justify-center rounded-md border border-red-500/10 bg-red-500/5 hover:bg-red-500/20 text-red-400 transition cursor-pointer"
+                         >
+                           <X size={12} />
+                         </button>
+                       )}
+                     </div>
+                   </div>
+                 );
+               })}
+ 
+               {!mockupParts || mockupParts.length === 0 ? (
+                 <div className="text-center py-4 border border-dashed border-zinc-800 rounded-xl bg-zinc-950/40">
+                   <p className="text-[10px] text-zinc-500 italic">Nenhuma parte cadastrada.</p>
+                 </div>
+               ) : null}
+             </div>
+           </div>
 
           {/* Seletor de Gola */}
           <div className="space-y-4">
