@@ -6,6 +6,108 @@ import { Stage, Layer, Image as KonvaImage, Transformer } from 'react-konva';
 import useImage from 'use-image';
 import { useData } from '../contexts/DataContext';
 
+function hexToCmyk(hex: string): { c: number; m: number; y: number; k: number } {
+  if (!hex) return { c: 0, m: 0, y: 0, k: 0 };
+  let h = hex.replace('#', '');
+  if (h.length === 3) {
+    h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  }
+  const r = parseInt(h.substring(0, 2), 16) / 255 || 0;
+  const g = parseInt(h.substring(2, 4), 16) / 255 || 0;
+  const b = parseInt(h.substring(4, 6), 16) / 255 || 0;
+
+  const k = 1 - Math.max(r, g, b);
+  if (k === 1) {
+    return { c: 0, m: 0, y: 0, k: 100 };
+  }
+  const c = Math.round(((1 - r - k) / (1 - k)) * 100);
+  const m = Math.round(((1 - g - k) / (1 - k)) * 100);
+  const y = Math.round(((1 - b - k) / (1 - k)) * 100);
+  const kPercent = Math.round(k * 100);
+
+  return { c, m, y, k: kPercent };
+}
+
+function cmykToHex(c: number, m: number, y: number, k: number): string {
+  const cPct = c / 100;
+  const mPct = m / 100;
+  const yPct = y / 100;
+  const kPct = k / 100;
+
+  const r = Math.round(255 * (1 - cPct) * (1 - kPct));
+  const g = Math.round(255 * (1 - mPct) * (1 - kPct));
+  const b = Math.round(255 * (1 - yPct) * (1 - kPct));
+
+  const rHex = Math.max(0, Math.min(255, r)).toString(16).padStart(2, '0');
+  const gHex = Math.max(0, Math.min(255, g)).toString(16).padStart(2, '0');
+  const bHex = Math.max(0, Math.min(255, b)).toString(16).padStart(2, '0');
+
+  return `#${rHex}${gHex}${bHex}`;
+}
+
+const CollarIcon = ({ collar }: { collar: any }) => {
+  const [svgStr, setSvgStr] = useState<string>('');
+
+  useEffect(() => {
+    if (!collar.previewSelector || !collar.svgUrl) return;
+    
+    const fetchUrl = collar.svgUrl.startsWith('data:') 
+      ? collar.svgUrl 
+      : `/api/proxy-image?url=${encodeURIComponent(collar.svgUrl)}`;
+      
+    fetch(fetchUrl)
+      .then(res => res.text())
+      .then(text => {
+        try {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(text, 'image/svg+xml');
+          const element = doc.querySelector(collar.previewSelector);
+          if (element) {
+            let svgViewBox = doc.querySelector('svg')?.getAttribute('viewBox') || '0 0 100 100';
+            
+            const cloned = element.cloneNode(true) as Element;
+            cloned.setAttribute('fill', 'none');
+            cloned.setAttribute('stroke', 'currentColor');
+            cloned.setAttribute('stroke-width', '2');
+            
+            const childPaths = cloned.querySelectorAll('path, polygon, rect, circle, ellipse, line');
+            childPaths.forEach(cp => {
+              cp.setAttribute('fill', 'none');
+              cp.setAttribute('stroke', 'currentColor');
+              cp.setAttribute('stroke-width', '2');
+            });
+
+            const serializer = new XMLSerializer();
+            const elementHtml = serializer.serializeToString(cloned);
+            
+            setSvgStr(`<svg viewBox="${svgViewBox}" class="w-full h-full text-zinc-300 group-hover:text-white transition duration-200" style="color: currentColor;">${elementHtml}</svg>`);
+          } else {
+            setSvgStr('');
+          }
+        } catch (e) {
+          console.error(e);
+          setSvgStr('');
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        setSvgStr('');
+      });
+  }, [collar.svgUrl, collar.previewSelector]);
+
+  if (collar.previewSelector && svgStr) {
+    return <div className="w-full h-full flex items-center justify-center p-1" dangerouslySetInnerHTML={{ __html: svgStr }} />;
+  }
+
+  return (
+    <img 
+      src={collar.svgUrl} 
+      alt={collar.name} 
+      className="max-w-full max-h-full object-contain filter invert opacity-80"
+    />
+  );
+};
+
 interface MockupImage {
   id: string;
   url: string;
@@ -771,8 +873,167 @@ export default function LayoutBuilder() {
              <span className="text-[9px] font-mono font-semibold text-zinc-500 uppercase tracking-widest mt-1 block">Ajustes & Componentes</span>
           </div>
 
+           {/* Seletor de Gola (Placed ABOVE clothing parts as requested) */}
+           <div className="border-b border-white/5 pb-4 space-y-4">
+             <div className="flex items-center justify-between">
+               <div>
+                 <h3 className="text-xs font-bold text-white uppercase tracking-wider">Gola do Mockup</h3>
+                 <span className="text-[9px] text-zinc-500 font-mono">Personalização do Molde</span>
+               </div>
+               {selectedCollarId && (
+                 <button
+                   onClick={() => setSelectedCollarId('')}
+                   className="text-[10px] text-zinc-500 hover:text-white font-medium transition cursor-pointer bg-transparent border-none p-0"
+                 >
+                   Remover Gola
+                 </button>
+               )}
+             </div>
+
+             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent snap-x">
+               {collarsList.map((collar) => {
+                 const isSelected = selectedCollarId === collar.id;
+                 return (
+                   <button
+                     key={collar.id}
+                     onClick={() => setSelectedCollarId(collar.id)}
+                     className={`w-20 shrink-0 p-2 rounded-xl border text-left transition duration-200 flex flex-col gap-1.5 relative group overflow-hidden cursor-pointer snap-start ${
+                       isSelected 
+                         ? 'bg-primary/10 border-primary text-white shadow-lg shadow-primary/5' 
+                         : 'bg-[#121215]/40 border-white/5 hover:border-white/10 hover:bg-[#121215]/80 text-zinc-400 hover:text-zinc-200'
+                     }`}
+                   >
+                     <div className="aspect-square w-full rounded-lg bg-zinc-950 flex items-center justify-center p-1 border border-white/5 relative group-hover:border-white/10 transition">
+                       {/* Custom SVG selector icon replacing full image square preview if defined */}
+                       <CollarIcon collar={collar} />
+                       {isSelected && (
+                         <div className="absolute top-0.5 right-0.5 bg-primary text-white text-[7px] font-bold px-1 py-0.2 rounded-full">
+                           ON
+                         </div>
+                       )}
+                     </div>
+                     <div className="truncate text-[10px] font-bold self-center w-full text-center text-zinc-300">
+                       {collar.name}
+                     </div>
+                   </button>
+                 );
+               })}
+               {collarsList.length === 0 && (
+                 <div className="w-full text-center py-4 border border-dashed border-zinc-800 rounded-xl bg-zinc-950/40">
+                   <p className="text-[10px] text-zinc-500 italic">Nenhuma gola cadastrada.</p>
+                 </div>
+               )}
+             </div>
+
+             {/* Selector de Cor da Gola com CMYK */}
+             {activeCollar && (
+               <div className="p-3 bg-zinc-900 border border-white/5 rounded-xl hover:border-white/10 transition space-y-3 mt-2">
+                 <div className="flex items-center justify-between">
+                   <div className="flex flex-col min-w-0 flex-1">
+                     <span className="text-[11px] font-bold text-zinc-200 truncate">Cor da Gola</span>
+                     <span className="text-[8px] font-mono text-zinc-500 uppercase truncate">
+                       {activeCollar.name}
+                     </span>
+                   </div>
+
+                   <div className="flex items-center gap-2 shrink-0">
+                     <div className="relative w-6 h-6 rounded-md overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center cursor-pointer" title="Selecionar Cor da Gola">
+                       <input 
+                         type="color"
+                         value={collarColor}
+                         onChange={(e) => {
+                           setCollarColor(e.target.value);
+                         }}
+                         className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 cursor-pointer p-0 border-none bg-transparent"
+                       />
+                       <div className="absolute inset-0.5 rounded pointer-events-none" style={{ backgroundColor: collarColor }}></div>
+                     </div>
+
+                     {collarColor !== '#ffffff' && (
+                       <button
+                         type="button"
+                         title="Limpar cor gola"
+                         onClick={() => {
+                           setCollarColor('#ffffff');
+                         }}
+                         className="w-6 h-6 flex items-center justify-center rounded-md border border-red-500/10 bg-red-500/5 hover:bg-red-500/20 text-red-400 transition cursor-pointer"
+                       >
+                         <X size={12} />
+                       </button>
+                     )}
+                   </div>
+                 </div>
+
+                 {/* CMYK Panel for Collar Color */}
+                 {(() => {
+                   const { c, m, y, k } = hexToCmyk(collarColor);
+                   const updateSingleCollarCmyk = (key: 'c'|'m'|'y'|'k', val: number) => {
+                     const safeVal = Math.max(0, Math.min(100, isNaN(val) ? 0 : val));
+                     const newCmyk = { c, m, y, k };
+                     newCmyk[key] = safeVal;
+                     setCollarColor(cmykToHex(newCmyk.c, newCmyk.m, newCmyk.y, newCmyk.k));
+                   };
+                   return (
+                     <div className="bg-zinc-950/40 border border-white/5 rounded-lg p-2 space-y-2 font-mono text-[9px]">
+                       <div className="flex justify-between text-zinc-400 font-bold uppercase tracking-wider text-[8px]">
+                         <span>Gola CMYK (Impressão)</span>
+                         <span className="text-zinc-500 font-normal">{collarColor.toUpperCase()}</span>
+                       </div>
+                       <div className="grid grid-cols-4 gap-1">
+                         <div className="flex flex-col gap-0.5">
+                           <span className="text-cyan-400 font-bold text-center">C</span>
+                           <input
+                             type="number"
+                             min="0"
+                             max="100"
+                             value={c}
+                             onChange={(e) => updateSingleCollarCmyk('c', parseInt(e.target.value))}
+                             className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
+                           />
+                         </div>
+                         <div className="flex flex-col gap-0.5">
+                           <span className="text-magenta-400 font-bold text-center" style={{ color: '#ec4899' }}>M</span>
+                           <input
+                             type="number"
+                             min="0"
+                             max="100"
+                             value={m}
+                             onChange={(e) => updateSingleCollarCmyk('m', parseInt(e.target.value))}
+                             className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
+                           />
+                         </div>
+                         <div className="flex flex-col gap-0.5">
+                           <span className="text-yellow-400 font-bold text-center">Y</span>
+                           <input
+                             type="number"
+                             min="0"
+                             max="100"
+                             value={y}
+                             onChange={(e) => updateSingleCollarCmyk('y', parseInt(e.target.value))}
+                             className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
+                           />
+                         </div>
+                         <div className="flex flex-col gap-0.5">
+                           <span className="text-zinc-300 font-bold text-center">K</span>
+                           <input
+                             type="number"
+                             min="0"
+                             max="100"
+                             value={k}
+                             onChange={(e) => updateSingleCollarCmyk('k', parseInt(e.target.value))}
+                             className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
+                           />
+                         </div>
+                       </div>
+                     </div>
+                   );
+                 })()}
+               </div>
+             )}
+           </div>
+
            {/* Partes Mapeadas do SVG (Modelagem) */}
-           <div className="border-b border-white/5 pb-4 space-y-3">
+           <div className="pb-4 space-y-3">
              <div>
                <h3 className="text-xs font-bold text-white uppercase tracking-wider">Partes do Vestuário</h3>
                <span className="text-[9px] text-zinc-500 font-mono">Personalização de Cores & Matrizes</span>
@@ -919,18 +1180,87 @@ export default function LayoutBuilder() {
                          </div>
 
                          <div className="flex flex-wrap gap-1 flex-1">
-                           {['#ffffff', '#000000', '#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#ff8100'].map((c) => (
-                             <button
-                               key={c}
-                               type="button"
-                               onClick={() => applyColor(c)}
-                               className="w-5 h-5 rounded-md border border-white/10 hover:border-white/30 transition cursor-pointer box-border"
-                               style={{ backgroundColor: c }}
-                               title={c}
-                             />
-                           ))}
+                           {['#ffffff', '#000000', '#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#ff8100'].map((c) => {
+                             const cmyk = hexToCmyk(c);
+                             const cmykStr = `C:${cmyk.c} M:${cmyk.m} Y:${cmyk.y} K:${cmyk.k}`;
+                             return (
+                               <button
+                                 key={c}
+                                 type="button"
+                                 onClick={() => applyColor(c)}
+                                 className="w-5 h-5 rounded-md border border-white/10 hover:border-white/30 transition cursor-pointer box-border"
+                                 style={{ backgroundColor: c }}
+                                 title={`${c} (${cmykStr})`}
+                               />
+                             );
+                           })}
                          </div>
                        </div>
+
+                       {/* CMYK Panel for Custom Color */}
+                       {(() => {
+                         const { c, m, y, k } = hexToCmyk(currentColor);
+                         const updateSingleCmyk = (key: 'c'|'m'|'y'|'k', val: number) => {
+                           const safeVal = Math.max(0, Math.min(100, isNaN(val) ? 0 : val));
+                           const newCmyk = { c, m, y, k };
+                           newCmyk[key] = safeVal;
+                           applyColor(cmykToHex(newCmyk.c, newCmyk.m, newCmyk.y, newCmyk.k));
+                         };
+                         return (
+                           <div className="bg-zinc-950/40 border border-white/5 rounded-xl p-2.5 space-y-2 font-mono text-[9px]">
+                             <div className="flex justify-between text-zinc-400 font-bold uppercase tracking-wider text-[8px]">
+                               <span>Paleta CMYK (Impressão)</span>
+                               <span className="text-zinc-500 font-normal">{currentColor.toUpperCase()}</span>
+                             </div>
+                             <div className="grid grid-cols-4 gap-1">
+                               <div className="flex flex-col gap-0.5">
+                                 <span className="text-cyan-400 font-bold text-center">C</span>
+                                 <input
+                                   type="number"
+                                   min="0"
+                                   max="100"
+                                   value={c}
+                                   onChange={(e) => updateSingleCmyk('c', parseInt(e.target.value))}
+                                   className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
+                                 />
+                               </div>
+                               <div className="flex flex-col gap-0.5">
+                                 <span className="text-magenta-400 font-bold text-center" style={{ color: '#ec4899' }}>M</span>
+                                 <input
+                                   type="number"
+                                   min="0"
+                                   max="100"
+                                   value={m}
+                                   onChange={(e) => updateSingleCmyk('m', parseInt(e.target.value))}
+                                   className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
+                                 />
+                               </div>
+                               <div className="flex flex-col gap-0.5">
+                                 <span className="text-yellow-400 font-bold text-center">Y</span>
+                                 <input
+                                   type="number"
+                                   min="0"
+                                   max="100"
+                                   value={y}
+                                   onChange={(e) => updateSingleCmyk('y', parseInt(e.target.value))}
+                                   className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
+                                 />
+                               </div>
+                               <div className="flex flex-col gap-0.5">
+                                 <span className="text-zinc-300 font-bold text-center">K</span>
+                                 <input
+                                   type="number"
+                                   min="0"
+                                   max="100"
+                                   value={k}
+                                   onChange={(e) => updateSingleCmyk('k', parseInt(e.target.value))}
+                                   className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
+                                 />
+                               </div>
+                             </div>
+                           </div>
+                         );
+                       })()}
                      </div>
 
                      <div className="space-y-2">
@@ -972,103 +1302,6 @@ export default function LayoutBuilder() {
                })()}
              </div>
            </div>
-
-          {/* Seletor de Gola */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider">Gola do Mockup</h3>
-                <span className="text-[9px] text-zinc-500 font-mono">Personalização do Molde</span>
-              </div>
-              {selectedCollarId && (
-                <button
-                  onClick={() => setSelectedCollarId('')}
-                  className="text-[10px] text-zinc-500 hover:text-white font-medium transition cursor-pointer bg-transparent border-none p-0"
-                >
-                  Remover Gola
-                </button>
-              )}
-            </div>
-
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent snap-x">
-              {collarsList.map((collar) => {
-                const isSelected = selectedCollarId === collar.id;
-                return (
-                  <button
-                    key={collar.id}
-                    onClick={() => setSelectedCollarId(collar.id)}
-                    className={`w-20 shrink-0 p-2 rounded-xl border text-left transition duration-200 flex flex-col gap-1.5 relative group overflow-hidden cursor-pointer snap-start ${
-                      isSelected 
-                        ? 'bg-primary/10 border-primary text-white shadow-lg shadow-primary/5' 
-                        : 'bg-[#121215]/40 border-white/5 hover:border-white/10 hover:bg-[#121215]/80 text-zinc-400 hover:text-zinc-200'
-                    }`}
-                  >
-                    <div className="aspect-square w-full rounded-lg bg-zinc-950 flex items-center justify-center p-1 border border-white/5 relative group-hover:border-white/10 transition">
-                      <img 
-                        src={collar.svgUrl} 
-                        alt={collar.name} 
-                        className="max-w-full max-h-full object-contain filter invert opacity-80"
-                      />
-                      {isSelected && (
-                        <div className="absolute top-0.5 right-0.5 bg-primary text-white text-[7px] font-bold px-1 py-0.2 rounded-full">
-                          ON
-                        </div>
-                      )}
-                    </div>
-                    <div className="truncate text-[10px] font-bold self-center w-full text-center text-zinc-300">
-                      {collar.name}
-                    </div>
-                  </button>
-                );
-              })}
-              {collarsList.length === 0 && (
-                <div className="w-full text-center py-4 border border-dashed border-zinc-800 rounded-xl bg-zinc-950/40">
-                  <p className="text-[10px] text-zinc-500 italic">Nenhuma gola cadastrada.</p>
-                </div>
-              )}
-            </div>
-
-            {/* Selector de Cor da Gola */}
-            {activeCollar && (
-              <div className="flex items-center justify-between p-2 bg-zinc-900 border border-white/5 rounded-xl hover:border-white/10 transition gap-2 mt-2">
-                <div className="flex flex-col min-w-0 flex-1">
-                  <span className="text-[11px] font-bold text-zinc-200 truncate">Cor da Gola</span>
-                  <span className="text-[8px] font-mono text-zinc-500 uppercase truncate">
-                    {activeCollar.name}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  {/* Selector de Cor */}
-                  <div className="relative w-6 h-6 rounded-md overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center cursor-pointer" title="Selecionar Cor da Gola">
-                    <input 
-                      type="color"
-                      value={collarColor}
-                      onChange={(e) => {
-                        setCollarColor(e.target.value);
-                      }}
-                      className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 cursor-pointer p-0 border-none bg-transparent"
-                    />
-                    <div className="absolute inset-0.5 rounded pointer-events-none" style={{ backgroundColor: collarColor }}></div>
-                  </div>
-
-                  {/* Limpar (Reset) */}
-                  {collarColor !== '#ffffff' && (
-                    <button
-                      type="button"
-                      title="Limpar cor gola"
-                      onClick={() => {
-                        setCollarColor('#ffffff');
-                      }}
-                      className="w-6 h-6 flex items-center justify-center rounded-md border border-red-500/10 bg-red-500/5 hover:bg-red-500/20 text-red-400 transition cursor-pointer"
-                    >
-                      <X size={12} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>

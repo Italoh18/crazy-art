@@ -130,6 +130,7 @@ export default function AdminMockupSoon() {
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [tempItemUrl, setTempItemUrl] = useState('');
   const [tempItemName, setTempItemName] = useState('');
+  const [tempPreviewSelector, setTempPreviewSelector] = useState('');
   const [tempPosition, setTempPosition] = useState({ x: 50, y: 30, width: 25 });
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -275,6 +276,7 @@ export default function AdminMockupSoon() {
       setTempItemUrl(item.svgUrl);
       setTempItemName(item.name);
       setTempPosition({ x: item.x, y: item.y, width: item.width });
+      setTempPreviewSelector(item.previewSelector || '');
     } else {
       if (type === 'collar') {
         if (!newCollarName.trim() || !newCollarUrl) return;
@@ -282,12 +284,14 @@ export default function AdminMockupSoon() {
         setTempItemUrl(newCollarUrl);
         setTempItemName(newCollarName.trim());
         setTempPosition({ x: 50, y: 25, width: 25 });
+        setTempPreviewSelector('');
       } else {
         if (!newCuffName.trim() || !newCuffUrl) return;
         setEditingItem(null);
         setTempItemUrl(newCuffUrl);
         setTempItemName(newCuffName.trim());
         setTempPosition({ x: 50, y: 55, width: 15 });
+        setTempPreviewSelector('');
       }
     }
     setIsModalOpen(true);
@@ -304,7 +308,8 @@ export default function AdminMockupSoon() {
           svgUrl: tempItemUrl,
           x: tempPosition.x,
           y: tempPosition.y,
-          width: tempPosition.width
+          width: tempPosition.width,
+          previewSelector: tempPreviewSelector.trim()
         } : c);
       } else {
         const newCollarObj = {
@@ -313,7 +318,8 @@ export default function AdminMockupSoon() {
           svgUrl: tempItemUrl,
           x: tempPosition.x,
           y: tempPosition.y,
-          width: tempPosition.width
+          width: tempPosition.width,
+          previewSelector: tempPreviewSelector.trim()
         };
         updatedList.push(newCollarObj);
         
@@ -647,9 +653,14 @@ export default function AdminMockupSoon() {
                     />
                   </div>
                   
-                  <div className="space-y-1 text-[10px] text-zinc-500 font-mono">
+                  <div className="space-y-1 text-[10px] text-zinc-550 font-mono">
                     <div>Posição: X: {collar.x}%, Y: {collar.y}%</div>
                     <div>Largura: {collar.width}%</div>
+                    {collar.previewSelector && (
+                      <div className="text-[10px] text-cyan-400 font-bold mt-1">
+                        Ícone SVG: <span className="bg-cyan-950/40 text-cyan-300 px-1 py-0.5 rounded border border-cyan-800/30 font-mono text-[9px]">{collar.previewSelector}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -916,6 +927,25 @@ export default function AdminMockupSoon() {
                   </div>
                 </div>
               </div>
+
+              {/* Collar Icon Preview Selector */}
+              {modalType === 'collar' && (
+                <div className="bg-zinc-950/60 p-4 rounded-xl border border-zinc-800/60 space-y-2">
+                  <label className="text-[10px] text-zinc-400 font-bold uppercase block">
+                    Seletor do Elemento SVG para Ícone (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full bg-black/40 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition font-mono"
+                    placeholder="Ex: #gola-interna, .g-icone, path"
+                    value={tempPreviewSelector}
+                    onChange={(e) => setTempPreviewSelector(e.target.value)}
+                  />
+                  <p className="text-[9px] text-zinc-500 leading-normal">
+                    Se definido, apenas o elemento coincidente no SVG será renderizado como ícone na paleta de seleção do mockup 2D (substituindo a visualização padrão de imagem).
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Modal Actions */}
