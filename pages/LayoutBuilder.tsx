@@ -104,6 +104,11 @@ export default function LayoutBuilder() {
   const [partTextures, setPartTextures] = useState<Record<string, string>>({});
   const [dynamicMockupUrl, setDynamicMockupUrl] = useState<string>('');
 
+  // Dynamic Gola (collar) customisations
+  const [collarColor, setCollarColor] = useState<string>('#ffffff');
+  const [collarSvgText, setCollarSvgText] = useState<string>('');
+  const [dynamicCollarUrl, setDynamicCollarUrl] = useState<string>('');
+
   useEffect(() => {
     if (loadData) {
       loadData(true);
@@ -209,16 +214,17 @@ export default function LayoutBuilder() {
 
             const pattern = doc.createElementNS('http://www.w3.org/2000/svg', 'pattern');
             pattern.setAttribute('id', patternId);
-            pattern.setAttribute('patternUnits', 'userSpaceOnUse');
-            pattern.setAttribute('width', '100');
-            pattern.setAttribute('height', '100');
+            pattern.setAttribute('patternUnits', 'objectBoundingBox');
+            pattern.setAttribute('patternContentUnits', 'objectBoundingBox');
+            pattern.setAttribute('width', '1');
+            pattern.setAttribute('height', '1');
 
             const patternImg = doc.createElementNS('http://www.w3.org/2000/svg', 'image');
             patternImg.setAttributeNS('http://www.w3.org/1999/xlink', 'href', texture);
             patternImg.setAttribute('x', '0');
             patternImg.setAttribute('y', '0');
-            patternImg.setAttribute('width', '100');
-            patternImg.setAttribute('height', '100');
+            patternImg.setAttribute('width', '1');
+            patternImg.setAttribute('height', '1');
             patternImg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
 
             pattern.appendChild(patternImg);
@@ -258,6 +264,80 @@ export default function LayoutBuilder() {
   
   const collarsList = Array.isArray(mockupCollars) ? mockupCollars : [];
   const activeCollar = collarsList.find(c => c.id === selectedCollarId);
+
+  // Fetch Gola (collar) base SVG when selected
+  useEffect(() => {
+    if (!activeCollar?.svgUrl) {
+      setCollarSvgText('');
+      setDynamicCollarUrl('');
+      return;
+    }
+    const fetchUrl = activeCollar.svgUrl.startsWith('data:') 
+      ? activeCollar.svgUrl 
+      : `/api/proxy-image?url=${encodeURIComponent(activeCollar.svgUrl)}`;
+      
+    fetch(fetchUrl)
+      .then(res => {
+        if (!res.ok) throw new Error('Não foi possível carregar a gola');
+        return res.text();
+      })
+      .then(text => {
+        if (text.includes('<svg')) {
+          setCollarSvgText(text);
+        } else {
+          setCollarSvgText('');
+          setDynamicCollarUrl('');
+        }
+      })
+      .catch(err => {
+        console.error('Erro ao buscar gola SVG:', err);
+        setCollarSvgText('');
+        setDynamicCollarUrl('');
+      });
+  }, [activeCollar?.svgUrl]);
+
+  // Dynamic Gola customisation with the selected color
+  useEffect(() => {
+    if (!collarSvgText) {
+      setDynamicCollarUrl('');
+      return;
+    }
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(collarSvgText, 'image/svg+xml');
+      const svgEl = doc.querySelector('svg');
+      if (!svgEl) {
+        setDynamicCollarUrl('');
+        return;
+      }
+
+      // Inject style block to override colors inside gola SVG
+      let styleEl = svgEl.querySelector('style#dynamic-collar-styles');
+      if (!styleEl) {
+        styleEl = doc.createElementNS('http://www.w3.org/2000/svg', 'style');
+        styleEl.setAttribute('id', 'dynamic-collar-styles');
+        svgEl.appendChild(styleEl);
+      }
+
+      const styleRules = `
+        path, polygon, rect, circle, ellipse, g {
+          fill: ${collarColor} !important;
+        }
+      `;
+      styleEl.textContent = styleRules;
+
+      const serializer = new XMLSerializer();
+      const updatedSvgString = serializer.serializeToString(svgEl);
+      
+      const encoded = encodeURIComponent(updatedSvgString)
+        .replace(/'/g, "%27")
+        .replace(/"/g, "%22");
+      const dataUrl = `data:image/svg+xml;charset=utf-8,${encoded}`;
+      setDynamicCollarUrl(dataUrl);
+    } catch (err) {
+      console.error('Erro ao gerar gola dinâmica:', err);
+    }
+  }, [collarSvgText, collarColor]);
   
   const [mockupImg, setMockupImg] = useState<HTMLImageElement | null>(null);
   useEffect(() => {
@@ -274,7 +354,7 @@ export default function LayoutBuilder() {
   }, [dynamicMockupUrl, currentMockupUrl]);
 
   const [bgImg] = useImage(localBgUrl || mockupBackgroundUrl || '');
-  const [collarImg] = useImage(activeCollar?.svgUrl || '');
+  const [collarImg] = useImage(dynamicCollarUrl || activeCollar?.svgUrl || '');
 
   const handleMouseDown = (e: any) => {
     // Button 2 is the right mouse click
@@ -798,6 +878,47 @@ export default function LayoutBuilder() {
                 </div>
               )}
             </div>
+
+            {/* Selector de Cor da Gola */}
+            {activeCollar && (
+              <div className="flex items-center justify-between p-2 bg-zinc-900 border border-white/5 rounded-xl hover:border-white/10 transition gap-2 mt-2">
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-[11px] font-bold text-zinc-200 truncate">Cor da Gola</span>
+                  <span className="text-[8px] font-mono text-zinc-500 uppercase truncate">
+                    {activeCollar.name}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Selector de Cor */}
+                  <div className="relative w-6 h-6 rounded-md overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center cursor-pointer" title="Selecionar Cor da Gola">
+                    <input 
+                      type="color"
+                      value={collarColor}
+                      onChange={(e) => {
+                        setCollarColor(e.target.value);
+                      }}
+                      className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 cursor-pointer p-0 border-none bg-transparent"
+                    />
+                    <div className="absolute inset-0.5 rounded pointer-events-none" style={{ backgroundColor: collarColor }}></div>
+                  </div>
+
+                  {/* Limpar (Reset) */}
+                  {collarColor !== '#ffffff' && (
+                    <button
+                      type="button"
+                      title="Limpar cor gola"
+                      onClick={() => {
+                        setCollarColor('#ffffff');
+                      }}
+                      className="w-6 h-6 flex items-center justify-center rounded-md border border-red-500/10 bg-red-500/5 hover:bg-red-500/20 text-red-400 transition cursor-pointer"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
