@@ -13,9 +13,14 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
         title TEXT NOT NULL,
         items TEXT NOT NULL,
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        is_locked INTEGER DEFAULT 0
       )
     `).run();
+
+    try {
+      await env.DB.prepare('ALTER TABLE public_lists ADD COLUMN is_locked INTEGER DEFAULT 0').run();
+    } catch (e) {}
 
     const listId = url.searchParams.get('id');
     const my_list = url.searchParams.get('my_list') === 'true';
@@ -185,19 +190,26 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
       const now = new Date().toISOString();
 
       // Verificar existência
-      const existing: any = await env.DB.prepare('SELECT client_id FROM public_lists WHERE id = ?').bind(listId).first();
+      const existing: any = await env.DB.prepare('SELECT client_id, is_locked FROM public_lists WHERE id = ?').bind(listId).first();
       if (!existing) {
         return new Response(JSON.stringify({ error: 'Lista não encontrada' }), { status: 404 });
       }
 
-      // Se for passado um token ou o usuário estiver logado, opcionalmente validar se é o dono se desejado.
-      // No entanto, para ser pública, qualquer pessoa na página de compartilhamento deve poder preencher e clicar em Salvar.
-      // Portanto, permitimos PUT de qualquer origem na lista pública.
+      // Se a lista estiver travada e a requisição vier de fonte pública (sem o campo is_locked explícito no corpo)
+      if (existing.is_locked === 1 && body.is_locked === undefined) {
+        return new Response(JSON.stringify({ error: 'lista fechada para produção' }), { 
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const isLocked = body.is_locked !== undefined ? (body.is_locked ? 1 : 0) : (existing.is_locked || 0);
+
       await env.DB.prepare(`
         UPDATE public_lists
-        SET title = ?, items = ?, updated_at = ?
+        SET title = ?, items = ?, is_locked = ?, updated_at = ?
         WHERE id = ?
-      `).bind(title, itemsStr, now, listId).run();
+      `).bind(title, itemsStr, isLocked, now, listId).run();
 
       return new Response(JSON.stringify({ success: true, message: 'Lista atualizada com sucesso' }), {
         headers: { 'Content-Type': 'application/json' }

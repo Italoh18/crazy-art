@@ -62,6 +62,7 @@ export default function ListaPublica() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isGlobalSimple, setIsGlobalSimple] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
     fetchList();
@@ -76,6 +77,7 @@ export default function ListaPublica() {
         const data = await response.json();
         setListTitle(data.title || 'Lista Pública de Pedido');
         setClientName(data.client_name || '');
+        setIsLocked(data.is_locked === 1);
         if (data.items) {
           const parsed = typeof data.items === 'string' ? JSON.parse(data.items) : data.items;
           setItems(parsed);
@@ -99,6 +101,10 @@ export default function ListaPublica() {
 
   const handleSave = async () => {
     if (!id) return;
+    if (isLocked) {
+      alert("lista fechada para produção");
+      return;
+    }
     setIsSaving(true);
     setSaveSuccess(false);
     try {
@@ -175,6 +181,10 @@ export default function ListaPublica() {
   };
 
   const addListRow = () => {
+    if (isLocked) {
+      alert("lista fechada para produção");
+      return;
+    }
     const defaultCategory = 'unisex';
     const newItem: SizeListItem = {
       id: crypto.randomUUID(),
@@ -266,6 +276,12 @@ export default function ListaPublica() {
             </div>
           ) : (
             <>
+              {isLocked && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider animate-pulse">
+                  ⚠️ lista fechada para produção
+                </div>
+              )}
+
               {/* Top Controls */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-950 p-4 rounded-2xl border border-zinc-800">
                 <div>
@@ -311,13 +327,7 @@ export default function ListaPublica() {
                               >
                                 {item.isConjunto ? 'Com Short (Sim)' : 'Adicionar Short?'}
                               </button>
-                              <button 
-                                onClick={() => removeListRow(item.id)} 
-                                title="Remover integrante"
-                                className="p-1 px-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition"
-                              >
-                                <Trash2 size={12} />
-                              </button>
+                              {/* Botão de exclusão removido da lista pública para evitar exclusões indesejadas */}
                             </div>
                           </div>
 

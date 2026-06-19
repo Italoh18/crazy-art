@@ -395,7 +395,8 @@ export default function CustomerDetails() {
           },
           body: JSON.stringify({
             title: publicList.title || 'Lista Pública de Pedido',
-            items: sortedMergedList
+            items: sortedMergedList,
+            is_locked: publicList.is_locked
           })
         });
 
@@ -413,6 +414,38 @@ export default function CustomerDetails() {
       }
     } catch (error) {
       alert('Erro de conexão ao salvar a lista.');
+    } finally {
+      setIsSavingPublicList(false);
+    }
+  };
+
+  const handleToggleLockList = async () => {
+    if (!publicList?.id) return;
+    setIsSavingPublicList(true);
+    try {
+      const newLockedStatus = publicList.is_locked === 1 ? 0 : 1;
+      const res = await fetch(`/api/public-lists?id=${encodeURIComponent(publicList.id)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: publicList.title || 'Lista Pública de Pedido',
+          items: editedPublicListItems,
+          is_locked: newLockedStatus
+        })
+      });
+
+      if (res.ok) {
+        setPublicList({ ...publicList, is_locked: newLockedStatus });
+        alert(newLockedStatus ? 'Lista travada para produção!' : 'Lista destravada com sucesso!');
+        loadPublicList();
+      } else {
+        alert('Erro ao alterar o status de travamento da lista.');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erro de conexão ao alterar status da lista.');
     } finally {
       setIsSavingPublicList(false);
     }
@@ -1499,6 +1532,30 @@ export default function CustomerDetails() {
                                 <p className="text-[10px] text-zinc-500 uppercase tracking-widest leading-relaxed">
                                   Compartilhe este link com quem irá preencher as camisas/tamanhos desta lista pública.
                                 </p>
+                              </div>
+
+                              {/* Travar Lista */}
+                              <div className="bg-zinc-950 p-4 rounded-2xl border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div>
+                                  <h4 className="text-xs uppercase font-extrabold tracking-widest text-zinc-400 font-mono flex items-center gap-1.5">
+                                    <Lock size={12} className={publicList.is_locked === 1 ? "text-red-400" : "text-zinc-500"} /> Status da Lista (Produção)
+                                  </h4>
+                                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1">
+                                    {publicList.is_locked === 1 ? 'Esta lista está TRAVADA para novos integrantes.' : 'Esta lista está ABERTA para novos integrantes.'}
+                                  </p>
+                                </div>
+                                <button 
+                                  onClick={handleToggleLockList}
+                                  disabled={isSavingPublicList}
+                                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase transition flex items-center gap-2 whitespace-nowrap self-start sm:self-auto ${
+                                    publicList.is_locked === 1 
+                                      ? 'bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20' 
+                                      : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                                  }`}
+                                >
+                                  {publicList.is_locked === 1 ? <ToggleRight size={18} className="text-red-400" /> : <ToggleLeft size={18} className="text-emerald-400" />}
+                                  {publicList.is_locked === 1 ? 'Lista Travada' : 'Travar Lista'}
+                                </button>
                               </div>
 
                               {/* Lista e Controles */}
