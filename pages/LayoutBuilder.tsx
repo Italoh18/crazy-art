@@ -871,17 +871,22 @@ export default function LayoutBuilder() {
         <div className="flex-1 bg-black relative flex flex-col overflow-hidden items-center justify-center">
             
             {/* TOOLBAR */}
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex bg-zinc-900/80 backdrop-blur-md border border-white/5 rounded-full p-1 shadow-2xl">
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center bg-zinc-900/80 backdrop-blur-md border border-white/5 rounded-full p-1 shadow-2xl">
                 <button onClick={() => setZoom(z => Math.max(0.4, z - 0.1))} className="p-2 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition">
                     <ZoomOut size={18} />
                 </button>
                 <div className="w-px h-8 bg-white/5 mx-1" />
-                <button onClick={() => { setZoom(1); setStagePos({ x: 0, y: 0 }); }} className="px-3 text-xs font-mono text-zinc-500 hover:text-white transition" title="Redefinir visualização">
-                    {Math.round(zoom * 100)}%
+                <button onClick={() => { setZoom(1); setStagePos({ x: 0, y: 0 }); }} className="px-3 text-xs font-semibold text-zinc-500 hover:text-white transition" title="Redefinir visualização">
+                    Centralizar
                 </button>
                 <div className="w-px h-8 bg-white/5 mx-1" />
                 <button onClick={() => setZoom(z => Math.min(5, z + 0.1))} className="p-2 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition">
                     <ZoomIn size={18} />
+                </button>
+                <div className="w-px h-8 bg-white/5 mx-1" />
+                <button disabled className="px-3 py-1 text-xs font-bold text-zinc-500 cursor-not-allowed flex items-center gap-1.5 bg-zinc-950/20 rounded-full">
+                    <span>Layout Shorts</span>
+                    <span className="text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-mono uppercase tracking-widest">Em breve</span>
                 </button>
             </div>
 
