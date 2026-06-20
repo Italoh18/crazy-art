@@ -243,6 +243,62 @@ export default function LayoutBuilder() {
   
   const [containerSize, setContainerSize] = useState({ width: 720, height: 720 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<any>(null);
+
+  const handleShare = async () => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    
+    const currentlySelected = selectedId;
+    setSelectedId(null);
+    
+    setTimeout(async () => {
+      try {
+        const dataUrl = stage.toDataURL({ pixelRatio: 2 });
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], 'mockup2d.png', { type: 'image/png' });
+
+        if (currentlySelected !== null) {
+          setSelectedId(currentlySelected);
+        }
+
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'Meu Mockup 2D',
+            text: 'Confira o mockup personalizado que criei!',
+          });
+        } else {
+          if (navigator.clipboard && navigator.clipboard.write && typeof ClipboardItem !== 'undefined') {
+            try {
+              await navigator.clipboard.write([
+                new ClipboardItem({ 'image/png': blob })
+              ]);
+              alert("Sucesso! Imagem copiada para a área de transferência. Compartilhe onde desejar!");
+              return;
+            } catch (clipErr) {
+              console.error("Clipboard copy failed:", clipErr);
+            }
+          }
+          
+          const link = document.createElement('a');
+          link.download = 'mockup2d.png';
+          link.href = dataUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          alert("O compartilhamento direto não é suportado pelo seu navegador, então iniciamos o download da imagem!");
+        }
+      } catch (err) {
+        console.error("Error sharing mockup:", err);
+        if (currentlySelected !== null) {
+          setSelectedId(currentlySelected);
+        }
+        alert("Houve um erro ao compartilhar o mockup. Por favor, tente novamente.");
+      }
+    }, 100);
+  };
 
   // Dynamic SVG parts customisations
   const [svgText, setSvgText] = useState<string>('');
@@ -689,8 +745,11 @@ export default function LayoutBuilder() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-amber-600 transition text-sm font-bold shadow-lg shadow-primary/20">
-                <Share2 size={16} /> <span className="hidden sm:inline">Exportar</span>
+            <button 
+                onClick={handleShare}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-amber-600 transition text-sm font-bold shadow-lg shadow-primary/20"
+            >
+                <Share2 size={16} /> <span className="hidden sm:inline">Compartilhar</span>
             </button>
         </div>
       </div>
@@ -807,6 +866,7 @@ export default function LayoutBuilder() {
                     onClick={(e) => e.stopPropagation()}
                 >
                     <Stage 
+                        ref={stageRef}
                         width={containerSize.width} 
                         height={containerSize.height} 
                         scaleX={zoom * (containerSize.width / 720)}
