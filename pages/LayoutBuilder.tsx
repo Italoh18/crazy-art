@@ -55,7 +55,7 @@ const CollarIcon = ({ collar }: { collar: any }) => {
     const isUrl = collar.previewSelector.startsWith('data:') || collar.previewSelector.startsWith('http') || collar.previewSelector.includes('/') || collar.previewSelector.includes('.');
     if (isUrl) return;
     
-    const fetchUrl = collar.svgUrl.startsWith('data:') 
+    const fetchUrl = (collar.svgUrl.startsWith('data:') || collar.svgUrl.startsWith('/')) 
       ? collar.svgUrl 
       : `/api/proxy-image?url=${encodeURIComponent(collar.svgUrl)}`;
       
@@ -394,7 +394,7 @@ export default function LayoutBuilder() {
       setSvgText('');
       return;
     }
-    const fetchUrl = currentMockupUrl.startsWith('data:') 
+    const fetchUrl = (currentMockupUrl.startsWith('data:') || currentMockupUrl.startsWith('/')) 
       ? currentMockupUrl 
       : `/api/proxy-image?url=${encodeURIComponent(currentMockupUrl)}`;
       
@@ -543,7 +543,7 @@ export default function LayoutBuilder() {
       setDynamicCollarUrl('');
       return;
     }
-    const fetchUrl = activeCollar.svgUrl.startsWith('data:') 
+    const fetchUrl = (activeCollar.svgUrl.startsWith('data:') || activeCollar.svgUrl.startsWith('/')) 
       ? activeCollar.svgUrl 
       : `/api/proxy-image?url=${encodeURIComponent(activeCollar.svgUrl)}`;
       
