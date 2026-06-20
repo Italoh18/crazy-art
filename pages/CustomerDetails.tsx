@@ -1447,7 +1447,7 @@ export default function CustomerDetails() {
                             </Link>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 xs:grid-cols-2 gap-4 max-h-[420px] overflow-y-auto pr-1">
+                        <div className="flex gap-4 overflow-x-auto pb-4 pr-1 scrollbar-thin scrollbar-thumb-zinc-850">
                             {savedArts.map((art) => {
                                 const dateStr = art.created_at 
                                     ? new Date(art.created_at).toLocaleDateString('pt-BR')
@@ -1475,7 +1475,7 @@ export default function CustomerDetails() {
                                 } catch(e) {}
 
                                 return (
-                                    <div key={art.id} className="bg-[#121215]/50 border border-white/5 rounded-2xl p-4 flex flex-col items-center gap-3 hover:border-zinc-800 transition text-center">
+                                    <div key={art.id} className="w-[180px] shrink-0 bg-[#121215]/50 border border-white/5 rounded-2xl p-4 flex flex-col items-center gap-3 hover:border-zinc-800 transition text-center">
                                         {/* Thumbnail Miniature Preview - Square Container matching Collar preview size */}
                                         <div 
                                             className="w-20 h-20 bg-zinc-950/70 border border-white/10 rounded-xl relative overflow-hidden flex items-center justify-center shrink-0"
