@@ -28,6 +28,10 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
       await env.DB.prepare('ALTER TABLE user_saved_arts ADD COLUMN system_bg_url TEXT').run();
     } catch (e) {}
 
+    try {
+      await env.DB.prepare('ALTER TABLE user_saved_arts ADD COLUMN preview_url TEXT').run();
+    } catch (e) {}
+
     const authUser = await getAuth(request, env);
     if (!authUser) {
       return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
@@ -76,6 +80,7 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
       const selected_collar_id = body.selectedCollarId || null;
       const collar_color = body.collarColor || null;
       const system_bg_url = body.systemBgUrl || null;
+      const preview_url = body.previewUrl || null;
       const now = new Date().toISOString();
 
       // Check if exists for update, otherwise insert
@@ -86,7 +91,7 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
       if (existing) {
         await env.DB.prepare(`
           UPDATE user_saved_arts
-          SET name = ?, images = ?, local_bg_url = ?, part_colors = ?, part_textures = ?, selected_collar_id = ?, collar_color = ?, system_bg_url = ?, updated_at = ?
+          SET name = ?, images = ?, local_bg_url = ?, part_colors = ?, part_textures = ?, selected_collar_id = ?, collar_color = ?, system_bg_url = ?, preview_url = ?, updated_at = ?
           WHERE id = ? AND client_id = ?
         `).bind(
           name,
@@ -97,14 +102,15 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
           selected_collar_id,
           collar_color,
           system_bg_url,
+          preview_url,
           now,
           id,
           clientId
         ).run();
       } else {
         await env.DB.prepare(`
-          INSERT INTO user_saved_arts (id, client_id, name, images, local_bg_url, part_colors, part_textures, selected_collar_id, collar_color, system_bg_url, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO user_saved_arts (id, client_id, name, images, local_bg_url, part_colors, part_textures, selected_collar_id, collar_color, system_bg_url, preview_url, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
           id,
           clientId,
@@ -116,6 +122,7 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
           selected_collar_id,
           collar_color,
           system_bg_url,
+          preview_url,
           now,
           now
         ).run();

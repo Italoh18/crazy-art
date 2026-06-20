@@ -1475,31 +1475,41 @@ export default function CustomerDetails() {
                                 } catch(e) {}
 
                                 return (
-                                    <div key={art.id} className="bg-black/25 border border-white/5 rounded-2xl p-3 flex flex-col gap-3 hover:border-zinc-800 transition">
-                                        {/* Thumbnail Miniature Preview - Square Container */}
+                                    <div key={art.id} className="bg-[#121215]/50 border border-white/5 rounded-2xl p-4 flex flex-col items-center gap-3 hover:border-zinc-800 transition text-center">
+                                        {/* Thumbnail Miniature Preview - Square Container matching Collar preview size */}
                                         <div 
-                                            className="w-full aspect-square bg-[#0c0c0e] border border-white/10 rounded-xl relative overflow-hidden flex items-center justify-center shrink-0"
-                                            style={{ backgroundColor: bgColor }}
+                                            className="w-20 h-20 bg-zinc-950/70 border border-white/10 rounded-xl relative overflow-hidden flex items-center justify-center shrink-0"
                                         >
-                                            <img 
-                                                src={bgUrl} 
-                                                alt="base" 
-                                                className="absolute inset-0 w-full h-full object-contain opacity-75 mix-blend-multiply p-1" 
-                                                referrerPolicy="no-referrer"
-                                            />
-                                            {overlayUrl && (
+                                            {art.preview_url ? (
                                                 <img 
-                                                    src={overlayUrl} 
-                                                    alt="logo" 
-                                                    className="absolute max-w-[70%] max-h-[70%] object-contain z-10 filter drop-shadow-md" 
+                                                    src={art.preview_url} 
+                                                    alt="Preview da Arte" 
+                                                    className="absolute inset-0 w-full h-full object-contain p-1 animate-fade-in" 
                                                     referrerPolicy="no-referrer"
                                                 />
+                                            ) : (
+                                                <div className="absolute inset-0 flex items-center justify-center relative w-full h-full" style={{ backgroundColor: bgColor }}>
+                                                    <img 
+                                                        src={bgUrl} 
+                                                        alt="base" 
+                                                        className="absolute inset-0 w-full h-full object-contain opacity-75 mix-blend-multiply p-1" 
+                                                        referrerPolicy="no-referrer"
+                                                    />
+                                                    {overlayUrl && (
+                                                        <img 
+                                                            src={overlayUrl} 
+                                                            alt="logo" 
+                                                            className="absolute max-w-[70%] max-h-[70%] object-contain z-10 filter drop-shadow-md" 
+                                                            referrerPolicy="no-referrer"
+                                                        />
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
 
                                         {/* Info */}
-                                        <div className="min-w-0">
-                                            <p className="text-white font-semibold truncate text-[13px]" title={art.name}>{art.name}</p>
+                                        <div className="min-w-0 w-full">
+                                            <p className="text-white font-semibold truncate text-[12px] px-1" title={art.name}>{art.name}</p>
                                             <p className="text-[10px] text-zinc-500">Salvo: {dateStr}</p>
                                         </div>
 
@@ -1507,12 +1517,13 @@ export default function CustomerDetails() {
                                         <div className="flex gap-2 w-full mt-auto">
                                             <Link 
                                                 to={`/layout-builder?saved_id=${art.id}`}
-                                                className="flex-1 text-center text-xs font-bold bg-[#a855f7] text-white rounded-lg py-2 transition hover:bg-[#9333ea] flex items-center justify-center gap-1.5"
+                                                className="flex-1 text-center text-[11px] font-bold bg-[#a855f7] text-white rounded-lg py-2 transition hover:bg-[#9333ea] flex items-center justify-center gap-1"
                                             >
                                                 <Eye size={12} />
                                                 <span>Visualizar Arte</span>
                                             </Link>
                                             <button
+                                                type="button"
                                                 onClick={() => handleDeleteSavedArt(art.id)}
                                                 className="p-2 rounded-lg bg-zinc-950 border border-white/5 hover:bg-red-950/45 hover:text-red-400 text-zinc-400 hover:border-red-500/20 transition flex items-center justify-center"
                                                 title="Excluir"

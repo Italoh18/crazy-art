@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Share2, Save, Upload, Trash2, ZoomIn, ZoomOut, Maximize, RotateCcw, Image as ImageIcon, FileText, Wrench, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, Share2, Save, Upload, Trash2, ZoomIn, ZoomOut, Maximize, RotateCcw, Image as ImageIcon, FileText, Wrench, Sparkles, X, Download } from 'lucide-react';
 import { Stage, Layer, Image as KonvaImage, Transformer } from 'react-konva';
 import useImage from 'use-image';
 import { useData } from '../contexts/DataContext';
@@ -340,20 +340,42 @@ export default function LayoutBuilder() {
     setIsSaving(true);
     setSaveSuccessMessage(null);
 
-    const uploadCache: { [key: string]: string } = {};
-    const uploadBase64WithCache = async (base64Str: string, defaultName: string): Promise<string> => {
+    const uploadCache: { [key: string]: Promise<string> | undefined } = {};
+    const uploadBase64WithCache = (base64Str: string, defaultName: string): Promise<string> => {
       if (!base64Str || !base64Str.startsWith('data:image/')) {
-        return base64Str;
+        return Promise.resolve(base64Str);
       }
       if (uploadCache[base64Str]) {
         return uploadCache[base64Str];
       }
-      const uploadedUrl = await uploadBase64Image(base64Str, defaultName);
-      uploadCache[base64Str] = uploadedUrl;
-      return uploadedUrl;
+      const uploadPromise = uploadBase64Image(base64Str, defaultName);
+      uploadCache[base64Str] = uploadPromise;
+      return uploadPromise;
     };
 
     try {
+      // Hide active transformer visual borders/handles for a pristine preview URL
+      const stage = stageRef.current;
+      const currentlySelected = selectedId;
+      setSelectedId(null);
+      await new Promise((resolve) => setTimeout(resolve, 120));
+
+      let previewUrl = '';
+      if (stage) {
+        try {
+          const dataUrl = stage.toDataURL({ mimeType: 'image/png', pixelRatio: 2 });
+          if (dataUrl && dataUrl !== 'data:,') {
+            previewUrl = await uploadBase64Image(dataUrl, 'preview-layout');
+          }
+        } catch (previewErr) {
+          console.error("Error generating/uploading layout preview:", previewErr);
+        }
+      }
+
+      if (currentlySelected !== null) {
+        setSelectedId(currentlySelected);
+      }
+
       // Upload localBgUrl if it exists and is base64
       let uploadedBgUrl = localBgUrl;
       if (localBgUrl && localBgUrl.startsWith('data:image/')) {
@@ -392,7 +414,8 @@ export default function LayoutBuilder() {
         partTextures: uploadedTextures,
         selectedCollarId: selectedCollarId,
         collarColor: collarColor,
-        systemBgUrl: null
+        systemBgUrl: null,
+        previewUrl: previewUrl || null
       };
 
       const result = await api.saveArt(payload);
@@ -408,6 +431,81 @@ export default function LayoutBuilder() {
       alert("Erro ao salvar arte: " + e.message);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDownloadUploadedArtsAndColors = async () => {
+    if (images.length === 0 && Object.keys(partColors).length === 0 && !collarColor) {
+      alert("Nenhuma arte ou customização encontrada para baixar.");
+      return;
+    }
+
+    // 1. Download each uploaded image
+    for (let index = 0; index < images.length; index++) {
+      const img = images[index];
+      const filename = `arte-upload-${index + 1}.png`;
+      try {
+        if (img.url.startsWith('data:')) {
+          const a = document.createElement('a');
+          a.href = img.url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } else {
+          // Try to fetch to avoid opening a new tab
+          const res = await fetch(img.url);
+          if (!res.ok) throw new Error("Fetch failed");
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(blobUrl);
+        }
+      } catch (e) {
+        console.warn("Fallback direct download for image:", img.url, e);
+        const a = document.createElement('a');
+        a.href = img.url;
+        a.download = filename;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    }
+
+    // 2. Generate and download TXT color code details
+    try {
+      let txtContent = "CRAZY ART - CUSTOMIZAÇÃO DE CORES DO LAYOUT\n";
+      txtContent += "===============================================\n\n";
+      
+      txtContent += "CORES DAS PARTES:\n";
+      const keys = Object.keys(partColors);
+      if (keys.length > 0) {
+        keys.forEach(partId => {
+          txtContent += `- ${partId.toUpperCase()}: ${partColors[partId]}\n`;
+        });
+      } else {
+        txtContent += "(Nenhuma cor de parte alterada)\n";
+      }
+
+      txtContent += `\nCOR DA GOLA:\n- GOLA: ${collarColor || '#ffffff'}\n`;
+
+      const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+      const blobUrl = URL.createObjectURL(blob);
+      const aTxt = document.createElement('a');
+      aTxt.href = blobUrl;
+      aTxt.download = 'cores-layout.txt';
+      document.body.appendChild(aTxt);
+      aTxt.click();
+      document.body.removeChild(aTxt);
+      URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      console.error("Erro ao baixar cores do layout", e);
     }
   };
 
@@ -1045,10 +1143,16 @@ export default function LayoutBuilder() {
             </div>
           )}
 
-          <div className="mt-auto pt-6 border-t border-white/5">
+          <div className="mt-auto pt-6 border-t border-white/5 space-y-3">
+             <button 
+                onClick={handleDownloadUploadedArtsAndColors}
+                className="w-full py-3 bg-[#a855f7] hover:bg-[#9333ea] text-white rounded-xl text-center flex items-center justify-center gap-2 text-xs font-bold transition shadow-lg shadow-purple-500/15"
+             >
+                <Download size={14} /> Baixar Artes e Cores
+             </button>
              <button 
                 onClick={clearCanvas}
-                className="w-full py-2 text-zinc-600 hover:text-zinc-400 transition text-[10px] uppercase font-bold tracking-widest flex items-center justify-center gap-2"
+                className="w-full py-2 text-zinc-650 hover:text-zinc-400 transition text-[10px] uppercase font-bold tracking-widest flex items-center justify-center gap-2"
              >
                 <RotateCcw size={12} /> Limpar Área de Trabalho
              </button>
