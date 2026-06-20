@@ -805,7 +805,7 @@ export default function LayoutBuilder() {
           </div>
           
           <div>
-            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 block">Fundo da Área</label>
+            <label className="hidden text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-3 block">Fundo da Área</label>
             <input 
                 type="file" 
                 ref={bgInputRef}
@@ -815,11 +815,11 @@ export default function LayoutBuilder() {
              />
              <button 
                 onClick={() => bgInputRef.current?.click()}
-                className="w-full py-3 bg-zinc-900 border border-white/5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center gap-2 text-xs font-bold"
+                className="hidden w-full py-3 bg-zinc-900 border border-white/5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center gap-2 text-xs font-bold"
              >
                 <ImageIcon size={14} /> Alterar Fundo
              </button>
-             <p className="text-[9px] text-zinc-600 mt-2 text-center">Recomendado: PNG/JPG (Mín. 200x200px)</p>
+             <p className="hidden text-[9px] text-zinc-600 mt-2 text-center">Recomendado: PNG/JPG (Mín. 200x200px)</p>
           </div>
 
           <div>
@@ -872,6 +872,15 @@ export default function LayoutBuilder() {
             
             {/* TOOLBAR */}
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center bg-zinc-900/80 backdrop-blur-md border border-white/5 rounded-full p-1 shadow-2xl">
+                <button 
+                    onClick={() => bgInputRef.current?.click()} 
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/10 transition"
+                    title="Alterar Fundo da Área"
+                >
+                    <ImageIcon size={14} />
+                    <span>Alterar Fundo</span>
+                </button>
+                <div className="w-px h-8 bg-white/5 mx-1" />
                 <button onClick={() => setZoom(z => Math.max(0.4, z - 0.1))} className="p-2 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition">
                     <ZoomOut size={18} />
                 </button>
