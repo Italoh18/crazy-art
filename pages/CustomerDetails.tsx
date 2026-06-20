@@ -1447,7 +1447,7 @@ export default function CustomerDetails() {
                             </Link>
                         </div>
                     ) : (
-                        <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                        <div className="grid grid-cols-1 xs:grid-cols-2 gap-4 max-h-[420px] overflow-y-auto pr-1">
                             {savedArts.map((art) => {
                                 const dateStr = art.created_at 
                                     ? new Date(art.created_at).toLocaleDateString('pt-BR')
@@ -1475,48 +1475,49 @@ export default function CustomerDetails() {
                                 } catch(e) {}
 
                                 return (
-                                    <div key={art.id} className="bg-black/25 border border-white/5 rounded-xl p-2.5 flex gap-3 items-center hover:border-zinc-800 transition">
-                                        {/* Thumbnail Miniature Preview */}
+                                    <div key={art.id} className="bg-black/25 border border-white/5 rounded-2xl p-3 flex flex-col gap-3 hover:border-zinc-800 transition">
+                                        {/* Thumbnail Miniature Preview - Square Container */}
                                         <div 
-                                            className="w-11 h-11 bg-zinc-900 border border-white/10 rounded-lg relative overflow-hidden flex items-center justify-center shrink-0"
+                                            className="w-full aspect-square bg-[#0c0c0e] border border-white/10 rounded-xl relative overflow-hidden flex items-center justify-center shrink-0"
                                             style={{ backgroundColor: bgColor }}
                                         >
                                             <img 
                                                 src={bgUrl} 
                                                 alt="base" 
-                                                className="absolute inset-0 w-full h-full object-cover opacity-70 mix-blend-multiply" 
+                                                className="absolute inset-0 w-full h-full object-contain opacity-75 mix-blend-multiply p-1" 
                                                 referrerPolicy="no-referrer"
                                             />
                                             {overlayUrl && (
                                                 <img 
                                                     src={overlayUrl} 
                                                     alt="logo" 
-                                                    className="absolute w-6 h-6 object-contain z-10 filter drop-shadow" 
+                                                    className="absolute max-w-[70%] max-h-[70%] object-contain z-10 filter drop-shadow-md" 
                                                     referrerPolicy="no-referrer"
                                                 />
                                             )}
                                         </div>
 
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-white font-medium truncate text-xs" title={art.name}>{art.name}</p>
+                                        {/* Info */}
+                                        <div className="min-w-0">
+                                            <p className="text-white font-semibold truncate text-[13px]" title={art.name}>{art.name}</p>
                                             <p className="text-[10px] text-zinc-500">Salvo: {dateStr}</p>
                                         </div>
 
-                                        <div className="flex items-center gap-1 shrink-0">
+                                        {/* Actions below preview & info */}
+                                        <div className="flex gap-2 w-full mt-auto">
                                             <Link 
                                                 to={`/layout-builder?saved_id=${art.id}`}
-                                                className="px-2 py-1.5 bg-[#a855f7] hover:bg-[#9333ea] text-white text-[10px] font-bold rounded-lg transition flex items-center justify-center gap-1"
-                                                title="Editar Arte"
+                                                className="flex-1 text-center text-xs font-bold bg-[#a855f7] text-white rounded-lg py-2 transition hover:bg-[#9333ea] flex items-center justify-center gap-1.5"
                                             >
-                                                <Eye size={11} />
-                                                <span>Abrir</span>
+                                                <Eye size={12} />
+                                                <span>Visualizar Arte</span>
                                             </Link>
                                             <button
                                                 onClick={() => handleDeleteSavedArt(art.id)}
-                                                className="p-1.5 rounded-lg bg-zinc-900 border border-white/5 hover:bg-red-950/40 hover:text-red-400 text-zinc-500 transition"
+                                                className="p-2 rounded-lg bg-zinc-950 border border-white/5 hover:bg-red-950/45 hover:text-red-400 text-zinc-400 hover:border-red-500/20 transition flex items-center justify-center"
                                                 title="Excluir"
                                             >
-                                                <Trash2 size={11} />
+                                                <Trash2 size={12} />
                                             </button>
                                         </div>
                                     </div>

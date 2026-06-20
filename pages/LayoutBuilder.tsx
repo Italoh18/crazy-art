@@ -325,7 +325,8 @@ export default function LayoutBuilder() {
       else if (blob.type === 'image/webp') ext = 'webp';
       else if (blob.type === 'image/svg+xml') ext = 'svg';
       
-      const file = new File([blob], `${defaultName}-${Date.now()}.${ext}`, { type: blob.type });
+      const randomSlug = Math.trunc(Math.random() * 1000000).toString(36);
+      const file = new File([blob], `${defaultName}-${Date.now()}-${randomSlug}.${ext}`, { type: blob.type });
       const res = await api.uploadFile(file);
       return res.url;
     } catch (err: any) {
@@ -339,18 +340,31 @@ export default function LayoutBuilder() {
     setIsSaving(true);
     setSaveSuccessMessage(null);
 
+    const uploadCache: { [key: string]: string } = {};
+    const uploadBase64WithCache = async (base64Str: string, defaultName: string): Promise<string> => {
+      if (!base64Str || !base64Str.startsWith('data:image/')) {
+        return base64Str;
+      }
+      if (uploadCache[base64Str]) {
+        return uploadCache[base64Str];
+      }
+      const uploadedUrl = await uploadBase64Image(base64Str, defaultName);
+      uploadCache[base64Str] = uploadedUrl;
+      return uploadedUrl;
+    };
+
     try {
       // Upload localBgUrl if it exists and is base64
       let uploadedBgUrl = localBgUrl;
       if (localBgUrl && localBgUrl.startsWith('data:image/')) {
-        uploadedBgUrl = await uploadBase64Image(localBgUrl, 'fundo-layout');
+        uploadedBgUrl = await uploadBase64WithCache(localBgUrl, 'fundo-layout');
       }
 
       // Upload overlay/uploaded graphic images
       const uploadedImages = await Promise.all(
         images.map(async (img) => {
           if (img.url && img.url.startsWith('data:image/')) {
-            const uploadedUrl = await uploadBase64Image(img.url, 'overlay-layout');
+            const uploadedUrl = await uploadBase64WithCache(img.url, 'overlay-layout');
             return { ...img, url: uploadedUrl };
           }
           return img;
@@ -363,7 +377,7 @@ export default function LayoutBuilder() {
       for (const key of textureKeys) {
         const texVal = partTextures[key];
         if (texVal && texVal.startsWith('data:image/')) {
-          uploadedTextures[key] = await uploadBase64Image(texVal, `textura-${key}`);
+          uploadedTextures[key] = await uploadBase64WithCache(texVal, `textura-${key}`);
         } else {
           uploadedTextures[key] = texVal;
         }
