@@ -717,11 +717,37 @@ export default function CustomerDetails() {
     }
   };
 
+  const [savedArts, setSavedArts] = useState<any[]>([]);
+  const [isLoadingSavedArts, setIsLoadingSavedArts] = useState(false);
+
+  const loadSavedArts = async () => {
+    setIsLoadingSavedArts(true);
+    try {
+      const data = await api.getSavedArts();
+      setSavedArts(data);
+    } catch (e) {
+      console.error("Error loading saved arts:", e);
+    } finally {
+      setIsLoadingSavedArts(false);
+    }
+  };
+
+  const handleDeleteSavedArt = async (id: string) => {
+    if (!window.confirm("Deseja realmente excluir esta arte salva?")) return;
+    try {
+      await api.deleteSavedArt(id);
+      loadSavedArts();
+    } catch (e: any) {
+      alert("Erro ao excluir arte: " + e.message);
+    }
+  };
+
   useEffect(() => {
     if (activeId) {
       loadClientCoupons();
       loadPublicList();
       loadPurchasedArts();
+      loadSavedArts();
     }
   }, [activeId]);
 
@@ -1375,6 +1401,63 @@ export default function CustomerDetails() {
                                                 Aguardando link
                                              </span>
                                         )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Minhas Artes Section */}
+                <div id="saved-arts-sec" className="bg-[#121215] border border-white/5 rounded-3xl p-8 relative overflow-hidden mt-6">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                            <Palette className="text-[#e11d48]" size={24} />
+                            Minhas Artes (Salvas do Mockup 2D)
+                        </h2>
+                    </div>
+
+                    {isLoadingSavedArts ? (
+                        <div className="flex items-center justify-center py-10 text-zinc-500">
+                            <Loader2 size={24} className="animate-spin mr-2" />
+                            Carregando suas artes salvas...
+                        </div>
+                    ) : savedArts.length === 0 ? (
+                        <div className="text-center py-8 text-zinc-500 space-y-4">
+                            <Image size={40} className="mx-auto opacity-20 text-zinc-400" />
+                            <p className="text-sm">Você ainda não tem nenhuma arte de Mockup 2D salva no perfil.</p>
+                            <Link to="/layout-builder" className="inline-block text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl px-4 py-2 transition mt-2">
+                                Criar Nova Arte no Mockup 2D
+                            </Link>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {savedArts.map((art) => {
+                                const dateStr = art.created_at 
+                                    ? new Date(art.created_at).toLocaleDateString('pt-BR') + ' ' + new Date(art.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                                    : '---';
+
+                                return (
+                                    <div key={art.id} className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col justify-between hover:border-zinc-800 transition">
+                                        <div className="space-y-1">
+                                            <p className="text-white font-medium truncate text-sm" title={art.name}>{art.name}</p>
+                                            <p className="text-xs text-zinc-500">Salvo em: {dateStr}</p>
+                                        </div>
+                                        <div className="flex gap-2 mt-4 w-full">
+                                            <Link 
+                                                to={`/layout-builder?saved_id=${art.id}`}
+                                                className="flex-1 text-center text-xs font-bold bg-[#e11d48] text-white rounded-lg py-2 transition hover:bg-[#be123c] flex items-center justify-center gap-1"
+                                            >
+                                                <Edit size={12} /> Editar
+                                            </Link>
+                                            <button
+                                                onClick={() => handleDeleteSavedArt(art.id)}
+                                                className="p-2 rounded-lg bg-zinc-900 border border-white/5 hover:bg-red-950/40 hover:text-red-400 text-zinc-400 transition"
+                                                title="Excluir"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </div>
                                     </div>
                                 );
                             })}

@@ -1,10 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Share2, Upload, Trash2, ZoomIn, ZoomOut, Maximize, RotateCcw, Image as ImageIcon, FileText, Wrench, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, Share2, Save, Upload, Trash2, ZoomIn, ZoomOut, Maximize, RotateCcw, Image as ImageIcon, FileText, Wrench, Sparkles, X } from 'lucide-react';
 import { Stage, Layer, Image as KonvaImage, Transformer } from 'react-konva';
 import useImage from 'use-image';
 import { useData } from '../contexts/DataContext';
+import { useAuth } from '../contexts/AuthContext';
+import { api } from '../src/services/api';
 
 function hexToCmyk(hex: string): { c: number; m: number; y: number; k: number } {
   if (!hex) return { c: 0, m: 0, y: 0, k: 0 };
@@ -220,6 +222,8 @@ const URLImage = ({ imageProps, isSelected, onSelect, onChange }: {
 
 export default function LayoutBuilder() {
   const { mockupBaseUrl, mockupBackgroundUrl, mockupBaseX, mockupBaseY, mockupBaseWidth, mockupCollars, mockupParts, loadData } = useData();
+  const { role, currentCustomer } = useAuth();
+  
   const [images, setImages] = useState<MockupImage[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -230,6 +234,104 @@ export default function LayoutBuilder() {
   const [localBgUrl, setLocalBgUrl] = useState<string>('');
   const [selectedCollarId, setSelectedCollarId] = useState<string>('');
   const hasInitializedCollarRef = useRef(false);
+
+  // States para salvar arte no Perfil
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [savedArtId, setSavedArtId] = useState<string | null>(null);
+  const [savedArtName, setSavedArtName] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+
+  // Carregar arte salva via URL parameter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const savedId = params.get('saved_id');
+    if (savedId) {
+      setSavedArtId(savedId);
+      api.getSavedArt(savedId)
+        .then((art: any) => {
+          if (art) {
+            setSavedArtName(art.name);
+            if (art.images) {
+              try {
+                setImages(JSON.parse(art.images));
+              } catch (e) {
+                console.error("Erro ao carregar imagens da arte salva", e);
+              }
+            }
+            if (art.local_bg_url) {
+              setLocalBgUrl(art.local_bg_url);
+            }
+            if (art.part_colors) {
+              try {
+                setPartColors(JSON.parse(art.part_colors));
+              } catch (e) {
+                console.error("Erro ao carregar cores das partes", e);
+              }
+            }
+            if (art.part_textures) {
+              try {
+                setPartTextures(JSON.parse(art.part_textures));
+              } catch (e) {
+                console.error("Erro ao carregar texturas das partes", e);
+              }
+            }
+            if (art.selected_collar_id) {
+              setSelectedCollarId(art.selected_collar_id);
+              hasInitializedCollarRef.current = true;
+            }
+            if (art.collar_color) {
+              setCollarColor(art.collar_color);
+            }
+          }
+        })
+        .catch(err => {
+          console.error("Erro ao carregar arte do perfil", err);
+        });
+    }
+  }, []);
+
+  const handleOpenSaveModal = () => {
+    if (!savedArtName) {
+      setSavedArtName(`Arte Mockup - ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`);
+    }
+    setIsSaveModalOpen(true);
+    setSaveSuccessMessage(null);
+  };
+
+  const handleSaveToProfile = async () => {
+    if (role === 'guest') return;
+    setIsSaving(true);
+    setSaveSuccessMessage(null);
+
+    const payload = {
+      id: savedArtId || undefined,
+      name: savedArtName,
+      images: images,
+      localBgUrl: localBgUrl,
+      partColors: partColors,
+      partTextures: partTextures,
+      selectedCollarId: selectedCollarId,
+      collarColor: collarColor,
+      systemBgUrl: null
+    };
+
+    try {
+      const result = await api.saveArt(payload);
+      if (result) {
+        setSavedArtId(result.id);
+        setSaveSuccessMessage("Sua arte de Mockup 2D foi salva com sucesso no seu perfil!");
+        setTimeout(() => {
+          setIsSaveModalOpen(false);
+          setSaveSuccessMessage(null);
+        }, 3000);
+      }
+    } catch (e: any) {
+      alert("Erro ao salvar arte: " + e.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   useEffect(() => {
     const collarsList = Array.isArray(mockupCollars) ? mockupCollars : [];
@@ -784,6 +886,14 @@ export default function LayoutBuilder() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+            <button 
+                onClick={handleOpenSaveModal}
+                disabled={role === 'guest'}
+                title={role === 'guest' ? 'Faça login no site para salvar no seu perfil' : 'Salvar no seu Perfil'}
+                className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-white/10 text-white rounded-lg hover:bg-zinc-800 transition text-sm font-bold shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+                <Save size={16} className={role !== 'guest' ? 'text-primary' : 'text-zinc-500'} /> <span className="hidden sm:inline">Salvar no Perfil</span>
+            </button>
             <button 
                 onClick={handleShare}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-amber-600 transition text-sm font-bold shadow-lg shadow-primary/20"
@@ -1461,6 +1571,62 @@ export default function LayoutBuilder() {
            </div>
         </div>
       </div>
+
+      {/* MODAL SALVAR NO PERFIL */}
+      {isSaveModalOpen && (
+        <div className="fixed inset-0 z-[120] flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in font-sans">
+          <div className="bg-[#0c0c0e] border border-white/5 w-full max-w-md rounded-2xl shadow-2xl relative p-6 space-y-4">
+            <button 
+              onClick={() => setIsSaveModalOpen(false)}
+              className="absolute top-4 right-4 p-1.5 hover:bg-white/5 rounded-lg transition text-zinc-400 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Save size={18} className="text-primary" />
+                Salvar Arte no seu Perfil
+              </h3>
+              <p className="text-xs text-zinc-400">
+                Guarde sua criação e todos os uploads feitos na ferramenta para editá-la e visualizá-la quando quiser em "Minha Área".
+              </p>
+            </div>
+
+            <div className="space-y-1.5 align-left">
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block ml-1 text-left">Nome da sua Arte</label>
+              <input 
+                type="text" 
+                value={savedArtName} 
+                onChange={(e) => setSavedArtName(e.target.value)} 
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition text-sm placeholder-zinc-700" 
+                placeholder="Ex: Minha Camiseta 1" 
+              />
+            </div>
+
+            {saveSuccessMessage ? (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-xs text-center font-semibold animate-fade-in">
+                {saveSuccessMessage}
+              </div>
+            ) : (
+              <div className="flex gap-2 pt-2">
+                <button 
+                  onClick={() => setIsSaveModalOpen(false)}
+                  className="flex-1 py-3 bg-zinc-900 hover:bg-zinc-800 border border-white/5 transition rounded-xl text-xs font-bold uppercase text-zinc-400 hover:text-white"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleSaveToProfile}
+                  disabled={isSaving || !savedArtName.trim()}
+                  className="flex-1 py-3 bg-primary hover:bg-amber-600 transition rounded-xl text-xs font-bold uppercase text-white disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSaving ? 'Salvando...' : 'Confirmar Salvar'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -267,5 +267,32 @@ export const api = {
           body: JSON.stringify({ id, email })
       });
       return handleResponse(res);
+  },
+
+  async getSavedArts() {
+    const res = await fetch(`${API_BASE_URL}/api/user-saved-arts`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
+
+  async getSavedArt(id: string) {
+    const res = await fetch(`${API_BASE_URL}/api/user-saved-arts?id=${encodeURIComponent(id)}`, { headers: getHeaders() });
+    return handleResponse(res);
+  },
+
+  async saveArt(payload: any) {
+    const res = await fetch(`${API_BASE_URL}/api/user-saved-arts`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return handleResponse(res);
+  },
+
+  async deleteSavedArt(id: string) {
+    const res = await fetch(`${API_BASE_URL}/api/user-saved-arts?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
   }
 };
