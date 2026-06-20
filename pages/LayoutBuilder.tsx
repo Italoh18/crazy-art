@@ -159,7 +159,7 @@ const URLImage = ({ imageProps, isSelected, onSelect, onChange }: {
   onSelect: () => void,
   onChange: (newProps: MockupImage) => void 
   }) => {
-  const [img] = useImage(imageProps.url);
+  const [img] = useImage(imageProps.url, 'anonymous');
   const shapeRef = useRef<any>(null);
   const trRef = useRef<any>(null);
 
@@ -253,10 +253,35 @@ export default function LayoutBuilder() {
     setSelectedId(null);
     
     setTimeout(async () => {
+      const triggerDownload = (url: string) => {
+        const link = document.createElement('a');
+        link.download = 'mockup2d.png';
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
       try {
-        const dataUrl = stage.toDataURL({ pixelRatio: 2 });
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
+        const dataUrl = stage.toDataURL({ mimeType: 'image/png', pixelRatio: 2 });
+        if (!dataUrl || dataUrl === 'data:,') {
+          throw new Error('Falha ao gerar URL de exportação do canvas');
+        }
+
+        // Safe synchronous base64 dataURL to Blob conversion - bypassing fetch network restrictions
+        const arr = dataUrl.split(',');
+        if (arr.length < 2) {
+          throw new Error("Formato de URL de dados incorreto.");
+        }
+        const mimeMatch = arr[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
         const file = new File([blob], 'mockup2d.png', { type: 'image/png' });
 
         if (currentlySelected !== null) {
@@ -264,40 +289,44 @@ export default function LayoutBuilder() {
         }
 
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: 'Meu Mockup 2D',
-            text: 'Confira o mockup personalizado que criei!',
-          });
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'Meu Mockup 2D',
+              text: 'Confira o mockup personalizado que criei!',
+            });
+          } catch (shareError) {
+            console.warn("Share flow rejected or aborted, downloading instead:", shareError);
+            triggerDownload(dataUrl);
+          }
         } else {
+          let copiedToClipboard = false;
           if (navigator.clipboard && navigator.clipboard.write && typeof ClipboardItem !== 'undefined') {
             try {
               await navigator.clipboard.write([
                 new ClipboardItem({ 'image/png': blob })
               ]);
+              copiedToClipboard = true;
               alert("Sucesso! Imagem copiada para a área de transferência. Compartilhe onde desejar!");
-              return;
             } catch (clipErr) {
               console.error("Clipboard copy failed:", clipErr);
             }
           }
           
-          const link = document.createElement('a');
-          link.download = 'mockup2d.png';
-          link.href = dataUrl;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          alert("O compartilhamento direto não é suportado pelo seu navegador, então iniciamos o download da imagem!");
+          if (!copiedToClipboard) {
+            triggerDownload(dataUrl);
+            alert("A imagem foi baixada com sucesso!");
+          }
         }
       } catch (err) {
         console.error("Error sharing mockup:", err);
         if (currentlySelected !== null) {
           setSelectedId(currentlySelected);
         }
-        alert("Houve um erro ao compartilhar o mockup. Por favor, tente novamente.");
+        // Fallback option in case of security exceptions or taint issues
+        alert("Não foi possível gerar ou compartilhar a imagem diretamente. Por favor, certifique-se de que todas as imagens adicionadas usam conexões seguras.");
       }
-    }, 100);
+    }, 120);
   };
 
   // Dynamic SVG parts customisations
@@ -589,14 +618,15 @@ export default function LayoutBuilder() {
       return;
     }
     const img = new window.Image();
+    img.crossOrigin = 'anonymous';
     img.src = src;
     img.onload = () => {
       setMockupImg(img);
     };
   }, [dynamicMockupUrl, currentMockupUrl]);
 
-  const [bgImg] = useImage(localBgUrl || mockupBackgroundUrl || '');
-  const [collarImg] = useImage(dynamicCollarUrl || activeCollar?.svgUrl || '');
+  const [bgImg] = useImage(localBgUrl || mockupBackgroundUrl || '', 'anonymous');
+  const [collarImg] = useImage(dynamicCollarUrl || activeCollar?.svgUrl || '', 'anonymous');
 
   const handleMouseDown = (e: any) => {
     // Button 2 is the right mouse click
