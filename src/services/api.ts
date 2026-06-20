@@ -269,8 +269,11 @@ export const api = {
       return handleResponse(res);
   },
 
-  async getSavedArts() {
-    const res = await fetch(`${API_BASE_URL}/api/user-saved-arts`, { headers: getHeaders() });
+  async getSavedArts(clientId?: string) {
+    const url = clientId 
+      ? `${API_BASE_URL}/api/user-saved-arts?clientId=${encodeURIComponent(clientId)}`
+      : `${API_BASE_URL}/api/user-saved-arts`;
+    const res = await fetch(url, { headers: getHeaders() });
     return handleResponse(res);
   },
 
@@ -288,8 +291,11 @@ export const api = {
     return handleResponse(res);
   },
 
-  async deleteSavedArt(id: string) {
-    const res = await fetch(`${API_BASE_URL}/api/user-saved-arts?id=${encodeURIComponent(id)}`, {
+  async deleteSavedArt(id: string, clientId?: string) {
+    const url = clientId
+      ? `${API_BASE_URL}/api/user-saved-arts?id=${encodeURIComponent(id)}&clientId=${encodeURIComponent(clientId)}`
+      : `${API_BASE_URL}/api/user-saved-arts?id=${encodeURIComponent(id)}`;
+    const res = await fetch(url, {
       method: 'DELETE',
       headers: getHeaders()
     });

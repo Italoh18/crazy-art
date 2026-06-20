@@ -723,7 +723,7 @@ export default function CustomerDetails() {
   const loadSavedArts = async () => {
     setIsLoadingSavedArts(true);
     try {
-      const data = await api.getSavedArts();
+      const data = await api.getSavedArts(activeId);
       setSavedArts(data);
     } catch (e) {
       console.error("Error loading saved arts:", e);
@@ -735,7 +735,7 @@ export default function CustomerDetails() {
   const handleDeleteSavedArt = async (id: string) => {
     if (!window.confirm("Deseja realmente excluir esta arte salva?")) return;
     try {
-      await api.deleteSavedArt(id);
+      await api.deleteSavedArt(id, activeId);
       loadSavedArts();
     } catch (e: any) {
       alert("Erro ao excluir arte: " + e.message);
@@ -1410,11 +1410,18 @@ export default function CustomerDetails() {
 
                 {/* Minhas Artes Section */}
                 <div id="saved-arts-sec" className="bg-[#121215] border border-white/5 rounded-3xl p-8 relative overflow-hidden mt-6">
-                    <div className="flex justify-between items-center mb-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
                             <Palette className="text-[#e11d48]" size={24} />
                             Minhas Artes (Salvas do Mockup 2D)
                         </h2>
+                        <Link 
+                            to="/layout-builder" 
+                            className="bg-[#e11d48]/10 hover:bg-[#e11d48]/20 border border-[#e11d48]/20 text-[#e11d48] text-xs font-bold rounded-xl px-4 py-2.5 transition flex items-center gap-2 shadow-lg shadow-[#e11d48]/5"
+                        >
+                            <Plus size={14} />
+                            <span>Criar Nova Arte</span>
+                        </Link>
                     </div>
 
                     {isLoadingSavedArts ? (
@@ -1426,7 +1433,7 @@ export default function CustomerDetails() {
                         <div className="text-center py-8 text-zinc-500 space-y-4">
                             <Image size={40} className="mx-auto opacity-20 text-zinc-400" />
                             <p className="text-sm">Você ainda não tem nenhuma arte de Mockup 2D salva no perfil.</p>
-                            <Link to="/layout-builder" className="inline-block text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl px-4 py-2 transition mt-2">
+                            <Link to="/layout-builder" className="inline-block text-xs font-bold bg-[#e11d48] hover:bg-[#be123c] text-white rounded-xl px-4 py-2 transition mt-2">
                                 Criar Nova Arte no Mockup 2D
                             </Link>
                         </div>
@@ -1446,9 +1453,9 @@ export default function CustomerDetails() {
                                         <div className="flex gap-2 mt-4 w-full">
                                             <Link 
                                                 to={`/layout-builder?saved_id=${art.id}`}
-                                                className="flex-1 text-center text-xs font-bold bg-[#e11d48] text-white rounded-lg py-2 transition hover:bg-[#be123c] flex items-center justify-center gap-1"
+                                                className="flex-1 text-center text-xs font-bold bg-[#e11d48] text-white rounded-lg py-2 transition hover:bg-[#be123c] flex items-center justify-center gap-1.5"
                                             >
-                                                <Edit size={12} /> Editar
+                                                <Eye size={14} /> Abrir Arte
                                             </Link>
                                             <button
                                                 onClick={() => handleDeleteSavedArt(art.id)}

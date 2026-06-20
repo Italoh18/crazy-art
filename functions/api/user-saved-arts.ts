@@ -33,7 +33,9 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
       return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
     }
 
-    const clientId = authUser.clientId || authUser.userId || 'admin';
+    let clientId = authUser.role === 'admin'
+      ? (url.searchParams.get('clientId') || authUser.clientId || 'admin')
+      : (authUser.clientId || 'guest');
 
     // GET - List user saved arts
     if (method === 'GET') {
@@ -62,6 +64,9 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
     // POST - Save or Update user saved art
     if (method === 'POST') {
       const body = await request.json() as any;
+      if (authUser.role === 'admin' && body.clientId) {
+        clientId = body.clientId;
+      }
       const id = body.id || crypto.randomUUID();
       const name = body.name || `Arte - ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
       const images = JSON.stringify(body.images || []);
