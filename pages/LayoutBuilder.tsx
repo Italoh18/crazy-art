@@ -299,24 +299,88 @@ export default function LayoutBuilder() {
     setSaveSuccessMessage(null);
   };
 
+  const base64ToBlob = (base64Str: string): Blob => {
+    const parts = base64Str.split(';base64,');
+    if (parts.length !== 2) {
+      throw new Error('Not a valid base64 data URL');
+    }
+    const contentType = parts[0].split(':')[1];
+    const raw = window.atob(parts[1]);
+    const rawLength = raw.length;
+    const uInt8Array = new Uint8Array(rawLength);
+    for (let i = 0; i < rawLength; ++i) {
+      uInt8Array[i] = raw.charCodeAt(i);
+    }
+    return new Blob([uInt8Array], { type: contentType });
+  };
+
+  const uploadBase64Image = async (base64Str: string, defaultName: string): Promise<string> => {
+    if (!base64Str || !base64Str.startsWith('data:image/')) {
+      return base64Str;
+    }
+    try {
+      const blob = base64ToBlob(base64Str);
+      let ext = 'png';
+      if (blob.type === 'image/jpeg') ext = 'jpg';
+      else if (blob.type === 'image/webp') ext = 'webp';
+      else if (blob.type === 'image/svg+xml') ext = 'svg';
+      
+      const file = new File([blob], `${defaultName}-${Date.now()}.${ext}`, { type: blob.type });
+      const res = await api.uploadFile(file);
+      return res.url;
+    } catch (err: any) {
+      console.error("Error uploading base64 back as file:", err);
+      return base64Str;
+    }
+  };
+
   const handleSaveToProfile = async () => {
     if (role === 'guest') return;
     setIsSaving(true);
     setSaveSuccessMessage(null);
 
-    const payload = {
-      id: savedArtId || undefined,
-      name: savedArtName,
-      images: images,
-      localBgUrl: localBgUrl,
-      partColors: partColors,
-      partTextures: partTextures,
-      selectedCollarId: selectedCollarId,
-      collarColor: collarColor,
-      systemBgUrl: null
-    };
-
     try {
+      // Upload localBgUrl if it exists and is base64
+      let uploadedBgUrl = localBgUrl;
+      if (localBgUrl && localBgUrl.startsWith('data:image/')) {
+        uploadedBgUrl = await uploadBase64Image(localBgUrl, 'fundo-layout');
+      }
+
+      // Upload overlay/uploaded graphic images
+      const uploadedImages = await Promise.all(
+        images.map(async (img) => {
+          if (img.url && img.url.startsWith('data:image/')) {
+            const uploadedUrl = await uploadBase64Image(img.url, 'overlay-layout');
+            return { ...img, url: uploadedUrl };
+          }
+          return img;
+        })
+      );
+
+      // Upload part textures
+      const uploadedTextures: { [key: string]: string } = {};
+      const textureKeys = Object.keys(partTextures);
+      for (const key of textureKeys) {
+        const texVal = partTextures[key];
+        if (texVal && texVal.startsWith('data:image/')) {
+          uploadedTextures[key] = await uploadBase64Image(texVal, `textura-${key}`);
+        } else {
+          uploadedTextures[key] = texVal;
+        }
+      }
+
+      const payload = {
+        id: savedArtId || undefined,
+        name: savedArtName,
+        images: uploadedImages,
+        localBgUrl: uploadedBgUrl,
+        partColors: partColors,
+        partTextures: uploadedTextures,
+        selectedCollarId: selectedCollarId,
+        collarColor: collarColor,
+        systemBgUrl: null
+      };
+
       const result = await api.saveArt(payload);
       if (result) {
         setSavedArtId(result.id);

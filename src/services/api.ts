@@ -269,6 +269,22 @@ export const api = {
       return handleResponse(res);
   },
 
+  async uploadFile(file: File, category?: string) {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (category) formData.append('category', category);
+    
+    const headers = getHeaders();
+    delete (headers as any)['Content-Type'];
+
+    const res = await fetch(`/api/upload`, {
+      method: 'POST',
+      headers,
+      body: formData
+    });
+    return handleResponse(res);
+  },
+
   async getSavedArts(clientId?: string) {
     const url = clientId 
       ? `${API_BASE_URL}/api/user-saved-arts?clientId=${encodeURIComponent(clientId)}`
