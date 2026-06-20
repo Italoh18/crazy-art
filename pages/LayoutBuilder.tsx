@@ -625,7 +625,16 @@ export default function LayoutBuilder() {
     };
   }, [dynamicMockupUrl, currentMockupUrl]);
 
-  const [bgImg] = useImage(localBgUrl || mockupBackgroundUrl || '', 'anonymous');
+  const bgUrlToLoad = (() => {
+    const src = localBgUrl || mockupBackgroundUrl;
+    if (!src) return '';
+    if (src.startsWith('data:') || src.startsWith('/')) {
+      return src;
+    }
+    return `/api/proxy-image?url=${encodeURIComponent(src)}`;
+  })();
+
+  const [bgImg] = useImage(bgUrlToLoad, 'anonymous');
   const [collarImg] = useImage(dynamicCollarUrl || activeCollar?.svgUrl || '', 'anonymous');
 
   const handleMouseDown = (e: any) => {
