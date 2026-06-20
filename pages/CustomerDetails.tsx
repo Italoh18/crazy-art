@@ -1407,62 +1407,116 @@ export default function CustomerDetails() {
                         </div>
                     )}
                 </div>
+            </div>
 
-                {/* Minhas Artes Section */}
-                <div id="saved-arts-sec" className="bg-[#121215] border border-white/5 rounded-3xl p-8 relative overflow-hidden mt-6">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            <Palette className="text-[#e11d48]" size={24} />
-                            Minhas Artes (Salvas do Mockup 2D)
-                        </h2>
+            {/* Coluna Direita: Ações e Status */}
+            <div className="space-y-6">
+                {/* Meus Layouts */}
+                <div className="bg-[#121215] border border-white/5 rounded-3xl p-6 relative overflow-hidden flex flex-col gap-4">
+                    {/* Section Header */}
+                    <div className="flex justify-between items-center bg-black/15 p-2.5 -mx-6 -mt-6 border-b border-white/5 px-6">
+                        <div className="flex items-center gap-2">
+                            <Palette className="text-[#a855f7]" size={20} />
+                            <h3 className="text-sm font-bold text-zinc-100 uppercase tracking-wider">Meus Layouts</h3>
+                            {!isLoadingSavedArts && savedArts.length > 0 && (
+                                <span className="text-[10px] font-bold text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded-full md:inline-block">
+                                    {savedArts.length}
+                                </span>
+                            )}
+                        </div>
                         <Link 
                             to="/layout-builder" 
-                            className="bg-[#e11d48]/10 hover:bg-[#e11d48]/20 border border-[#e11d48]/20 text-[#e11d48] text-xs font-bold rounded-xl px-4 py-2.5 transition flex items-center gap-2 shadow-lg shadow-[#e11d48]/5"
+                            className="text-[10px] bg-[#a855f7]/10 hover:bg-[#a855f7]/25 border border-[#a855f7]/20 text-[#a855f7] px-3 py-1.5 rounded-lg transition font-bold flex items-center gap-1 shadow-lg shadow-[#a855f7]/5"
                         >
-                            <Plus size={14} />
-                            <span>Criar Nova Arte</span>
+                            <Plus size={11} />
+                            <span>Nova Arte</span>
                         </Link>
                     </div>
 
                     {isLoadingSavedArts ? (
-                        <div className="flex items-center justify-center py-10 text-zinc-500">
-                            <Loader2 size={24} className="animate-spin mr-2" />
-                            Carregando suas artes salvas...
+                        <div className="flex items-center justify-center py-8 text-zinc-500 text-xs">
+                            <Loader2 size={18} className="animate-spin mr-2" />
+                            Buscando seus layouts...
                         </div>
                     ) : savedArts.length === 0 ? (
-                        <div className="text-center py-8 text-zinc-500 space-y-4">
-                            <Image size={40} className="mx-auto opacity-20 text-zinc-400" />
-                            <p className="text-sm">Você ainda não tem nenhuma arte de Mockup 2D salva no perfil.</p>
-                            <Link to="/layout-builder" className="inline-block text-xs font-bold bg-[#e11d48] hover:bg-[#be123c] text-white rounded-xl px-4 py-2 transition mt-2">
-                                Criar Nova Arte no Mockup 2D
+                        <div className="text-center py-6 text-zinc-505 space-y-2">
+                            <Palette size={26} className="mx-auto opacity-20 text-[#a855f7]" />
+                            <p className="text-xs text-zinc-500">Nenhum layout de Mockup 2D salvo ainda.</p>
+                            <Link to="/layout-builder" className="inline-block text-[11px] font-bold bg-[#a855f7]/10 hover:bg-[#a855f7]/25 border border-[#a855f7]/20 text-[#a855f7] rounded-lg px-3 py-1.5 transition mt-2">
+                                Começar a Criar
                             </Link>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
                             {savedArts.map((art) => {
                                 const dateStr = art.created_at 
-                                    ? new Date(art.created_at).toLocaleDateString('pt-BR') + ' ' + new Date(art.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                                    ? new Date(art.created_at).toLocaleDateString('pt-BR')
                                     : '---';
 
+                                let bgColor = '#18181b';
+                                try {
+                                    if (art.part_colors) {
+                                        const colors = JSON.parse(art.part_colors);
+                                        const firstColor = Object.values(colors).find(c => typeof c === 'string' && c.startsWith('#'));
+                                        if (firstColor) bgColor = firstColor as string;
+                                    }
+                                } catch(e) {}
+
+                                const bgUrl = art.local_bg_url || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1000&auto=format&fit=crop';
+
+                                let overlayUrl = '';
+                                try {
+                                    if (art.images) {
+                                        const imgs = JSON.parse(art.images);
+                                        if (imgs && imgs.length > 0) {
+                                            overlayUrl = imgs[0].url;
+                                        }
+                                    }
+                                } catch(e) {}
+
                                 return (
-                                    <div key={art.id} className="bg-black/20 border border-white/5 rounded-xl p-4 flex flex-col justify-between hover:border-zinc-800 transition">
-                                        <div className="space-y-1">
-                                            <p className="text-white font-medium truncate text-sm" title={art.name}>{art.name}</p>
-                                            <p className="text-xs text-zinc-500">Salvo em: {dateStr}</p>
+                                    <div key={art.id} className="bg-black/25 border border-white/5 rounded-xl p-2.5 flex gap-3 items-center hover:border-zinc-800 transition">
+                                        {/* Thumbnail Miniature Preview */}
+                                        <div 
+                                            className="w-11 h-11 bg-zinc-900 border border-white/10 rounded-lg relative overflow-hidden flex items-center justify-center shrink-0"
+                                            style={{ backgroundColor: bgColor }}
+                                        >
+                                            <img 
+                                                src={bgUrl} 
+                                                alt="base" 
+                                                className="absolute inset-0 w-full h-full object-cover opacity-70 mix-blend-multiply" 
+                                                referrerPolicy="no-referrer"
+                                            />
+                                            {overlayUrl && (
+                                                <img 
+                                                    src={overlayUrl} 
+                                                    alt="logo" 
+                                                    className="absolute w-6 h-6 object-contain z-10 filter drop-shadow" 
+                                                    referrerPolicy="no-referrer"
+                                                />
+                                            )}
                                         </div>
-                                        <div className="flex gap-2 mt-4 w-full">
+
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-white font-medium truncate text-xs" title={art.name}>{art.name}</p>
+                                            <p className="text-[10px] text-zinc-500">Salvo: {dateStr}</p>
+                                        </div>
+
+                                        <div className="flex items-center gap-1 shrink-0">
                                             <Link 
                                                 to={`/layout-builder?saved_id=${art.id}`}
-                                                className="flex-1 text-center text-xs font-bold bg-[#e11d48] text-white rounded-lg py-2 transition hover:bg-[#be123c] flex items-center justify-center gap-1.5"
+                                                className="px-2 py-1.5 bg-[#a855f7] hover:bg-[#9333ea] text-white text-[10px] font-bold rounded-lg transition flex items-center justify-center gap-1"
+                                                title="Editar Arte"
                                             >
-                                                <Eye size={14} /> Abrir Arte
+                                                <Eye size={11} />
+                                                <span>Abrir</span>
                                             </Link>
                                             <button
                                                 onClick={() => handleDeleteSavedArt(art.id)}
-                                                className="p-2 rounded-lg bg-zinc-900 border border-white/5 hover:bg-red-950/40 hover:text-red-400 text-zinc-400 transition"
+                                                className="p-1.5 rounded-lg bg-zinc-900 border border-white/5 hover:bg-red-950/40 hover:text-red-400 text-zinc-500 transition"
                                                 title="Excluir"
                                             >
-                                                <Trash2 size={12} />
+                                                <Trash2 size={11} />
                                             </button>
                                         </div>
                                     </div>
@@ -1470,16 +1524,6 @@ export default function CustomerDetails() {
                             })}
                         </div>
                     )}
-                </div>
-            </div>
-
-            {/* Coluna Direita: Ações e Status */}
-            <div className="space-y-6">
-                {/* Meus Layouts - Em Breve */}
-                <div className="relative w-full h-40 rounded-3xl bg-[#121215] border border-white/5 flex flex-col items-center justify-center gap-2 text-zinc-500">
-                    <Palette size={32} className="opacity-40 text-[#a855f7]" />
-                    <h3 className="text-lg font-bold text-zinc-400">meus layouts</h3>
-                    <span className="text-xs font-semibold text-[#a855f7] bg-[#a855f7]/10 px-2.5 py-0.5 rounded-full uppercase tracking-wider">em breve</span>
                 </div>
 
                 {/* Botão Lista Pública */}
