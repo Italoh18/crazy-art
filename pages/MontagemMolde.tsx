@@ -161,6 +161,43 @@ export default function MontagemMolde() {
     fetchServices();
   }, []);
 
+  useEffect(() => {
+    if (location.state?.listItems) {
+      const incoming = location.state.listItems;
+      if (Array.isArray(incoming) && incoming.length > 0) {
+        const converted: RepliaItem[] = [];
+        incoming.forEach((item: any) => {
+          const cat = String(item.category || '').toLowerCase();
+          let targetCategory: 'unisex' | 'feminina' | 'infantil' = 'unisex';
+          if (cat.includes('fem') || cat.includes('mulher')) {
+            targetCategory = 'feminina';
+          } else if (cat.includes('inf') || cat.includes('crian')) {
+            targetCategory = 'infantil';
+          }
+
+          const qty = item.isSimple ? Number(item.quantity || 1) : 1;
+          for (let i = 0; i < qty; i++) {
+            converted.push({
+              id: crypto.randomUUID(),
+              category: targetCategory,
+              size: item.size || 'M',
+              name: item.isSimple ? '' : (item.name || ''),
+              number: item.isSimple ? '' : (item.number || ''),
+              isConjunto: !!item.isConjunto,
+              shortSize: item.shortSize || item.size || 'M',
+              shortNumber: item.shortNumber || item.number || ''
+            });
+          }
+        });
+
+        if (converted.length > 0) {
+          setReplicas(converted);
+          setHasReplicas(true);
+        }
+      }
+    }
+  }, [location.state]);
+
   const fetchServices = async () => {
     try {
       const response = await fetch('/api/catalog?type=service');

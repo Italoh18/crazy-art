@@ -110,6 +110,45 @@ export default function CustomerDetails() {
   // State para Modal de Política de Fidelidade
   const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
 
+  // --- New Order Generator Modal States ---
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+  const [selectedServiceInModal, setSelectedServiceInModal] = useState<'montagem_molde' | null>(null);
+  const [selectedListId, setSelectedListId] = useState('');
+  const [selectedLayoutId, setSelectedLayoutId] = useState('');
+
+  const handleProceedToMontagemMolde = () => {
+    let layoutUrl = '';
+    const selectedArt = savedArts.find(art => String(art.id) === String(selectedLayoutId));
+    if (selectedArt) {
+      layoutUrl = selectedArt.preview_url || selectedArt.local_bg_url || '';
+      if (!layoutUrl && selectedArt.images) {
+        try {
+          const imgs = JSON.parse(selectedArt.images);
+          if (imgs && imgs.length > 0) {
+            layoutUrl = imgs[0].url;
+          }
+        } catch (e) {}
+      }
+    }
+
+    let listItems: any[] = [];
+    const selectedListObj = publicLists.find(l => String(l.id) === String(selectedListId));
+    if (selectedListObj && selectedListObj.items) {
+      try {
+        listItems = typeof selectedListObj.items === 'string' ? JSON.parse(selectedListObj.items) : selectedListObj.items;
+      } catch (e) {
+        console.error("Erro ao ler itens de lista:", e);
+      }
+    }
+
+    setShowNewOrderModal(false);
+    setSelectedServiceInModal(null);
+    setSelectedListId('');
+    setSelectedLayoutId('');
+
+    navigate('/montagem-molde', { state: { layoutUrl, listItems } });
+  };
+
   // Verification & Security States
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
@@ -1411,6 +1450,20 @@ export default function CustomerDetails() {
 
             {/* Coluna Direita: Ações e Status */}
             <div className="space-y-6">
+                {/* Botão Gerar Novo Pedido */}
+                <button
+                    onClick={() => {
+                        setShowNewOrderModal(true);
+                        setSelectedServiceInModal(null);
+                        setSelectedListId('');
+                        setSelectedLayoutId('');
+                    }}
+                    className="w-full py-4 px-6 bg-gradient-to-r from-[#a855f7] to-[#8b5cf6] hover:from-[#9333ea] hover:to-[#7c3aed] text-white rounded-3xl font-extrabold uppercase tracking-widest text-[11px] flex items-center justify-center gap-2.5 transition-all duration-300 shadow-lg shadow-[#a855f7]/10 hover:shadow-[#a855f7]/20 group hover:scale-[1.01]"
+                >
+                    <Sparkles size={14} className="animate-pulse text-amber-300" />
+                    <span>Gerar Novo Pedido</span>
+                </button>
+
                 {/* Meus Layouts */}
                 <div className="bg-[#121215] border border-white/5 rounded-3xl p-6 relative overflow-hidden flex flex-col gap-4">
                     {/* Section Header */}
@@ -2226,6 +2279,129 @@ export default function CustomerDetails() {
                         {/* No step 'update' needed for email, verification confirms update */}
 
                         {securityError && <div className="text-red-500 text-center text-xs font-bold bg-red-500/10 py-2 rounded-lg border border-red-500/20">{securityError}</div>}
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Modal de Gerar Novo Pedido */}
+        {showNewOrderModal && (
+            <div className="fixed inset-0 z-[100] flex justify-center items-center bg-black/85 backdrop-blur-md p-4 animate-fade-in">
+                <div className="bg-[#121215] border border-white/10 rounded-3xl w-full max-w-lg shadow-2xl relative animate-scale-in">
+                    {/* Modal Header */}
+                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] rounded-t-3xl">
+                        <h2 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                            <Sparkles size={16} className="text-[#a855f7]" />
+                            <span>Gerar Novo Pedido</span>
+                        </h2>
+                        <button 
+                            onClick={() => {
+                                setShowNewOrderModal(false);
+                                setSelectedServiceInModal(null);
+                                setSelectedListId('');
+                                setSelectedLayoutId('');
+                            }} 
+                            className="text-zinc-500 hover:text-white transition"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    {/* Modal Content */}
+                    <div className="p-6 space-y-6">
+                        {!selectedServiceInModal ? (
+                            <div className="space-y-4">
+                                <p className="text-zinc-400 text-xs uppercase tracking-wider font-semibold">Selecione o serviço para prosseguir:</p>
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedServiceInModal('montagem_molde')}
+                                    className="w-full p-4 bg-zinc-950 border border-white/5 rounded-2xl hover:border-[#a855f7]/40 text-left flex items-center justify-between transition group hover:bg-[#18181b]"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2.5 bg-[#a855f7]/10 text-[#a855f7] rounded-xl group-hover:bg-[#a855f7] group-hover:text-black transition-colors">
+                                            <Wrench size={18} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-black text-white uppercase tracking-wider">Montagem de Molde</h4>
+                                            <p className="text-[11px] text-zinc-500 mt-0.5">Criar pedido utilizando suas artes ou listas salvas</p>
+                                        </div>
+                                    </div>
+                                    <ChevronRight size={18} className="text-zinc-500 group-hover:text-white transition-all translate-x-0 group-hover:translate-x-1" />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-6 animate-fade-in">
+                                <div className="flex items-center justify-between pb-3 border-b border-white/5">
+                                    <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                                        <Wrench size={14} className="text-[#a855f7]" />
+                                        <span>Montagem de Molde</span>
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setSelectedServiceInModal(null)} 
+                                        className="text-[10px] text-zinc-500 hover:text-[#a855f7] font-semibold transition uppercase tracking-wider"
+                                    >
+                                        Alterar Serviço
+                                    </button>
+                                </div>
+
+                                {/* Duas caixas: Lists e Layouts */}
+                                <div className="space-y-4">
+                                    {/* Adicionar lista existente */}
+                                    <div className="bg-zinc-950 border border-white/5 rounded-2xl p-4 space-y-3">
+                                        <label className="text-[11px] uppercase font-bold tracking-widest text-zinc-400 block">
+                                            Adicionar lista existente
+                                        </label>
+                                        {publicLists.length === 0 ? (
+                                            <p className="text-zinc-600 text-xs">Ainda não possui nenhuma lista de tamanho/grades salva no seu perfil...</p>
+                                        ) : (
+                                            <select
+                                                value={selectedListId}
+                                                onChange={(e) => setSelectedListId(e.target.value)}
+                                                className="w-full bg-[#121215] border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#a855f7] focus:outline-none font-bold cursor-pointer"
+                                            >
+                                                <option value="">-- Selecione uma lista criada (opcional) --</option>
+                                                {publicLists.map((l) => (
+                                                    <option key={l.id} value={l.id}>{l.title}</option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </div>
+
+                                    {/* Adicionar layout existente */}
+                                    <div className="bg-zinc-950 border border-white/5 rounded-2xl p-4 space-y-3">
+                                        <label className="text-[11px] uppercase font-bold tracking-widest text-zinc-400 block">
+                                            Adicionar layout existente
+                                        </label>
+                                        {savedArts.length === 0 ? (
+                                            <p className="text-zinc-600 text-xs">Ainda não possui nenhuma arte/layout 2D salva no seu perfil...</p>
+                                        ) : (
+                                            <select
+                                                value={selectedLayoutId}
+                                                onChange={(e) => setSelectedLayoutId(e.target.value)}
+                                                className="w-full bg-[#121215] border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#a855f7] focus:outline-none font-bold cursor-pointer"
+                                            >
+                                                <option value="">-- Selecione uma arte criada (opcional) --</option>
+                                                {savedArts.map((art) => (
+                                                    <option key={art.id} value={art.id}>{art.name}</option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Botão Prosseguir */}
+                                <div className="pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={handleProceedToMontagemMolde}
+                                        className="w-full py-3.5 bg-gradient-to-r from-[#a855f7] to-[#8b5cf6] hover:from-[#9333ea] hover:to-[#7c3aed] text-white rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg transition-all"
+                                    >
+                                        Prosseguir para Montagem
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
