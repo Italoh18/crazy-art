@@ -160,40 +160,98 @@ const MontagemMoldeContent = ({ details, paperSize, order, replicasLines, checke
             )}
 
             {/* Lista (Colunas + Checkbox) */}
-            {replicasLines.length > 0 && (
-                <div className="pt-2">
-                    <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-2">Lista de Produção (Clique no item para copiar)</span>
-                    <div className="space-y-2">
-                        {replicasLines.map((line: string, index: number) => {
-                            const cleanLine = line.replace(/^- /, '');
-                            const isChecked = checkedItems.has(index);
+            {replicasLines.length > 0 && (() => {
+                const categorized = replicasLines.map((line: string, index: number) => {
+                    const cleanLine = line.replace(/^- /, '');
+                    
+                    let category: 'unisex' | 'feminina' | 'infantil' = 'unisex';
+                    const upperLine = cleanLine.toUpperCase();
+                    
+                    if (upperLine.includes('[FEMININA]')) {
+                        category = 'feminina';
+                    } else if (upperLine.includes('[INFANTIL]')) {
+                        category = 'infantil';
+                    } else if (upperLine.includes('[UNISEX]')) {
+                        category = 'unisex';
+                    } else {
+                        // Fallback detection
+                        const sizePart = cleanLine.split('|')[0]?.trim() || '';
+                        if (sizePart.includes('/BL') || sizePart.includes('/bl')) {
+                            category = 'feminina';
+                        } else if (/^\d+$/.test(sizePart)) {
+                            category = 'infantil';
+                        } else {
+                            category = 'unisex';
+                        }
+                    }
+
+                    const displayLine = cleanLine
+                        .replace(/\[UNISEX\]/i, '')
+                        .replace(/\[FEMININA\]/i, '')
+                        .replace(/\[INFANTIL\]/i, '')
+                        .trim();
+
+                    return {
+                        originalIndex: index,
+                        cleanLine: displayLine,
+                        lineForCopy: displayLine,
+                        category
+                    };
+                });
+
+                return (
+                    <div className="pt-2 space-y-4">
+                        <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Lista de Produção (Clique no item para copiar)</span>
+                        
+                        {(['unisex', 'feminina', 'infantil'] as const).map((catKey) => {
+                            const items = categorized.filter((item: any) => item.category === catKey);
+                            if (items.length === 0) return null;
+
+                            const catLabel = catKey === 'unisex' 
+                                ? 'Unisex' 
+                                : catKey === 'feminina' 
+                                ? 'Feminina (Baby Look)' 
+                                : 'Infantil';
 
                             return (
-                                <div 
-                                    key={index}
-                                    onClick={() => handleToggleCheck(index, cleanLine)}
-                                    className={`
-                                        flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer select-none
-                                        ${isChecked 
-                                            ? 'bg-emerald-900/10 border-emerald-500/20 text-zinc-500 opacity-60' 
-                                            : 'bg-zinc-900/80 border-white/5 text-zinc-300 hover:border-primary/50'
-                                        }
-                                    `}
-                                    title={isChecked ? "Desmarcar (Já copiado)" : "Clique para copiar este item"}
-                                >
-                                    <div className={`${isChecked ? 'text-emerald-500' : 'text-zinc-500'}`}>
-                                        {isChecked ? <CheckSquare size={16} /> : <Square size={16} />}
+                                <div key={catKey} className="space-y-2">
+                                    <h4 className="text-[10px] font-black uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-1 rounded-lg border border-primary/20 inline-block">
+                                        {catLabel} ({items.length})
+                                    </h4>
+                                    <div className="space-y-2">
+                                        {items.map((item: any) => {
+                                            const isChecked = checkedItems.has(item.originalIndex);
+
+                                            return (
+                                                <div 
+                                                    key={item.originalIndex}
+                                                    onClick={() => handleToggleCheck(item.originalIndex, item.lineForCopy)}
+                                                    className={`
+                                                        flex items-center gap-3 p-2.5 rounded-lg border transition-all cursor-pointer select-none
+                                                        ${isChecked 
+                                                            ? 'bg-emerald-950/10 border-emerald-500/20 text-zinc-500 opacity-60' 
+                                                            : 'bg-zinc-900/80 border-white/5 text-zinc-300 hover:border-primary/50'
+                                                        }
+                                                    `}
+                                                    title={isChecked ? "Desmarcar (Já copiado)" : "Clique para copiar este item"}
+                                                >
+                                                    <div className={`${isChecked ? 'text-emerald-500' : 'text-zinc-500'}`}>
+                                                        {isChecked ? <CheckSquare size={14} /> : <Square size={14} />}
+                                                    </div>
+                                                    <div className="flex-1 text-xs font-mono break-all whitespace-pre-wrap font-medium">
+                                                        {item.cleanLine}
+                                                    </div>
+                                                    {isChecked && <Check size={14} className="text-emerald-500 shrink-0" />}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                    <div className="flex-1 text-xs font-mono break-all whitespace-pre-wrap font-medium">
-                                        {cleanLine}
-                                    </div>
-                                    {isChecked && <Check size={14} className="text-emerald-500 shrink-0" />}
                                 </div>
                             );
                         })}
                     </div>
-                </div>
-            )}
+                );
+            })()}
         </>
     );
 };

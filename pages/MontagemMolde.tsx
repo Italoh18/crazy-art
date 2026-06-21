@@ -324,7 +324,7 @@ export default function MontagemMolde() {
             },
             body: JSON.stringify({
                 serviceId: mainService?.id,
-                description: `MONTAGEM DE MOLDE:\n${description}\n\nPAPEL DE IMPRESSÃO: ${paperSize}\n\nREPLICAS (${replicas.length}):\n${replicas.map(r => `- ${r.size} | ${r.name} | ${r.number}${r.isConjunto ? ` | CONJUNTO: [Short: ${r.shortSize} Nº: ${r.shortNumber}]` : ''}`).join('\n')}`,
+                description: `MONTAGEM DE MOLDE:\n${description}\n\nPAPEL DE IMPRESSÃO: ${paperSize}\n\nREPLICAS (${replicas.length}):\n${replicas.map(r => `- [${(r.category || 'unisex').toUpperCase()}] ${r.size} | ${r.name} | ${r.number}${r.isConjunto ? ` | CONJUNTO: [Short: ${r.shortSize} Nº: ${r.shortNumber}]` : ''}`).join('\n')}`,
                 logoUrl: layoutFileUrl, // Reutilizando campo logo_url para o arquivo de layout
                 paymentMethod: method,
                 value: totalAmount,
