@@ -191,10 +191,13 @@ const MontagemMoldeContent = ({ details, paperSize, order, replicasLines, checke
                         .replace(/\[INFANTIL\]/i, '')
                         .trim();
 
+                    const partsForCopy = displayLine.split('|');
+                    const nameForCopy = partsForCopy[1] ? partsForCopy[1].trim() : displayLine;
+
                     return {
                         originalIndex: index,
                         cleanLine: displayLine,
-                        lineForCopy: displayLine,
+                        lineForCopy: nameForCopy,
                         category
                     };
                 });
