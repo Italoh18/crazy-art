@@ -728,6 +728,8 @@ export default function LayoutBuilder() {
   const [collarColor, setCollarColor] = useState<string>("#ffffff");
   const [collarSvgText, setCollarSvgText] = useState<string>("");
   const [dynamicCollarUrl, setDynamicCollarUrl] = useState<string>("");
+  const [showCollarCmyk, setShowCollarCmyk] = useState(false);
+  const [showPartCmyk, setShowPartCmyk] = useState(false);
 
   const [selectedPartSelector, setSelectedPartSelector] =
     useState<string>("group:camisa");
@@ -1621,8 +1623,9 @@ export default function LayoutBuilder() {
 
                   <div className="flex items-center gap-2 shrink-0">
                     <div
-                      className="relative w-6 h-6 rounded-md overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center"
-                      title="Gola CMYK"
+                      className="relative w-6 h-6 rounded-md overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center cursor-pointer hover:border-white/30 transition-all duration-200"
+                      onClick={() => setShowCollarCmyk((prev) => !prev)}
+                      title="Gola CMYK (Clique para abrir ajuste)"
                     >
                       <input
                         type="color"
@@ -1654,7 +1657,7 @@ export default function LayoutBuilder() {
                 </div>
 
                 {/* CMYK Panel for Collar Color */}
-                {(() => {
+                {showCollarCmyk && (() => {
                   const { c, m, y, k } = hexToCmyk(collarColor);
                   const updateSingleCollarCmyk = (
                     key: "c" | "m" | "y" | "k",
@@ -1956,7 +1959,11 @@ export default function LayoutBuilder() {
                           Cor de Fundo da Parte
                         </span>
                         <div className="flex items-center gap-3">
-                          <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center">
+                          <div
+                            className="relative w-8 h-8 rounded-xl overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center cursor-pointer hover:border-white/30 transition-all duration-200"
+                            onClick={() => setShowPartCmyk((prev) => !prev)}
+                            title="Ajuste CMYK (Clique para abrir ajuste)"
+                          >
                             <input
                               type="color"
                               value={currentColor}
@@ -1998,8 +2005,9 @@ export default function LayoutBuilder() {
                         </div>
 
                         {/* CMYK Panel for Custom Color */}
-                        {(() => {
-                          const { c, m, y, k } = hexToCmyk(currentColor);
+                        {showPartCmyk &&
+                          (() => {
+                            const { c, m, y, k } = hexToCmyk(currentColor);
                           const updateSingleCmyk = (
                             key: "c" | "m" | "y" | "k",
                             val: number,
