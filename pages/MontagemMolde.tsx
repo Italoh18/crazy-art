@@ -543,7 +543,7 @@ export default function MontagemMolde() {
                                                 <input 
                                                     type="text" value={replica.name} 
                                                     onChange={(e) => updateReplica(replica.id, 'name', e.target.value)}
-                                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none uppercase" 
+                                                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none" 
                                                     placeholder="Nome"
                                                 />
                                             </div>
