@@ -16,6 +16,7 @@ import {
   Sparkles,
   X,
   Download,
+  Loader2,
 } from "lucide-react";
 import { Stage, Layer, Image as KonvaImage, Transformer } from "react-konva";
 import useImage from "use-image";
@@ -731,6 +732,12 @@ export default function LayoutBuilder() {
   const [showCollarCmyk, setShowCollarCmyk] = useState(false);
   const [showPartCmyk, setShowPartCmyk] = useState(false);
 
+  // PDF integration states
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [loadingPdf, setLoadingPdf] = useState(false);
+  const [pdfPages, setPdfPages] = useState<{ pageNum: number; thumbnail: string }[]>([]);
+  const [uploadedPdfRef, setUploadedPdfRef] = useState<{ file: File; pdfInstance: any } | null>(null);
+
   const [selectedPartSelector, setSelectedPartSelector] =
     useState<string>("group:camisa");
 
@@ -1138,41 +1145,124 @@ export default function LayoutBuilder() {
     setStagePos(newPos);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const insertMockImage = (url: string, imgWidth: number, imgHeight: number) => {
+    let width = 150;
+    let height = 150;
+    if (imgWidth > 0 && imgHeight > 0) {
+      if (imgWidth > imgHeight) {
+        width = 150;
+        height = 150 * (imgHeight / imgWidth);
+      } else {
+        height = 150;
+        width = 150 * (imgWidth / imgHeight);
+      }
+    }
+    const newImage: MockupImage = {
+      id: Math.random().toString(36).substring(2, 11),
+      url,
+      x: 100,
+      y: 100,
+      width,
+      height,
+      rotation: 0,
+    };
+    setImages((prev) => [...prev, newImage]);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const url = event.target?.result as string;
-      const img = new Image();
-      img.onload = () => {
-        let width = 150;
-        let height = 150;
-        if (img.width > 0 && img.height > 0) {
-          if (img.width > img.height) {
-            width = 150;
-            height = 150 * (img.height / img.width);
-          } else {
-            height = 150;
-            width = 150 * (img.width / img.height);
+    if (
+      file.name.toLowerCase().endsWith(".pdf") ||
+      file.type === "application/pdf"
+    ) {
+      try {
+        setLoadingPdf(true);
+        const pdfjsLib = await import("pdfjs-dist");
+        // @ts-ignore
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+
+        if (pdf.numPages === 1) {
+          const page = await pdf.getPage(1);
+          const viewport = page.getViewport({ scale: 2.0 });
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          if (context) {
+            await page.render({ canvasContext: context, viewport }).promise;
+            const url = canvas.toDataURL("image/png");
+            insertMockImage(url, viewport.width, viewport.height);
           }
+        } else {
+          const pagesData: { pageNum: number; thumbnail: string }[] = [];
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: 0.5 });
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            if (context) {
+              await page.render({ canvasContext: context, viewport }).promise;
+              const thumbnail = canvas.toDataURL("image/png");
+              pagesData.push({ pageNum: i, thumbnail });
+            }
+          }
+          setPdfPages(pagesData);
+          setUploadedPdfRef({ file, pdfInstance: pdf });
+          setIsPdfModalOpen(true);
         }
-        const newImage: MockupImage = {
-          id: Math.random().toString(36).substring(2, 11),
-          url,
-          x: 100,
-          y: 100,
-          width,
-          height,
-          rotation: 0,
+      } catch (err) {
+        console.error("Error loading PDF:", err);
+        alert("Erro ao ler o arquivo PDF.");
+      } finally {
+        setLoadingPdf(false);
+      }
+    } else {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const url = event.target?.result as string;
+        const img = new Image();
+        img.onload = () => {
+          insertMockImage(url, img.width, img.height);
         };
-        setImages((prev) => [...prev, newImage]);
+        img.src = url;
       };
-      img.src = url;
-    };
-    reader.readAsDataURL(file);
+      reader.readAsDataURL(file);
+    }
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleSelectPdfPage = async (pageNum: number) => {
+    if (!uploadedPdfRef) return;
+    try {
+      setLoadingPdf(true);
+      const { pdfInstance } = uploadedPdfRef;
+      const page = await pdfInstance.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 2.0 });
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      if (context) {
+        await page.render({ canvasContext: context, viewport }).promise;
+        const url = canvas.toDataURL("image/png");
+        insertMockImage(url, viewport.width, viewport.height);
+      }
+      setIsPdfModalOpen(false);
+      setPdfPages([]);
+      setUploadedPdfRef(null);
+    } catch (err) {
+      console.error("Error rendering PDF page:", err);
+      alert("Erro ao carregar a página selecionada.");
+    } finally {
+      setLoadingPdf(false);
+    }
   };
 
   const handleBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2266,6 +2356,82 @@ export default function LayoutBuilder() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* MODAL SELECIONAR PÁGINA DO PDF */}
+      {isPdfModalOpen && (
+        <div className="fixed inset-0 z-[130] flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in font-sans">
+          <div className="bg-[#0c0c0e] border border-white/5 w-full max-w-2xl rounded-2xl shadow-2xl relative p-6 space-y-4 max-h-[90vh] flex flex-col">
+            <button
+              onClick={() => {
+                setIsPdfModalOpen(false);
+                setPdfPages([]);
+                setUploadedPdfRef(null);
+              }}
+              className="absolute top-4 right-4 p-1.5 hover:bg-white/5 rounded-lg transition text-zinc-400 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+            <div className="space-y-1 pr-6 shrink-0">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <FileText size={18} className="text-primary" />
+                Selecione a Página do PDF
+              </h3>
+              <p className="text-xs text-zinc-400">
+                Este PDF possui várias páginas. Escolha qual delas deseja usar de estampa no mockup.
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto min-h-0 py-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {pdfPages.map((page) => (
+                  <div
+                    key={page.pageNum}
+                    onClick={() => handleSelectPdfPage(page.pageNum)}
+                    className="group bg-zinc-900/60 border border-white/5 hover:border-primary rounded-xl p-3 cursor-pointer transition flex flex-col items-center gap-2 hover:bg-white/[0.02]"
+                  >
+                    <div className="relative aspect-[3/4] w-full bg-zinc-950 rounded-lg overflow-hidden border border-white/5 flex items-center justify-center p-1">
+                      <img
+                        src={page.thumbnail}
+                        alt={`Página ${page.pageNum}`}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                      <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                        <span className="text-xs font-bold text-white bg-primary px-3 py-1 rounded-full shadow-lg">
+                          Selecionar
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-zinc-400 group-hover:text-white transition">
+                      Página {page.pageNum}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 shrink-0 border-t border-white/5">
+              <button
+                onClick={() => {
+                  setIsPdfModalOpen(false);
+                  setPdfPages([]);
+                  setUploadedPdfRef(null);
+                }}
+                className="w-full py-3 bg-zinc-900 hover:bg-zinc-800 border border-white/5 transition rounded-xl text-xs font-bold uppercase text-zinc-400 hover:text-white"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GLOBAL PDF LOADING OVERLAY */}
+      {loadingPdf && !isPdfModalOpen && (
+        <div className="fixed inset-0 z-[140] flex flex-col justify-center items-center bg-black/70 backdrop-blur-sm gap-3 font-sans">
+          <Loader2 className="animate-spin text-primary" size={32} />
+          <p className="text-sm font-bold text-white">Carregando PDF...</p>
         </div>
       )}
     </div>
