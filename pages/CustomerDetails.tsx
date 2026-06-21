@@ -270,6 +270,8 @@ export default function CustomerDetails() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [isExpandedPublicList, setIsExpandedPublicList] = useState(false);
   const [isListSimpleMode, setIsListSimpleMode] = useState(false);
+  const [isRenamingList, setIsRenamingList] = useState(false);
+  const [newListNameInputValue, setNewListNameInputValue] = useState("");
 
   const listSizes: Record<string, string[]> = {
     unisex: ['PP', 'P', 'M', 'G', 'GG', 'EG', 'XG1', 'XG2', 'XG3', 'XG4', 'XG5'],
@@ -316,6 +318,38 @@ export default function CustomerDetails() {
   };
 
   const loadPublicList = loadPublicLists;
+
+  const handleSaveListName = async () => {
+    if (!publicList?.id || !newListNameInputValue.trim()) return;
+    setIsSavingPublicList(true);
+    try {
+      const res = await fetch(`/api/public-lists?id=${encodeURIComponent(publicList.id)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: newListNameInputValue.trim(),
+          items: editedPublicListItems,
+          is_locked: publicList.is_locked
+        })
+      });
+
+      if (res.ok) {
+        setPublicList({ ...publicList, title: newListNameInputValue.trim() });
+        await loadPublicLists();
+        setIsRenamingList(false);
+        alert('Nome da lista atualizado com sucesso!');
+      } else {
+        alert('Erro ao atualizar o nome da lista.');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao se conectar ao servidor.');
+    } finally {
+      setIsSavingPublicList(false);
+    }
+  };
 
   const handleCreatePublicList = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1697,13 +1731,54 @@ export default function CustomerDetails() {
                               <div className="flex justify-between items-center bg-zinc-950 p-3 rounded-2xl border border-white/5">
                                 <button 
                                   onClick={() => setPublicList(null)}
-                                  className="px-3 py-1.5 bg-zinc-90 w-auto bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:bg-zinc-850 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition"
+                                  className="px-3 py-1.5 bg-zinc-90 w-auto bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:bg-zinc-850 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition shrink-0"
                                 >
                                   <ArrowLeft size={12} /> Voltar para Minhas Listas
                                 </button>
-                                <span className="text-[10px] font-black text-primary uppercase font-mono tracking-widest bg-primary/10 px-3 py-1 rounded-lg border border-primary/20">
-                                  Lista Selecionada: {publicList.title}
-                                </span>
+                                
+                                {isRenamingList ? (
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <input
+                                      type="text"
+                                      value={newListNameInputValue}
+                                      onChange={(e) => setNewListNameInputValue(e.target.value)}
+                                      className="bg-zinc-900 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:border-primary focus:outline-none font-bold w-28 sm:w-44"
+                                      autoFocus
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={handleSaveListName}
+                                      disabled={isSavingPublicList}
+                                      className="p-1 px-2.5 bg-emerald-500 text-black hover:bg-emerald-400 font-extrabold rounded-lg text-[10px] uppercase transition whitespace-nowrap"
+                                    >
+                                      Salvar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setIsRenamingList(false)}
+                                      className="p-1 px-2 bg-zinc-800 text-zinc-400 hover:text-white rounded-lg text-[10px] uppercase transition whitespace-nowrap"
+                                    >
+                                      Sair
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-[10px] font-black text-primary uppercase font-mono tracking-widest bg-primary/10 px-3 py-1 rounded-lg border border-primary/20 truncate" title={publicList.title}>
+                                      {publicList.title}
+                                    </span>
+                                    <button
+                                      onClick={() => {
+                                        setNewListNameInputValue(publicList.title);
+                                        setIsRenamingList(true);
+                                      }}
+                                      type="button"
+                                      className="p-1.5 bg-zinc-900 hover:bg-zinc-850 text-zinc-400 hover:text-white border border-white/5 rounded-lg transition shrink-0"
+                                      title="Alterar Nome da Lista"
+                                    >
+                                      <Edit size={12} />
+                                    </button>
+                                  </div>
+                                )}
                               </div>
 
                               {/* Compartilhamento */}
