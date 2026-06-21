@@ -197,6 +197,7 @@ interface MockupImage {
   width: number;
   height: number;
   rotation: number;
+  originalFile?: File;
 }
 
 const URLImage = ({
@@ -534,6 +535,21 @@ export default function LayoutBuilder() {
     // 1. Download each uploaded image
     for (let index = 0; index < images.length; index++) {
       const img = images[index];
+      if (img.originalFile) {
+        try {
+          const blobUrl = URL.createObjectURL(img.originalFile);
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = img.originalFile.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(blobUrl);
+          continue;
+        } catch (e) {
+          console.error("Erro ao baixar arquivo original:", e);
+        }
+      }
       const filename = `arte-upload-${index + 1}.png`;
       try {
         if (img.url.startsWith("data:")) {
@@ -1145,7 +1161,7 @@ export default function LayoutBuilder() {
     setStagePos(newPos);
   };
 
-  const insertMockImage = (url: string, imgWidth: number, imgHeight: number) => {
+  const insertMockImage = (url: string, imgWidth: number, imgHeight: number, originalFile?: File) => {
     let width = 150;
     let height = 150;
     if (imgWidth > 0 && imgHeight > 0) {
@@ -1165,6 +1181,7 @@ export default function LayoutBuilder() {
       width,
       height,
       rotation: 0,
+      originalFile,
     };
     setImages((prev) => [...prev, newImage]);
   };
@@ -1196,7 +1213,7 @@ export default function LayoutBuilder() {
           if (context) {
             await page.render({ canvasContext: context, viewport }).promise;
             const url = canvas.toDataURL("image/png");
-            insertMockImage(url, viewport.width, viewport.height);
+            insertMockImage(url, viewport.width, viewport.height, file);
           }
         } else {
           const pagesData: { pageNum: number; thumbnail: string }[] = [];
@@ -1229,7 +1246,7 @@ export default function LayoutBuilder() {
         const url = event.target?.result as string;
         const img = new Image();
         img.onload = () => {
-          insertMockImage(url, img.width, img.height);
+          insertMockImage(url, img.width, img.height, file);
         };
         img.src = url;
       };
@@ -1242,7 +1259,7 @@ export default function LayoutBuilder() {
     if (!uploadedPdfRef) return;
     try {
       setLoadingPdf(true);
-      const { pdfInstance } = uploadedPdfRef;
+      const { file, pdfInstance } = uploadedPdfRef;
       const page = await pdfInstance.getPage(pageNum);
       const viewport = page.getViewport({ scale: 2.0 });
       const canvas = document.createElement("canvas");
@@ -1252,7 +1269,7 @@ export default function LayoutBuilder() {
       if (context) {
         await page.render({ canvasContext: context, viewport }).promise;
         const url = canvas.toDataURL("image/png");
-        insertMockImage(url, viewport.width, viewport.height);
+        insertMockImage(url, viewport.width, viewport.height, file);
       }
       setIsPdfModalOpen(false);
       setPdfPages([]);
