@@ -1,16 +1,36 @@
+import React, { useState, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
+import {
+  ArrowLeft,
+  Share2,
+  Save,
+  Upload,
+  Trash2,
+  ZoomIn,
+  ZoomOut,
+  Maximize,
+  RotateCcw,
+  Image as ImageIcon,
+  FileText,
+  Wrench,
+  Sparkles,
+  X,
+  Download,
+} from "lucide-react";
+import { Stage, Layer, Image as KonvaImage, Transformer } from "react-konva";
+import useImage from "use-image";
+import { useData } from "../contexts/DataContext";
+import { useAuth } from "../contexts/AuthContext";
+import { api } from "../src/services/api";
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Share2, Save, Upload, Trash2, ZoomIn, ZoomOut, Maximize, RotateCcw, Image as ImageIcon, FileText, Wrench, Sparkles, X, Download } from 'lucide-react';
-import { Stage, Layer, Image as KonvaImage, Transformer } from 'react-konva';
-import useImage from 'use-image';
-import { useData } from '../contexts/DataContext';
-import { useAuth } from '../contexts/AuthContext';
-import { api } from '../src/services/api';
-
-function hexToCmyk(hex: string): { c: number; m: number; y: number; k: number } {
+function hexToCmyk(hex: string): {
+  c: number;
+  m: number;
+  y: number;
+  k: number;
+} {
   if (!hex) return { c: 0, m: 0, y: 0, k: 0 };
-  let h = hex.replace('#', '');
+  let h = hex.replace("#", "");
   if (h.length === 3) {
     h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
   }
@@ -40,37 +60,45 @@ function cmykToHex(c: number, m: number, y: number, k: number): string {
   const g = Math.round(255 * (1 - mPct) * (1 - kPct));
   const b = Math.round(255 * (1 - yPct) * (1 - kPct));
 
-  const rHex = Math.max(0, Math.min(255, r)).toString(16).padStart(2, '0');
-  const gHex = Math.max(0, Math.min(255, g)).toString(16).padStart(2, '0');
-  const bHex = Math.max(0, Math.min(255, b)).toString(16).padStart(2, '0');
+  const rHex = Math.max(0, Math.min(255, r)).toString(16).padStart(2, "0");
+  const gHex = Math.max(0, Math.min(255, g)).toString(16).padStart(2, "0");
+  const bHex = Math.max(0, Math.min(255, b)).toString(16).padStart(2, "0");
 
   return `#${rHex}${gHex}${bHex}`;
 }
 
 const CollarIcon = ({ collar }: { collar: any }) => {
-  const [svgStr, setSvgStr] = useState<string>('');
+  const [svgStr, setSvgStr] = useState<string>("");
 
   useEffect(() => {
     if (!collar.previewSelector || !collar.svgUrl) return;
-    
+
     // Check if previewSelector is a URL/base64 rather than a selector query
-    const isUrl = collar.previewSelector.startsWith('data:') || collar.previewSelector.startsWith('http') || collar.previewSelector.includes('/') || collar.previewSelector.includes('.');
+    const isUrl =
+      collar.previewSelector.startsWith("data:") ||
+      collar.previewSelector.startsWith("http") ||
+      collar.previewSelector.includes("/") ||
+      collar.previewSelector.includes(".");
     if (isUrl) return;
-    
-    const fetchUrl = (collar.svgUrl.startsWith('data:') || collar.svgUrl.startsWith('/')) 
-      ? collar.svgUrl 
-      : `/api/proxy-image?url=${encodeURIComponent(collar.svgUrl)}`;
-      
+
+    const fetchUrl =
+      collar.svgUrl.startsWith("data:") || collar.svgUrl.startsWith("/")
+        ? collar.svgUrl
+        : `/api/proxy-image?url=${encodeURIComponent(collar.svgUrl)}`;
+
     fetch(fetchUrl)
-      .then(res => res.text())
-      .then(text => {
+      .then((res) => res.text())
+      .then((text) => {
         try {
           const parser = new DOMParser();
-          const doc = parser.parseFromString(text, 'image/svg+xml');
-          const svgNode = doc.querySelector('svg');
+          const doc = parser.parseFromString(text, "image/svg+xml");
+          const svgNode = doc.querySelector("svg");
           if (svgNode) {
             // Inject dynamic stylesheet matching user's selected parts
-            const style = doc.createElementNS('http://www.w3.org/2000/svg', 'style');
+            const style = doc.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "style",
+            );
             style.textContent = `
               svg * {
                 display: none !important;
@@ -86,34 +114,37 @@ const CollarIcon = ({ collar }: { collar: any }) => {
               }
             `;
             svgNode.appendChild(style);
-            
-            svgNode.removeAttribute('style');
-            svgNode.removeAttribute('class');
-            svgNode.setAttribute('class', 'w-full h-full text-zinc-300 group-hover:text-white transition duration-200');
-            svgNode.style.color = 'currentColor';
+
+            svgNode.removeAttribute("style");
+            svgNode.removeAttribute("class");
+            svgNode.setAttribute(
+              "class",
+              "w-full h-full text-zinc-300 group-hover:text-white transition duration-200",
+            );
+            svgNode.style.color = "currentColor";
 
             const serializer = new XMLSerializer();
             setSvgStr(serializer.serializeToString(svgNode));
           } else {
-            setSvgStr('');
+            setSvgStr("");
           }
         } catch (e) {
           console.error(e);
-          setSvgStr('');
+          setSvgStr("");
         }
       })
-      .catch(err => {
+      .catch((err) => {
         console.error(err);
-        setSvgStr('');
+        setSvgStr("");
       });
   }, [collar.svgUrl, collar.previewSelector]);
 
   // Primary: Custom user uploaded transparent PNG icon
   if (collar.iconUrl) {
     return (
-      <img 
-        src={collar.iconUrl} 
-        alt={collar.name} 
+      <img
+        src={collar.iconUrl}
+        alt={collar.name}
         className="max-w-[85%] max-h-[85%] object-contain select-none pointer-events-none transition duration-200 group-hover:scale-105"
       />
     );
@@ -121,15 +152,27 @@ const CollarIcon = ({ collar }: { collar: any }) => {
 
   // Secondary: Custom selector generated vector icon
   if (collar.previewSelector && svgStr) {
-    return <div className="w-full h-full flex items-center justify-center p-1 shrink-0 select-none pointer-events-none" dangerouslySetInnerHTML={{ __html: svgStr }} />;
+    return (
+      <div
+        className="w-full h-full flex items-center justify-center p-1 shrink-0 select-none pointer-events-none"
+        dangerouslySetInnerHTML={{ __html: svgStr }}
+      />
+    );
   }
 
   // Tertiary: Fallback to previewSelector if it contains a URL
-  if (collar.previewSelector && (collar.previewSelector.startsWith('data:') || collar.previewSelector.startsWith('http') || collar.previewSelector.includes('/') || (collar.previewSelector.includes('.') && !collar.previewSelector.startsWith('.')))) {
+  if (
+    collar.previewSelector &&
+    (collar.previewSelector.startsWith("data:") ||
+      collar.previewSelector.startsWith("http") ||
+      collar.previewSelector.includes("/") ||
+      (collar.previewSelector.includes(".") &&
+        !collar.previewSelector.startsWith(".")))
+  ) {
     return (
-      <img 
-        src={collar.previewSelector} 
-        alt={collar.name} 
+      <img
+        src={collar.previewSelector}
+        alt={collar.name}
         className="max-w-[85%] max-h-[85%] object-contain select-none pointer-events-none transition duration-200 group-hover:scale-105"
       />
     );
@@ -137,9 +180,9 @@ const CollarIcon = ({ collar }: { collar: any }) => {
 
   // Quaternary: Fallback to general svg
   return (
-    <img 
-      src={collar.svgUrl} 
-      alt={collar.name} 
+    <img
+      src={collar.svgUrl}
+      alt={collar.name}
       className="max-w-full max-h-full object-contain filter invert opacity-80"
     />
   );
@@ -155,13 +198,18 @@ interface MockupImage {
   rotation: number;
 }
 
-const URLImage = ({ imageProps, isSelected, onSelect, onChange }: { 
-  imageProps: MockupImage, 
-  isSelected: boolean, 
-  onSelect: () => void,
-  onChange: (newProps: MockupImage) => void 
-  }) => {
-  const [img] = useImage(imageProps.url, 'anonymous');
+const URLImage = ({
+  imageProps,
+  isSelected,
+  onSelect,
+  onChange,
+}: {
+  imageProps: MockupImage;
+  isSelected: boolean;
+  onSelect: () => void;
+  onChange: (newProps: MockupImage) => void;
+}) => {
+  const [img] = useImage(imageProps.url, "anonymous");
   const shapeRef = useRef<any>(null);
   const trRef = useRef<any>(null);
 
@@ -221,9 +269,18 @@ const URLImage = ({ imageProps, isSelected, onSelect, onChange }: {
 };
 
 export default function LayoutBuilder() {
-  const { mockupBaseUrl, mockupBackgroundUrl, mockupBaseX, mockupBaseY, mockupBaseWidth, mockupCollars, mockupParts, loadData } = useData();
+  const {
+    mockupBaseUrl,
+    mockupBackgroundUrl,
+    mockupBaseX,
+    mockupBaseY,
+    mockupBaseWidth,
+    mockupCollars,
+    mockupParts,
+    loadData,
+  } = useData();
   const { role, currentCustomer } = useAuth();
-  
+
   const [images, setImages] = useState<MockupImage[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -231,24 +288,27 @@ export default function LayoutBuilder() {
   const [isPanning, setIsPanning] = useState(false);
   const isPanningRef = useRef(false);
   const startPanRef = useRef({ x: 0, y: 0 });
-  const [localBgUrl, setLocalBgUrl] = useState<string>('');
-  const [selectedCollarId, setSelectedCollarId] = useState<string>('');
+  const [localBgUrl, setLocalBgUrl] = useState<string>("");
+  const [selectedCollarId, setSelectedCollarId] = useState<string>("");
   const hasInitializedCollarRef = useRef(false);
 
   // States para salvar arte no Perfil
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [savedArtId, setSavedArtId] = useState<string | null>(null);
-  const [savedArtName, setSavedArtName] = useState<string>('');
+  const [savedArtName, setSavedArtName] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(
+    null,
+  );
 
   // Carregar arte salva via URL parameter
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const savedId = params.get('saved_id');
+    const savedId = params.get("saved_id");
     if (savedId) {
       setSavedArtId(savedId);
-      api.getSavedArt(savedId)
+      api
+        .getSavedArt(savedId)
         .then((art: any) => {
           if (art) {
             setSavedArtName(art.name);
@@ -285,7 +345,7 @@ export default function LayoutBuilder() {
             }
           }
         })
-        .catch(err => {
+        .catch((err) => {
           console.error("Erro ao carregar arte do perfil", err);
         });
     }
@@ -293,18 +353,20 @@ export default function LayoutBuilder() {
 
   const handleOpenSaveModal = () => {
     if (!savedArtName) {
-      setSavedArtName(`Arte Mockup - ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`);
+      setSavedArtName(
+        `Arte Mockup - ${new Date().toLocaleDateString("pt-BR")} ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
+      );
     }
     setIsSaveModalOpen(true);
     setSaveSuccessMessage(null);
   };
 
   const base64ToBlob = (base64Str: string): Blob => {
-    const parts = base64Str.split(';base64,');
+    const parts = base64Str.split(";base64,");
     if (parts.length !== 2) {
-      throw new Error('Not a valid base64 data URL');
+      throw new Error("Not a valid base64 data URL");
     }
-    const contentType = parts[0].split(':')[1];
+    const contentType = parts[0].split(":")[1];
     const raw = window.atob(parts[1]);
     const rawLength = raw.length;
     const uInt8Array = new Uint8Array(rawLength);
@@ -314,19 +376,26 @@ export default function LayoutBuilder() {
     return new Blob([uInt8Array], { type: contentType });
   };
 
-  const uploadBase64Image = async (base64Str: string, defaultName: string): Promise<string> => {
-    if (!base64Str || !base64Str.startsWith('data:image/')) {
+  const uploadBase64Image = async (
+    base64Str: string,
+    defaultName: string,
+  ): Promise<string> => {
+    if (!base64Str || !base64Str.startsWith("data:image/")) {
       return base64Str;
     }
     try {
       const blob = base64ToBlob(base64Str);
-      let ext = 'png';
-      if (blob.type === 'image/jpeg') ext = 'jpg';
-      else if (blob.type === 'image/webp') ext = 'webp';
-      else if (blob.type === 'image/svg+xml') ext = 'svg';
-      
+      let ext = "png";
+      if (blob.type === "image/jpeg") ext = "jpg";
+      else if (blob.type === "image/webp") ext = "webp";
+      else if (blob.type === "image/svg+xml") ext = "svg";
+
       const randomSlug = Math.trunc(Math.random() * 1000000).toString(36);
-      const file = new File([blob], `${defaultName}-${Date.now()}-${randomSlug}.${ext}`, { type: blob.type });
+      const file = new File(
+        [blob],
+        `${defaultName}-${Date.now()}-${randomSlug}.${ext}`,
+        { type: blob.type },
+      );
       const res = await api.uploadFile(file);
       return res.url;
     } catch (err: any) {
@@ -336,13 +405,16 @@ export default function LayoutBuilder() {
   };
 
   const handleSaveToProfile = async () => {
-    if (role === 'guest') return;
+    if (role === "guest") return;
     setIsSaving(true);
     setSaveSuccessMessage(null);
 
     const uploadCache: { [key: string]: Promise<string> | undefined } = {};
-    const uploadBase64WithCache = (base64Str: string, defaultName: string): Promise<string> => {
-      if (!base64Str || !base64Str.startsWith('data:image/')) {
+    const uploadBase64WithCache = (
+      base64Str: string,
+      defaultName: string,
+    ): Promise<string> => {
+      if (!base64Str || !base64Str.startsWith("data:image/")) {
         return Promise.resolve(base64Str);
       }
       if (uploadCache[base64Str]) {
@@ -360,15 +432,21 @@ export default function LayoutBuilder() {
       setSelectedId(null);
       await new Promise((resolve) => setTimeout(resolve, 120));
 
-      let previewUrl = '';
+      let previewUrl = "";
       if (stage) {
         try {
-          const dataUrl = stage.toDataURL({ mimeType: 'image/png', pixelRatio: 2 });
-          if (dataUrl && dataUrl !== 'data:,') {
-            previewUrl = await uploadBase64Image(dataUrl, 'preview-layout');
+          const dataUrl = stage.toDataURL({
+            mimeType: "image/png",
+            pixelRatio: 2,
+          });
+          if (dataUrl && dataUrl !== "data:,") {
+            previewUrl = await uploadBase64Image(dataUrl, "preview-layout");
           }
         } catch (previewErr) {
-          console.error("Error generating/uploading layout preview:", previewErr);
+          console.error(
+            "Error generating/uploading layout preview:",
+            previewErr,
+          );
         }
       }
 
@@ -378,19 +456,22 @@ export default function LayoutBuilder() {
 
       // Upload localBgUrl if it exists and is base64
       let uploadedBgUrl = localBgUrl;
-      if (localBgUrl && localBgUrl.startsWith('data:image/')) {
-        uploadedBgUrl = await uploadBase64WithCache(localBgUrl, 'fundo-layout');
+      if (localBgUrl && localBgUrl.startsWith("data:image/")) {
+        uploadedBgUrl = await uploadBase64WithCache(localBgUrl, "fundo-layout");
       }
 
       // Upload overlay/uploaded graphic images
       const uploadedImages = await Promise.all(
         images.map(async (img) => {
-          if (img.url && img.url.startsWith('data:image/')) {
-            const uploadedUrl = await uploadBase64WithCache(img.url, 'overlay-layout');
+          if (img.url && img.url.startsWith("data:image/")) {
+            const uploadedUrl = await uploadBase64WithCache(
+              img.url,
+              "overlay-layout",
+            );
             return { ...img, url: uploadedUrl };
           }
           return img;
-        })
+        }),
       );
 
       // Upload part textures
@@ -398,8 +479,11 @@ export default function LayoutBuilder() {
       const textureKeys = Object.keys(partTextures);
       for (const key of textureKeys) {
         const texVal = partTextures[key];
-        if (texVal && texVal.startsWith('data:image/')) {
-          uploadedTextures[key] = await uploadBase64WithCache(texVal, `textura-${key}`);
+        if (texVal && texVal.startsWith("data:image/")) {
+          uploadedTextures[key] = await uploadBase64WithCache(
+            texVal,
+            `textura-${key}`,
+          );
         } else {
           uploadedTextures[key] = texVal;
         }
@@ -415,13 +499,15 @@ export default function LayoutBuilder() {
         selectedCollarId: selectedCollarId,
         collarColor: collarColor,
         systemBgUrl: null,
-        previewUrl: previewUrl || null
+        previewUrl: previewUrl || null,
       };
 
       const result = await api.saveArt(payload);
       if (result) {
         setSavedArtId(result.id);
-        setSaveSuccessMessage("Sua arte de Mockup 2D foi salva com sucesso no seu perfil!");
+        setSaveSuccessMessage(
+          "Sua arte de Mockup 2D foi salva com sucesso no seu perfil!",
+        );
         setTimeout(() => {
           setIsSaveModalOpen(false);
           setSaveSuccessMessage(null);
@@ -435,7 +521,11 @@ export default function LayoutBuilder() {
   };
 
   const handleDownloadUploadedArtsAndColors = async () => {
-    if (images.length === 0 && Object.keys(partColors).length === 0 && !collarColor) {
+    if (
+      images.length === 0 &&
+      Object.keys(partColors).length === 0 &&
+      !collarColor
+    ) {
       alert("Nenhuma arte ou customização encontrada para baixar.");
       return;
     }
@@ -445,8 +535,8 @@ export default function LayoutBuilder() {
       const img = images[index];
       const filename = `arte-upload-${index + 1}.png`;
       try {
-        if (img.url.startsWith('data:')) {
-          const a = document.createElement('a');
+        if (img.url.startsWith("data:")) {
+          const a = document.createElement("a");
           a.href = img.url;
           a.download = filename;
           document.body.appendChild(a);
@@ -458,7 +548,7 @@ export default function LayoutBuilder() {
           if (!res.ok) throw new Error("Fetch failed");
           const blob = await res.blob();
           const blobUrl = URL.createObjectURL(blob);
-          const a = document.createElement('a');
+          const a = document.createElement("a");
           a.href = blobUrl;
           a.download = filename;
           document.body.appendChild(a);
@@ -468,10 +558,10 @@ export default function LayoutBuilder() {
         }
       } catch (e) {
         console.warn("Fallback direct download for image:", img.url, e);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = img.url;
         a.download = filename;
-        a.target = '_blank';
+        a.target = "_blank";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -482,24 +572,24 @@ export default function LayoutBuilder() {
     try {
       let txtContent = "CRAZY ART - CUSTOMIZAÇÃO DE CORES DO LAYOUT\n";
       txtContent += "===============================================\n\n";
-      
+
       txtContent += "CORES DAS PARTES:\n";
       const keys = Object.keys(partColors);
       if (keys.length > 0) {
-        keys.forEach(partId => {
+        keys.forEach((partId) => {
           txtContent += `- ${partId.toUpperCase()}: ${partColors[partId]}\n`;
         });
       } else {
         txtContent += "(Nenhuma cor de parte alterada)\n";
       }
 
-      txtContent += `\nCOR DA GOLA:\n- GOLA: ${collarColor || '#ffffff'}\n`;
+      txtContent += `\nCOR DA GOLA:\n- GOLA: ${collarColor || "#ffffff"}\n`;
 
-      const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+      const blob = new Blob([txtContent], { type: "text/plain;charset=utf-8" });
       const blobUrl = URL.createObjectURL(blob);
-      const aTxt = document.createElement('a');
+      const aTxt = document.createElement("a");
       aTxt.href = blobUrl;
-      aTxt.download = 'cores-layout.txt';
+      aTxt.download = "cores-layout.txt";
       document.body.appendChild(aTxt);
       aTxt.click();
       document.body.removeChild(aTxt);
@@ -518,22 +608,25 @@ export default function LayoutBuilder() {
   }, [mockupCollars]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
-  
-  const [containerSize, setContainerSize] = useState({ width: 720, height: 720 });
+
+  const [containerSize, setContainerSize] = useState({
+    width: 720,
+    height: 720,
+  });
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<any>(null);
 
   const handleShare = async () => {
     const stage = stageRef.current;
     if (!stage) return;
-    
+
     const currentlySelected = selectedId;
     setSelectedId(null);
-    
+
     setTimeout(async () => {
       const triggerDownload = (url: string) => {
-        const link = document.createElement('a');
-        link.download = 'mockup2d.png';
+        const link = document.createElement("a");
+        link.download = "mockup2d.png";
         link.href = url;
         document.body.appendChild(link);
         link.click();
@@ -541,18 +634,21 @@ export default function LayoutBuilder() {
       };
 
       try {
-        const dataUrl = stage.toDataURL({ mimeType: 'image/png', pixelRatio: 2 });
-        if (!dataUrl || dataUrl === 'data:,') {
-          throw new Error('Falha ao gerar URL de exportação do canvas');
+        const dataUrl = stage.toDataURL({
+          mimeType: "image/png",
+          pixelRatio: 2,
+        });
+        if (!dataUrl || dataUrl === "data:,") {
+          throw new Error("Falha ao gerar URL de exportação do canvas");
         }
 
         // Safe synchronous base64 dataURL to Blob conversion - bypassing fetch network restrictions
-        const arr = dataUrl.split(',');
+        const arr = dataUrl.split(",");
         if (arr.length < 2) {
           throw new Error("Formato de URL de dados incorreto.");
         }
         const mimeMatch = arr[0].match(/:(.*?);/);
-        const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+        const mime = mimeMatch ? mimeMatch[1] : "image/png";
         const bstr = atob(arr[1]);
         let n = bstr.length;
         const u8arr = new Uint8Array(n);
@@ -560,37 +656,50 @@ export default function LayoutBuilder() {
           u8arr[n] = bstr.charCodeAt(n);
         }
         const blob = new Blob([u8arr], { type: mime });
-        const file = new File([blob], 'mockup2d.png', { type: 'image/png' });
+        const file = new File([blob], "mockup2d.png", { type: "image/png" });
 
         if (currentlySelected !== null) {
           setSelectedId(currentlySelected);
         }
 
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        if (
+          navigator.share &&
+          navigator.canShare &&
+          navigator.canShare({ files: [file] })
+        ) {
           try {
             await navigator.share({
               files: [file],
-              title: 'Meu Mockup 2D',
-              text: 'Confira o mockup personalizado que criei!',
+              title: "Meu Mockup 2D",
+              text: "Confira o mockup personalizado que criei!",
             });
           } catch (shareError) {
-            console.warn("Share flow rejected or aborted, downloading instead:", shareError);
+            console.warn(
+              "Share flow rejected or aborted, downloading instead:",
+              shareError,
+            );
             triggerDownload(dataUrl);
           }
         } else {
           let copiedToClipboard = false;
-          if (navigator.clipboard && navigator.clipboard.write && typeof ClipboardItem !== 'undefined') {
+          if (
+            navigator.clipboard &&
+            navigator.clipboard.write &&
+            typeof ClipboardItem !== "undefined"
+          ) {
             try {
               await navigator.clipboard.write([
-                new ClipboardItem({ 'image/png': blob })
+                new ClipboardItem({ "image/png": blob }),
               ]);
               copiedToClipboard = true;
-              alert("Sucesso! Imagem copiada para a área de transferência. Compartilhe onde desejar!");
+              alert(
+                "Sucesso! Imagem copiada para a área de transferência. Compartilhe onde desejar!",
+              );
             } catch (clipErr) {
               console.error("Clipboard copy failed:", clipErr);
             }
           }
-          
+
           if (!copiedToClipboard) {
             triggerDownload(dataUrl);
             alert("A imagem foi baixada com sucesso!");
@@ -602,46 +711,69 @@ export default function LayoutBuilder() {
           setSelectedId(currentlySelected);
         }
         // Fallback option in case of security exceptions or taint issues
-        alert("Não foi possível gerar ou compartilhar a imagem diretamente. Por favor, certifique-se de que todas as imagens adicionadas usam conexões seguras.");
+        alert(
+          "Não foi possível gerar ou compartilhar a imagem diretamente. Por favor, certifique-se de que todas as imagens adicionadas usam conexões seguras.",
+        );
       }
     }, 120);
   };
 
   // Dynamic SVG parts customisations
-  const [svgText, setSvgText] = useState<string>('');
+  const [svgText, setSvgText] = useState<string>("");
   const [partColors, setPartColors] = useState<Record<string, string>>({});
   const [partTextures, setPartTextures] = useState<Record<string, string>>({});
-  const [dynamicMockupUrl, setDynamicMockupUrl] = useState<string>('');
+  const [dynamicMockupUrl, setDynamicMockupUrl] = useState<string>("");
 
   // Dynamic Gola (collar) customisations
-  const [collarColor, setCollarColor] = useState<string>('#ffffff');
-  const [collarSvgText, setCollarSvgText] = useState<string>('');
-  const [dynamicCollarUrl, setDynamicCollarUrl] = useState<string>('');
+  const [collarColor, setCollarColor] = useState<string>("#ffffff");
+  const [collarSvgText, setCollarSvgText] = useState<string>("");
+  const [dynamicCollarUrl, setDynamicCollarUrl] = useState<string>("");
 
-  const [selectedPartSelector, setSelectedPartSelector] = useState<string>('group:camisa');
+  const [selectedPartSelector, setSelectedPartSelector] =
+    useState<string>("group:camisa");
 
   const getGroupSelectors = (groupKey: string): string[] => {
     const activeParts = Array.isArray(mockupParts) ? mockupParts : [];
-    if (groupKey === 'group:camisa') {
-      return activeParts.map(p => p.selector);
+    if (groupKey === "group:camisa") {
+      return activeParts.map((p) => p.selector);
     }
-    if (groupKey === 'group:mangas') {
+    if (groupKey === "group:mangas") {
       return activeParts
-        .filter(p => {
-          const nameLower = (p.name || '').toLowerCase();
-          const selLower = (p.selector || '').toLowerCase();
-          return nameLower.includes('manga') || selLower.includes('manga') || nameLower.includes('sleeve') || selLower.includes('sleeve') || nameLower.includes('punho') || selLower.includes('punho') || nameLower.includes('cuff') || selLower.includes('cuff');
+        .filter((p) => {
+          const nameLower = (p.name || "").toLowerCase();
+          const selLower = (p.selector || "").toLowerCase();
+          return (
+            nameLower.includes("manga") ||
+            selLower.includes("manga") ||
+            nameLower.includes("sleeve") ||
+            selLower.includes("sleeve") ||
+            nameLower.includes("punho") ||
+            selLower.includes("punho") ||
+            nameLower.includes("cuff") ||
+            selLower.includes("cuff")
+          );
         })
-        .map(p => p.selector);
+        .map((p) => p.selector);
     }
-    if (groupKey === 'group:frente_costas') {
+    if (groupKey === "group:frente_costas") {
       return activeParts
-        .filter(p => {
-          const nameLower = (p.name || '').toLowerCase();
-          const selLower = (p.selector || '').toLowerCase();
-          return nameLower.includes('frente') || selLower.includes('frente') || nameLower.includes('costa') || selLower.includes('costa') || nameLower.includes('verso') || selLower.includes('verso') || nameLower.includes('front') || selLower.includes('front') || nameLower.includes('back') || selLower.includes('back');
+        .filter((p) => {
+          const nameLower = (p.name || "").toLowerCase();
+          const selLower = (p.selector || "").toLowerCase();
+          return (
+            nameLower.includes("frente") ||
+            selLower.includes("frente") ||
+            nameLower.includes("costa") ||
+            selLower.includes("costa") ||
+            nameLower.includes("verso") ||
+            selLower.includes("verso") ||
+            nameLower.includes("front") ||
+            selLower.includes("front") ||
+            nameLower.includes("back") ||
+            selLower.includes("back")
+          );
         })
-        .map(p => p.selector);
+        .map((p) => p.selector);
     }
     return [];
   };
@@ -657,7 +789,7 @@ export default function LayoutBuilder() {
     const observer = new ResizeObserver((entries) => {
       for (let entry of entries) {
         const { width, height } = entry.contentRect;
-         const size = Math.min(width, height) || width || 720;
+        const size = Math.min(width, height) || width || 720;
         setContainerSize({ width: size, height: size });
       }
     });
@@ -665,116 +797,139 @@ export default function LayoutBuilder() {
     return () => observer.disconnect();
   }, []);
 
-  const currentMockupUrl = mockupBaseUrl || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1000&auto=format&fit=crop';
+  const currentMockupUrl =
+    mockupBaseUrl ||
+    "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=1000&auto=format&fit=crop";
 
   useEffect(() => {
     if (!currentMockupUrl) {
-      setSvgText('');
+      setSvgText("");
       return;
     }
-    const fetchUrl = (currentMockupUrl.startsWith('data:') || currentMockupUrl.startsWith('/')) 
-      ? currentMockupUrl 
-      : `/api/proxy-image?url=${encodeURIComponent(currentMockupUrl)}`;
-      
+    const fetchUrl =
+      currentMockupUrl.startsWith("data:") || currentMockupUrl.startsWith("/")
+        ? currentMockupUrl
+        : `/api/proxy-image?url=${encodeURIComponent(currentMockupUrl)}`;
+
     fetch(fetchUrl)
-      .then(res => {
-        if (!res.ok) throw new Error('Não foi possível carregar o arquivo SVG');
+      .then((res) => {
+        if (!res.ok) throw new Error("Não foi possível carregar o arquivo SVG");
         return res.text();
       })
-      .then(text => {
-        if (text.includes('<svg')) {
+      .then((text) => {
+        if (text.includes("<svg")) {
           setSvgText(text);
         } else {
-          setSvgText('');
+          setSvgText("");
         }
       })
-      .catch(err => {
-        console.error('Erro ao buscar base SVG:', err);
-        setSvgText('');
+      .catch((err) => {
+        console.error("Erro ao buscar base SVG:", err);
+        setSvgText("");
       });
   }, [currentMockupUrl]);
 
   useEffect(() => {
     if (!svgText) {
-      setDynamicMockupUrl('');
+      setDynamicMockupUrl("");
       return;
     }
     try {
       const parser = new DOMParser();
-      const doc = parser.parseFromString(svgText, 'image/svg+xml');
-      const svgEl = doc.querySelector('svg');
+      const doc = parser.parseFromString(svgText, "image/svg+xml");
+      const svgEl = doc.querySelector("svg");
       if (!svgEl) {
-        setDynamicMockupUrl('');
+        setDynamicMockupUrl("");
         return;
       }
 
       // Add interactive tags indexing (same as AdminMockupSoon.tsx)
-      const interactiveTags = ['path', 'polygon', 'rect', 'circle', 'ellipse', 'g'];
-      interactiveTags.forEach(tag => {
+      const interactiveTags = [
+        "path",
+        "polygon",
+        "rect",
+        "circle",
+        "ellipse",
+        "g",
+      ];
+      interactiveTags.forEach((tag) => {
         const elements = doc.querySelectorAll(tag);
         elements.forEach((el, i) => {
-          el.setAttribute('data-svg-index', `${tag}-${i}`);
+          el.setAttribute("data-svg-index", `${tag}-${i}`);
         });
       });
 
       // Clear or create defs for patterns
-      let defsEl = svgEl.querySelector('defs');
+      let defsEl = svgEl.querySelector("defs");
       if (!defsEl) {
-        defsEl = doc.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        defsEl = doc.createElementNS("http://www.w3.org/2000/svg", "defs");
         svgEl.insertBefore(defsEl, svgEl.firstChild);
       }
 
       // Inject a <style> block inside the SVG to enforce the color overrides using !important
-      let styleEl = svgEl.querySelector('style#dynamic-part-styles');
+      let styleEl = svgEl.querySelector("style#dynamic-part-styles");
       if (!styleEl) {
-        styleEl = doc.createElementNS('http://www.w3.org/2000/svg', 'style');
-        styleEl.setAttribute('id', 'dynamic-part-styles');
+        styleEl = doc.createElementNS("http://www.w3.org/2000/svg", "style");
+        styleEl.setAttribute("id", "dynamic-part-styles");
         svgEl.appendChild(styleEl);
       }
 
       const activeParts = Array.isArray(mockupParts) ? mockupParts : [];
-      let styleRules = '';
+      let styleRules = "";
 
-      activeParts.forEach(part => {
+      activeParts.forEach((part) => {
         const selector = part.selector;
         const color = partColors[selector];
         const texture = partTextures[selector];
         const element = svgEl.querySelector(`[data-svg-index="${selector}"]`);
 
         if (element) {
-          const defaultColor = element.getAttribute('fill') || '#ffffff';
+          const defaultColor = element.getAttribute("fill") || "#ffffff";
           const activeColor = color || defaultColor;
 
           if (texture) {
-            const patternId = `pat-${selector.replace(/[^a-zA-Z0-9-]/g, '')}`;
-            
+            const patternId = `pat-${selector.replace(/[^a-zA-Z0-9-]/g, "")}`;
+
             // Remove old pattern if exists
             const oldPat = defsEl!.querySelector(`#${patternId}`);
             if (oldPat) oldPat.remove();
 
-            const pattern = doc.createElementNS('http://www.w3.org/2000/svg', 'pattern');
-            pattern.setAttribute('id', patternId);
-            pattern.setAttribute('patternUnits', 'objectBoundingBox');
-            pattern.setAttribute('patternContentUnits', 'objectBoundingBox');
-            pattern.setAttribute('width', '1');
-            pattern.setAttribute('height', '1');
+            const pattern = doc.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "pattern",
+            );
+            pattern.setAttribute("id", patternId);
+            pattern.setAttribute("patternUnits", "objectBoundingBox");
+            pattern.setAttribute("patternContentUnits", "objectBoundingBox");
+            pattern.setAttribute("width", "1");
+            pattern.setAttribute("height", "1");
 
             // Draw a background rect first to maintain correct color underneath transparent cover PNG
-            const patternBg = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            patternBg.setAttribute('x', '0');
-            patternBg.setAttribute('y', '0');
-            patternBg.setAttribute('width', '1');
-            patternBg.setAttribute('height', '1');
-            patternBg.setAttribute('fill', activeColor);
+            const patternBg = doc.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "rect",
+            );
+            patternBg.setAttribute("x", "0");
+            patternBg.setAttribute("y", "0");
+            patternBg.setAttribute("width", "1");
+            patternBg.setAttribute("height", "1");
+            patternBg.setAttribute("fill", activeColor);
             pattern.appendChild(patternBg);
 
-            const patternImg = doc.createElementNS('http://www.w3.org/2000/svg', 'image');
-            patternImg.setAttributeNS('http://www.w3.org/1999/xlink', 'href', texture);
-            patternImg.setAttribute('x', '0');
-            patternImg.setAttribute('y', '0');
-            patternImg.setAttribute('width', '1');
-            patternImg.setAttribute('height', '1');
-            patternImg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+            const patternImg = doc.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "image",
+            );
+            patternImg.setAttributeNS(
+              "http://www.w3.org/1999/xlink",
+              "href",
+              texture,
+            );
+            patternImg.setAttribute("x", "0");
+            patternImg.setAttribute("y", "0");
+            patternImg.setAttribute("width", "1");
+            patternImg.setAttribute("height", "1");
+            patternImg.setAttribute("preserveAspectRatio", "xMidYMid slice");
 
             pattern.appendChild(patternImg);
             defsEl!.appendChild(pattern);
@@ -800,71 +955,73 @@ export default function LayoutBuilder() {
 
       const serializer = new XMLSerializer();
       const updatedSvgString = serializer.serializeToString(svgEl);
-      
+
       const encoded = encodeURIComponent(updatedSvgString)
         .replace(/'/g, "%27")
         .replace(/"/g, "%22");
       const dataUrl = `data:image/svg+xml;charset=utf-8,${encoded}`;
       setDynamicMockupUrl(dataUrl);
     } catch (err) {
-      console.error('Erro ao gerar dynamic SVG:', err);
+      console.error("Erro ao gerar dynamic SVG:", err);
     }
   }, [svgText, partColors, partTextures, mockupParts]);
-  
+
   const collarsList = Array.isArray(mockupCollars) ? mockupCollars : [];
-  const activeCollar = collarsList.find(c => c.id === selectedCollarId);
+  const activeCollar = collarsList.find((c) => c.id === selectedCollarId);
 
   // Fetch Gola (collar) base SVG when selected
   useEffect(() => {
     if (!activeCollar?.svgUrl) {
-      setCollarSvgText('');
-      setDynamicCollarUrl('');
+      setCollarSvgText("");
+      setDynamicCollarUrl("");
       return;
     }
-    const fetchUrl = (activeCollar.svgUrl.startsWith('data:') || activeCollar.svgUrl.startsWith('/')) 
-      ? activeCollar.svgUrl 
-      : `/api/proxy-image?url=${encodeURIComponent(activeCollar.svgUrl)}`;
-      
+    const fetchUrl =
+      activeCollar.svgUrl.startsWith("data:") ||
+      activeCollar.svgUrl.startsWith("/")
+        ? activeCollar.svgUrl
+        : `/api/proxy-image?url=${encodeURIComponent(activeCollar.svgUrl)}`;
+
     fetch(fetchUrl)
-      .then(res => {
-        if (!res.ok) throw new Error('Não foi possível carregar a gola');
+      .then((res) => {
+        if (!res.ok) throw new Error("Não foi possível carregar a gola");
         return res.text();
       })
-      .then(text => {
-        if (text.includes('<svg')) {
+      .then((text) => {
+        if (text.includes("<svg")) {
           setCollarSvgText(text);
         } else {
-          setCollarSvgText('');
-          setDynamicCollarUrl('');
+          setCollarSvgText("");
+          setDynamicCollarUrl("");
         }
       })
-      .catch(err => {
-        console.error('Erro ao buscar gola SVG:', err);
-        setCollarSvgText('');
-        setDynamicCollarUrl('');
+      .catch((err) => {
+        console.error("Erro ao buscar gola SVG:", err);
+        setCollarSvgText("");
+        setDynamicCollarUrl("");
       });
   }, [activeCollar?.svgUrl]);
 
   // Dynamic Gola customisation with the selected color
   useEffect(() => {
     if (!collarSvgText) {
-      setDynamicCollarUrl('');
+      setDynamicCollarUrl("");
       return;
     }
     try {
       const parser = new DOMParser();
-      const doc = parser.parseFromString(collarSvgText, 'image/svg+xml');
-      const svgEl = doc.querySelector('svg');
+      const doc = parser.parseFromString(collarSvgText, "image/svg+xml");
+      const svgEl = doc.querySelector("svg");
       if (!svgEl) {
-        setDynamicCollarUrl('');
+        setDynamicCollarUrl("");
         return;
       }
 
       // Inject style block to override colors inside gola SVG
-      let styleEl = svgEl.querySelector('style#dynamic-collar-styles');
+      let styleEl = svgEl.querySelector("style#dynamic-collar-styles");
       if (!styleEl) {
-        styleEl = doc.createElementNS('http://www.w3.org/2000/svg', 'style');
-        styleEl.setAttribute('id', 'dynamic-collar-styles');
+        styleEl = doc.createElementNS("http://www.w3.org/2000/svg", "style");
+        styleEl.setAttribute("id", "dynamic-collar-styles");
         svgEl.appendChild(styleEl);
       }
 
@@ -877,17 +1034,17 @@ export default function LayoutBuilder() {
 
       const serializer = new XMLSerializer();
       const updatedSvgString = serializer.serializeToString(svgEl);
-      
+
       const encoded = encodeURIComponent(updatedSvgString)
         .replace(/'/g, "%27")
         .replace(/"/g, "%22");
       const dataUrl = `data:image/svg+xml;charset=utf-8,${encoded}`;
       setDynamicCollarUrl(dataUrl);
     } catch (err) {
-      console.error('Erro ao gerar gola dinâmica:', err);
+      console.error("Erro ao gerar gola dinâmica:", err);
     }
   }, [collarSvgText, collarColor]);
-  
+
   const [mockupImg, setMockupImg] = useState<HTMLImageElement | null>(null);
   useEffect(() => {
     const src = dynamicMockupUrl || currentMockupUrl;
@@ -896,7 +1053,7 @@ export default function LayoutBuilder() {
       return;
     }
     const img = new window.Image();
-    img.crossOrigin = 'anonymous';
+    img.crossOrigin = "anonymous";
     img.src = src;
     img.onload = () => {
       setMockupImg(img);
@@ -905,15 +1062,18 @@ export default function LayoutBuilder() {
 
   const bgUrlToLoad = (() => {
     const src = localBgUrl || mockupBackgroundUrl;
-    if (!src) return '';
-    if (src.startsWith('data:') || src.startsWith('/')) {
+    if (!src) return "";
+    if (src.startsWith("data:") || src.startsWith("/")) {
       return src;
     }
     return `/api/proxy-image?url=${encodeURIComponent(src)}`;
   })();
 
-  const [bgImg] = useImage(bgUrlToLoad, 'anonymous');
-  const [collarImg] = useImage(dynamicCollarUrl || activeCollar?.svgUrl || '', 'anonymous');
+  const [bgImg] = useImage(bgUrlToLoad, "anonymous");
+  const [collarImg] = useImage(
+    dynamicCollarUrl || activeCollar?.svgUrl || "",
+    "anonymous",
+  );
 
   const handleMouseDown = (e: any) => {
     // Button 2 is the right mouse click
@@ -950,7 +1110,7 @@ export default function LayoutBuilder() {
   const handleWheel = (e: any) => {
     // Focus the area by preventing regular page scrolling while over the canvas
     e.evt.preventDefault();
-    
+
     const stage = e.target.getStage();
     const responsiveScale = containerSize.width / 720;
     const oldScale = zoom * responsiveScale;
@@ -1003,14 +1163,14 @@ export default function LayoutBuilder() {
           y: 100,
           width,
           height,
-          rotation: 0
+          rotation: 0,
         };
-        setImages(prev => [...prev, newImage]);
+        setImages((prev) => [...prev, newImage]);
       };
       img.src = url;
     };
     reader.readAsDataURL(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1020,24 +1180,24 @@ export default function LayoutBuilder() {
     // Minimum size check 200x200
     const reader = new FileReader();
     reader.onload = (event) => {
-        const url = event.target?.result as string;
-        const img = new Image();
-        img.onload = () => {
-            if (img.width < 200 || img.height < 200) {
-                alert("A imagem de fundo deve ter no mínimo 200x200 pixels.");
-                return;
-            }
-            setLocalBgUrl(url);
-        };
-        img.src = url;
+      const url = event.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        if (img.width < 200 || img.height < 200) {
+          alert("A imagem de fundo deve ter no mínimo 200x200 pixels.");
+          return;
+        }
+        setLocalBgUrl(url);
+      };
+      img.src = url;
     };
     reader.readAsDataURL(file);
-    if (bgInputRef.current) bgInputRef.current.value = '';
+    if (bgInputRef.current) bgInputRef.current.value = "";
   };
 
   const deleteSelected = () => {
     if (!selectedId) return;
-    setImages(prev => prev.filter(img => img.id !== selectedId));
+    setImages((prev) => prev.filter((img) => img.id !== selectedId));
     setSelectedId(null);
   };
 
@@ -1053,29 +1213,45 @@ export default function LayoutBuilder() {
       {/* HEADER */}
       <div className="p-4 border-b border-white/5 flex items-center justify-between bg-black/50 backdrop-blur-md sticky top-0 z-30">
         <div className="flex items-center gap-4">
-          <Link to="/" className="p-2 hover:bg-white/10 rounded-lg transition text-zinc-400 hover:text-white">
+          <Link
+            to="/"
+            className="p-2 hover:bg-white/10 rounded-lg transition text-zinc-400 hover:text-white"
+          >
             <ArrowLeft size={20} />
           </Link>
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Mockup 2D Builder</h1>
-            <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Artes Personalizadas</p>
+            <h1 className="text-lg font-bold tracking-tight">
+              Mockup 2D Builder
+            </h1>
+            <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">
+              Artes Personalizadas
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-            <button 
-                onClick={handleOpenSaveModal}
-                disabled={role === 'guest'}
-                title={role === 'guest' ? 'Faça login no site para salvar no seu perfil' : 'Salvar no seu Perfil'}
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-white/10 text-white rounded-lg hover:bg-zinc-800 transition text-sm font-bold shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-                <Save size={16} className={role !== 'guest' ? 'text-primary' : 'text-zinc-500'} /> <span className="hidden sm:inline">Salvar no Perfil</span>
-            </button>
-            <button 
-                onClick={handleShare}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-amber-600 transition text-sm font-bold shadow-lg shadow-primary/20"
-            >
-                <Share2 size={16} /> <span className="hidden sm:inline">Compartilhar</span>
-            </button>
+          <button
+            onClick={handleOpenSaveModal}
+            disabled={role === "guest"}
+            title={
+              role === "guest"
+                ? "Faça login no site para salvar no seu perfil"
+                : "Salvar no seu Perfil"
+            }
+            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-white/10 text-white rounded-lg hover:bg-zinc-800 transition text-sm font-bold shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <Save
+              size={16}
+              className={role !== "guest" ? "text-primary" : "text-zinc-500"}
+            />{" "}
+            <span className="hidden sm:inline">Salvar no Perfil</span>
+          </button>
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-amber-600 transition text-sm font-bold shadow-lg shadow-primary/20"
+          >
+            <Share2 size={16} />{" "}
+            <span className="hidden sm:inline">Compartilhar</span>
+          </button>
         </div>
       </div>
 
@@ -1083,674 +1259,946 @@ export default function LayoutBuilder() {
         {/* SIDEBAR CONTROLS */}
         <div className="w-64 lg:w-80 border-r border-white/5 bg-zinc-950 p-6 flex flex-col gap-6 overflow-y-auto shrink-0">
           <div className="border-b border-white/5 pb-4">
-             <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                 <Wrench size={16} className="text-primary" />
-                 Ferramentas
-             </h2>
-             <span className="text-[9px] font-mono font-semibold text-primary/80 uppercase tracking-widest mt-1 block">Painel Ativo</span>
-          </div>
-          
-          <div>
-            <label className="hidden text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-3 block">Fundo da Área</label>
-            <input 
-                type="file" 
-                ref={bgInputRef}
-                onChange={handleBgUpload}
-                accept="image/*.png,image/jpeg" 
-                className="hidden" 
-             />
-             <button 
-                onClick={() => bgInputRef.current?.click()}
-                className="hidden w-full py-3 bg-zinc-900 border border-white/5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center gap-2 text-xs font-bold"
-             >
-                <ImageIcon size={14} /> Alterar Fundo
-             </button>
-             <p className="hidden text-[9px] text-zinc-600 mt-2 text-center">Recomendado: PNG/JPG (Mín. 200x200px)</p>
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <Wrench size={16} className="text-primary" />
+              Ferramentas
+            </h2>
+            <span className="text-[9px] font-mono font-semibold text-primary/80 uppercase tracking-widest mt-1 block">
+              Painel Ativo
+            </span>
           </div>
 
           <div>
-             <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 block">Adicionar Estampas</label>
-             <input 
-                type="file" 
-                ref={fileInputRef}
-                onChange={handleFileUpload}
-                accept="image/*,.pdf" 
-                className="hidden" 
-             />
-             <button 
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full py-10 border-2 border-dashed border-zinc-800 rounded-2xl flex flex-col items-center justify-center gap-3 hover:bg-white/5 hover:border-primary/50 transition group cursor-pointer"
-             >
-                <div className="p-3 bg-zinc-900 rounded-xl group-hover:bg-primary/20 transition">
-                    <Upload size={24} className="text-zinc-500 group-hover:text-primary transition" />
-                </div>
-                <div className="text-center">
-                    <p className="text-sm font-bold text-zinc-300">Carregar Imagem</p>
-                    <p className="text-[10px] text-zinc-600">PNG, JPG, TIFF, PDF</p>
-                </div>
-             </button>
+            <label className="hidden text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-3 block">
+              Fundo da Área
+            </label>
+            <input
+              type="file"
+              ref={bgInputRef}
+              onChange={handleBgUpload}
+              accept="image/*.png,image/jpeg"
+              className="hidden"
+            />
+            <button
+              onClick={() => bgInputRef.current?.click()}
+              className="hidden w-full py-3 bg-zinc-900 border border-white/5 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center gap-2 text-xs font-bold"
+            >
+              <ImageIcon size={14} /> Alterar Fundo
+            </button>
+            <p className="hidden text-[9px] text-zinc-600 mt-2 text-center">
+              Recomendado: PNG/JPG (Mín. 200x200px)
+            </p>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 block">
+              Adicionar Estampas
+            </label>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept="image/*,.pdf"
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full py-10 border-2 border-dashed border-zinc-800 rounded-2xl flex flex-col items-center justify-center gap-3 hover:bg-white/5 hover:border-primary/50 transition group cursor-pointer"
+            >
+              <div className="p-3 bg-zinc-900 rounded-xl group-hover:bg-primary/20 transition">
+                <Upload
+                  size={24}
+                  className="text-zinc-500 group-hover:text-primary transition"
+                />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-bold text-zinc-300">
+                  Carregar Imagem
+                </p>
+                <p className="text-[10px] text-zinc-600">PNG, JPG, TIFF, PDF</p>
+              </div>
+            </button>
           </div>
 
           {selectedId && (
             <div className="animate-in fade-in slide-in-from-top-4 duration-300">
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 block">Elemento Selecionado</label>
-                <button 
-                    onClick={deleteSelected}
-                    className="w-full py-3 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl hover:bg-red-500 hover:text-white transition flex items-center justify-center gap-2 font-bold text-sm"
-                >
-                    <Trash2 size={16} /> Remover Arte
-                </button>
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 block">
+                Elemento Selecionado
+              </label>
+              <button
+                onClick={deleteSelected}
+                className="w-full py-3 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl hover:bg-red-500 hover:text-white transition flex items-center justify-center gap-2 font-bold text-sm"
+              >
+                <Trash2 size={16} /> Remover Arte
+              </button>
             </div>
           )}
 
           <div className="mt-auto pt-6 border-t border-white/5 space-y-3">
-             <button 
-                onClick={handleDownloadUploadedArtsAndColors}
-                className="w-full py-3 bg-[#a855f7] hover:bg-[#9333ea] text-white rounded-xl text-center flex items-center justify-center gap-2 text-xs font-bold transition shadow-lg shadow-purple-500/15"
-             >
-                <Download size={14} /> Baixar Artes e Cores
-             </button>
-             <button 
-                onClick={clearCanvas}
-                className="w-full py-2 text-zinc-650 hover:text-zinc-400 transition text-[10px] uppercase font-bold tracking-widest flex items-center justify-center gap-2"
-             >
-                <RotateCcw size={12} /> Limpar Área de Trabalho
-             </button>
+            <button
+              onClick={handleDownloadUploadedArtsAndColors}
+              className="w-full py-3 bg-[#a855f7] hover:bg-[#9333ea] text-white rounded-xl text-center flex items-center justify-center gap-2 text-xs font-bold transition shadow-lg shadow-purple-500/15"
+            >
+              <Download size={14} /> Baixar Artes e Cores
+            </button>
+            <button
+              onClick={clearCanvas}
+              className="w-full py-2 text-zinc-650 hover:text-zinc-400 transition text-[10px] uppercase font-bold tracking-widest flex items-center justify-center gap-2"
+            >
+              <RotateCcw size={12} /> Limpar Área de Trabalho
+            </button>
           </div>
         </div>
 
         {/* WORK AREA */}
         <div className="flex-1 bg-black relative flex flex-col overflow-hidden items-center justify-center">
-            
-            {/* TOOLBAR */}
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center bg-zinc-900/80 backdrop-blur-md border border-white/5 rounded-full p-1 shadow-2xl">
-                <button 
-                    onClick={() => bgInputRef.current?.click()} 
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/10 transition"
-                    title="Alterar Fundo da Área"
-                >
-                    <ImageIcon size={14} />
-                    <span>Alterar Fundo</span>
-                </button>
-                <div className="w-px h-8 bg-white/5 mx-1" />
-                <button onClick={() => setZoom(z => Math.max(0.4, z - 0.1))} className="p-2 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition">
-                    <ZoomOut size={18} />
-                </button>
-                <div className="w-px h-8 bg-white/5 mx-1" />
-                <button onClick={() => { setZoom(1); setStagePos({ x: 0, y: 0 }); }} className="px-3 text-xs font-semibold text-zinc-500 hover:text-white transition" title="Redefinir visualização">
-                    Centralizar
-                </button>
-                <div className="w-px h-8 bg-white/5 mx-1" />
-                <button onClick={() => setZoom(z => Math.min(5, z + 0.1))} className="p-2 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition">
-                    <ZoomIn size={18} />
-                </button>
-                <div className="w-px h-8 bg-white/5 mx-1" />
-                <button disabled className="px-3 py-1 text-xs font-bold text-zinc-500 cursor-not-allowed flex items-center gap-1.5 bg-zinc-950/20 rounded-full">
-                    <span>Layout Shorts</span>
-                    <span className="text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-mono uppercase tracking-widest">Em breve</span>
-                </button>
-            </div>
-
-            {/* CANVAS WRAPPER */}
-            <div 
-                className="flex-1 w-full overflow-hidden flex items-center justify-center p-6 bg-[radial-gradient(#18181b_1px,transparent_1px)] bg-[size:40px_40px]"
-                onClick={() => setSelectedId(null)}
-                onContextMenu={(e) => {
-                    e.preventDefault(); // Impede o menu de contexto nativo para permitir arrastar com botão direito
-                }}
+          {/* TOOLBAR */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center bg-zinc-900/80 backdrop-blur-md border border-white/5 rounded-full p-1 shadow-2xl">
+            <button
+              onClick={() => bgInputRef.current?.click()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/10 transition"
+              title="Alterar Fundo da Área"
             >
-                <div 
-                    id="mockup-view-frame"
-                    ref={containerRef}
-                    className={`bg-[#121215] shadow-[0_0_80px_rgba(0,0,0,0.6)] rounded-3xl overflow-hidden relative border border-white/5 transition-shadow ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
-                    style={{ 
-                        width: 'min(720px, 100%, calc(100vh - 240px))', 
-                        height: 'min(720px, 100%, calc(100vh - 240px))',
-                        aspectRatio: '1 / 1',
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <Stage 
-                        ref={stageRef}
-                        width={containerSize.width} 
-                        height={containerSize.height} 
-                        scaleX={zoom * (containerSize.width / 720)}
-                        scaleY={zoom * (containerSize.width / 720)}
-                        x={stagePos.x}
-                        y={stagePos.y}
-                        onMouseDown={handleMouseDown}
-                        onMouseMove={handleMouseMove}
-                        onMouseUp={handleMouseUp}
-                        onMouseLeave={handleMouseUp}
-                        onWheel={handleWheel}
-                    >
-                        <Layer>
-                            {bgImg && (
-                                <KonvaImage 
-                                    image={bgImg} 
-                                    width={720} 
-                                    height={720} 
-                                    listening={false}
-                                />
-                            )}
-                            {mockupImg && (() => {
-                                const w = 720 * ((mockupBaseWidth ?? 100) / 100);
-                                const h = mockupImg ? (mockupImg.height / mockupImg.width) * w : 720;
-                                const x = (720 * ((mockupBaseX ?? 50) / 100)) - (w / 2);
-                                const y = (720 * ((mockupBaseY ?? 50) / 100)) - (h / 2);
-                                return (
-                                    <KonvaImage 
-                                        image={mockupImg} 
-                                        width={w} 
-                                        height={h} 
-                                        x={x}
-                                        y={y}
-                                        listening={false}
-                                    />
-                                );
-                            })()}
-                            {collarImg && activeCollar && (() => {
-                                const scaleF = (mockupBaseWidth ?? 100) / 100;
-                                const shirtCenterX = 720 * ((mockupBaseX ?? 50) / 100);
-                                const shirtCenterY = 720 * ((mockupBaseY ?? 50) / 100);
+              <ImageIcon size={14} />
+              <span>Alterar Fundo</span>
+            </button>
+            <div className="w-px h-8 bg-white/5 mx-1" />
+            <button
+              onClick={() => setZoom((z) => Math.max(0.4, z - 0.1))}
+              className="p-2 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition"
+            >
+              <ZoomOut size={18} />
+            </button>
+            <div className="w-px h-8 bg-white/5 mx-1" />
+            <button
+              onClick={() => {
+                setZoom(1);
+                setStagePos({ x: 0, y: 0 });
+              }}
+              className="px-3 text-xs font-semibold text-zinc-500 hover:text-white transition"
+              title="Redefinir visualização"
+            >
+              Centralizar
+            </button>
+            <div className="w-px h-8 bg-white/5 mx-1" />
+            <button
+              onClick={() => setZoom((z) => Math.min(5, z + 0.1))}
+              className="p-2 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition"
+            >
+              <ZoomIn size={18} />
+            </button>
+            <div className="w-px h-8 bg-white/5 mx-1" />
+            <button
+              disabled
+              className="px-3 py-1 text-xs font-bold text-zinc-500 cursor-not-allowed flex items-center gap-1.5 bg-zinc-950/20 rounded-full"
+            >
+              <span>Layout Shorts</span>
+              <span className="text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-mono uppercase tracking-widest">
+                Em breve
+              </span>
+            </button>
+          </div>
 
-                                const designedCenterX = 720 * ((activeCollar.x ?? 50) / 100);
-                                const designedCenterY = 720 * ((activeCollar.y ?? 50) / 100);
-                                const designedWidth = 720 * ((activeCollar.width ?? 25) / 100);
+          {/* CANVAS WRAPPER */}
+          <div
+            className="flex-1 w-full overflow-hidden flex items-center justify-center p-6 bg-[radial-gradient(#18181b_1px,transparent_1px)] bg-[size:40px_40px]"
+            onClick={() => setSelectedId(null)}
+            onContextMenu={(e) => {
+              e.preventDefault(); // Impede o menu de contexto nativo para permitir arrastar com botão direito
+            }}
+          >
+            <div
+              id="mockup-view-frame"
+              ref={containerRef}
+              className={`bg-[#121215] shadow-[0_0_80px_rgba(0,0,0,0.6)] rounded-3xl overflow-hidden relative border border-white/5 transition-shadow ${isPanning ? "cursor-grabbing" : "cursor-grab"}`}
+              style={{
+                width: "min(720px, 100%, calc(100vh - 240px))",
+                height: "min(720px, 100%, calc(100vh - 240px))",
+                aspectRatio: "1 / 1",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Stage
+                ref={stageRef}
+                width={containerSize.width}
+                height={containerSize.height}
+                scaleX={zoom * (containerSize.width / 720)}
+                scaleY={zoom * (containerSize.width / 720)}
+                x={stagePos.x}
+                y={stagePos.y}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onWheel={handleWheel}
+              >
+                <Layer>
+                  {bgImg && (
+                    <KonvaImage
+                      image={bgImg}
+                      width={720}
+                      height={720}
+                      listening={false}
+                    />
+                  )}
+                  {mockupImg &&
+                    (() => {
+                      const w = 720 * ((mockupBaseWidth ?? 100) / 100);
+                      const h = mockupImg
+                        ? (mockupImg.height / mockupImg.width) * w
+                        : 720;
+                      const x = 720 * ((mockupBaseX ?? 50) / 100) - w / 2;
+                      const y = 720 * ((mockupBaseY ?? 50) / 100) - h / 2;
+                      return (
+                        <KonvaImage
+                          image={mockupImg}
+                          width={w}
+                          height={h}
+                          x={x}
+                          y={y}
+                          listening={false}
+                        />
+                      );
+                    })()}
+                  {collarImg &&
+                    activeCollar &&
+                    (() => {
+                      const scaleF = (mockupBaseWidth ?? 100) / 100;
+                      const shirtCenterX = 720 * ((mockupBaseX ?? 50) / 100);
+                      const shirtCenterY = 720 * ((mockupBaseY ?? 50) / 100);
 
-                                const offsetX = designedCenterX - 360;
-                                const offsetY = designedCenterY - 360;
+                      const designedCenterX =
+                        720 * ((activeCollar.x ?? 50) / 100);
+                      const designedCenterY =
+                        720 * ((activeCollar.y ?? 50) / 100);
+                      const designedWidth =
+                        720 * ((activeCollar.width ?? 25) / 100);
 
-                                const collarW = designedWidth * scaleF;
-                                const collarH = collarImg ? (collarImg.height / collarImg.width) * collarW : collarW;
+                      const offsetX = designedCenterX - 360;
+                      const offsetY = designedCenterY - 360;
 
-                                const collarCenterX = shirtCenterX + (offsetX * scaleF);
-                                const collarCenterY = shirtCenterY + (offsetY * scaleF);
+                      const collarW = designedWidth * scaleF;
+                      const collarH = collarImg
+                        ? (collarImg.height / collarImg.width) * collarW
+                        : collarW;
 
-                                const collarX = collarCenterX - (collarW / 2);
-                                const collarY = collarCenterY - (collarH / 2);
+                      const collarCenterX = shirtCenterX + offsetX * scaleF;
+                      const collarCenterY = shirtCenterY + offsetY * scaleF;
 
-                                return (
-                                    <KonvaImage 
-                                        image={collarImg} 
-                                        width={collarW} 
-                                        height={collarH} 
-                                        x={collarX}
-                                        y={collarY}
-                                        listening={false}
-                                    />
-                                );
-                            })()}
-                            {images.map((img, i) => (
-                                <URLImage
-                                    key={img.id}
-                                    imageProps={img}
-                                    isSelected={img.id === selectedId}
-                                    onSelect={() => setSelectedId(img.id)}
-                                    onChange={(newProps) => {
-                                        const newImages = images.slice();
-                                        newImages[i] = newProps;
-                                        setImages(newImages);
-                                    }}
-                                />
-                            ))}
-                        </Layer>
-                    </Stage>
-                </div>
+                      const collarX = collarCenterX - collarW / 2;
+                      const collarY = collarCenterY - collarH / 2;
+
+                      return (
+                        <KonvaImage
+                          image={collarImg}
+                          width={collarW}
+                          height={collarH}
+                          x={collarX}
+                          y={collarY}
+                          listening={false}
+                        />
+                      );
+                    })()}
+                  {images.map((img, i) => (
+                    <URLImage
+                      key={img.id}
+                      imageProps={img}
+                      isSelected={img.id === selectedId}
+                      onSelect={() => setSelectedId(img.id)}
+                      onChange={(newProps) => {
+                        const newImages = images.slice();
+                        newImages[i] = newProps;
+                        setImages(newImages);
+                      }}
+                    />
+                  ))}
+                </Layer>
+              </Stage>
             </div>
+          </div>
 
-            {/* LEGEND / FOOTER */}
-            <div className="w-full bg-zinc-950/80 border-t border-white/5 px-6 py-4 flex flex-row items-center justify-between gap-3 select-none">
-                <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#a855f7] animate-pulse"></div>
-                    <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest font-bold">Canal de Impressão Direto</span>
-                </div>
-                <div className="flex flex-wrap items-center justify-center gap-4 text-[10px] font-mono text-zinc-500 uppercase tracking-widest font-medium">
-                    <span className="text-center sm:text-left">Atalhos: Scroll (Zoom) | Botão Direito (Arrastar)</span>
-                    <span className="border-l border-white/10 pl-4">Workspace: 720x720px (1:1)</span>
-                </div>
+          {/* LEGEND / FOOTER */}
+          <div className="w-full bg-zinc-950/80 border-t border-white/5 px-6 py-4 flex flex-row items-center justify-between gap-3 select-none">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#a855f7] animate-pulse"></div>
+              <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest font-bold">
+                Canal de Impressão Direto
+              </span>
             </div>
+            <div className="flex flex-wrap items-center justify-center gap-4 text-[10px] font-mono text-zinc-500 uppercase tracking-widest font-medium">
+              <span className="text-center sm:text-left">
+                Atalhos: Scroll (Zoom) | Botão Direito (Arrastar)
+              </span>
+              <span className="border-l border-white/10 pl-4">
+                Workspace: 720x720px (1:1)
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* SIDEBAR DIREITA - CUSTOMIZAÇÃO DE MODELAGEM */}
         <div className="flex w-64 lg:w-80 border-l border-white/5 bg-zinc-950 p-6 flex-col gap-6 overflow-y-auto shrink-0 select-none">
           <div className="border-b border-white/5 pb-4">
-             <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                 <Wrench size={16} className="text-primary" />
-                 Modelagem
-             </h2>
-             <span className="text-[9px] font-mono font-semibold text-zinc-500 uppercase tracking-widest mt-1 block">Ajustes & Componentes</span>
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <Wrench size={16} className="text-primary" />
+              Modelagem
+            </h2>
+            <span className="text-[9px] font-mono font-semibold text-zinc-500 uppercase tracking-widest mt-1 block">
+              Ajustes & Componentes
+            </span>
           </div>
 
-           {/* Seletor de Gola (Placed ABOVE clothing parts as requested) */}
-           <div className="border-b border-white/5 pb-4 space-y-4">
-             <div className="flex items-center justify-between">
-               <div>
-                 <h3 className="text-xs font-bold text-white uppercase tracking-wider">Gola do Mockup</h3>
-                 <span className="text-[9px] text-zinc-500 font-mono">Personalização do Molde</span>
-               </div>
-               {selectedCollarId && (
-                 <button
-                   onClick={() => setSelectedCollarId('')}
-                   className="text-[10px] text-zinc-500 hover:text-white font-medium transition cursor-pointer bg-transparent border-none p-0"
-                 >
-                   Remover Gola
-                 </button>
-               )}
-             </div>
+          {/* Seletor de Gola (Placed ABOVE clothing parts as requested) */}
+          <div className="border-b border-white/5 pb-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  Gola do Mockup
+                </h3>
+                <span className="text-[9px] text-zinc-500 font-mono">
+                  Personalização do Molde
+                </span>
+              </div>
+              {selectedCollarId && (
+                <button
+                  onClick={() => setSelectedCollarId("")}
+                  className="text-[10px] text-zinc-500 hover:text-white font-medium transition cursor-pointer bg-transparent border-none p-0"
+                >
+                  Remover Gola
+                </button>
+              )}
+            </div>
 
-             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent snap-x">
-               {collarsList.map((collar) => {
-                 const isSelected = selectedCollarId === collar.id;
-                 return (
-                   <button
-                     key={collar.id}
-                     onClick={() => setSelectedCollarId(collar.id)}
-                     className={`w-20 shrink-0 p-2 rounded-xl border text-left transition duration-200 flex flex-col gap-1.5 relative group overflow-hidden cursor-pointer snap-start ${
-                       isSelected 
-                         ? 'bg-primary/10 border-primary text-white shadow-lg shadow-primary/5' 
-                         : 'bg-[#121215]/40 border-white/5 hover:border-white/10 hover:bg-[#121215]/80 text-zinc-400 hover:text-zinc-200'
-                     }`}
-                   >
-                     <div className="aspect-square w-full flex items-center justify-center relative transition">
-                       {/* Custom SVG selector icon replacing full image square preview if defined */}
-                       <CollarIcon collar={collar} />
-                       {isSelected && (
-                         <div className="absolute top-0.5 right-0.5 bg-primary text-white text-[7px] font-bold px-1 py-0.2 rounded-full">
-                           ON
-                         </div>
-                       )}
-                     </div>
-                     <div className="truncate text-[10px] font-bold self-center w-full text-center text-zinc-300">
-                       {collar.name}
-                     </div>
-                   </button>
-                 );
-               })}
-               {collarsList.length === 0 && (
-                 <div className="w-full text-center py-4 border border-dashed border-zinc-800 rounded-xl bg-zinc-950/40">
-                   <p className="text-[10px] text-zinc-500 italic">Nenhuma gola cadastrada.</p>
-                 </div>
-               )}
-             </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent snap-x">
+              {collarsList.map((collar) => {
+                const isSelected = selectedCollarId === collar.id;
+                return (
+                  <button
+                    key={collar.id}
+                    onClick={() => setSelectedCollarId(collar.id)}
+                    className={`w-20 shrink-0 p-2 rounded-xl border text-left transition duration-200 flex flex-col gap-1.5 relative group overflow-hidden cursor-pointer snap-start ${
+                      isSelected
+                        ? "bg-primary/10 border-primary text-white shadow-lg shadow-primary/5"
+                        : "bg-[#121215]/40 border-white/5 hover:border-white/10 hover:bg-[#121215]/80 text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    <div className="aspect-square w-full flex items-center justify-center relative transition">
+                      {/* Custom SVG selector icon replacing full image square preview if defined */}
+                      <CollarIcon collar={collar} />
+                      {isSelected && (
+                        <div className="absolute top-0.5 right-0.5 bg-primary text-white text-[7px] font-bold px-1 py-0.2 rounded-full">
+                          ON
+                        </div>
+                      )}
+                    </div>
+                    <div className="truncate text-[10px] font-bold self-center w-full text-center text-zinc-300">
+                      {collar.name}
+                    </div>
+                  </button>
+                );
+              })}
+              {collarsList.length === 0 && (
+                <div className="w-full text-center py-4 border border-dashed border-zinc-800 rounded-xl bg-zinc-950/40">
+                  <p className="text-[10px] text-zinc-500 italic">
+                    Nenhuma gola cadastrada.
+                  </p>
+                </div>
+              )}
+            </div>
 
-             {/* Selector de Cor da Gola com CMYK */}
-             {activeCollar && (
-               <div className="p-3 bg-zinc-900 border border-white/5 rounded-xl hover:border-white/10 transition space-y-3 mt-2">
-                 <div className="flex items-center justify-between">
-                   <div className="flex flex-col min-w-0 flex-1">
-                     <span className="text-[11px] font-bold text-zinc-200 truncate">Cor da Gola</span>
-                     <span className="text-[8px] font-mono text-zinc-500 uppercase truncate">
-                       {activeCollar.name}
-                     </span>
-                   </div>
+            {/* Selector de Cor da Gola com CMYK */}
+            {activeCollar && (
+              <div className="p-3 bg-zinc-900 border border-white/5 rounded-xl hover:border-white/10 transition space-y-3 mt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-[11px] font-bold text-zinc-200 truncate">
+                      Cor da Gola
+                    </span>
+                    <span className="text-[8px] font-mono text-zinc-500 uppercase truncate">
+                      {activeCollar.name}
+                    </span>
+                  </div>
 
-                   <div className="flex items-center gap-2 shrink-0">
-                     <div className="relative w-6 h-6 rounded-md overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center cursor-pointer" title="Selecionar Cor da Gola">
-                       <input 
-                         type="color"
-                         value={collarColor}
-                         onChange={(e) => {
-                           setCollarColor(e.target.value);
-                         }}
-                         className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 cursor-pointer p-0 border-none bg-transparent"
-                       />
-                       <div className="absolute inset-0.5 rounded pointer-events-none" style={{ backgroundColor: collarColor }}></div>
-                     </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div
+                      className="relative w-6 h-6 rounded-md overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center"
+                      title="Gola CMYK"
+                    >
+                      <input
+                        type="color"
+                        value={collarColor}
+                        onChange={(e) => {
+                          setCollarColor(e.target.value);
+                        }}
+                        className="hidden"
+                      />
+                      <div
+                        className="absolute inset-0.5 rounded pointer-events-none"
+                        style={{ backgroundColor: collarColor }}
+                      ></div>
+                    </div>
 
-                     {collarColor !== '#ffffff' && (
-                       <button
-                         type="button"
-                         title="Limpar cor gola"
-                         onClick={() => {
-                           setCollarColor('#ffffff');
-                         }}
-                         className="w-6 h-6 flex items-center justify-center rounded-md border border-red-500/10 bg-red-500/5 hover:bg-red-500/20 text-red-400 transition cursor-pointer"
-                       >
-                         <X size={12} />
-                       </button>
-                     )}
-                   </div>
-                 </div>
+                    {collarColor !== "#ffffff" && (
+                      <button
+                        type="button"
+                        title="Limpar cor gola"
+                        onClick={() => {
+                          setCollarColor("#ffffff");
+                        }}
+                        className="w-6 h-6 flex items-center justify-center rounded-md border border-red-500/10 bg-red-500/5 hover:bg-red-500/20 text-red-400 transition cursor-pointer"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-                 {/* CMYK Panel for Collar Color */}
-                 {(() => {
-                   const { c, m, y, k } = hexToCmyk(collarColor);
-                   const updateSingleCollarCmyk = (key: 'c'|'m'|'y'|'k', val: number) => {
-                     const safeVal = Math.max(0, Math.min(100, isNaN(val) ? 0 : val));
-                     const newCmyk = { c, m, y, k };
-                     newCmyk[key] = safeVal;
-                     setCollarColor(cmykToHex(newCmyk.c, newCmyk.m, newCmyk.y, newCmyk.k));
-                   };
-                   return (
-                     <div className="bg-zinc-950/40 border border-white/5 rounded-lg p-2 space-y-2 font-mono text-[9px]">
-                       <div className="flex justify-between text-zinc-400 font-bold uppercase tracking-wider text-[8px]">
-                         <span>Gola CMYK (Impressão)</span>
-                         <span className="text-zinc-500 font-normal">{collarColor.toUpperCase()}</span>
-                       </div>
-                       <div className="grid grid-cols-4 gap-1">
-                         <div className="flex flex-col gap-0.5">
-                           <span className="text-cyan-400 font-bold text-center">C</span>
-                           <input
-                             type="number"
-                             min="0"
-                             max="100"
-                             value={c}
-                             onChange={(e) => updateSingleCollarCmyk('c', parseInt(e.target.value))}
-                             className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
-                           />
-                         </div>
-                         <div className="flex flex-col gap-0.5">
-                           <span className="text-magenta-400 font-bold text-center" style={{ color: '#ec4899' }}>M</span>
-                           <input
-                             type="number"
-                             min="0"
-                             max="100"
-                             value={m}
-                             onChange={(e) => updateSingleCollarCmyk('m', parseInt(e.target.value))}
-                             className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
-                           />
-                         </div>
-                         <div className="flex flex-col gap-0.5">
-                           <span className="text-yellow-400 font-bold text-center">Y</span>
-                           <input
-                             type="number"
-                             min="0"
-                             max="100"
-                             value={y}
-                             onChange={(e) => updateSingleCollarCmyk('y', parseInt(e.target.value))}
-                             className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
-                           />
-                         </div>
-                         <div className="flex flex-col gap-0.5">
-                           <span className="text-zinc-300 font-bold text-center">K</span>
-                           <input
-                             type="number"
-                             min="0"
-                             max="100"
-                             value={k}
-                             onChange={(e) => updateSingleCollarCmyk('k', parseInt(e.target.value))}
-                             className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
-                           />
-                         </div>
-                       </div>
-                     </div>
-                   );
-                 })()}
-               </div>
-             )}
-           </div>
+                {/* CMYK Panel for Collar Color */}
+                {(() => {
+                  const { c, m, y, k } = hexToCmyk(collarColor);
+                  const updateSingleCollarCmyk = (
+                    key: "c" | "m" | "y" | "k",
+                    val: number,
+                  ) => {
+                    const safeVal = Math.max(
+                      0,
+                      Math.min(100, isNaN(val) ? 0 : val),
+                    );
+                    const newCmyk = { c, m, y, k };
+                    newCmyk[key] = safeVal;
+                    setCollarColor(
+                      cmykToHex(newCmyk.c, newCmyk.m, newCmyk.y, newCmyk.k),
+                    );
+                  };
+                  return (
+                    <div className="space-y-2 bg-zinc-950/40 p-2.5 rounded-lg border border-white/5">
+                      <div className="flex justify-between text-zinc-400 font-bold uppercase tracking-wider text-[8px] mb-1 font-mono">
+                        <span>Ajuste CMYK</span>
+                        <span className="text-zinc-500 font-normal">
+                          {collarColor.toUpperCase()}
+                        </span>
+                      </div>
 
-           {/* Partes Mapeadas do SVG (Modelagem) */}
-           <div className="pb-4 space-y-3">
-             <div>
-               <h3 className="text-xs font-bold text-white uppercase tracking-wider">Partes do Vestuário</h3>
-               <span className="text-[9px] text-zinc-500 font-mono">Personalização de Cores & Matrizes</span>
-             </div>
- 
-             <div className="space-y-4 pr-1">
-               <div className="relative">
-                 <select
-                   value={selectedPartSelector}
-                   onChange={(e) => setSelectedPartSelector(e.target.value)}
-                   className="w-full bg-zinc-900 border border-white/5 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-primary font-bold cursor-pointer"
-                 >
-                   <option value="">-- Selecione uma parte --</option>
-                   
-                   {/* Group options */}
-                   <optgroup label="Ações Rápidas (Grupos)">
-                     <option value="group:camisa">👕 Camisa Inteira (Geral)</option>
-                     <option value="group:mangas">🦾 Todas as Mangas</option>
-                     <option value="group:frente_costas">🔄 Frente e Costas</option>
-                   </optgroup>
+                      {/* CYAN */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-cyan-400 font-mono text-[10px] w-3 font-bold text-center">
+                          C
+                        </span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={c}
+                          onChange={(e) =>
+                            updateSingleCollarCmyk("c", parseInt(e.target.value))
+                          }
+                          className="flex-1 h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-cyan-400"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={c}
+                          onChange={(e) =>
+                            updateSingleCollarCmyk("c", parseInt(e.target.value))
+                          }
+                          className="bg-zinc-900 border border-white/5 rounded px-1.5 py-0.5 text-center text-white text-[9px] w-9 font-mono"
+                        />
+                        <span className="text-zinc-500 text-[8px] w-2">%</span>
+                      </div>
 
-                   {/* Individual parts */}
-                   <optgroup label="Partes Individuais">
-                     {mockupParts && mockupParts.map((part: any) => (
-                       <option key={part.id} value={part.selector}>
-                         {part.name}
-                       </option>
-                     ))}
-                   </optgroup>
-                 </select>
-               </div>
+                      {/* MAGENTA */}
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="font-mono text-[10px] w-3 font-bold text-center"
+                          style={{ color: "#ec4899" }}
+                        >
+                          M
+                        </span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={m}
+                          onChange={(e) =>
+                            updateSingleCollarCmyk("m", parseInt(e.target.value))
+                          }
+                          className="flex-1 h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-pink-500"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={m}
+                          onChange={(e) =>
+                            updateSingleCollarCmyk("m", parseInt(e.target.value))
+                          }
+                          className="bg-zinc-900 border border-white/5 rounded px-1.5 py-0.5 text-center text-white text-[9px] w-9 font-mono"
+                        />
+                        <span className="text-zinc-500 text-[8px] w-2">%</span>
+                      </div>
 
-               {selectedPartSelector && (() => {
-                 let label = '';
-                 let currentColor = '#ffffff';
-                 let currentTexture = '';
+                      {/* YELLOW */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-yellow-400 font-mono text-[10px] w-3 font-bold text-center">
+                          Y
+                        </span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={y}
+                          onChange={(e) =>
+                            updateSingleCollarCmyk("y", parseInt(e.target.value))
+                          }
+                          className="flex-1 h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-yellow-400"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={y}
+                          onChange={(e) =>
+                            updateSingleCollarCmyk("y", parseInt(e.target.value))
+                          }
+                          className="bg-zinc-900 border border-white/5 rounded px-1.5 py-0.5 text-center text-white text-[9px] w-9 font-mono"
+                        />
+                        <span className="text-zinc-500 text-[8px] w-2">%</span>
+                      </div>
 
-                 const isGroup = selectedPartSelector.startsWith('group:');
-                 
-                 if (isGroup) {
-                   if (selectedPartSelector === 'group:camisa') {
-                     label = 'Camisa Inteira';
-                   } else if (selectedPartSelector === 'group:mangas') {
-                     label = 'Todas as Mangas';
-                   } else if (selectedPartSelector === 'group:frente_costas') {
-                     label = 'Frente e Costa';
-                   }
-                 } else {
-                   const part = mockupParts.find((p: any) => p.selector === selectedPartSelector);
-                   label = part ? part.name : selectedPartSelector;
-                   currentColor = partColors[selectedPartSelector] || '#ffffff';
-                   currentTexture = partTextures[selectedPartSelector] || '';
-                 }
+                      {/* BLACK */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-zinc-300 font-mono text-[10px] w-3 font-bold text-center">
+                          K
+                        </span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={k}
+                          onChange={(e) =>
+                            updateSingleCollarCmyk("k", parseInt(e.target.value))
+                          }
+                          className="flex-1 h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-zinc-300"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={k}
+                          onChange={(e) =>
+                            updateSingleCollarCmyk("k", parseInt(e.target.value))
+                          }
+                          className="bg-zinc-900 border border-white/5 rounded px-1.5 py-0.5 text-center text-white text-[9px] w-9 font-mono"
+                        />
+                        <span className="text-zinc-500 text-[8px] w-2">%</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
 
-                 const applyColor = (color: string) => {
-                   if (isGroup) {
-                     const targets = getGroupSelectors(selectedPartSelector);
-                     setPartColors(prev => {
-                       const updated = { ...prev };
-                       targets.forEach(sel => {
-                         updated[sel] = color;
-                       });
-                       return updated;
-                     });
-                   } else {
-                     setPartColors(prev => ({
-                       ...prev,
-                       [selectedPartSelector]: color
-                     }));
-                   }
-                 };
+          {/* Partes Mapeadas do SVG (Modelagem) */}
+          <div className="pb-4 space-y-3">
+            <div>
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                Partes do Vestuário
+              </h3>
+              <span className="text-[9px] text-zinc-500 font-mono">
+                Personalização de Cores & Matrizes
+              </span>
+            </div>
 
-                 const applyTexture = (textureData: string) => {
-                   if (isGroup) {
-                     const targets = getGroupSelectors(selectedPartSelector);
-                     setPartTextures(prev => {
-                       const updated = { ...prev };
-                       targets.forEach(sel => {
-                         updated[sel] = textureData;
-                       });
-                       return updated;
-                     });
-                   } else {
-                     setPartTextures(prev => ({
-                       ...prev,
-                       [selectedPartSelector]: textureData
-                     }));
-                   }
-                 };
+            <div className="space-y-4 pr-1">
+              <div className="relative">
+                <select
+                  value={selectedPartSelector}
+                  onChange={(e) => setSelectedPartSelector(e.target.value)}
+                  className="w-full bg-zinc-900 border border-white/5 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-primary font-bold cursor-pointer"
+                >
+                  <option value="">-- Selecione uma parte --</option>
 
-                 const clearCustomization = () => {
-                   if (isGroup) {
-                     const targets = getGroupSelectors(selectedPartSelector);
-                     setPartColors(prev => {
-                       const updated = { ...prev };
-                       targets.forEach(sel => delete updated[sel]);
-                       return updated;
-                     });
-                     setPartTextures(prev => {
-                       const updated = { ...prev };
-                       targets.forEach(sel => delete updated[sel]);
-                       return updated;
-                     });
-                   } else {
-                     setPartColors(prev => {
-                       const updated = { ...prev };
-                       delete updated[selectedPartSelector];
-                       return updated;
-                     });
-                     setPartTextures(prev => {
-                       const updated = { ...prev };
-                       delete updated[selectedPartSelector];
-                       return updated;
-                     });
-                   }
-                 };
+                  {/* Group options */}
+                  <optgroup label="Ações Rápidas (Grupos)">
+                    <option value="group:camisa">
+                      👕 Camisa Inteira (Geral)
+                    </option>
+                    <option value="group:mangas">🦾 Todas as Mangas</option>
+                    <option value="group:frente_costas">
+                      🔄 Frente e Costas
+                    </option>
+                  </optgroup>
 
-                 return (
-                   <div className="bg-zinc-900/60 border border-white/5 rounded-2xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                     <div className="flex items-center justify-between">
-                       <span className="text-xs font-bold text-zinc-300 uppercase tracking-widest truncate max-w-[140px] block">Ajustes: {label}</span>
-                       {(isGroup || partColors[selectedPartSelector] || currentTexture) && (
-                         <button
-                           onClick={clearCustomization}
-                           type="button"
-                           className="text-[10px] text-red-500 hover:text-red-400 font-bold uppercase tracking-wider flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer"
-                         >
-                           <X size={10} /> Resetar
-                         </button>
-                       )}
-                     </div>
+                  {/* Individual parts */}
+                  <optgroup label="Partes Individuais">
+                    {mockupParts &&
+                      mockupParts.map((part: any) => (
+                        <option key={part.id} value={part.selector}>
+                          {part.name}
+                        </option>
+                      ))}
+                  </optgroup>
+                </select>
+              </div>
 
-                     <div className="space-y-2">
-                       <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Cor de Fundo da Parte</span>
-                       <div className="flex items-center gap-3">
-                         <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center cursor-pointer">
-                           <input
-                             type="color"
-                             value={currentColor}
-                             onChange={(e) => applyColor(e.target.value)}
-                             className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 cursor-pointer p-0 border-none bg-transparent"
-                           />
-                           <div className="absolute inset-1 rounded-lg pointer-events-none" style={{ backgroundColor: currentColor }}></div>
-                         </div>
+              {selectedPartSelector &&
+                (() => {
+                  let label = "";
+                  let currentColor = "#ffffff";
+                  let currentTexture = "";
 
-                         <div className="flex flex-wrap gap-1 flex-1">
-                           {['#ffffff', '#000000', '#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#ff8100'].map((c) => {
-                             const cmyk = hexToCmyk(c);
-                             const cmykStr = `C:${cmyk.c} M:${cmyk.m} Y:${cmyk.y} K:${cmyk.k}`;
-                             return (
-                               <button
-                                 key={c}
-                                 type="button"
-                                 onClick={() => applyColor(c)}
-                                 className="w-5 h-5 rounded-md border border-white/10 hover:border-white/30 transition cursor-pointer box-border"
-                                 style={{ backgroundColor: c }}
-                                 title={`${c} (${cmykStr})`}
-                               />
-                             );
-                           })}
-                         </div>
-                       </div>
+                  const isGroup = selectedPartSelector.startsWith("group:");
 
-                       {/* CMYK Panel for Custom Color */}
-                       {(() => {
-                         const { c, m, y, k } = hexToCmyk(currentColor);
-                         const updateSingleCmyk = (key: 'c'|'m'|'y'|'k', val: number) => {
-                           const safeVal = Math.max(0, Math.min(100, isNaN(val) ? 0 : val));
-                           const newCmyk = { c, m, y, k };
-                           newCmyk[key] = safeVal;
-                           applyColor(cmykToHex(newCmyk.c, newCmyk.m, newCmyk.y, newCmyk.k));
-                         };
-                         return (
-                           <div className="bg-zinc-950/40 border border-white/5 rounded-xl p-2.5 space-y-2 font-mono text-[9px]">
-                             <div className="flex justify-between text-zinc-400 font-bold uppercase tracking-wider text-[8px]">
-                               <span>Paleta CMYK (Impressão)</span>
-                               <span className="text-zinc-500 font-normal">{currentColor.toUpperCase()}</span>
-                             </div>
-                             <div className="grid grid-cols-4 gap-1">
-                               <div className="flex flex-col gap-0.5">
-                                 <span className="text-cyan-400 font-bold text-center">C</span>
-                                 <input
-                                   type="number"
-                                   min="0"
-                                   max="100"
-                                   value={c}
-                                   onChange={(e) => updateSingleCmyk('c', parseInt(e.target.value))}
-                                   className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
-                                 />
-                               </div>
-                               <div className="flex flex-col gap-0.5">
-                                 <span className="text-magenta-400 font-bold text-center" style={{ color: '#ec4899' }}>M</span>
-                                 <input
-                                   type="number"
-                                   min="0"
-                                   max="100"
-                                   value={m}
-                                   onChange={(e) => updateSingleCmyk('m', parseInt(e.target.value))}
-                                   className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
-                                 />
-                               </div>
-                               <div className="flex flex-col gap-0.5">
-                                 <span className="text-yellow-400 font-bold text-center">Y</span>
-                                 <input
-                                   type="number"
-                                   min="0"
-                                   max="100"
-                                   value={y}
-                                   onChange={(e) => updateSingleCmyk('y', parseInt(e.target.value))}
-                                   className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
-                                 />
-                               </div>
-                               <div className="flex flex-col gap-0.5">
-                                 <span className="text-zinc-300 font-bold text-center">K</span>
-                                 <input
-                                   type="number"
-                                   min="0"
-                                   max="100"
-                                   value={k}
-                                   onChange={(e) => updateSingleCmyk('k', parseInt(e.target.value))}
-                                   className="bg-zinc-900 border border-white/5 rounded px-1 py-0.5 text-center text-white text-[9px]"
-                                 />
-                               </div>
-                             </div>
-                           </div>
-                         );
-                       })()}
-                     </div>
+                  if (isGroup) {
+                    if (selectedPartSelector === "group:camisa") {
+                      label = "Camisa Inteira";
+                    } else if (selectedPartSelector === "group:mangas") {
+                      label = "Todas as Mangas";
+                    } else if (selectedPartSelector === "group:frente_costas") {
+                      label = "Frente e Costa";
+                    }
+                  } else {
+                    const part = mockupParts.find(
+                      (p: any) => p.selector === selectedPartSelector,
+                    );
+                    label = part ? part.name : selectedPartSelector;
+                    currentColor =
+                      partColors[selectedPartSelector] || "#ffffff";
+                    currentTexture = partTextures[selectedPartSelector] || "";
+                  }
 
-                     <div className="space-y-2">
-                       <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Imagem / Estampa de Fundo</span>
-                       <label className="flex items-center gap-3 p-3 bg-zinc-950 hover:bg-zinc-800 border border-white/5 hover:border-white/10 rounded-xl cursor-pointer transition">
-                         <Upload size={16} className={currentTexture || isGroup ? "text-green-400" : "text-primary"} />
-                         <div className="flex-1 min-w-0">
-                           <span className="text-[11px] font-bold text-zinc-300 block truncate">
-                             {currentTexture ? 'Imagem Ativa (Trocar)' : 'Upload de Imagem'}
-                           </span>
-                           <span className="text-[8px] text-zinc-500 uppercase tracking-wider block font-mono">PNG transparente recomendada</span>
-                         </div>
-                         <input 
-                           type="file"
-                           accept="image/*"
-                           className="hidden"
-                           onChange={(e) => {
-                             const file = e.target.files?.[0];
-                             if (!file) return;
+                  const applyColor = (color: string) => {
+                    if (isGroup) {
+                      const targets = getGroupSelectors(selectedPartSelector);
+                      setPartColors((prev) => {
+                        const updated = { ...prev };
+                        targets.forEach((sel) => {
+                          updated[sel] = color;
+                        });
+                        return updated;
+                      });
+                    } else {
+                      setPartColors((prev) => ({
+                        ...prev,
+                        [selectedPartSelector]: color,
+                      }));
+                    }
+                  };
 
-                             if (file.size > 5 * 1024 * 1024) {
-                               alert("O arquivo deve ter no máximo 5MB.");
-                               return;
-                             }
+                  const applyTexture = (textureData: string) => {
+                    if (isGroup) {
+                      const targets = getGroupSelectors(selectedPartSelector);
+                      setPartTextures((prev) => {
+                        const updated = { ...prev };
+                        targets.forEach((sel) => {
+                          updated[sel] = textureData;
+                        });
+                        return updated;
+                      });
+                    } else {
+                      setPartTextures((prev) => ({
+                        ...prev,
+                        [selectedPartSelector]: textureData,
+                      }));
+                    }
+                  };
 
-                             const reader = new FileReader();
-                             reader.onload = () => {
-                               if (typeof reader.result === 'string') {
-                                 applyTexture(reader.result);
-                               }
-                             };
-                             reader.readAsDataURL(file);
-                           }}
-                         />
-                       </label>
-                     </div>
-                   </div>
-                 );
-               })()}
-             </div>
-           </div>
+                  const clearCustomization = () => {
+                    if (isGroup) {
+                      const targets = getGroupSelectors(selectedPartSelector);
+                      setPartColors((prev) => {
+                        const updated = { ...prev };
+                        targets.forEach((sel) => delete updated[sel]);
+                        return updated;
+                      });
+                      setPartTextures((prev) => {
+                        const updated = { ...prev };
+                        targets.forEach((sel) => delete updated[sel]);
+                        return updated;
+                      });
+                    } else {
+                      setPartColors((prev) => {
+                        const updated = { ...prev };
+                        delete updated[selectedPartSelector];
+                        return updated;
+                      });
+                      setPartTextures((prev) => {
+                        const updated = { ...prev };
+                        delete updated[selectedPartSelector];
+                        return updated;
+                      });
+                    }
+                  };
+
+                  return (
+                    <div className="bg-zinc-900/60 border border-white/5 rounded-2xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-zinc-300 uppercase tracking-widest truncate max-w-[140px] block">
+                          Ajustes: {label}
+                        </span>
+                        {(isGroup ||
+                          partColors[selectedPartSelector] ||
+                          currentTexture) && (
+                          <button
+                            onClick={clearCustomization}
+                            type="button"
+                            className="text-[10px] text-red-500 hover:text-red-400 font-bold uppercase tracking-wider flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer"
+                          >
+                            <X size={10} /> Resetar
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">
+                          Cor de Fundo da Parte
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-white/10 bg-zinc-950 flex items-center justify-center">
+                            <input
+                              type="color"
+                              value={currentColor}
+                              onChange={(e) => applyColor(e.target.value)}
+                              className="hidden"
+                            />
+                            <div
+                              className="absolute inset-1 rounded-lg pointer-events-none"
+                              style={{ backgroundColor: currentColor }}
+                            ></div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-1 flex-1">
+                            {[
+                              "#ffffff",
+                              "#000000",
+                              "#ef4444",
+                              "#3b82f6",
+                              "#10b981",
+                              "#f59e0b",
+                              "#8b5cf6",
+                              "#ec4899",
+                              "#ff8100",
+                            ].map((c) => {
+                              const cmyk = hexToCmyk(c);
+                              const cmykStr = `C:${cmyk.c} M:${cmyk.m} Y:${cmyk.y} K:${cmyk.k}`;
+                              return (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  onClick={() => applyColor(c)}
+                                  className="w-5 h-5 rounded-md border border-white/10 hover:border-white/30 transition cursor-pointer box-border"
+                                  style={{ backgroundColor: c }}
+                                  title={`${c} (${cmykStr})`}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* CMYK Panel for Custom Color */}
+                        {(() => {
+                          const { c, m, y, k } = hexToCmyk(currentColor);
+                          const updateSingleCmyk = (
+                            key: "c" | "m" | "y" | "k",
+                            val: number,
+                          ) => {
+                            const safeVal = Math.max(
+                              0,
+                              Math.min(100, isNaN(val) ? 0 : val),
+                            );
+                            const newCmyk = { c, m, y, k };
+                            newCmyk[key] = safeVal;
+                            applyColor(
+                              cmykToHex(
+                                newCmyk.c,
+                                newCmyk.m,
+                                newCmyk.y,
+                                newCmyk.k,
+                              ),
+                            );
+                          };
+                          return (
+                            <div className="space-y-2 bg-zinc-950/40 p-2.5 rounded-lg border border-white/5">
+                              <div className="flex justify-between text-zinc-400 font-bold uppercase tracking-wider text-[8px] mb-1 font-mono">
+                                <span>Ajuste CMYK</span>
+                                <span className="text-zinc-500 font-normal">
+                                  {currentColor.toUpperCase()}
+                                </span>
+                              </div>
+
+                              {/* CYAN */}
+                              <div className="flex items-center gap-2">
+                                <span className="text-cyan-400 font-mono text-[10px] w-3 font-bold text-center">
+                                  C
+                                </span>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="100"
+                                  value={c}
+                                  onChange={(e) =>
+                                    updateSingleCmyk("c", parseInt(e.target.value))
+                                  }
+                                  className="flex-1 h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-cyan-400"
+                                />
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={c}
+                                  onChange={(e) =>
+                                    updateSingleCmyk("c", parseInt(e.target.value))
+                                  }
+                                  className="bg-zinc-900 border border-white/5 rounded px-1.5 py-0.5 text-center text-white text-[9px] w-9 font-mono"
+                                />
+                                <span className="text-zinc-500 text-[8px] w-2">%</span>
+                              </div>
+
+                              {/* MAGENTA */}
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className="font-mono text-[10px] w-3 font-bold text-center"
+                                  style={{ color: "#ec4899" }}
+                                >
+                                  M
+                                </span>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="100"
+                                  value={m}
+                                  onChange={(e) =>
+                                    updateSingleCmyk("m", parseInt(e.target.value))
+                                  }
+                                  className="flex-1 h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-pink-500"
+                                />
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={m}
+                                  onChange={(e) =>
+                                    updateSingleCmyk("m", parseInt(e.target.value))
+                                  }
+                                  className="bg-zinc-900 border border-white/5 rounded px-1.5 py-0.5 text-center text-white text-[9px] w-9 font-mono"
+                                />
+                                <span className="text-zinc-500 text-[8px] w-2">%</span>
+                              </div>
+
+                              {/* YELLOW */}
+                              <div className="flex items-center gap-2">
+                                <span className="text-yellow-400 font-mono text-[10px] w-3 font-bold text-center">
+                                  Y
+                                </span>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="100"
+                                  value={y}
+                                  onChange={(e) =>
+                                    updateSingleCmyk("y", parseInt(e.target.value))
+                                  }
+                                  className="flex-1 h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-yellow-400"
+                                />
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={y}
+                                  onChange={(e) =>
+                                    updateSingleCmyk("y", parseInt(e.target.value))
+                                  }
+                                  className="bg-zinc-900 border border-white/5 rounded px-1.5 py-0.5 text-center text-white text-[9px] w-9 font-mono"
+                                />
+                                <span className="text-zinc-500 text-[8px] w-2">%</span>
+                              </div>
+
+                              {/* BLACK */}
+                              <div className="flex items-center gap-2">
+                                <span className="text-zinc-300 font-mono text-[10px] w-3 font-bold text-center">
+                                  K
+                                </span>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="100"
+                                  value={k}
+                                  onChange={(e) =>
+                                    updateSingleCmyk("k", parseInt(e.target.value))
+                                  }
+                                  className="flex-1 h-1 bg-zinc-800 rounded appearance-none cursor-pointer accent-zinc-300"
+                                />
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={k}
+                                  onChange={(e) =>
+                                    updateSingleCmyk("k", parseInt(e.target.value))
+                                  }
+                                  className="bg-zinc-900 border border-white/5 rounded px-1.5 py-0.5 text-center text-white text-[9px] w-9 font-mono"
+                                />
+                                <span className="text-zinc-500 text-[8px] w-2">%</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      <div className="space-y-2">
+                        <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">
+                          Imagem / Estampa de Fundo
+                        </span>
+                        <label className="flex items-center gap-3 p-3 bg-zinc-950 hover:bg-zinc-800 border border-white/5 hover:border-white/10 rounded-xl cursor-pointer transition">
+                          <Upload
+                            size={16}
+                            className={
+                              currentTexture || isGroup
+                                ? "text-green-400"
+                                : "text-primary"
+                            }
+                          />
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[11px] font-bold text-zinc-300 block truncate">
+                              {currentTexture
+                                ? "Imagem Ativa (Trocar)"
+                                : "Upload de Imagem"}
+                            </span>
+                            <span className="text-[8px] text-zinc-500 uppercase tracking-wider block font-mono">
+                              PNG transparente recomendada
+                            </span>
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+
+                              if (file.size > 5 * 1024 * 1024) {
+                                alert("O arquivo deve ter no máximo 5MB.");
+                                return;
+                              }
+
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                if (typeof reader.result === "string") {
+                                  applyTexture(reader.result);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })()}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1758,7 +2206,7 @@ export default function LayoutBuilder() {
       {isSaveModalOpen && (
         <div className="fixed inset-0 z-[120] flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in font-sans">
           <div className="bg-[#0c0c0e] border border-white/5 w-full max-w-md rounded-2xl shadow-2xl relative p-6 space-y-4">
-            <button 
+            <button
               onClick={() => setIsSaveModalOpen(false)}
               className="absolute top-4 right-4 p-1.5 hover:bg-white/5 rounded-lg transition text-zinc-400 hover:text-white"
             >
@@ -1770,18 +2218,21 @@ export default function LayoutBuilder() {
                 Salvar Arte no seu Perfil
               </h3>
               <p className="text-xs text-zinc-400">
-                Guarde sua criação e todos os uploads feitos na ferramenta para editá-la e visualizá-la quando quiser em "Minha Área".
+                Guarde sua criação e todos os uploads feitos na ferramenta para
+                editá-la e visualizá-la quando quiser em "Minha Área".
               </p>
             </div>
 
             <div className="space-y-1.5 align-left">
-              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block ml-1 text-left">Nome da sua Arte</label>
-              <input 
-                type="text" 
-                value={savedArtName} 
-                onChange={(e) => setSavedArtName(e.target.value)} 
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition text-sm placeholder-zinc-700" 
-                placeholder="Ex: Minha Camiseta 1" 
+              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block ml-1 text-left">
+                Nome da sua Arte
+              </label>
+              <input
+                type="text"
+                value={savedArtName}
+                onChange={(e) => setSavedArtName(e.target.value)}
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition text-sm placeholder-zinc-700"
+                placeholder="Ex: Minha Camiseta 1"
               />
             </div>
 
@@ -1791,18 +2242,18 @@ export default function LayoutBuilder() {
               </div>
             ) : (
               <div className="flex gap-2 pt-2">
-                <button 
+                <button
                   onClick={() => setIsSaveModalOpen(false)}
                   className="flex-1 py-3 bg-zinc-900 hover:bg-zinc-800 border border-white/5 transition rounded-xl text-xs font-bold uppercase text-zinc-400 hover:text-white"
                 >
                   Cancelar
                 </button>
-                <button 
+                <button
                   onClick={handleSaveToProfile}
                   disabled={isSaving || !savedArtName.trim()}
                   className="flex-1 py-3 bg-primary hover:bg-amber-600 transition rounded-xl text-xs font-bold uppercase text-white disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {isSaving ? 'Salvando...' : 'Confirmar Salvar'}
+                  {isSaving ? "Salvando..." : "Confirmar Salvar"}
                 </button>
               </div>
             )}
