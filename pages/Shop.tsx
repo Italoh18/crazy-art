@@ -280,6 +280,7 @@ export default function Shop() {
       const params = new URLSearchParams(location.search);
       const tab = params.get('tab');
       const action = params.get('action');
+      const itemId = params.get('item');
 
       if (tab === 'art' || location.pathname === '/quitanda_de_art') {
           setActiveTab('art');
@@ -294,7 +295,15 @@ export default function Shop() {
       if (action === 'cart') {
           setStep('questionnaire');
       }
-  }, [location.search, location.pathname]);
+
+      if (itemId && products && products.length > 0) {
+          const matchedProduct = products.find(p => String(p.id) === String(itemId));
+          if (matchedProduct) {
+              setViewingProduct(matchedProduct);
+              setStep('detail');
+          }
+      }
+  }, [location.search, location.pathname, products]);
 
   // Derivar categorias dinâmicas com base nos produtos existentes (apenas para Estampas)
   const artCategories = useMemo(() => {
