@@ -140,6 +140,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             <button onClick={() => setLegalModal('termos')} className="hover:text-white transition">Termos de Uso</button>
             <button onClick={() => setLegalModal('privacidade')} className="hover:text-white transition">Política de Privacidade</button>
             <button onClick={() => setLegalModal('cookies')} className="hover:text-white transition">Relatório de Cookies</button>
+            <Link to="/politica-de-devolucao" className="hover:text-white transition">Política de Devolução</Link>
             <a href="https://wa.me/5516994142665" target="_blank" rel="noopener noreferrer" className="hover:text-white transition">SAC</a>
         </div>
       </div>
