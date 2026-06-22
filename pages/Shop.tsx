@@ -1673,19 +1673,6 @@ export default function Shop() {
                         <input type="text" placeholder="Obs. (Cor, Tamanho...)" className="flex-1 bg-black rounded-xl px-4 py-3 border border-zinc-800 text-white outline-none text-sm" value={currentOrderDesc} onChange={(e) => setCurrentOrderDesc(e.target.value)} />
                     </div>
                 )}
-
-                {/* Informações de Frete e Suporte */}
-                <div className="mt-6 pt-6 border-t border-zinc-800/80 flex items-start gap-3">
-                    <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400 shrink-0 border border-emerald-500/10">
-                        <Truck size={16} />
-                    </div>
-                    <div className="space-y-1">
-                        <h5 className="font-bold text-white text-xs uppercase tracking-wider">Frete &amp; Envio Digital</h5>
-                        <p className="text-zinc-400 text-[11px] leading-relaxed">
-                            <strong>Entrega Imediata e Frete Grátis:</strong> Por tratar-se de um produto digital de entrega eletrônica, o envio é gratuito e imediato logo após a confirmação do pagamento. Você receberá o link para download por e-mail e na sua Área do Cliente instantaneamente. Se tiver qualquer problema ou precisar de suporte, entre em contato rápido direto pelo nosso WhatsApp ou e-mail de atendimento !
-                        </p>
-                    </div>
-                </div>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
@@ -1704,6 +1691,19 @@ export default function Shop() {
                         <button onClick={buyNow} className="bg-crazy-gradient text-white py-5 rounded-2xl font-bold text-sm hover:scale-105 transition shadow-xl active:scale-95 flex items-center justify-center gap-3"><Zap size={20} /> COMPRAR AGORA</button>
                     </>
                 )}
+            </div>
+
+            {/* Informações de Frete e Suporte */}
+            <div className="mt-6 pt-6 border-t border-zinc-800/80 flex items-start gap-3">
+                <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400 shrink-0 border border-emerald-500/10">
+                    <Truck size={16} />
+                </div>
+                <div className="space-y-1">
+                    <h5 className="font-bold text-white text-xs uppercase tracking-wider">Frete &amp; Envio Digital</h5>
+                    <p className="text-zinc-400 text-[11px] leading-relaxed">
+                        <strong>Entrega Imediata e Frete Grátis:</strong> Por tratar-se de um produto digital de entrega eletrônica, o envio é gratuito e imediato logo após a confirmação do pagamento. Você receberá o link para download por e-mail e na sua Área do Cliente instantaneamente. Se tiver qualquer problema ou precisar de suporte, entre em contato rápido direto pelo nosso WhatsApp ou e-mail de atendimento !
+                    </p>
+                </div>
             </div>
         </div>
     </div>
