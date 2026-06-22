@@ -2100,8 +2100,8 @@ export default function Shop() {
           },
           "offers": {
             "@type": "Offer",
-            "priceCurrency": "BRL",
-            "price": viewingProduct.price.toFixed(2),
+            "priceCurrency": selectedCurrency,
+            "price": (viewingProduct.price * (exchangeRates[selectedCurrency] || 1)).toFixed(2),
             "itemCondition": "https://schema.org/NewCondition",
             "availability": "https://schema.org/InStock"
           },
@@ -2146,8 +2146,8 @@ export default function Shop() {
               },
               "offers": {
                 "@type": "Offer",
-                "priceCurrency": "BRL",
-                "price": item.price.toFixed(2),
+                "priceCurrency": selectedCurrency,
+                "price": (item.price * (exchangeRates[selectedCurrency] || 1)).toFixed(2),
                 "availability": "https://schema.org/InStock"
               },
               "aggregateRating": {
