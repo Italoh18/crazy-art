@@ -104,6 +104,56 @@ export default function Shop() {
   const [pollingOrderPaidItems, setPollingOrderPaidItems] = useState<any[]>([]);
   const pollTimerRef = useRef<any>(null);
 
+  const [selectedCurrency, setSelectedCurrency] = useState<string>('BRL');
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({
+    BRL: 1,
+    KRW: 250,
+    USD: 0.18,
+    EUR: 0.17,
+    JPY: 29,
+    GBP: 0.14
+  });
+
+  useEffect(() => {
+    fetch('https://open.er-api.com/v6/latest/BRL')
+      .then(res => res.json())
+      .then((data: any) => {
+        if (data && data.rates) {
+          setExchangeRates({
+            BRL: 1,
+            KRW: data.rates.KRW || 250,
+            USD: data.rates.USD || 0.18,
+            EUR: data.rates.EUR || 0.17,
+            JPY: data.rates.JPY || 29,
+            GBP: data.rates.GBP || 0.14
+          });
+        }
+      })
+      .catch(() => {
+        // Fallback set above
+      });
+  }, []);
+
+  const formatCurrency = (valBrl: number, currencyCode: string) => {
+    const rate = exchangeRates[currencyCode] || 1;
+    const converted = valBrl * rate;
+    
+    switch (currencyCode) {
+      case 'KRW':
+        return `₩ ${Math.round(converted).toLocaleString('ko-KR')}`;
+      case 'USD':
+        return `$ ${converted.toFixed(2)}`;
+      case 'EUR':
+        return `€ ${converted.toFixed(2)}`;
+      case 'JPY':
+        return `¥ ${Math.round(converted).toLocaleString('ja-JP')}`;
+      case 'GBP':
+        return `£ ${converted.toFixed(2)}`;
+      default:
+        return `R$ ${valBrl.toFixed(2)}`;
+    }
+  };
+
   useEffect(() => {
     if (isPollingPayment && lastCreatedOrder?.id) {
        const checkStatus = async () => {
@@ -1132,7 +1182,7 @@ export default function Shop() {
                         {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" /> : isArt ? <Palette size={64} className="text-purple-500/50" /> : <ShoppingBag size={64} className="text-zinc-700" />}
                         
                         <div className={`absolute bottom-3 right-3 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase backdrop-blur-md ${showFree ? 'bg-gradient-to-r from-purple-600 to-pink-600' : isArt ? 'bg-purple-600/80' : 'bg-black/60'}`}>
-                            {showFree ? <span className="flex items-center gap-1"><Crown size={12} /> ASSINATURA</span> : `R$ ${item.price.toFixed(2)}`}
+                            {showFree ? <span className="flex items-center gap-1"><Crown size={12} /> ASSINATURA</span> : formatCurrency(item.price, selectedCurrency)}
                         </div>
                     </div>
                     <div className="p-5 flex-1 flex flex-col">
@@ -1332,9 +1382,26 @@ export default function Shop() {
                     {viewingProduct?.type === 'art' ? 'Arte Digital' : viewingProduct?.type === 'service' ? 'Serviço' : 'Produto'}
                 </span>
                 <h2 className="text-4xl font-bold text-white mt-4">{viewingProduct?.name}</h2>
-                <div className="flex items-baseline gap-2 mt-2">
-                    <p className="text-3xl font-black text-emerald-400">{showFreeDownload ? 'GRÁTIS (Assinante)' : `R$ ${dynamicPrice.toFixed(2)}`}</p>
-                    {hasDiscount && !showFreeDownload && <p className="text-sm text-zinc-500 line-through">R$ {viewingProduct?.price.toFixed(2)}</p>}
+                <div className="flex flex-wrap items-center gap-3 mt-2">
+                    <p className="text-3xl font-black text-emerald-400">{showFreeDownload ? 'GRÁTIS (Assinante)' : formatCurrency(dynamicPrice, selectedCurrency)}</p>
+                    {hasDiscount && !showFreeDownload && <p className="text-sm text-zinc-500 line-through">{formatCurrency(viewingProduct?.price || 0, selectedCurrency)}</p>}
+                    
+                    {!showFreeDownload && (
+                        <select
+                            id="currency-selector"
+                            value={selectedCurrency}
+                            onChange={(e) => setSelectedCurrency(e.target.value)}
+                            className="ml-auto sm:ml-2 bg-zinc-950 border border-zinc-800 text-zinc-400 px-2 py-1 rounded text-xs focus:ring-1 focus:ring-emerald-400 focus:outline-none transition font-sans cursor-pointer h-7"
+                            title="Selecione a moeda"
+                        >
+                            <option value="BRL">🇧🇷 BRL (R$)</option>
+                            <option value="KRW">🇰🇷 KRW (₩)</option>
+                            <option value="USD">🇺🇸 USD ($)</option>
+                            <option value="EUR">🇪🇺 EUR (€)</option>
+                            <option value="JPY">🇯🇵 JPY (¥)</option>
+                            <option value="GBP">🇬🇧 GBP (£)</option>
+                        </select>
+                    )}
                 </div>
                 {hasDiscount && !showFreeDownload && <p className="text-xs text-emerald-500 font-bold mt-1">Preço especial de atacado aplicado!</p>}
                 {viewingProduct?.type === 'art' && viewingProduct?.subcategory && (
@@ -1354,11 +1421,11 @@ export default function Shop() {
                     <h4 className="text-xs font-bold text-zinc-500 uppercase mb-2">Tabela de Preços (Atacado)</h4>
                     <div className="flex flex-wrap gap-2">
                         <div className={`px-3 py-2 rounded-lg border text-xs text-center ${Number(currentOrderQty) < Math.min(...viewingProduct.priceVariations.map(v=>v.minQuantity)) ? 'bg-primary/10 border-primary text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}>
-                            <span className="block font-bold">1 un</span>R$ {viewingProduct.price.toFixed(2)}
+                            <span className="block font-bold">1 un</span>{formatCurrency(viewingProduct.price, selectedCurrency)}
                         </div>
                         {viewingProduct.priceVariations.sort((a,b) => a.minQuantity - b.minQuantity).map((v, i) => (
                             <div key={i} className={`px-3 py-2 rounded-lg border text-xs text-center ${Number(currentOrderQty) >= v.minQuantity && (i === viewingProduct!.priceVariations!.length - 1 || Number(currentOrderQty) < viewingProduct!.priceVariations![i+1].minQuantity) ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}>
-                                <span className="block font-bold">+{v.minQuantity} un</span>R$ {v.price.toFixed(2)}
+                                <span className="block font-bold">+{v.minQuantity} un</span>{formatCurrency(v.price, selectedCurrency)}
                             </div>
                         ))}
                     </div>
