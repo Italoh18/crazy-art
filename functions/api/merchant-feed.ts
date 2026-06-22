@@ -14,6 +14,46 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
   try {
     const url = new URL(request.url);
     const origin = url.origin;
+    
+    // Suporte para parâmetro de moeda (Default é BRL)
+    let chosenCurrency = (url.searchParams.get('currency') || url.searchParams.get('country') || 'BRL').toUpperCase();
+    if (chosenCurrency === 'KR') chosenCurrency = 'KRW';
+    if (chosenCurrency === 'US') chosenCurrency = 'USD';
+    if (chosenCurrency === 'BR') chosenCurrency = 'BRL';
+    if (chosenCurrency === 'UK' || chosenCurrency === 'GB') chosenCurrency = 'GBP';
+    if (chosenCurrency === 'JP') chosenCurrency = 'JPY';
+    
+    const validCurrencies = ['BRL', 'KRW', 'USD', 'EUR', 'JPY', 'GBP'];
+    if (!validCurrencies.includes(chosenCurrency)) {
+      chosenCurrency = 'BRL';
+    }
+
+    // Busca taxas de câmbio recentes para conversão precisa
+    let rates: Record<string, number> = {
+      BRL: 1,
+      KRW: 250,
+      USD: 0.18,
+      EUR: 0.17,
+      JPY: 29,
+      GBP: 0.14
+    };
+
+    try {
+      const exRes = await fetch('https://open.er-api.com/v6/latest/BRL');
+      const data: any = await exRes.json();
+      if (data && data.rates) {
+        rates = {
+          BRL: 1,
+          KRW: data.rates.KRW || 250,
+          USD: data.rates.USD || 0.18,
+          EUR: data.rates.EUR || 0.17,
+          JPY: data.rates.JPY || 29,
+          GBP: data.rates.GBP || 0.14
+        };
+      }
+    } catch (exErr) {
+      // Usa os fallbacks definidos acima se a API falhar
+    }
 
     // Busca produtos ativos do catálogo
     let results: any[] = [];
@@ -35,15 +75,27 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     xml += '  <channel>\n';
     xml += '    <title>Quitanda de Artes</title>\n';
     xml += `    <link>${escapeXml(origin)}</link>\n`;
-    xml += '    <description>Quitanda de Artes - Matrizes de Bordado, Estampas e Moldes Digitais</description>\n';
+    xml += `    <description>Quitanda de Artes - Matrizes de Bordado, Estampas e Moldes Digitais (Feed ${chosenCurrency})</description>\n`;
     xml += '    <language>pt-br</language>\n';
+
+    // Determina país e formato de frete com base na moeda
+    let shippingCountry = 'BR';
+    if (chosenCurrency === 'KRW') shippingCountry = 'KR';
+    else if (chosenCurrency === 'USD') shippingCountry = 'US';
+    else if (chosenCurrency === 'EUR') shippingCountry = 'DE';
+    else if (chosenCurrency === 'JPY') shippingCountry = 'JP';
+    else if (chosenCurrency === 'GBP') shippingCountry = 'GB';
 
     for (const row of results) {
       const id = String(row.id);
       const name = String(row.name || '');
-      const description = String(row.description || `Adquira a arte digital ou produto '${name}' na Quitanda de Artes. Excelente qualidade e envio imediata.`);
-      const priceVal = Number(row.price || 0);
-      const priceText = `${priceVal.toFixed(2)} BRL`;
+      const description = String(row.description || `Adquira a arte digital ou produto '${name}' na Quitanda de Artes. Excelente qualidade e envio imediato.`);
+      
+      // Converte o preço base (BRL) para a moeda de destino
+      const originalPrice = Number(row.price || 0);
+      const rate = rates[chosenCurrency] || 1;
+      const convertedPrice = originalPrice * rate;
+      const priceText = `${convertedPrice.toFixed(2)} ${chosenCurrency}`;
 
       let imageUrl = row.image_url || row.imageUrl || '';
       if (!imageUrl) {
@@ -52,7 +104,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         imageUrl = `${origin}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
       }
 
-      const productLink = `${origin}/shop?item=${encodeURIComponent(id)}`;
+      // Adiciona o parâmetro de moeda na URL do produto para que a página já carregue na moeda correta
+      const productLink = `${origin}/shop?item=${encodeURIComponent(id)}&currency=${chosenCurrency}`;
       const categoryText = row.subcategory || (row.type === 'art' ? 'Arte Pronta' : 'Produto');
 
       xml += '    <item>\n';
@@ -65,6 +118,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       xml += '      <g:availability>in stock</g:availability>\n';
       xml += '      <g:condition>new</g:condition>\n';
       xml += '      <g:brand>Quitanda de Artes</g:brand>\n';
+      
+      // Frete explícito no Feed para garantir aprovação do Google Merchant
+      xml += '      <g:shipping>\n';
+      xml += `        <g:country>${shippingCountry}</g:country>\n`;
+      xml += '        <g:service>Entrega Digital Imediata</g:service>\n';
+      xml += `        <g:price>0.00 ${chosenCurrency}</g:price>\n`;
+      xml += '      </g:shipping>\n';
+
       if (categoryText) {
         xml += `      <g:product_type>${escapeXml(categoryText)}</g:product_type>\n`;
       }

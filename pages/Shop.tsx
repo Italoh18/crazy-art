@@ -331,6 +331,7 @@ export default function Shop() {
       const tab = params.get('tab');
       const action = params.get('action');
       const itemId = params.get('item');
+      const currencyParam = params.get('currency');
 
       if (tab === 'art' || location.pathname === '/quitanda_de_art') {
           setActiveTab('art');
@@ -344,6 +345,14 @@ export default function Shop() {
 
       if (action === 'cart') {
           setStep('questionnaire');
+      }
+
+      if (currencyParam) {
+          const upperParam = currencyParam.toUpperCase();
+          const validCurrencies = ['BRL', 'KRW', 'USD', 'EUR', 'JPY', 'GBP'];
+          if (validCurrencies.includes(upperParam)) {
+              setSelectedCurrency(upperParam);
+          }
       }
 
       if (itemId && products && products.length > 0) {
