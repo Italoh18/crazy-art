@@ -229,7 +229,6 @@ export default function Home() {
     { name: 'Loja', icon: ShoppingBag, path: '/shop', color: 'text-emerald-400' },
     { name: 'Quitanda', sub: 'de Artes', icon: Palette, path: '/quitanda_de_art', color: 'text-purple-400' }, 
     { name: 'Ferramentas', icon: Wrench, path: '/tools', color: 'text-blue-400' },
-    { name: 'Aplicativo', icon: Smartphone, path: '/baixar-app', color: 'text-amber-400' },
     { name: 'Blog', icon: BookOpen, path: '', color: 'text-zinc-400', disabled: true },
   ];
 
