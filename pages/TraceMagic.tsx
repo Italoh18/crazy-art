@@ -1,15 +1,11 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  ArrowLeft, Upload, Zap, Sliders, Image as ImageIcon, FileCode, 
-  Download, ZoomIn, ZoomOut, Check, Layers, AlertTriangle, PenTool, MousePointer2, Move
+  ArrowLeft, Upload, Zap, Download, ZoomIn, ZoomOut,
+  Maximize2, Wand2, Info, RefreshCw, PenTool
 } from 'lucide-react';
 
-// Declaration for the CDN library
-declare const ImageTracer: any;
-
-type TraceMode = 'bw' | 'grayscale' | 'color';
+import { TraceOptions, WorkerResponse } from '../engine/types';
 
 interface TraceStats {
   nodes: number;
@@ -19,58 +15,47 @@ interface TraceStats {
 }
 
 export default function TraceMagic() {
-  const [scriptLoaded, setScriptLoaded] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && !(window as any).ImageTracer) {
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/imagetracerjs@1.2.6/imagetracer_v1.2.6.min.js';
-      script.async = true;
-      script.onload = () => setScriptLoaded(true);
-      document.head.appendChild(script);
-    } else {
-      setScriptLoaded(true);
-    }
-  }, []);
-
-  // --- Estados de Imagem ---
+  // --- Image States ---
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [processedSvg, setProcessedSvg] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
   const [stats, setStats] = useState<TraceStats | null>(null);
 
-  // --- Estados de Configuração ---
-  const [mode, setMode] = useState<TraceMode>('color');
-  
-  // Imagem Prep
-  const [brightness, setBrightness] = useState(0); 
-  const [contrast, setContrast] = useState(0); 
-  const [blur, setBlur] = useState(0); 
+  // --- Fixed Optimization Parameters ---
+  const blurSigma = 1.0;
+  const kMeansClusters = 16;
+  const cornerThreshold = 1.0;
+  const curvatureSensitivity = 0.1;
+  const bezierErrorTolerance = 2.5;
+  const simplificationLevel = 1.0;
+  const mergeTolerance = 1.0;
+  const removeBackground = true;
 
-  // Trace Settings Otimizados (Lógica Corrigida)
-  const [colors, setColors] = useState(4); 
-  const [threshold, setThreshold] = useState(128); 
-  const [noiseCleaning, setNoiseCleaning] = useState(64); 
-  const [smoothing, setSmoothing] = useState(5);
-  const [precision, setPrecision] = useState(2); // Novo: Escala interna (1x a 4x)
-
-  // UI States
-  const [viewMode, setViewMode] = useState<'split' | 'vector' | 'original'>('split');
+  // --- Interaction States ---
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [splitPos, setSplitPos] = useState(50);
-  
-  // Interaction State
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  
-  // Refs
+
+  // --- Refs ---
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const workerRef = useRef<Worker | null>(null);
 
-  // --- Zoom com Scroll (Nativo) ---
+  // --- Worker Management ---
+  useEffect(() => {
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.terminate();
+      }
+    };
+  }, []);
+
+  // --- Zoom with Scroll ---
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
         if (e.ctrlKey || e.metaKey) return; 
@@ -93,14 +78,7 @@ export default function TraceMagic() {
 
   // --- Mouse Pan Handlers ---
   const handleMouseDown = (e: React.MouseEvent) => {
-      // Se estiver no modo Split, o clique controla a barra, a menos que seja botão do meio ou algo especifico.
-      // Vamos permitir Pan apenas se NÃO for Split, ou se for Split mas fora da área da barra (complicado de detectar aqui).
-      // Simplificação: Pan funciona sempre, exceto se clicar EXATAMENTE na barra (que seria outro handler), 
-      // mas aqui estamos no container pai.
-      // Para UX melhor: Se for Split, prioriza Split. Se for Vector/Original, Pan é livre.
-      
-      if (viewMode === 'split') return;
-
+      if (!originalImage) return;
       e.preventDefault();
       setIsDragging(true);
       setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
@@ -113,30 +91,13 @@ export default function TraceMagic() {
               y: e.clientY - dragStart.y
           });
       }
-      
-      // Split Drag Logic
-      if (viewMode === 'split' && !isDragging) {
-          const container = containerRef.current;
-          if (!container) return;
-          const rect = container.getBoundingClientRect();
-          // Simples hover detection para UI, o drag real do split pode ser feito aqui se clicado
-          // mas vamos manter o split drag separado se possível ou integrado.
-          // O handleSplitDrag anterior era chamado no onMouseMove do container.
-          
-          if (e.buttons === 1) { // Se botão esquerdo pressionado
-             const x = e.clientX - rect.left;
-             const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
-             setSplitPos(percent);
-          }
-      }
   };
 
   const handleMouseUp = () => {
       setIsDragging(false);
   };
 
-  // --- Funções de Processamento ---
-
+  // --- Processing Functions ---
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -152,398 +113,283 @@ export default function TraceMagic() {
     }
   };
 
-  // Aplica filtros e ESCALA (Upscale)
-  const applyImageFilters = (scaleFactor: number) => {
-    const canvas = canvasRef.current;
-    const img = imageRef.current;
-    if (!canvas || !img) return null;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-
-    // Define tamanho ampliado
-    canvas.width = img.naturalWidth * scaleFactor;
-    canvas.height = img.naturalHeight * scaleFactor;
-
-    // Filtros
-    let filterStr = `brightness(${100 + brightness}%) contrast(${100 + contrast}%)`;
-    if (blur > 0) filterStr += ` blur(${blur * scaleFactor}px)`; // Blur escala também
-    if (mode === 'bw' || mode === 'grayscale') filterStr += ` grayscale(100%)`;
-    
-    ctx.filter = filterStr;
-    
-    // Desenha ampliado
-    ctx.scale(scaleFactor, scaleFactor);
-    ctx.drawImage(img, 0, 0);
-    
-    return ctx.getImageData(0, 0, canvas.width, canvas.height);
-  };
-
   const runTrace = () => {
     if (!originalImage || !imageRef.current) return;
-    if (typeof window !== 'undefined' && !(window as any).ImageTracer) {
-      alert("Aguarde o carregamento do motor de vetorização...");
-      return;
-    }
+    
+    const canvas = canvasRef.current;
+    const img = imageRef.current;
+    if (!canvas || !img) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    ctx.drawImage(img, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
     setIsProcessing(true);
+    setProgress(0);
+    setProcessingStep('Iniciando o Trace Magic...');
 
-    setTimeout(() => {
-        try {
-            const startTime = performance.now();
-            
-            // UPSCALE: O segredo para letras pequenas
-            // Precision 1 = Normal, 4 = Ultra (para textos pequenos)
-            const imgData = applyImageFilters(precision);
-            if (!imgData) throw new Error("Falha ao processar imagem");
+    const startTime = performance.now();
 
-            // Curvas vs Retas
-            // Smoothing alto (10) -> Curvas longas (Bezier simplificado)
-            // Smoothing baixo (1) -> Fiel aos pixels (Serrilhado)
-            
-            // Para "suavidade sem retas", queremos curvas (quadráticas) que ignorem pequenas variações.
-            // Isso geralmente significa um qtres moderado/alto, mas com um ltres ajustado.
-            // Se qtres for muito baixo, ele cria muitas curvas pequenas (ondulações).
-            // Se qtres for alto, ele cria curvas longas.
-            
-            // Ajuste Fino baseado no Feedback:
-            const baseLtres = 1;
-            const baseQtres = 1;
-            
-            // Smoothing aumenta a tolerância, forçando simplificação (curvas mais longas)
-            const mod = smoothing * 0.5; // 0.5 a 5.0
-            
-            const options: any = {
-                ltres: baseLtres + mod, 
-                qtres: baseQtres + mod, 
-                pathomit: noiseCleaning * precision, // Ajusta limpeza conforme escala
-                
-                rightangleenhance: false, 
-                layering: 0,
-                
-                colorsampling: 2, 
-                numberofcolors: colors,
-                mincolorratio: (noiseCleaning / 100) * 0.05, 
-                colorquantcycles: 10, 
-                
-                // Importante: scale define a escala de saída do SVG. 
-                // Como aumentamos a imagem (precision), precisamos dizer ao SVG para reduzir as coordenadas
-                // para que fiquem no tamanho original? 
-                // O ImageTracer não tem 'scale down' output nativo facil, ele gera viewbox baseado no input.
-                // Mas SVG é vetorial, então o tamanho "pixel" não importa tanto se o aspect ratio estiver certo.
-                // O viewBox vai ser enorme (ex: 4000x4000), mas o CSS vai forçar ele a caber no container.
-                scale: 1, 
-                
-                strokewidth: 0,
-                viewbox: true,
-                desc: false,
-            };
+    if (workerRef.current) workerRef.current.terminate();
+    workerRef.current = new Worker(new URL('../engine/worker.ts', import.meta.url), { type: 'module' });
 
-            if (mode === 'grayscale') {
-                options.colorsampling = 0; 
-            } else if (mode === 'bw') {
-                options.colorsampling = 0;
-                options.numberofcolors = 2;
-            }
+    workerRef.current.onmessage = (e: MessageEvent<WorkerResponse>) => {
+      const { type, progress: prog, svg, error } = e.data;
 
-            const svgStr = ImageTracer.imagedataToSVG(imgData, options);
-            
-            const endTime = performance.now();
-            
-            const pathCount = (svgStr.match(/<path/g) || []).length;
-            const nodeCount = (svgStr.match(/[MmLlCcz]/g) || []).length;
-            const size = new Blob([svgStr]).size / 1024;
+      if (type === 'progress' && prog) {
+        setProcessingStep(prog.step);
+        setProgress(prog.progress);
+      } else if (type === 'result' && svg) {
+        const endTime = performance.now();
+        setProcessedSvg(svg);
+        
+        const pathCount = (svg.match(/<path/g) || []).length;
+        const nodeCount = (svg.match(/[MmLlCcz]/g) || []).length;
+        const size = new Blob([svg]).size / 1024;
 
-            setStats({
-                nodes: nodeCount,
-                layers: pathCount,
-                sizeKb: size,
-                durationMs: Math.round(endTime - startTime)
-            });
+        setStats({
+          nodes: nodeCount,
+          layers: pathCount,
+          sizeKb: size,
+          durationMs: Math.round(endTime - startTime)
+        });
 
-            setProcessedSvg(svgStr);
+        setIsProcessing(false);
+        setProcessingStep(null);
+      } else if (type === 'error') {
+        alert("Erro no motor de vetorização: " + error);
+        setIsProcessing(false);
+        setProcessingStep(null);
+      }
+    };
 
-        } catch (e) {
-            console.error("Erro na vetorização:", e);
-            alert("Erro ao vetorizar imagem.");
-        } finally {
-            setIsProcessing(false);
-        }
-    }, 100);
+    const options: TraceOptions = {
+      blurSigma,
+      kMeansClusters,
+      cornerThreshold,
+      curvatureSensitivity,
+      bezierErrorTolerance,
+      simplificationLevel,
+      mergeTolerance,
+      removeBackground
+    };
+
+    workerRef.current.postMessage({ type: 'start', imageData, options });
   };
 
-  const handleDownload = (format: 'svg' | 'pdf') => {
+  const cancelTrace = () => {
+    if (workerRef.current) {
+      workerRef.current.terminate();
+      workerRef.current = null;
+      setIsProcessing(false);
+      setProcessingStep(null);
+    }
+  };
+
+  const handleDownload = () => {
       if (!processedSvg) return;
-      
-      if (format === 'svg') {
-          const blob = new Blob([processedSvg], { type: 'image/svg+xml' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'trace-magic-vetor.svg';
-          a.click();
-          URL.revokeObjectURL(url);
-      } else {
-          const printWindow = window.open('', '', 'width=800,height=600');
-          if (printWindow) {
-              printWindow.document.write(processedSvg);
-              printWindow.document.close();
-              printWindow.print();
-          }
-      }
+      const blob = new Blob([processedSvg], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'tracemagic-export.svg';
+      a.click();
+      URL.revokeObjectURL(url);
+  };
+
+  const clearImage = () => {
+    setOriginalImage(null);
+    setProcessedSvg(null);
+    setStats(null);
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white flex flex-col h-screen overflow-hidden">
+    <div className="min-h-screen bg-[#09090b] text-white flex flex-col h-screen overflow-hidden font-sans">
         <canvas ref={canvasRef} className="hidden" />
         <img ref={imageRef} src={originalImage || ''} className="hidden" alt="source" />
 
         {/* Header */}
-        <div className="h-16 border-b border-zinc-800 bg-[#121215] flex items-center justify-between px-6 shrink-0 z-20">
+        <header className="h-16 border-b border-zinc-800 bg-[#121215] flex items-center justify-between px-6 shrink-0 z-30">
             <div className="flex items-center gap-4">
-                <Link to="/tools" className="p-2 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-full transition">
+                <Link to="/tools" className="p-2 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-full transition" id="pt-back-btn">
                     <ArrowLeft size={20} />
                 </Link>
-                <h1 className="text-lg font-bold flex items-center gap-2 font-heading tracking-wide">
-                    <PenTool className="text-primary" size={20} />
-                    Trace Magic <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded border border-primary/30 uppercase">Beta</span>
-                </h1>
+                <div className="flex flex-col">
+                    <h1 className="text-lg font-bold flex items-center gap-2 tracking-wide leading-none" id="pt-title">
+                        <PenTool className="text-amber-500" size={20} />
+                        Trace Magic <span className="text-amber-500 ml-1">Alfa</span>
+                    </h1>
+                    <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest mt-1">Vetorização Simplificada de Alta Fidelidade</span>
+                </div>
             </div>
             
-            <div className="flex gap-2">
-                {processedSvg && (
-                    <>
-                        <button onClick={() => handleDownload('svg')} className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2">
-                            <FileCode size={14} /> SVG
-                        </button>
-                        <button onClick={() => handleDownload('pdf')} className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2">
-                            <Download size={14} /> PDF
-                        </button>
-                    </>
-                )}
+            <div className="flex gap-3">
                 {originalImage && (
                     <button 
-                        onClick={runTrace}
-                        disabled={isProcessing}
-                        className="bg-primary hover:bg-amber-600 text-white px-6 py-2 rounded-lg text-xs font-bold transition shadow-lg shadow-primary/20 flex items-center gap-2 disabled:opacity-50 active:scale-95"
+                        onClick={clearImage}
+                        className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 border border-zinc-800"
+                        id="pt-clear-btn"
                     >
-                        {isProcessing ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Zap size={14} fill="currentColor" />}
-                        {isProcessing ? 'VETORIZANDO...' : 'VETORIZAR AGORA'}
+                        <RefreshCw size={14} /> Novo Upload
+                    </button>
+                )}
+                {processedSvg && (
+                    <button 
+                        onClick={handleDownload} 
+                        className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                        id="pt-export-btn"
+                    >
+                        <Download size={14} /> Exportar SVG
                     </button>
                 )}
             </div>
-        </div>
+        </header>
 
-        {/* Main Workspace */}
-        <div className="flex-1 flex overflow-hidden">
+        {/* Workspace Area */}
+        <main className="flex-1 bg-[#0d0d11] relative flex flex-col min-w-0 overflow-hidden">
             
-            {/* Left Sidebar: Controls */}
-            <div className="w-72 bg-[#121215] border-r border-zinc-800 flex flex-col shrink-0 overflow-y-auto custom-scrollbar z-10">
-                {!originalImage ? (
-                    <div className="p-6 text-center text-zinc-500 mt-10">
-                        <Upload size={32} className="mx-auto mb-2 opacity-20" />
-                        <p className="text-sm">Carregue uma imagem para habilitar os controles.</p>
-                    </div>
-                ) : (
-                    <div className="p-5 space-y-8">
-                        <div>
-                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 block">Modo de Vetorização</label>
-                            <div className="grid grid-cols-3 gap-1 bg-zinc-900 p-1 rounded-lg border border-zinc-800">
-                                <button onClick={() => setMode('bw')} className={`py-2 text-[10px] font-bold rounded transition ${mode === 'bw' ? 'bg-zinc-700 text-white shadow-sm' : 'text-zinc-500 hover:text-white'}`}>P&B</button>
-                                <button onClick={() => setMode('grayscale')} className={`py-2 text-[10px] font-bold rounded transition ${mode === 'grayscale' ? 'bg-zinc-700 text-white shadow-sm' : 'text-zinc-500 hover:text-white'}`}>Cinza</button>
-                                <button onClick={() => setMode('color')} className={`py-2 text-[10px] font-bold rounded transition ${mode === 'color' ? 'bg-zinc-700 text-white shadow-sm' : 'text-zinc-500 hover:text-white'}`}>Cores</button>
+            {/* Canvas / Stage Area */}
+            <div 
+                ref={wrapperRef}
+                className="flex-1 relative overflow-hidden flex items-center justify-center p-8 bg-[#111115]" 
+                style={{ 
+                    backgroundImage: 'radial-gradient(#2a2a30 1.2px, transparent 1.2px)', 
+                    backgroundSize: '32px 32px', 
+                    cursor: originalImage ? (isDragging ? 'grabbing' : 'grab') : 'default'
+                }}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                id="pt-interaction-stage"
+            >
+                {/* Processing Overlay */}
+                {isProcessing && processingStep && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm animate-fade-in" id="pt-processing-overlay">
+                        <div className="bg-zinc-950 border border-zinc-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-6 max-w-xs w-full">
+                            <div className="relative">
+                                <div className="w-16 h-16 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin"></div>
+                                <Zap className="absolute inset-0 m-auto text-amber-500 animate-pulse" size={24} fill="currentColor" />
                             </div>
-                        </div>
-
-                        {/* Image Prep */}
-                        <div className="space-y-4 border-t border-zinc-800 pt-6">
-                            <h3 className="text-xs font-bold text-white flex items-center gap-2"><ImageIcon size={14} /> Pré-processamento</h3>
-                            
-                            <div className="space-y-1">
-                                <div className="flex justify-between text-[10px] text-zinc-400"><span>Brilho</span><span>{brightness}</span></div>
-                                <input type="range" min="-100" max="100" value={brightness} onChange={(e) => setBrightness(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary" />
+                            <div className="text-center space-y-2">
+                                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Processando</h3>
+                                <p className="text-xs text-zinc-400 font-mono animate-pulse">{processingStep}</p>
                             </div>
-                            <div className="space-y-1">
-                                <div className="flex justify-between text-[10px] text-zinc-400"><span>Contraste</span><span>{contrast}</span></div>
-                                <input type="range" min="-100" max="100" value={contrast} onChange={(e) => setContrast(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-primary" />
+                            <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                                <div className="h-full bg-amber-500 transition-all duration-300" style={{ width: `${progress}%` }}></div>
                             </div>
-                        </div>
-
-                        {/* Trace Settings */}
-                        <div className="space-y-4 border-t border-zinc-800 pt-6">
-                            <h3 className="text-xs font-bold text-white flex items-center gap-2"><Sliders size={14} /> Configuração do Vetor</h3>
-                            
-                            {(mode === 'color' || mode === 'grayscale') && (
-                                <div className="space-y-1">
-                                    <div className="flex justify-between text-[10px] text-zinc-400"><span>Cores (Camadas)</span><span>{colors}</span></div>
-                                    <input type="range" min="2" max="64" value={colors} onChange={(e) => setColors(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-blue-500" />
-                                </div>
-                            )}
-
-                            <div className="space-y-1">
-                                <div className="flex justify-between text-[10px] text-zinc-400">
-                                    <span>Precisão (Detalhes)</span>
-                                    <span className={precision > 2 ? 'text-primary font-bold' : ''}>{precision}x</span>
-                                </div>
-                                <input 
-                                    type="range" 
-                                    min="1" 
-                                    max="4" 
-                                    step="1" 
-                                    value={precision} 
-                                    onChange={(e) => setPrecision(Number(e.target.value))} 
-                                    className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-orange-500" 
-                                />
-                                <p className="text-[9px] text-zinc-600 mt-1">Aumente para letras pequenas e detalhes finos.</p>
-                            </div>
-
-                            <div className="space-y-1">
-                                <div className="flex justify-between text-[10px] text-zinc-400"><span>Suavização (Curvas)</span><span>{smoothing}</span></div>
-                                <input type="range" min="1" max="10" step="0.5" value={smoothing} onChange={(e) => setSmoothing(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-emerald-500" />
-                                <p className="text-[9px] text-zinc-600 mt-1">
-                                    1 = Fiel ao pixel <br/>
-                                    10 = Curvas Longas/Suaves
-                                </p>
-                            </div>
-
-                            <div className="space-y-1">
-                                <div className="flex justify-between text-[10px] text-zinc-400"><span>Limpeza (Ruído)</span><span>{noiseCleaning}</span></div>
-                                <input type="range" min="0" max="200" value={noiseCleaning} onChange={(e) => setNoiseCleaning(Number(e.target.value))} className="w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-purple-500" />
-                            </div>
+                            <button 
+                                onClick={cancelTrace}
+                                className="text-[10px] font-bold text-red-400 hover:text-red-300 uppercase tracking-widest transition"
+                                id="pt-cancel-btn"
+                            >
+                                Cancelar
+                            </button>
                         </div>
                     </div>
                 )}
-            </div>
 
-            {/* Central Canvas / Viewer */}
-            <div className="flex-1 bg-[#09090b] relative flex flex-col min-w-0">
-                
-                {/* Toolbar Viewer */}
-                <div className="h-12 bg-black/40 border-b border-zinc-800 flex justify-between items-center px-4">
-                    <div className="flex gap-2">
-                        <button onClick={() => setViewMode('original')} className={`p-1.5 rounded transition ${viewMode === 'original' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-white'}`} title="Original"><ImageIcon size={16} /></button>
-                        <button onClick={() => setViewMode('split')} className={`p-1.5 rounded transition ${viewMode === 'split' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-white'}`} title="Split Screen"><div className="w-4 h-4 border-r border-current flex"><div className="w-1/2"></div></div></button>
-                        <button onClick={() => setViewMode('vector')} className={`p-1.5 rounded transition ${viewMode === 'vector' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-white'}`} title="Vetor"><FileCode size={16} /></button>
-                    </div>
-                    <div className="flex gap-4 items-center">
-                        {viewMode !== 'split' && (
-                            <div className="flex items-center gap-2 text-zinc-500 text-xs">
-                                <Move size={14} /> 
-                                <span className="hidden md:inline">Arraste para Mover</span>
-                            </div>
-                        )}
-                        <div className="flex items-center gap-2">
-                            <button onClick={() => setZoom(z => Math.max(0.1, z - 0.2))} className="text-zinc-500 hover:text-white"><ZoomOut size={16} /></button>
-                            <span className="text-xs font-mono text-zinc-400 w-10 text-center">{Math.round(zoom * 100)}%</span>
-                            <button onClick={() => setZoom(z => Math.min(10, z + 0.2))} className="text-zinc-500 hover:text-white"><ZoomIn size={16} /></button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Canvas Area with Wheel Zoom (Attached via ref for passive:false) */}
-                <div 
-                    ref={wrapperRef}
-                    className="flex-1 relative overflow-hidden flex items-center justify-center p-8 bg-[#1a1a1a]" 
-                    style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '20px 20px', cursor: viewMode === 'split' ? 'col-resize' : isDragging ? 'grabbing' : 'grab' }}
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
-                >
-                    {!originalImage ? (
-                        <div className="text-center">
-                            <label className="cursor-pointer group">
-                                <div className="w-32 h-32 border-2 border-dashed border-zinc-700 rounded-2xl flex flex-col items-center justify-center text-zinc-600 group-hover:border-primary group-hover:text-primary transition-all bg-zinc-900/50">
-                                    <Upload size={32} className="mb-2" />
-                                    <span className="text-xs font-bold uppercase">Upload</span>
+                {/* State 1: No Image Uploaded */}
+                {!originalImage ? (
+                    <div className="text-center max-w-md px-4" id="pt-initial-upload">
+                        <label className="cursor-pointer group block">
+                            <div className="w-56 h-56 border-2 border-dashed border-zinc-800 rounded-[2.5rem] flex flex-col items-center justify-center text-zinc-500 group-hover:border-amber-500 group-hover:text-amber-500 transition-all bg-zinc-900/30 backdrop-blur-sm group-hover:scale-105 duration-300 mx-auto">
+                                <div className="p-5 bg-zinc-900 rounded-2xl mb-4 group-hover:bg-amber-500/10 transition-colors">
+                                    <Upload size={36} />
                                 </div>
-                                <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
-                            </label>
-                        </div>
-                    ) : (
-                        <div 
-                            ref={containerRef}
-                            className="relative shadow-2xl transition-transform duration-100 ease-out origin-center"
-                            style={{ 
-                                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                                maxWidth: '100%',
-                                maxHeight: '100%',
-                                pointerEvents: 'none' // Deixa eventos passarem para o wrapper (para o pan funcionar no vazio ao redor)
-                            }}
-                        >
-                            {/* Base: Original Image */}
+                                <span className="text-xs font-bold uppercase tracking-widest px-4">Selecionar Imagem</span>
+                            </div>
+                            <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                        </label>
+                        <p className="mt-6 text-xs text-zinc-500 uppercase tracking-wider font-semibold">Suporta PNG ou JPG — Carregue para vetorizar</p>
+                    </div>
+                ) : (
+                    /* State 2: Image Active (Original or Processed Vector) */
+                    <div 
+                        ref={containerRef}
+                        className="relative shadow-2xl transition-transform duration-100 ease-out origin-center select-none"
+                        style={{ 
+                            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                            maxWidth: 'none',
+                        }}
+                        id="pt-image-container"
+                    >
+                        {/* Display the vectorized SVG if ready */}
+                        {processedSvg ? (
+                            <div 
+                                className="bg-white p-6 rounded-2xl shadow-xl border border-zinc-800 overflow-hidden"
+                                dangerouslySetInnerHTML={{ __html: processedSvg }}
+                                style={{ pointerEvents: 'none' }}
+                                id="pt-rendered-vector"
+                            />
+                        ) : (
+                            /* Otherwise, show the uploaded original image */
                             <img 
                                 src={originalImage} 
                                 alt="Original" 
                                 style={{ 
-                                    filter: `brightness(${100+brightness}%) contrast(${100+contrast}%) blur(${blur}px) ${mode !== 'color' ? 'grayscale(100%)' : ''}`,
-                                    display: viewMode === 'vector' ? 'none' : 'block',
-                                    maxWidth: 'none',
-                                    pointerEvents: 'auto'
+                                    maxHeight: '75vh',
+                                    maxWidth: '85vw',
+                                    objectFit: 'contain',
                                 }}
                                 draggable={false}
+                                id="pt-preview-original"
                             />
+                        )}
+                    </div>
+                )}
 
-                            {/* Overlay: Vector (Controlled by clip-path for Split) */}
-                            {processedSvg && viewMode !== 'original' && (
-                                <div 
-                                    className="absolute inset-0 bg-white" // SVG container bg
-                                    style={{
-                                        clipPath: viewMode === 'split' ? `inset(0 0 0 ${splitPos}%)` : 'none',
-                                        pointerEvents: 'auto'
-                                    }}
-                                    dangerouslySetInnerHTML={{ __html: processedSvg }}
-                                />
-                            )}
-
-                            {/* Split Line */}
-                            {viewMode === 'split' && processedSvg && (
-                                <div 
-                                    className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_10px_rgba(0,0,0,0.5)] z-10 pointer-events-none"
-                                    style={{ left: `${splitPos}%` }}
-                                >
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-lg text-black">
-                                        <MousePointer2 size={12} className="rotate-90" />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                {/* Floating "Vetorizar Agora" Trigger */}
+                {originalImage && !processedSvg && !isProcessing && (
+                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2" id="pt-vectorize-action-card">
+                        <button 
+                            onClick={runTrace}
+                            className="bg-amber-500 hover:bg-amber-400 text-black px-10 py-4 rounded-2xl text-sm font-black tracking-widest uppercase transition-all shadow-xl shadow-amber-505/20 flex items-center gap-3 hover:scale-105 duration-200 active:scale-95"
+                            id="pt-run-btn"
+                        >
+                            <Wand2 size={16} fill="currentColor" />
+                            Vetorizar Agora
+                        </button>
+                    </div>
+                )}
             </div>
 
-            {/* Right Sidebar: Stats */}
-            {stats && (
-                <div className="w-60 bg-[#121215] border-l border-zinc-800 flex flex-col shrink-0 p-5 space-y-6 z-10">
-                    <div>
-                        <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">Estatísticas</h3>
-                        <div className="space-y-3">
-                            <div className="bg-zinc-900 p-3 rounded-lg border border-zinc-800">
-                                <div className="flex items-center gap-2 text-zinc-400 mb-1"><Layers size={14} /> <span className="text-[10px] uppercase">Camadas/Paths</span></div>
-                                <p className="text-xl font-mono text-white font-bold">{stats.layers}</p>
-                            </div>
-                            <div className="bg-zinc-900 p-3 rounded-lg border border-zinc-800">
-                                <div className="flex items-center gap-2 text-zinc-400 mb-1"><PenTool size={14} /> <span className="text-[10px] uppercase">Nós (Estimado)</span></div>
-                                <p className="text-xl font-mono text-white font-bold">{stats.nodes}</p>
-                            </div>
-                            <div className="bg-zinc-900 p-3 rounded-lg border border-zinc-800">
-                                <div className="flex items-center gap-2 text-zinc-400 mb-1"><FileCode size={14} /> <span className="text-[10px] uppercase">Tamanho SVG</span></div>
-                                <p className="text-xl font-mono text-white font-bold">{stats.sizeKb.toFixed(2)} KB</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="pt-4 border-t border-zinc-800">
-                        <div className={`flex items-center gap-2 p-3 rounded-lg border ${stats.nodes > 5000 ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
-                            {stats.nodes > 5000 ? <AlertTriangle size={16} /> : <Check size={16} />}
-                            <span className="text-xs font-bold">
-                                {stats.nodes > 5000 ? 'Alta Complexidade' : 'Vetor Otimizado'}
-                            </span>
-                        </div>
-                        {stats.nodes > 5000 && <p className="text-[10px] text-zinc-500 mt-2">Aumente a "Suavização" ou "Limpeza" para reduzir os nós.</p>}
-                    </div>
+            {/* Bottom Status / Navigation Bar */}
+            <footer className="h-10 bg-[#121215] border-t border-zinc-800 flex items-center justify-between px-6 shrink-0 text-zinc-500 text-[10px] font-mono">
+                <div className="flex items-center gap-2">
+                    <Info size={12} className="text-zinc-600" />
+                    <span>Use o scroll para dar zoom e arraste com o mouse para mover.</span>
                 </div>
-            )}
-        </div>
+                {/* Visual adjustment controls */}
+                {originalImage && (
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1">
+                            <button onClick={() => setZoom(z => Math.max(0.1, z - 0.2))} className="p-1 hover:text-white transition" id="pt-zoom-out"><ZoomOut size={14} /></button>
+                            <span>{Math.round(zoom * 100)}%</span>
+                            <button onClick={() => setZoom(z => Math.min(10, z + 0.2))} className="p-1 hover:text-white transition" id="pt-zoom-in"><ZoomIn size={14} /></button>
+                        </div>
+                        <span className="text-zinc-800">|</span>
+                        <button onClick={() => { setZoom(1); setPan({x:0, y:0}); }} className="hover:text-white transition flex items-center gap-1" id="pt-zoom-reset">
+                            <Maximize2 size={12} /> Centralizar
+                        </button>
+                    </div>
+                )}
+                {stats && (
+                    <div className="flex items-center gap-4">
+                        <span>Caminhos: {stats.layers}</span>
+                        <span>Pontos: {stats.nodes}</span>
+                        <span>Tamanho: {stats.sizeKb.toFixed(1)} KB</span>
+                        <span>Tempo: {stats.durationMs}ms</span>
+                    </div>
+                )}
+            </footer>
+        </main>
     </div>
   );
 }
