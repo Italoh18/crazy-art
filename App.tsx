@@ -46,6 +46,7 @@ const MoldesManager = lazy(() => import('./pages/MoldesManager'));
 const AdminMockupSoon = lazy(() => import('./pages/AdminMockupSoon'));
 const ListaPublica = lazy(() => import('./pages/ListaPublica'));
 const RefundPolicy = lazy(() => import('./pages/RefundPolicy'));
+const BaixarApp = lazy(() => import('./pages/BaixarApp'));
 
 const LoadingScreen = () => {
   const [messageIndex, setMessageIndex] = useState(0);
@@ -131,6 +132,8 @@ const AppRoutes = () => {
                 <Route path="/feedbacks" element={<ProtectedRoute requiredRole="admin"><Feedbacks /></ProtectedRoute>} />
                 <Route path="/admin-mockup-soon" element={<ProtectedRoute requiredRole="admin"><AdminMockupSoon /></ProtectedRoute>} />
                 <Route path="/politica-de-devolucao" element={<RefundPolicy />} />
+                <Route path="/baixar-app" element={<BaixarApp />} />
+                <Route path="/app" element={<Navigate to="/baixar-app" replace />} />
             </Routes>
         </Suspense>
     );

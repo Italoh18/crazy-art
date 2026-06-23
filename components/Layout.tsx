@@ -141,6 +141,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
             <button onClick={() => setLegalModal('privacidade')} className="hover:text-white transition">Política de Privacidade</button>
             <button onClick={() => setLegalModal('cookies')} className="hover:text-white transition">Relatório de Cookies</button>
             <Link to="/politica-de-devolucao" className="hover:text-white transition">Política de Devolução</Link>
+            <Link to="/baixar-app" className="hover:text-primary text-primary transition">Baixar Aplicativo</Link>
             <a href="https://wa.me/5516994142665" target="_blank" rel="noopener noreferrer" className="hover:text-white transition">SAC</a>
         </div>
       </div>
@@ -372,6 +373,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
                     <Link to="/my-orders" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-emerald-500 uppercase tracking-widest">Meus Pedidos</Link>
                     <Link to="/statement" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-blue-500 uppercase tracking-widest">Extrato</Link>
                     <Link to="/shop" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-white uppercase tracking-widest">Loja</Link>
+                    <Link to="/baixar-app" onClick={() => setIsClientMenuOpen(false)} className="text-2xl font-bold text-amber-400 uppercase tracking-widest">Aplicativo</Link>
                     
                     <button onClick={handleLogout} className="text-xl font-bold text-red-500 uppercase tracking-widest flex items-center gap-2 mt-8">
                         <LogOut size={20} /> Sair

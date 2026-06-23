@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers, MapPin, UserPlus, Menu, LogOut, Wrench, Grid, Palette, ChevronDown, ClipboardList, TrendingUp, Eye, EyeOff } from 'lucide-react';
+import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers, MapPin, UserPlus, Menu, LogOut, Wrench, Grid, Palette, ChevronDown, ClipboardList, TrendingUp, Eye, EyeOff, Smartphone } from 'lucide-react';
 import { NotificationCenter } from '../components/NotificationCenter';
 
 const GalaxyGame = React.lazy(() => import('../components/GalaxyGame').then(m => ({ default: m.GalaxyGame })));
@@ -229,6 +229,7 @@ export default function Home() {
     { name: 'Loja', icon: ShoppingBag, path: '/shop', color: 'text-emerald-400' },
     { name: 'Quitanda', sub: 'de Artes', icon: Palette, path: '/quitanda_de_art', color: 'text-purple-400' }, 
     { name: 'Ferramentas', icon: Wrench, path: '/tools', color: 'text-blue-400' },
+    { name: 'Aplicativo', icon: Smartphone, path: '/baixar-app', color: 'text-amber-400' },
     { name: 'Blog', icon: BookOpen, path: '', color: 'text-zinc-400', disabled: true },
   ];
 
