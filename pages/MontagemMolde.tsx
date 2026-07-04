@@ -664,8 +664,8 @@ export default function MontagemMolde() {
                                     <h3 className="text-zinc-600 text-[10px] font-black uppercase tracking-widest mb-2">Réplicas Adicionais ({replicas.length})</h3>
                                     <div className="space-y-1">
                                         {replicas.map(r => (
-                                            <div key={r.id} className="text-[10px] text-zinc-400 font-bold uppercase py-1 border-b border-zinc-800/50">
-                                                {r.size} • {r.name} • {r.number} {r.isConjunto && <span className="text-primary ml-2"> (CONJUNTO: {r.shortSize} • {r.shortNumber})</span>}
+                                            <div key={r.id} className="text-[10px] text-zinc-400 font-bold py-1 border-b border-zinc-800/50">
+                                                <span className="uppercase">{r.size}</span> • {r.name} • {r.number} {r.isConjunto && <span className="text-primary ml-2"> (CONJUNTO: <span className="uppercase">{r.shortSize}</span> • {r.shortNumber})</span>}
                                             </div>
                                         ))}
                                     </div>

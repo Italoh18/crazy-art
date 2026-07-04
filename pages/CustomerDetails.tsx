@@ -10,7 +10,7 @@ import {
   Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal,
   Coins, Lock, RotateCcw, CloudDownload, Sparkles, ChevronRight, Upload, MessageCircle,
   Crown, Ticket, Tag, Percent, Copy, Printer, Download, ToggleLeft, ToggleRight, RefreshCw,
-  Palette, Image
+  Palette, Image, ClipboardList
 } from 'lucide-react';
 import { api } from '../src/services/api';
 import { SizeListItem, Order } from '../types';
@@ -109,6 +109,9 @@ export default function CustomerDetails() {
 
   // State para Modal de Política de Fidelidade
   const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
+
+  // State para Modal de Políticas de Pedido
+  const [isOrderPolicyModalOpen, setIsOrderPolicyModalOpen] = useState(false);
 
   // --- New Order Generator Modal States ---
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
@@ -2674,13 +2677,22 @@ export default function CustomerDetails() {
                             <CreditCard className="text-primary" size={24} /><h2 className="text-xl font-bold text-white">Crédito Fidelidade</h2>
                         </div>
                         <p className="text-zinc-500 text-sm mb-4">Status da conta</p>
-                        <button 
-                            onClick={() => setIsPolicyModalOpen(true)}
-                            className="bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 group"
-                        >
-                            <AlertTriangle size={14} className="group-hover:text-primary transition-colors" />
-                            POLÍTICA DE FIDELIDADE
-                        </button>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <button 
+                                onClick={() => setIsPolicyModalOpen(true)}
+                                className="bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 group shrink-0"
+                            >
+                                <AlertTriangle size={14} className="group-hover:text-primary transition-colors" />
+                                POLÍTICA DE FIDELIDADE
+                            </button>
+                            <button 
+                                onClick={() => setIsOrderPolicyModalOpen(true)}
+                                className="bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 group shrink-0"
+                            >
+                                <ClipboardList size={14} className="group-hover:text-primary transition-colors" />
+                                POLÍTICAS DE PEDIDO
+                            </button>
+                        </div>
                     </div>
                     <div className="text-right">
                         <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Disponível</p>
@@ -2888,7 +2900,7 @@ export default function CustomerDetails() {
                             <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5"><span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Vencimento</span><span className={`font-mono text-sm ${new Date(viewingOrder.due_date) < new Date() && viewingOrder.status === 'open' ? 'text-red-400 font-bold' : 'text-white'}`}>{new Date(viewingOrder.due_date).toLocaleDateString()}</span></div>
                         </div>
                         {viewingOrder.size_list && (
-                            <div><h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Lista de Produção</h3><div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">{(typeof viewingOrder.size_list === 'string' ? JSON.parse(viewingOrder.size_list) : viewingOrder.size_list).map((item: SizeListItem, idx: number) => (<div key={idx} className="bg-zinc-900/30 p-2 rounded border border-white/5 flex justify-between items-center text-xs"><span className="text-zinc-300 font-bold">{item.size} <span className="text-zinc-500 font-normal">({item.category})</span></span>{item.isSimple ? <span className="text-white bg-zinc-700 px-2 py-0.5 rounded font-mono">x{item.quantity}</span> : <span className="text-primary font-bold uppercase">{item.name || '-'} <span className="text-white font-mono">{item.number ? `#${item.number}` : ''}</span></span>}</div>))}</div></div>
+                            <div><h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Lista de Produção</h3><div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">{(typeof viewingOrder.size_list === 'string' ? JSON.parse(viewingOrder.size_list) : viewingOrder.size_list).map((item: SizeListItem, idx: number) => (<div key={idx} className="bg-zinc-900/30 p-2 rounded border border-white/5 flex justify-between items-center text-xs"><span className="text-zinc-300 font-bold">{item.size} <span className="text-zinc-500 font-normal">({item.category})</span></span>{item.isSimple ? <span className="text-white bg-zinc-700 px-2 py-0.5 rounded font-mono">x{item.quantity}</span> : <span className="text-primary font-bold">{item.name || '-'} <span className="text-white font-mono">{item.number ? `#${item.number}` : ''}</span></span>}</div>))}</div></div>
                         )}
                         
                         {/* LISTA DE ITENS COM DOWNLOAD SE APLICÁVEL */}
@@ -3331,6 +3343,74 @@ export default function CustomerDetails() {
                         >
                             CONCORDO E ENTENDI
                         </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* MODAL POLÍTICAS DE PEDIDO */}
+        {isOrderPolicyModalOpen && (
+            <div className="fixed inset-0 z-[200] flex justify-center items-start pt-12 md:pt-24 bg-black/90 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
+                <div className="bg-[#121215] border border-white/10 rounded-3xl w-full max-w-2xl shadow-2xl relative flex flex-col animate-scale-in">
+                    <div className="p-8 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] rounded-t-3xl sticky top-0 z-10">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                                <ClipboardList size={24} />
+                            </div>
+                            <h2 className="text-2xl font-black text-white tracking-tighter uppercase">Políticas de Pedidos – CrazyArt</h2>
+                        </div>
+                        <button onClick={() => setIsOrderPolicyModalOpen(false)} className="p-2 bg-zinc-900 rounded-xl text-zinc-500 hover:text-white hover:rotate-90 transition-all border border-white/5"><X size={24} /></button>
+                    </div>
+
+                    <div className="p-8 space-y-8 text-zinc-300 leading-relaxed overflow-y-auto custom-scrollbar">
+                        <section className="space-y-4">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <span className="w-1.5 h-6 bg-primary rounded-full"></span>
+                                Políticas de Pedidos Padrão da Loja
+                            </h3>
+                            <div className="pl-4 space-y-3">
+                                <div className="bg-zinc-900/40 p-4 rounded-xl border border-white/5">
+                                    <h4 className="font-bold text-white text-sm mb-1 uppercase tracking-wider">Prazo de Entrega</h4>
+                                    <p className="text-zinc-400 text-xs">Os prazos de produção e entrega são calculados a partir da confirmação do pagamento do pedido e do recebimento correto de todas as especificações e arquivos necessários.</p>
+                                </div>
+                                <div className="bg-zinc-900/40 p-4 rounded-xl border border-white/5">
+                                    <h4 className="font-bold text-white text-sm mb-1 uppercase tracking-wider">Conferência e Aprovação</h4>
+                                    <p className="text-zinc-400 text-xs">Todos os detalhes do pedido, incluindo textos, cores, tamanhos, e modelos, devem ser criteriosamente revisados antes do envio para a linha de produção.</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="space-y-4">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <span className="w-1.5 h-6 bg-amber-500 rounded-full"></span>
+                                Política para Artes e Montagens
+                            </h3>
+                            <div className="pl-4 space-y-4">
+                                <p className="text-zinc-400 text-sm">Para solicitações de artes, montagens de moldes e preparação de arquivos para produção:</p>
+                                <div className="bg-amber-500/5 border border-amber-500/20 p-4 rounded-xl flex items-start gap-3">
+                                    <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={20} />
+                                    <div className="text-xs space-y-2">
+                                        <p className="text-zinc-300 font-bold">Prazo de Conferência (24 Horas):</p>
+                                        <p className="text-zinc-400 leading-relaxed">
+                                            O período padrão recomendado para cada pedido é de <strong className="text-white">24 horas</strong> para que haja a devida conferência técnica dos arquivos ou utilizando o sistema de conferência disponível no próprio site.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="bg-red-500/5 border border-red-500/20 p-4 rounded-xl flex items-start gap-3">
+                                    <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={20} />
+                                    <div className="text-xs space-y-2">
+                                        <p className="text-zinc-300 font-bold">Pedidos com Produção Urgente (Abaixo de 24 Horas):</p>
+                                        <p className="text-zinc-400 leading-relaxed">
+                                            Pedidos com prazo de produção inferior a <strong className="text-white">24 horas</strong> terão a conferência sob responsabilidade exclusiva do cliente, isentando a CrazyArt de qualquer divergência ou erro não apontado.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div className="p-8 bg-[#0c0c0e] border-t border-white/5 rounded-b-3xl">
+                        <button onClick={() => setIsOrderPolicyModalOpen(false)} className="w-full py-4 bg-primary hover:bg-amber-600 text-white rounded-2xl font-black transition shadow-lg shadow-primary/20 active:scale-95 uppercase tracking-widest">ENTENDI E ACEITO</button>
                     </div>
                 </div>
             </div>
