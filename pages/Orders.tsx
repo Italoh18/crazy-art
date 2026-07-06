@@ -62,7 +62,6 @@ export default function Orders() {
     try {
       await updateOrder(completedModalOrder.id, {
         production_step: 'completed',
-        status: 'finished',
         completed_art_url: completedArtUrl
       });
       setCompletedModalOrder(null);
