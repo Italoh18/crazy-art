@@ -17,6 +17,8 @@ export default function Orders() {
   const [approvalModalOrder, setApprovalModalOrder] = useState<Order | null>(null);
   const [approvalImageUrl, setApprovalImageUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [completedModalOrder, setCompletedModalOrder] = useState<Order | null>(null);
+  const [completedArtUrl, setCompletedArtUrl] = useState('');
   const [viewingMoldeDetailsOrder, setViewingMoldeDetailsOrder] = useState<Order | null>(null);
 
   React.useEffect(() => {
@@ -27,6 +29,11 @@ export default function Orders() {
     if (stepId === 'approval') {
       setApprovalModalOrder(order);
       setApprovalImageUrl(order.approval_image_url || '');
+      return;
+    }
+    if (stepId === 'completed') {
+      setCompletedModalOrder(order);
+      setCompletedArtUrl(order.completed_art_url || '');
       return;
     }
     await updateProductionStep(order.id, stepId);
@@ -44,6 +51,24 @@ export default function Orders() {
       await loadData(true);
     } catch (err) {
       alert('Erro ao atualizar aprovação');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSaveCompleted = async () => {
+    if (!completedModalOrder) return;
+    setIsUploading(true);
+    try {
+      await updateOrder(completedModalOrder.id, {
+        production_step: 'completed',
+        status: 'finished',
+        completed_art_url: completedArtUrl
+      });
+      setCompletedModalOrder(null);
+      await loadData(true);
+    } catch (err) {
+      alert('Erro ao concluir o pedido');
     } finally {
       setIsUploading(false);
     }
@@ -307,6 +332,42 @@ export default function Orders() {
             >
               {isUploading ? <Loader2 className="animate-spin" /> : <Check size={20} />}
               ENVIAR PARA O CLIENTE
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Conclusão de Pedido */}
+      {completedModalOrder && (
+        <div className="fixed inset-0 z-[100] flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-6 animate-scale-in">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold text-white tracking-tight animate-fade-in">Concluir Pedido e Enviar Arte</h2>
+              <button onClick={() => setCompletedModalOrder(null)} className="text-zinc-500 hover:text-white"><X size={20} /></button>
+            </div>
+            
+            <ImageUploadInput 
+              label="Arquivo de Arte Final ou Link"
+              value={completedArtUrl}
+              onChange={setCompletedArtUrl}
+              placeholder="https://link.com ou faça o upload (.cdr, .zip, .ai, .pdf, .jpg...)"
+              category="clientes"
+              accept="*"
+            />
+
+            <div className="bg-zinc-950/50 border border-white/5 rounded-xl p-3 text-xs text-zinc-400 space-y-1">
+              <p className="font-bold text-zinc-300">Regras e Instruções:</p>
+              <p>• Faça o upload de arquivos de design (.cdr, .ai, .zip) ou digite o link de download direto.</p>
+              <p>• O cliente poderá baixar o arquivo diretamente a partir da tela de detalhes do pedido.</p>
+            </div>
+
+            <button 
+              onClick={handleSaveCompleted}
+              disabled={isUploading || !completedArtUrl}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white py-4 rounded-xl font-black shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
+            >
+              {isUploading ? <Loader2 className="animate-spin" /> : <Check size={20} />}
+              CONCLUIR E ENVIAR ARTE
             </button>
           </div>
         </div>

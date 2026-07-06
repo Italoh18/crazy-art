@@ -655,6 +655,16 @@ export default function ClientOrders() {
                                                     Pago
                                                 </div>
                                             )}
+                                            {order.completed_art_url && (
+                                                <a 
+                                                    href={order.completed_art_url} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="flex-1 sm:w-full p-2 sm:p-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition flex items-center justify-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-black shadow-lg"
+                                                >
+                                                    <CloudDownload size={15} className="hidden xs:block" /> Baixar Arte
+                                                </a>
+                                            )}
                                             <button 
                                                 onClick={() => fetchAndSetViewingOrder(order)} 
                                                 className="flex-1 sm:w-full p-2 sm:p-2.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition border border-white/5 hover:border-zinc-700 flex items-center justify-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-bold active:scale-95"
@@ -777,6 +787,25 @@ export default function ClientOrders() {
                     </div>
 
                     <div className="p-8 overflow-y-auto custom-scrollbar space-y-8">
+                        {viewingOrder.completed_art_url && (
+                            <div className="bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-4">
+                                <div className="space-y-1 text-center sm:text-left">
+                                    <h4 className="text-emerald-400 font-black uppercase tracking-widest text-xs flex items-center justify-center sm:justify-start gap-1.5">
+                                        <Check size={14} /> Arte Pronta para Download
+                                    </h4>
+                                    <p className="text-zinc-400 text-xs">O arquivo final do seu pedido já está disponível para baixar.</p>
+                                </div>
+                                <a 
+                                    href={viewingOrder.completed_art_url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl flex items-center justify-center gap-2 font-black text-xs transition shadow-lg shadow-emerald-900/20 active:scale-95"
+                                >
+                                    <CloudDownload size={16} /> Baixar Arquivo de Arte
+                                </a>
+                            </div>
+                        )}
+
                         {/* Stepper de Progresso */}
                         <div className="bg-zinc-950/50 border border-white/5 rounded-2xl p-4 space-y-4">
                             {viewingOrder.production_step === 'approval' && viewingOrder.approval_image_url ? (

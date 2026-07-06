@@ -296,7 +296,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           return Response.json({ success: true });
       }
 
-      if (Object.keys(body).length <= 6 && (body.status || body.production_step || body.approval_image_url || body.change_request_desc || body.change_request_image_url || body.approval_date)) {
+      if (Object.keys(body).length <= 10 && (body.status || body.production_step || body.approval_image_url || body.change_request_desc || body.change_request_image_url || body.approval_date || body.completed_art_url)) {
         let updateQuery = 'UPDATE orders SET ';
         let updateParams: any[] = [];
         let clauses: string[] = [];
@@ -396,6 +396,10 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         if (body.approval_date !== undefined) {
             clauses.push('approval_date = ?');
             updateParams.push(body.approval_date);
+        }
+        if (body.completed_art_url !== undefined) {
+            clauses.push('completed_art_url = ?');
+            updateParams.push(body.completed_art_url);
         }
         
         updateQuery += clauses.join(', ') + ' WHERE id = ?';

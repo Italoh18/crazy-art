@@ -38,6 +38,10 @@ export const ProductionPath: React.FC<ProductionPathProps> = ({ order, isCompact
     }
 
     if (role === 'admin') {
+      if (stepId === 'approval' || stepId === 'completed') {
+        alert(`Para colocar em aprovação ou concluir este pedido com anexo de arte, faça-o através da tela de Pedidos.`);
+        return;
+      }
       await updateProductionStep(orderId, stepId);
     }
   };

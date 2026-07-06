@@ -100,6 +100,7 @@ export interface Order {
   change_request_desc?: string;
   change_request_image_url?: string;
   approval_date?: string;
+  completed_art_url?: string;
   credit_bonus_applied?: number;
   credit_penalty_applied?: number;
   discount?: number;
