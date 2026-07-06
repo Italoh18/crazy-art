@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { 
   User, DollarSign, CheckCircle, AlertTriangle, Loader2, ArrowLeft, Cloud, 
   ListChecks, Eye, Coins, Lock, Package, X, Check, CloudDownload, Sparkles, CreditCard, Trash2,
-  ClipboardList
+  ClipboardList, Share2
 } from 'lucide-react';
 import { ProductionPath } from '../components/ProductionPath';
 import { ImageUploadInput } from '../components/ImageUploadInput';
@@ -41,6 +41,10 @@ export default function ClientOrders() {
 
   // State para Modal de Políticas de Pedido
   const [isOrderPolicyModalOpen, setIsOrderPolicyModalOpen] = useState(false);
+
+  // States para download e compartilhamento de artes
+  const [downloadModalOrder, setDownloadModalOrder] = useState<any | null>(null);
+  const [shareSuccess, setShareSuccess] = useState(false);
 
   useEffect(() => {
     if (role !== 'client' || !currentCustomer) {
@@ -656,14 +660,12 @@ export default function ClientOrders() {
                                                 </div>
                                             )}
                                             {order.completed_art_url && (
-                                                <a 
-                                                    href={order.completed_art_url} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer"
-                                                    className="flex-1 sm:w-full p-2 sm:p-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition flex items-center justify-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-black shadow-lg"
+                                                <button 
+                                                    onClick={() => setDownloadModalOrder(order)}
+                                                    className="flex-1 sm:w-full p-2 sm:p-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition flex items-center justify-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-black shadow-lg active:scale-95 animate-pulse"
                                                 >
                                                     <CloudDownload size={15} className="hidden xs:block" /> Baixar Arte
-                                                </a>
+                                                </button>
                                             )}
                                             <button 
                                                 onClick={() => fetchAndSetViewingOrder(order)} 
@@ -795,14 +797,12 @@ export default function ClientOrders() {
                                     </h4>
                                     <p className="text-zinc-400 text-xs">O arquivo final do seu pedido já está disponível para baixar.</p>
                                 </div>
-                                <a 
-                                    href={viewingOrder.completed_art_url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl flex items-center justify-center gap-2 font-black text-xs transition shadow-lg shadow-emerald-900/20 active:scale-95"
+                                <button 
+                                    onClick={() => setDownloadModalOrder(viewingOrder)}
+                                    className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl flex items-center justify-center gap-2 font-black text-xs transition shadow-lg shadow-emerald-900/20 active:scale-95 animate-pulse"
                                 >
                                     <CloudDownload size={16} /> Baixar Arquivo de Arte
-                                </a>
+                                </button>
                             </div>
                         )}
 
@@ -1192,6 +1192,130 @@ export default function ClientOrders() {
                         {isApproving ? <Loader2 className="animate-spin" /> : <Check size={18} />}
                         Confirmar e Enviar
                     </button>
+                </div>
+            </div>
+        )}
+
+        {/* Modal de Download e Compartilhamento de Arte */}
+        {downloadModalOrder && (
+            <div className="fixed inset-0 z-[200] flex justify-center items-center bg-black/95 backdrop-blur-md p-4 animate-fade-in">
+                <div className="bg-[#121215] border border-white/10 rounded-3xl w-full max-w-lg shadow-2xl p-6 sm:p-8 space-y-6 animate-scale-in relative">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <h2 className="text-xl font-black text-white tracking-tight uppercase">Baixar Arte</h2>
+                            <p className="text-xs text-zinc-500 font-mono mt-0.5">Pedido #{downloadModalOrder.formattedOrderNumber || downloadModalOrder.order_number}</p>
+                        </div>
+                        <button 
+                            onClick={() => { setDownloadModalOrder(null); setShareSuccess(false); }} 
+                            className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-xl text-zinc-500 hover:text-white transition-all border border-white/5"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    {/* Imagem Enviada para Aprovação */}
+                    <div className="space-y-3">
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block ml-1">Imagem Enviada para Aprovação</span>
+                        {downloadModalOrder.approval_image_url ? (
+                            <div className="aspect-square w-full rounded-2xl overflow-hidden border border-white/5 bg-black/40 flex items-center justify-center relative group p-2">
+                                <img 
+                                    src={downloadModalOrder.approval_image_url} 
+                                    alt="Arte enviada para aprovação" 
+                                    className="max-w-full max-h-full object-contain rounded-xl"
+                                    referrerPolicy="no-referrer"
+                                />
+                            </div>
+                        ) : (
+                            <div className="aspect-square w-full rounded-2xl border border-dashed border-zinc-800 bg-black/20 flex flex-col items-center justify-center text-zinc-600">
+                                <span className="text-xs font-medium">Sem imagem de aprovação cadastrada</span>
+                            </div>
+                        )}
+
+                        {downloadModalOrder.approval_image_url && (
+                            <div className="grid grid-cols-2 gap-3">
+                                <button 
+                                    onClick={async () => {
+                                        const shareUrl = downloadModalOrder.approval_image_url;
+                                        if (navigator.share) {
+                                            try {
+                                                await navigator.share({
+                                                    title: `Arte do Pedido #${downloadModalOrder.order_number}`,
+                                                    text: `Confira a arte do meu pedido na CrazyArt!`,
+                                                    url: shareUrl
+                                                });
+                                            } catch (e) {
+                                                console.error('Erro ao compartilhar:', e);
+                                                // Fallback para cópia
+                                                try {
+                                                    await navigator.clipboard.writeText(shareUrl);
+                                                    setShareSuccess(true);
+                                                    setTimeout(() => setShareSuccess(false), 2000);
+                                                } catch (err) {
+                                                    console.error('Erro ao copiar:', err);
+                                                }
+                                            }
+                                        } else {
+                                            try {
+                                                await navigator.clipboard.writeText(shareUrl);
+                                                setShareSuccess(true);
+                                                setTimeout(() => setShareSuccess(false), 2000);
+                                            } catch (err) {
+                                                console.error('Erro ao copiar:', err);
+                                            }
+                                        }
+                                    }}
+                                    className="px-4 py-3 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 rounded-xl flex items-center justify-center gap-2 font-black text-xs transition border border-white/5 active:scale-95"
+                                >
+                                    {shareSuccess ? (
+                                        <>
+                                            <Check size={14} className="text-emerald-500" />
+                                            <span>Link Copiado!</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Share2 size={14} />
+                                            <span>Compartilhar</span>
+                                        </>
+                                    )}
+                                </button>
+
+                                <a 
+                                    href={downloadModalOrder.approval_image_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    download={`crazyart-${downloadModalOrder.order_number}-amostra.jpg`}
+                                    className="px-4 py-3 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 rounded-xl flex items-center justify-center gap-2 font-black text-xs transition border border-white/5 active:scale-95 text-center"
+                                >
+                                    <CloudDownload size={14} />
+                                    <span>Baixar Amostra</span>
+                                </a>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Divisor */}
+                    <div className="border-t border-white/5"></div>
+
+                    {/* Botão de Baixar Arte Final */}
+                    <div className="space-y-3">
+                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block ml-1">Arte Final Impressão / Alta Resolução</span>
+                        {downloadModalOrder.completed_art_url ? (
+                            <a 
+                                href={downloadModalOrder.completed_art_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                download={`crazyart-${downloadModalOrder.order_number}-final`}
+                                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl flex items-center justify-center gap-2 font-black text-xs transition shadow-lg shadow-emerald-900/20 active:scale-95 uppercase tracking-wider text-center"
+                            >
+                                <CloudDownload size={16} />
+                                Baixar Arte Final
+                            </a>
+                        ) : (
+                            <div className="p-4 bg-zinc-950/50 rounded-xl border border-white/5 text-center text-zinc-500 text-xs">
+                                Arte final em alta resolução ainda não foi disponibilizada
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         )}
