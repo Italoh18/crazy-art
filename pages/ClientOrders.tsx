@@ -217,6 +217,7 @@ export default function ClientOrders() {
 
   // States para Fluxo de Aprovação
   const [isApproving, setIsApproving] = useState(false);
+  const [showApprovalConfirmModal, setShowApprovalConfirmModal] = useState(false);
   const [showChangeRequestModal, setShowChangeRequestModal] = useState(false);
   const [changeRequestDesc, setChangeRequestDesc] = useState('');
   const [changeRequestImageUrl, setChangeRequestImageUrl] = useState('');
@@ -230,6 +231,7 @@ export default function ClientOrders() {
         approval_date: new Date().toISOString()
       });
       setViewingOrder(null);
+      setShowApprovalConfirmModal(false);
       await loadData(true);
       alert('Pedido aprovado com sucesso!');
     } catch (err) {
@@ -830,7 +832,7 @@ export default function ClientOrders() {
                                             <AlertTriangle size={16} /> Solicitar Alteração
                                         </button>
                                         <button 
-                                            onClick={handleApprove}
+                                            onClick={() => setShowApprovalConfirmModal(true)}
                                             disabled={isApproving}
                                             className="px-4 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black transition flex items-center justify-center gap-2 text-xs uppercase tracking-widest shadow-lg shadow-emerald-900/20 active:scale-95 disabled:opacity-50"
                                         >
@@ -1192,6 +1194,47 @@ export default function ClientOrders() {
                         {isApproving ? <Loader2 className="animate-spin" /> : <Check size={18} />}
                         Confirmar e Enviar
                     </button>
+                </div>
+            </div>
+        )}
+
+        {/* Modal de Confirmação de Aprovação */}
+        {showApprovalConfirmModal && (
+            <div className="fixed inset-0 z-[160] flex justify-center items-center bg-black/90 backdrop-blur-md p-4 animate-fade-in">
+                <div className="bg-[#121215] border border-white/10 rounded-3xl w-full max-w-md shadow-2xl p-8 space-y-6 animate-scale-in">
+                    <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                        <h2 className="text-xl font-bold text-white tracking-tight uppercase">Confirmar Aprovação</h2>
+                        <button onClick={() => setShowApprovalConfirmModal(false)} className="text-zinc-500 hover:text-white transition"><X size={24} /></button>
+                    </div>
+
+                    <div className="space-y-4 text-zinc-300 text-sm leading-relaxed">
+                        <p className="font-bold text-amber-500">
+                            Tem certeza? Apartir daqui a arte vai ser concluida e finalizada, e qualquer alteração posterior será uma nova arte
+                        </p>
+                        <p className="text-zinc-400">
+                            caso ainda tenha terceiros a confirmar sugerimos enviar antes e depois voltar aqui e clicar em aprovar
+                        </p>
+                        <p className="font-black text-white uppercase text-center mt-6 tracking-wide text-xs">
+                            aprovar mesmo assim?
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
+                        <button 
+                            onClick={() => setShowApprovalConfirmModal(false)}
+                            className="px-4 py-3 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-xl font-bold transition flex items-center justify-center gap-2 text-xs uppercase tracking-widest border border-white/5 active:scale-95"
+                        >
+                            Não
+                        </button>
+                        <button 
+                            onClick={handleApprove}
+                            disabled={isApproving}
+                            className="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black transition flex items-center justify-center gap-2 text-xs uppercase tracking-widest shadow-lg shadow-emerald-900/20 active:scale-95 disabled:opacity-50"
+                        >
+                            {isApproving ? <Loader2 className="animate-spin" size={14} /> : <Check size={14} />}
+                            Sim
+                        </button>
+                    </div>
                 </div>
             </div>
         )}
