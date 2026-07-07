@@ -356,7 +356,12 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
       // Notificação para o cliente quando entra em aprovação
             if (body.production_step === 'approval') {
-                const order: any = await env.DB.prepare('SELECT order_number, client_id FROM orders WHERE id = ?').bind(id).first();
+                const order: any = await env.DB.prepare(`
+                    SELECT o.order_number, o.client_id, c.name as client_name, c.email as client_email
+                    FROM orders o
+                    JOIN clients c ON o.client_id = c.id
+                    WHERE o.id = ?
+                `).bind(id).first();
                 if (order) {
                     const formattedNum = String(order.order_number).padStart(5, '0');
                     const message = `Seu pedido #${formattedNum} está aguardando sua aprovação para seguir na produção.`;
@@ -375,8 +380,27 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                     await sendPushNotification(env, order.client_id, {
                         title: 'Aguardando Aprovação',
                         body: message,
-                        url: '/minha-area'
+                        url: '/my-orders'
                     });
+
+                    // EMAIL CLIENTE (Aprovação)
+                    if (order.client_email) {
+                        try {
+                            const origin = request.headers.get('origin') || 'https://crazyart.com.br';
+                            const emailContent = await getRenderedTemplate(env, 'artApprovalPending', {
+                                orderNumber: formattedNum,
+                                customerName: order.client_name,
+                                appUrl: origin
+                            });
+                            await sendEmail(env, {
+                                to: order.client_email,
+                                subject: `[Crazy Art] Arte Disponível para Aprovação - Pedido #${formattedNum}`,
+                                html: emailContent.html
+                            });
+                        } catch (e) {
+                            console.error('Error sending email to client for art approval:', e);
+                        }
+                    }
                 }
             }
         }

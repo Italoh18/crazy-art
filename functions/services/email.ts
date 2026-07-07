@@ -12,7 +12,8 @@ export type TemplateType =
   | 'paymentConfirmedAdmin' 
   | 'overdueClient' 
   | 'overdueAdmin'
-  | 'subscriptionExpiring';
+  | 'subscriptionExpiring'
+  | 'artApprovalPending';
 
 // Helper para formatar o remetente corretamente
 const getSender = (env: any) => {
@@ -156,6 +157,25 @@ const defaultTemplates = {
         <p>Acesse a loja e clique no botão de assinatura para renovar por apenas R$ 20,00.</p>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
         <p style="font-size: 12px; color: #777;">Crazy Art | Comunicação visual</p>
+      </div>
+    `
+  }),
+
+  artApprovalPending: (vars: any) => ({
+    subject: `Arte Disponível para Aprovação - Pedido #${vars.orderNumber}`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; line-height: 1.6; max-width: 600px; border: 1px solid #e4e4e7; border-radius: 12px; padding: 24px; background-color: #ffffff;">
+        <h2 style="color: #10B981; margin-top: 0;">Olá, ${vars.customerName}!</h2>
+        <p>A arte do seu pedido <strong>#${vars.orderNumber}</strong> já está pronta e disponível para sua aprovação!</p>
+        <p>Por favor, acesse o seu perfil e vá na aba "Meus Pedidos" para visualizar e aprovar a arte.</p>
+        <div style="background: #f4f4f5; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e4e4e7;">
+          <p style="margin: 0; font-size: 13px; color: #4b5563;"><strong>Mensagem importante:</strong> Assim que você aprovar a arte, ela será finalizada para a produção. Se precisar de qualquer alteração, poderá solicitar diretamente pelo painel.</p>
+        </div>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${vars.appUrl || 'https://crazyart.com.br'}/my-orders" style="background-color: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Visualizar e Aprovar Arte</a>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="font-size: 11px; color: #9ca3af; text-align: center; margin-bottom: 0;">Crazy Art | Comunicação visual</p>
       </div>
     `
   })
