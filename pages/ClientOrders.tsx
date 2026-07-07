@@ -45,6 +45,7 @@ export default function ClientOrders() {
   // States para download e compartilhamento de artes
   const [downloadModalOrder, setDownloadModalOrder] = useState<any | null>(null);
   const [shareSuccess, setShareSuccess] = useState(false);
+  const [shareFinalSuccess, setShareFinalSuccess] = useState(false);
 
   useEffect(() => {
     if (role !== 'client' || !currentCustomer) {
@@ -1343,16 +1344,64 @@ export default function ClientOrders() {
                     <div className="space-y-3">
                         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block ml-1">Arte Final Impressão / Alta Resolução</span>
                         {downloadModalOrder.completed_art_url ? (
-                            <a 
-                                href={downloadModalOrder.completed_art_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                download={`crazyart-${downloadModalOrder.order_number}-final`}
-                                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl flex items-center justify-center gap-2 font-black text-xs transition shadow-lg shadow-emerald-900/20 active:scale-95 uppercase tracking-wider text-center"
-                            >
-                                <CloudDownload size={16} />
-                                Baixar Arte Final
-                            </a>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    onClick={async () => {
+                                        const shareUrl = downloadModalOrder.completed_art_url || '';
+                                        if (navigator.share) {
+                                            try {
+                                                await navigator.share({
+                                                    title: `Arte Final do Pedido #${downloadModalOrder.order_number}`,
+                                                    text: `Confira a arte final do meu pedido na CrazyArt!`,
+                                                    url: shareUrl
+                                                });
+                                            } catch (e) {
+                                                console.error('Erro ao compartilhar:', e);
+                                                // Fallback para cópia
+                                                try {
+                                                    await navigator.clipboard.writeText(shareUrl);
+                                                    setShareFinalSuccess(true);
+                                                    setTimeout(() => setShareFinalSuccess(false), 2000);
+                                                } catch (err) {
+                                                    console.error('Erro ao copiar:', err);
+                                                }
+                                            }
+                                        } else {
+                                            try {
+                                                await navigator.clipboard.writeText(shareUrl);
+                                                setShareFinalSuccess(true);
+                                                setTimeout(() => setShareFinalSuccess(false), 2000);
+                                            } catch (err) {
+                                                console.error('Erro ao copiar:', err);
+                                            }
+                                        }
+                                    }}
+                                    className="px-4 py-3 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 rounded-xl flex items-center justify-center gap-2 font-black text-xs transition border border-white/5 active:scale-95"
+                                >
+                                    {shareFinalSuccess ? (
+                                        <>
+                                            <Check size={14} className="text-emerald-500" />
+                                            <span>Link Copiado!</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Share2 size={14} />
+                                            <span>Compartilhar</span>
+                                        </>
+                                    )}
+                                </button>
+
+                                <a 
+                                    href={downloadModalOrder.completed_art_url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    download={`crazyart-${downloadModalOrder.order_number}-final`}
+                                    className="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl flex items-center justify-center gap-2 font-black text-xs transition shadow-lg shadow-emerald-900/20 active:scale-95 uppercase tracking-wider text-center flex items-center justify-center"
+                                >
+                                    <CloudDownload size={14} />
+                                    <span>Baixar Arte Final</span>
+                                </a>
+                            </div>
                         ) : (
                             <div className="p-4 bg-zinc-950/50 rounded-xl border border-white/5 text-center text-zinc-500 text-xs">
                                 Arte final em alta resolução ainda não foi disponibilizada

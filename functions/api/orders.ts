@@ -18,6 +18,12 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     // GET /api/orders
     if (request.method === 'GET') {
+      try {
+        await runCleanupIfNeeded(env);
+      } catch (cleanupErr) {
+        console.error("Failed to run cleanup:", cleanupErr);
+      }
+
       if (id) {
         const order: any = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
         if (!order) return new Response(JSON.stringify({ error: 'Pedido não encontrado' }), { status: 404 });
@@ -604,3 +610,98 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
     return new Response(JSON.stringify({ error: 'Erro interno ao processar pedidos.' }), { status: 500 });
   }
 };
+
+async function runCleanupIfNeeded(env: Env) {
+  try {
+    const lastCleanupRow: any = await env.DB.prepare("SELECT value FROM site_settings WHERE key = 'last_file_cleanup_time'").first();
+    const now = Date.now();
+    const lastCleanup = lastCleanupRow ? parseInt(lastCleanupRow.value, 10) : 0;
+    
+    // Run cleanup at most once every 12 hours
+    if (now - lastCleanup > 12 * 60 * 60 * 1000) {
+      // Update last cleanup time first to prevent overlapping concurrent cleanups
+      await env.DB.prepare("INSERT OR REPLACE INTO site_settings (key, value, updated_at) VALUES ('last_file_cleanup_time', ?, ?)")
+        .bind(String(now), new Date().toISOString())
+        .run();
+        
+      // Run the cleanup
+      await cleanupOldFiles(env);
+    }
+  } catch (e) {
+    console.error("Error in runCleanupIfNeeded:", e);
+  }
+}
+
+async function cleanupOldFiles(env: Env) {
+  try {
+    const orders: any[] = await env.DB.prepare(`
+      SELECT id, approval_image_url, completed_art_url 
+      FROM orders 
+      WHERE approval_image_url IS NOT NULL OR completed_art_url IS NOT NULL
+    `).all().then((r: any) => r.results || []);
+
+    const now = Date.now();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+    for (const order of orders) {
+      let updateFields: string[] = [];
+      let updateParams: any[] = [];
+
+      // Check approval_image_url
+      if (order.approval_image_url) {
+        const ts = parseTimestampFromUrl(order.approval_image_url);
+        if (ts && (now - ts > SEVEN_DAYS_MS)) {
+          // Delete from bucket
+          const r2Url = env.R2_PUBLIC_URL || '';
+          const key = order.approval_image_url.replace(r2Url, '').replace(/^\/+/, '');
+          try {
+            await env.MY_BUCKET.delete(key);
+            console.log(`Deleted old approval image from R2: ${key}`);
+          } catch (err) {
+            console.error(`Failed to delete key ${key} from R2:`, err);
+          }
+          updateFields.push('approval_image_url = NULL');
+        }
+      }
+
+      // Check completed_art_url
+      if (order.completed_art_url) {
+        const ts = parseTimestampFromUrl(order.completed_art_url);
+        if (ts && (now - ts > SEVEN_DAYS_MS)) {
+          // Delete from bucket
+          const r2Url = env.R2_PUBLIC_URL || '';
+          const key = order.completed_art_url.replace(r2Url, '').replace(/^\/+/, '');
+          try {
+            await env.MY_BUCKET.delete(key);
+            console.log(`Deleted old completed art from R2: ${key}`);
+          } catch (err) {
+            console.error(`Failed to delete key ${key} from R2:`, err);
+          }
+          updateFields.push('completed_art_url = NULL');
+        }
+      }
+
+      if (updateFields.length > 0) {
+        await env.DB.prepare(`
+          UPDATE orders 
+          SET ${updateFields.join(', ')} 
+          WHERE id = ?
+        `).bind(order.id).run();
+      }
+    }
+  } catch (e) {
+    console.error("Error running old files cleanup:", e);
+  }
+}
+
+function parseTimestampFromUrl(url: string): number | null {
+  if (!url) return null;
+  const parts = url.split('/');
+  const fileName = parts[parts.length - 1];
+  if (!fileName) return null;
+  const match = fileName.match(/^(\d+)-/);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+  return null;
+}
