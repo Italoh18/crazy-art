@@ -10,7 +10,7 @@ import { ImageUploadInput } from '../components/ImageUploadInput';
 import { MontagemMoldeDetailsSection, MontagemMoldeModal } from '../components/MontagemMoldeDetailsSection';
 
 export default function Orders() {
-  const { orders, loadData, updateProductionStep, updateOrder } = useData();
+  const { orders, loadData, updateProductionStep, updateOrder, customers } = useData();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -47,6 +47,17 @@ export default function Orders() {
         production_step: 'approval',
         approval_image_url: approvalImageUrl
       });
+
+      // Redirecionar para o WhatsApp do cliente
+      const client = customers?.find(c => c.id === approvalModalOrder.client_id);
+      if (client && client.phone) {
+        const orderNum = approvalModalOrder.formattedOrderNumber || approvalModalOrder.order_number;
+        const message = `\`\`\`Notificação: Arte ${orderNum} disponivel para aprovação em seu perfil \`\`\``;
+        const encodedMessage = encodeURIComponent(message);
+        const phoneNumber = client.phone.replace(/\D/g, '');
+        window.open(`https://wa.me/55${phoneNumber}?text=${encodedMessage}`, '_blank');
+      }
+
       setApprovalModalOrder(null);
       await loadData(true);
     } catch (err) {

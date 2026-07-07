@@ -204,8 +204,19 @@ export const NotificationCenter = () => {
 
     // 3. Navegação Inteligente baseada no conteúdo ou tipo
     if (role === 'client') {
-        // Clientes sempre vão para sua área de detalhes
-        navigate('/minha-area');
+        const titleLower = notif.title.toLowerCase();
+        const messageLower = notif.message.toLowerCase();
+        if (
+            notif.reference_id?.startsWith('approval_') || 
+            titleLower.includes('aprova') || 
+            messageLower.includes('aprova') || 
+            titleLower.includes('aguardando') || 
+            messageLower.includes('aguardando')
+        ) {
+            navigate('/my-orders');
+        } else {
+            navigate('/minha-area');
+        }
     } else if (role === 'admin') {
         // Lógica para Admin
         const titleLower = notif.title.toLowerCase();
