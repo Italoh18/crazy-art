@@ -34,6 +34,7 @@ export default function LayoutSimples() {
   
   // Briefing State
   const [description, setDescription] = useState('');
+  const [printType, setPrintType] = useState<'silk' | 'sublimacao' | 'dtf' | null>(null);
   const [exampleUrl, setExampleUrl] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [extraImages, setExtraImages] = useState<string[]>([]);
@@ -125,7 +126,7 @@ export default function LayoutSimples() {
   };
 
   const handleNextToSummary = () => {
-    if (!description.trim()) {
+    if (!description.trim() || !printType) {
       setShowIncompleteError(true);
       return;
     }
@@ -172,9 +173,13 @@ export default function LayoutSimples() {
     setPaymentMethod(method);
 
     const validExtras = extraImages.filter(Boolean);
-    const finalDescription = validExtras.length > 0 
+    let finalDescription = validExtras.length > 0 
       ? `${description}\n\n--- IMAGENS EXTRAS ---\n${validExtras.join(',')}` 
       : description;
+
+    if (printType) {
+      finalDescription = `TIPO DE IMPRESSÃO: ${printType.toUpperCase()}\n\n${finalDescription}`;
+    }
 
     try {
         const response = await fetch('/api/layout-requests', {
@@ -297,6 +302,40 @@ export default function LayoutSimples() {
 
             {/* Briefing Form */}
             <div id="briefing-form" className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 space-y-8 mt-10">
+               {/* Tipo de Impressão */}
+               <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                     <span className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-black text-sm italic">?</span>
+                     <h3 className="text-sm font-black text-white uppercase tracking-widest italic">Tipo de Impressão</h3>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                     {[
+                       { id: 'silk', label: 'Silk' },
+                       { id: 'sublimacao', label: 'Sublimação' },
+                       { id: 'dtf', label: 'DTF' }
+                     ].map((opt) => (
+                       <button
+                         key={opt.id}
+                         type="button"
+                         onClick={() => {
+                           setPrintType(opt.id as 'silk' | 'sublimacao' | 'dtf');
+                           if (showIncompleteError) setShowIncompleteError(false);
+                         }}
+                         className={`py-4 rounded-xl font-bold uppercase text-xs tracking-wider transition-all border ${
+                           printType === opt.id
+                             ? 'bg-primary border-primary text-black shadow-lg shadow-primary/15'
+                             : 'bg-black/40 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-white'
+                         }`}
+                       >
+                         {opt.label}
+                       </button>
+                     ))}
+                  </div>
+                  {showIncompleteError && !printType && (
+                     <p className="text-red-500 text-[10px] font-bold mt-2 uppercase tracking-widest animate-pulse">Por favor, selecione se o pedido é silk, sublimação ou dtf</p>
+                  )}
+               </div>
+
                <div>
                   <div className="flex items-center gap-2 mb-4">
                      <span className="w-8 h-8 rounded-full bg-primary text-black flex items-center justify-center font-black text-sm italic">01</span>
@@ -445,6 +484,13 @@ export default function LayoutSimples() {
                          <label className="text-zinc-600 text-[10px] uppercase font-bold tracking-widest block mb-2">Serviço</label>
                          <p className="text-xl font-black text-white uppercase">{service.name}</p>
                       </div>
+                      
+                      {printType && (
+                         <div>
+                            <label className="text-zinc-600 text-[10px] uppercase font-bold tracking-widest block mb-2">Tipo de Impressão</label>
+                            <p className="text-md font-black text-primary uppercase">{printType === 'sublimacao' ? 'Sublimação' : printType}</p>
+                         </div>
+                      )}
                       
                       <div>
                          <label className="text-zinc-600 text-[10px] uppercase font-bold tracking-widest block mb-2">O que você precisa</label>

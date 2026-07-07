@@ -6,8 +6,6 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { X, User, Lock, ShoppingBag, BookOpen, Tv, ChevronLeft, ChevronRight, Sparkles, LayoutGrid, Layers, MapPin, UserPlus, Menu, LogOut, Wrench, Grid, Palette, ChevronDown, ClipboardList, TrendingUp, Eye, EyeOff, Smartphone } from 'lucide-react';
 import { NotificationCenter } from '../components/NotificationCenter';
 
-const GalaxyGame = React.lazy(() => import('../components/GalaxyGame').then(m => ({ default: m.GalaxyGame })));
-
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loginMode, setLoginMode] = useState<'client' | 'admin'>('client');
@@ -18,7 +16,6 @@ export default function Home() {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [gameMode, setGameMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   
@@ -35,9 +32,6 @@ export default function Home() {
   const navigate = useNavigate();
   const location = useLocation();
   const userMenuRef = useRef<HTMLDivElement>(null);
-
-  const tapCountRef = useRef(0);
-  const resetTapTimeoutRef = useRef<any>(null);
 
   const stars = useMemo(() => {
     return Array.from({ length: 40 }).map((_, i) => ({
@@ -78,17 +72,6 @@ export default function Home() {
     }
   }, [carouselImages]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
-            e.preventDefault();
-            setGameMode(prev => !prev);
-        }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
   // Fechar menu de usuário ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -99,20 +82,6 @@ export default function Home() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const handleGalaxyTap = () => {
-    if (gameMode) return;
-    tapCountRef.current += 1;
-    if (resetTapTimeoutRef.current) clearTimeout(resetTapTimeoutRef.current);
-
-    if (tapCountRef.current === 3) {
-        setGameMode(true);
-        tapCountRef.current = 0;
-        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(100);
-    } else {
-        resetTapTimeoutRef.current = setTimeout(() => { tapCountRef.current = 0; }, 500);
-    }
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -498,8 +467,7 @@ export default function Home() {
 
       <main className="relative z-10 flex-1 flex flex-col items-center w-full pt-20">
         <div 
-            onClick={handleGalaxyTap}
-            className="w-full h-[60vh] md:h-[70vh] relative overflow-hidden bg-black group shadow-2xl cursor-pointer select-none"
+            className="w-full h-[60vh] md:h-[70vh] relative overflow-hidden bg-black group shadow-2xl select-none"
         >
           <div className="absolute inset-0 z-0 overflow-hidden bg-black">
              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#1e1b4b_0%,_#000000_100%)] opacity-80"></div>
@@ -510,69 +478,55 @@ export default function Home() {
                     </div>
                 ))}
              </div>
-             {!gameMode && (
-                <div className="absolute inset-0 z-10 pointer-events-none">
-                    {meteors.map((meteor) => (
-                        <div key={meteor.id} className="absolute h-0.5 w-[150px] bg-gradient-to-r from-transparent via-white to-transparent animate-meteor opacity-0" style={{ top: meteor.top, left: meteor.left, animationDelay: meteor.animationDelay, animationDuration: meteor.animationDuration }}></div>
-                    ))}
-                </div>
-             )}
+             <div className="absolute inset-0 z-10 pointer-events-none">
+                 {meteors.map((meteor) => (
+                     <div key={meteor.id} className="absolute h-0.5 w-[150px] bg-gradient-to-r from-transparent via-white to-transparent animate-meteor opacity-0" style={{ top: meteor.top, left: meteor.left, animationDelay: meteor.animationDelay, animationDuration: meteor.animationDuration }}></div>
+                 ))}
+             </div>
              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black opacity-90 z-20"></div>
           </div>
 
-          {gameMode && (
-              <div className="absolute inset-0 z-50">
-                  <React.Suspense fallback={null}>
-                      <GalaxyGame onClose={() => setGameMode(false)} />
-                  </React.Suspense>
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-30 pointer-events-none pb-[10vh]">
+              <div className="relative">
+                  <div className="absolute inset-0 bg-primary/10 blur-[30px] rounded-full"></div>
+                  <h2 className="text-5xl md:text-7xl font-bold text-white tracking-[0.2em] font-heading text-center drop-shadow-lg animate-fade-in-up" style={headerFont}>
+                      CRAZY ART
+                  </h2>
+                  <div className="h-px w-24 bg-zinc-700 mx-auto my-6"></div>
+                  <p className="bg-gradient-to-r from-yellow-400 to-red-600 bg-clip-text text-transparent text-sm md:text-lg tracking-[0.5em] text-center uppercase animate-fade-in-up font-medium" style={{ animationDelay: '200ms' }}>
+                      transformando ideias
+                  </p>
               </div>
-          )}
+          </div>
 
-          {!gameMode && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center z-30 pointer-events-none pb-[10vh]">
-                <div className="relative">
-                    <div className="absolute inset-0 bg-primary/10 blur-[30px] rounded-full"></div>
-                    <h2 className="text-5xl md:text-7xl font-bold text-white tracking-[0.2em] font-heading text-center drop-shadow-lg animate-fade-in-up" style={headerFont}>
-                        CRAZY ART
-                    </h2>
-                    <div className="h-px w-24 bg-zinc-700 mx-auto my-6"></div>
-                    <p className="bg-gradient-to-r from-yellow-400 to-red-600 bg-clip-text text-transparent text-sm md:text-lg tracking-[0.5em] text-center uppercase animate-fade-in-up font-medium" style={{ animationDelay: '200ms' }}>
-                        transformando ideias
-                    </p>
-                </div>
-            </div>
-          )}
-
-          {!gameMode && (
-            <div className="absolute bottom-0 left-0 w-full h-[120px] sm:h-[160px] md:h-[200px] z-40 bg-gradient-to-t from-black via-black/80 to-transparent" onClick={(e) => e.stopPropagation()}>
-                <div className="w-full h-full flex transition-transform duration-700 ease-in-out" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
-                    {carouselImages.length > 0 ? (
-                        carouselImages.map((img) => (
-                            <div key={img.id} className="w-full h-full flex-shrink-0 relative">
-                                <img src={img.url} alt="Banner" className="w-full h-full object-cover opacity-60" onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&q=80&w=1920'; }} />
-                            </div>
-                        ))
-                    ) : (
-                        [0, 1].map((index) => (
-                            <div key={index} className="w-full h-full flex-shrink-0 relative flex items-center justify-center bg-zinc-900/50">
-                                <div className="flex items-center gap-3 opacity-80"><Sparkles size={16} className="text-orange-500" /><span className="text-xs uppercase tracking-widest text-orange-500 font-bold">Destaques em Breve</span></div>
-                            </div>
-                        ))
-                    )}
-                </div>
-                {carouselImages.length > 1 && (
-                    <>
-                        <button onClick={() => setCurrentSlide((prev) => (prev - 1 + carouselImages.length) % carouselImages.length)} className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-black/40 text-white rounded-full hover:bg-white/10 transition-all border border-white/5"><ChevronLeft size={16} /></button>
-                        <button onClick={() => setCurrentSlide((prev) => (prev + 1) % carouselImages.length)} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-black/40 text-white rounded-full hover:bg-white/10 transition-all border border-white/5"><ChevronRight size={16} /></button>
-                        <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-2">
-                            {carouselImages.map((_, i) => (
-                                <button key={i} onClick={() => setCurrentSlide(i)} className={`h-1 rounded-full transition-all duration-300 ${currentSlide === i ? 'w-8 bg-primary' : 'w-2 bg-zinc-700'}`} />
-                            ))}
-                        </div>
-                    </>
-                )}
-            </div>
-          )}
+          <div className="absolute bottom-0 left-0 w-full h-[120px] sm:h-[160px] md:h-[200px] z-40 bg-gradient-to-t from-black via-black/80 to-transparent">
+              <div className="w-full h-full flex transition-transform duration-700 ease-in-out" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
+                  {carouselImages.length > 0 ? (
+                      carouselImages.map((img) => (
+                          <div key={img.id} className="w-full h-full flex-shrink-0 relative">
+                              <img src={img.url} alt="Banner" className="w-full h-full object-cover opacity-60" onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&q=80&w=1920'; }} />
+                          </div>
+                      ))
+                  ) : (
+                      [0, 1].map((index) => (
+                          <div key={index} className="w-full h-full flex-shrink-0 relative flex items-center justify-center bg-zinc-900/50">
+                              <div className="flex items-center gap-3 opacity-80"><Sparkles size={16} className="text-orange-500" /><span className="text-xs uppercase tracking-widest text-orange-500 font-bold">Destaques em Breve</span></div>
+                          </div>
+                      ))
+                  )}
+              </div>
+              {carouselImages.length > 1 && (
+                  <>
+                      <button onClick={() => setCurrentSlide((prev) => (prev - 1 + carouselImages.length) % carouselImages.length)} className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-black/40 text-white rounded-full hover:bg-white/10 transition-all border border-white/5"><ChevronLeft size={16} /></button>
+                      <button onClick={() => setCurrentSlide((prev) => (prev + 1) % carouselImages.length)} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-black/40 text-white rounded-full hover:bg-white/10 transition-all border border-white/5"><ChevronRight size={16} /></button>
+                      <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-2">
+                          {carouselImages.map((_, i) => (
+                              <button key={i} onClick={() => setCurrentSlide(i)} className={`h-1 rounded-full transition-all duration-300 ${currentSlide === i ? 'w-8 bg-primary' : 'w-2 bg-zinc-700'}`} />
+                          ))}
+                      </div>
+                  </>
+              )}
+          </div>
         </div>
 
         {trustedCompanies.length > 0 && (
