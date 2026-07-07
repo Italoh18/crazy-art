@@ -13,7 +13,8 @@ export type TemplateType =
   | 'overdueClient' 
   | 'overdueAdmin'
   | 'subscriptionExpiring'
-  | 'artApprovalPending';
+  | 'artApprovalPending'
+  | 'artCompleted';
 
 // Helper para formatar o remetente corretamente
 const getSender = (env: any) => {
@@ -173,6 +174,25 @@ const defaultTemplates = {
         </div>
         <div style="text-align: center; margin: 30px 0;">
           <a href="${vars.appUrl || 'https://crazyart.com.br'}/my-orders" style="background-color: #10B981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Visualizar e Aprovar Arte</a>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="font-size: 11px; color: #9ca3af; text-align: center; margin-bottom: 0;">Crazy Art | Comunicação visual</p>
+      </div>
+    `
+  }),
+
+  artCompleted: (vars: any) => ({
+    subject: `Arte Concluída e Finalizada! - Pedido #${vars.orderNumber}`,
+    html: `
+      <div style="font-family: sans-serif; color: #333; line-height: 1.6; max-width: 600px; border: 1px solid #e4e4e7; border-radius: 12px; padding: 24px; background-color: #ffffff;">
+        <h2 style="color: #4F46E5; margin-top: 0;">Olá, ${vars.customerName}!</h2>
+        <p>A arte final do seu pedido <strong>#${vars.orderNumber}</strong> foi concluída e finalizada com sucesso!</p>
+        <p>Ela já está disponível para você baixar diretamente em seu perfil.</p>
+        <div style="background: #f4f4f5; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e4e4e7;">
+          <p style="margin: 0; font-size: 13px; color: #4b5563;"><strong>Dica:</strong> Acesse seu perfil, navegue até a aba "Meus Pedidos", selecione o pedido #${vars.orderNumber} e faça o download do arquivo em alta resolução.</p>
+        </div>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${vars.appUrl || 'https://crazyart.com.br'}/my-orders" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Acessar Meus Pedidos</a>
         </div>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
         <p style="font-size: 11px; color: #9ca3af; text-align: center; margin-bottom: 0;">Crazy Art | Comunicação visual</p>

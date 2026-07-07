@@ -208,10 +208,13 @@ export const NotificationCenter = () => {
         const messageLower = notif.message.toLowerCase();
         if (
             notif.reference_id?.startsWith('approval_') || 
+            notif.reference_id?.startsWith('completed_') || 
             titleLower.includes('aprova') || 
             messageLower.includes('aprova') || 
             titleLower.includes('aguardando') || 
-            messageLower.includes('aguardando')
+            messageLower.includes('aguardando') ||
+            titleLower.includes('conclui') ||
+            messageLower.includes('conclui')
         ) {
             navigate('/my-orders');
         } else {

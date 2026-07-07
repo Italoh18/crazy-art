@@ -75,6 +75,17 @@ export default function Orders() {
         production_step: 'completed',
         completed_art_url: completedArtUrl
       });
+
+      // Redirecionar para o WhatsApp do cliente
+      const client = customers?.find(c => c.id === completedModalOrder.client_id);
+      if (client && client.phone) {
+        const orderNum = completedModalOrder.formattedOrderNumber || completedModalOrder.order_number;
+        const message = `\`\`\`Notificação: Arte ${orderNum} concluída e finalizada! Acesse seu perfil para fazer o download \`\`\``;
+        const encodedMessage = encodeURIComponent(message);
+        const phoneNumber = client.phone.replace(/\D/g, '');
+        window.open(`https://wa.me/55${phoneNumber}?text=${encodedMessage}`, '_blank');
+      }
+
       setCompletedModalOrder(null);
       await loadData(true);
     } catch (err) {

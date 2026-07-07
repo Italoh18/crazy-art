@@ -402,6 +402,53 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
                         }
                     }
                 }
+            } else if (body.production_step === 'completed') {
+                const order: any = await env.DB.prepare(`
+                    SELECT o.order_number, o.client_id, c.name as client_name, c.email as client_email
+                    FROM orders o
+                    JOIN clients c ON o.client_id = c.id
+                    WHERE o.id = ?
+                `).bind(id).first();
+                if (order) {
+                    const formattedNum = String(order.order_number).padStart(5, '0');
+                    const message = `A arte do seu pedido #${formattedNum} foi concluída e finalizada! Já está disponível para download.`;
+                    await env.DB.prepare(`
+                        INSERT INTO notifications (id, target_role, user_id, type, title, message, created_at, reference_id, is_read)
+                        VALUES (?, 'client', ?, 'success', 'Arte Final Concluída', ?, ?, ?, 0)
+                    `).bind(
+                        crypto.randomUUID(), 
+                        order.client_id, 
+                        message, 
+                        new Date().toISOString(), 
+                        `completed_${id}`
+                    ).run();
+
+                    // PUSH CLIENTE (Concluído)
+                    await sendPushNotification(env, order.client_id, {
+                        title: 'Arte Final Concluída',
+                        body: message,
+                        url: '/my-orders'
+                    });
+
+                    // EMAIL CLIENTE (Concluído)
+                    if (order.client_email) {
+                        try {
+                            const origin = request.headers.get('origin') || 'https://crazyart.com.br';
+                            const emailContent = await getRenderedTemplate(env, 'artCompleted', {
+                                orderNumber: formattedNum,
+                                customerName: order.client_name,
+                                appUrl: origin
+                            });
+                            await sendEmail(env, {
+                                to: order.client_email,
+                                subject: `[Crazy Art] Arte Concluída e Finalizada! - Pedido #${formattedNum}`,
+                                html: emailContent.html
+                            });
+                        } catch (e) {
+                            console.error('Error sending email to client for completed art:', e);
+                        }
+                    }
+                }
             }
         }
 
