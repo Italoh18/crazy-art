@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Layers, Sparkles, MessageSquare, Image as ImageIcon, 
   Upload, HelpCircle, CheckCircle2, CreditCard, Wallet, 
-  ArrowRight, Loader2, Info, ChevronRight, X, Phone, Ticket
+  ArrowRight, Loader2, Info, ChevronRight, X, Phone, Ticket, Plus
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -36,6 +36,7 @@ export default function LayoutSimples() {
   const [description, setDescription] = useState('');
   const [exampleUrl, setExampleUrl] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [extraImages, setExtraImages] = useState<string[]>([]);
   
   const [showIncompleteError, setShowIncompleteError] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'online' | null>(null);
@@ -170,6 +171,11 @@ export default function LayoutSimples() {
     setIsSubmitting(true);
     setPaymentMethod(method);
 
+    const validExtras = extraImages.filter(Boolean);
+    const finalDescription = validExtras.length > 0 
+      ? `${description}\n\n--- IMAGENS EXTRAS ---\n${validExtras.join(',')}` 
+      : description;
+
     try {
         const response = await fetch('/api/layout-requests', {
             method: 'POST',
@@ -179,7 +185,7 @@ export default function LayoutSimples() {
             },
             body: JSON.stringify({
                 serviceId: service?.id,
-                description,
+                description: finalDescription,
                 exampleUrl,
                 logoUrl,
                 paymentMethod: method,
@@ -356,6 +362,58 @@ export default function LayoutSimples() {
                   </div>
                </div>
 
+               {/* Imagens Extras com Símbolo "+" */}
+               <div className="border-t border-zinc-800/60 pt-6 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <span className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-black text-sm">+</span>
+                      <h3 className="text-sm font-black text-white uppercase tracking-widest italic">Imagens Extras</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setExtraImages([...extraImages, ''])}
+                      className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl font-bold uppercase text-[10px] tracking-wider transition-all flex items-center gap-1.5 active:scale-95"
+                    >
+                      <Plus size={14} className="text-primary" /> Adicionar Imagem
+                    </button>
+                  </div>
+
+                  {extraImages.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {extraImages.map((imgUrl, index) => (
+                        <div key={index} className="relative bg-black/30 border border-zinc-800/80 p-4 rounded-2xl space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = [...extraImages];
+                              updated.splice(index, 1);
+                              setExtraImages(updated);
+                            }}
+                            className="absolute top-2 right-2 p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors border border-red-500/20 z-10"
+                          >
+                            <X size={14} />
+                          </button>
+                          <ImageUploadInput
+                            value={imgUrl}
+                            onChange={(url) => {
+                              const updated = [...extraImages];
+                              updated[index] = url;
+                              setExtraImages(updated);
+                            }}
+                            label={`Imagem Extra ${index + 1}`}
+                            placeholder="Link de imagem ou upload"
+                            category="clientes"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-zinc-500 text-[10px] uppercase font-bold tracking-widest text-center py-4 bg-zinc-950/20 rounded-2xl border border-dashed border-zinc-800/60">
+                      Nenhuma imagem extra adicionada. Clique em "Adicionar Imagem" para anexar mais arquivos.
+                    </p>
+                  )}
+               </div>
+
                <button 
                   onClick={handleNextToSummary}
                   className="w-full py-5 bg-primary text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
@@ -506,7 +564,7 @@ export default function LayoutSimples() {
                       </div>
 
                       <label className="text-zinc-600 text-[10px] uppercase font-bold tracking-widest block">Arquivos Enviados</label>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                          <div className="space-y-2">
                              <p className="text-[10px] text-zinc-500 font-bold uppercase text-center">Exemplo</p>
                              <div className="aspect-square rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden">
@@ -519,6 +577,14 @@ export default function LayoutSimples() {
                                 {logoUrl ? <img src={logoUrl} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-zinc-700 italic text-[10px]">Não enviado</div>}
                              </div>
                          </div>
+                         {extraImages.filter(Boolean).map((url, i) => (
+                           <div key={i} className="space-y-2">
+                             <p className="text-[10px] text-zinc-500 font-bold uppercase text-center">Extra {i + 1}</p>
+                             <div className="aspect-square rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden">
+                                <img src={url} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                             </div>
+                           </div>
+                         ))}
                       </div>
                    </div>
                 </div>
