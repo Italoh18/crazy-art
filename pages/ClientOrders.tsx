@@ -313,29 +313,27 @@ export default function ClientOrders() {
       }
   };
 
-  const OrderProgress = ({ status, items, paidAt }: { status: string, items?: any[], paidAt?: string | null }) => {
+  const OrderProgress = ({ status, items, paidAt, dueDate }: { status: string, items?: any[], paidAt?: string | null, dueDate?: string }) => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const isPaid = !!((status === 'paid' || status === 'finished' || !!paidAt) && status !== 'cancelled');
+    const isOverdue = !!(!isPaid && status !== 'cancelled' && dueDate && new Date(dueDate) < now);
+    const isOpen = !!(!isPaid && !isOverdue && status !== 'cancelled');
+
     const stages = [
-        { id: 'open', label: 'Pedido Realizado' },
+        { id: 'open', label: 'Em Aberto' },
         { id: 'paid', label: 'Pago' },
-        { id: 'production', label: 'Em Produção' },
-        { id: 'revision', label: 'Em Alteração' },
-        { id: 'finished', label: 'Finalizado' }
+        { id: 'overdue', label: 'Atrasado' }
     ];
 
-    const getStatusIndex = (s: string) => {
-        if (s === 'cancelled') return -1;
-        const idx = stages.findIndex(stage => stage.id === s);
-        if (idx !== -1) return idx;
-        // Mapeamento de segurança
-        if (s === 'open') return 0;
-        if (s === 'paid') return 1;
-        if (s === 'production') return 2;
-        if (s === 'revision') return 3;
-        if (s === 'finished') return 4;
+    const getStatusIndex = () => {
+        if (isPaid) return 1;
+        if (isOverdue) return 2;
         return 0;
     };
 
-    const currentIndex = getStatusIndex(status);
+    const currentIndex = getStatusIndex();
 
     return (
         <div className="w-full py-8 px-2">
@@ -344,22 +342,35 @@ export default function ClientOrders() {
                 <div className="absolute top-4 left-0 w-full h-0.5 bg-zinc-800 z-0"></div>
                 {/* Linha de Progresso */}
                 <div 
-                    className="absolute top-4 left-0 h-0.5 bg-primary z-0 transition-all duration-700 ease-in-out"
+                    className={`absolute top-4 left-0 h-0.5 z-0 transition-all duration-700 ease-in-out ${isOverdue ? 'bg-red-500' : 'bg-primary'}`}
                     style={{ width: currentIndex >= 0 ? `${(currentIndex / (stages.length - 1)) * 100}%` : '0%' }}
                 ></div>
 
                 {stages.map((stage, idx) => {
-                    const isActive = idx <= currentIndex;
-                    const isPaidStage = stage.id === 'paid';
-                    // Regra: Pago em vermelho se estiver ativo mas não houver data de pagamento (crédito)
-                    const useRed = isPaidStage && isActive && !paidAt;
+                    let isActive = false;
+                    let useRed = false;
+                    let useGreen = false;
+
+                    if (stage.id === 'open') {
+                        isActive = true;
+                    } else if (stage.id === 'paid') {
+                        isActive = isPaid;
+                        useGreen = isPaid;
+                    } else if (stage.id === 'overdue') {
+                        isActive = isOverdue;
+                        useRed = isOverdue;
+                    }
 
                     return (
                         <div key={stage.id} className="relative z-10 flex flex-col items-center">
                             <div 
                                 className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${
                                     isActive 
-                                        ? (useRed ? 'bg-red-600 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.6)]' : 'bg-primary border-primary shadow-[0_0_10px_rgba(245,158,11,0.4)]')
+                                        ? (useRed 
+                                            ? 'bg-red-600 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.6)]' 
+                                            : (useGreen 
+                                                ? 'bg-emerald-600 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.6)]' 
+                                                : 'bg-primary border-primary shadow-[0_0_10px_rgba(245,158,11,0.4)]'))
                                         : 'bg-zinc-900 border-zinc-800'
                                 }`}
                             >
@@ -370,7 +381,7 @@ export default function ClientOrders() {
                                 )}
                             </div>
                             <span className={`text-[9px] font-black uppercase tracking-tighter mt-3 text-center max-w-[70px] leading-none ${
-                                isActive ? (useRed ? 'text-red-400' : 'text-white') : 'text-zinc-600'
+                                isActive ? (useRed ? 'text-red-400' : (useGreen ? 'text-emerald-400' : 'text-white')) : 'text-zinc-600'
                             }`}>
                                 {stage.label}
                             </span>
@@ -859,7 +870,7 @@ export default function ClientOrders() {
                                     </div>
                                     <div>
                                         <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-2">Status de Pagamento</h3>
-                                        <OrderProgress status={viewingOrder.status} items={viewingOrder.items} paidAt={viewingOrder.paid_at} />
+                                        <OrderProgress status={viewingOrder.status} items={viewingOrder.items} paidAt={viewingOrder.paid_at} dueDate={viewingOrder.due_date} />
                                     </div>
                                 </>
                             )}
