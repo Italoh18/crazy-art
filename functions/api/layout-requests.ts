@@ -99,6 +99,73 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           ).bind(clientId, cleanCouponCode).run();
       }
 
+      // Salvar as réplicas na lista pública se houver
+      if (body.replicas && Array.isArray(body.replicas) && body.replicas.length > 0) {
+        try {
+          await env.DB.prepare(`
+            CREATE TABLE IF NOT EXISTS public_lists (
+              id TEXT PRIMARY KEY,
+              client_id TEXT NOT NULL,
+              title TEXT NOT NULL,
+              items TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              is_locked INTEGER DEFAULT 0
+            )
+          `).run();
+
+          let publicList: any = await env.DB.prepare('SELECT * FROM public_lists WHERE client_id = ? ORDER BY created_at DESC LIMIT 1').bind(clientId).first();
+          
+          let existingItems: any[] = [];
+          if (publicList) {
+            try {
+              existingItems = typeof publicList.items === 'string' ? JSON.parse(publicList.items) : (publicList.items || []);
+              if (!Array.isArray(existingItems)) existingItems = [];
+            } catch (e) {
+              existingItems = [];
+            }
+          }
+
+          const newItemsMapped = body.replicas.map((r: any) => ({
+            id: r.id || crypto.randomUUID(),
+            category: r.category || 'unisex',
+            size: r.size || 'M',
+            name: r.name || '',
+            number: r.number || '',
+            shortSize: r.shortSize || r.size || 'M',
+            shortNumber: r.shortNumber || r.number || '',
+            isSimple: false,
+            isConjunto: !!r.isConjunto
+          }));
+
+          const mergedItems = [...existingItems, ...newItemsMapped];
+          const mergedItemsStr = JSON.stringify(mergedItems);
+
+          if (publicList) {
+            await env.DB.prepare(`
+              UPDATE public_lists
+              SET items = ?, updated_at = ?
+              WHERE id = ?
+            `).bind(mergedItemsStr, now, publicList.id).run();
+          } else {
+            const newId = crypto.randomUUID();
+            await env.DB.prepare(`
+              INSERT INTO public_lists (id, client_id, title, items, created_at, updated_at, is_locked)
+              VALUES (?, ?, ?, ?, ?, ?, 0)
+            `).bind(
+              newId,
+              clientId,
+              'Lista Pública de Pedido',
+              mergedItemsStr,
+              now,
+              now
+            ).run();
+          }
+        } catch (e) {
+          console.error('[LayoutRequest] Erro ao salvar lista pública:', e);
+        }
+      }
+
       // Criar Item do Pedido
       const itemId = crypto.randomUUID();
       await env.DB.prepare(`

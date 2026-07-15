@@ -288,7 +288,8 @@ export default function LayoutSimples() {
                 value: finalPrice,
                 discount: baseTotal - finalPrice,
                 couponCode: couponData?.code,
-                quantity: totalQuantity
+                quantity: totalQuantity,
+                replicas: addMontagem ? replicas : []
             })
         });
 

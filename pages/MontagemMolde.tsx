@@ -331,7 +331,8 @@ export default function MontagemMolde() {
                 discount: calculateTotal() - totalAmount,
                 couponCode: couponData?.code,
                 quantity: totalQuantity,
-                type: 'montagem_molde'
+                type: 'montagem_molde',
+                replicas: hasReplicas ? replicas : []
             })
         });
 
