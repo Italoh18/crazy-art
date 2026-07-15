@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Layers, Sparkles, MessageSquare, Image as ImageIcon, 
   Upload, HelpCircle, CheckCircle2, CreditCard, Wallet, 
-  ArrowRight, Loader2, Info, ChevronRight, X, Phone, Ticket, Plus
+  ArrowRight, Loader2, Info, ChevronRight, X, Phone, Ticket, Plus, Trash2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,6 +18,23 @@ interface CatalogService {
   description: string;
   imageUrl: string;
 }
+
+interface RepliaItem {
+  id: string;
+  category?: 'unisex' | 'feminina' | 'infantil';
+  size: string;
+  name: string;
+  number: string;
+  isConjunto?: boolean;
+  shortSize?: string;
+  shortNumber?: string;
+}
+
+const MM_SIZES: Record<string, string[]> = {
+  unisex: ['PP', 'P', 'M', 'G', 'GG', 'EG', 'XG1', 'XG2', 'XG3', 'XG4', 'XG5'],
+  feminina: ['PP', 'P', 'M', 'G', 'GG', 'EG', 'XG1'],
+  infantil: ['RN', '2', '4', '6', '8', '10', '12', '14', '16']
+};
 
 type LayoutStep = 'briefing' | 'summary' | 'completed';
 
@@ -41,6 +58,48 @@ export default function LayoutSimples() {
   
   const [showIncompleteError, setShowIncompleteError] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'online' | null>(null);
+
+  // Integrated Mold Mounting State
+  const [addMontagem, setAddMontagem] = useState(false);
+  const [replicas, setReplicas] = useState<RepliaItem[]>([{ id: crypto.randomUUID(), category: 'unisex', size: 'M', name: '', number: '', isConjunto: false, shortSize: 'M', shortNumber: '' }]);
+  const [montagemService, setMontagemService] = useState<CatalogService | null>(null);
+  const [replicaService, setReplicaService] = useState<CatalogService | null>(null);
+
+  const handleAddReplica = () => {
+    setReplicas([...replicas, { id: crypto.randomUUID(), category: 'unisex', size: 'M', name: '', number: '', isConjunto: false, shortSize: 'M', shortNumber: '' }]);
+  };
+
+  const handleRemoveReplica = (id: string) => {
+    if (replicas.length > 1) {
+      setReplicas(replicas.filter(r => r.id !== id));
+    }
+  };
+
+  const updateReplica = (id: string, field: keyof RepliaItem, value: any) => {
+    setReplicas(replicas.map(r => {
+      if (r.id === id) {
+        const updated = { ...r, [field]: value };
+        
+        if (field === 'category') {
+          updated.size = MM_SIZES[value][0];
+          updated.shortSize = MM_SIZES[value][0];
+        }
+
+        // Herança de número: quando o número da camisa muda, o do short segue se for conjunto
+        if (field === 'number' && r.isConjunto) {
+          updated.shortNumber = value;
+        }
+        
+        // Quando ativa o conjunto, herda o número que já estiver na camisa
+        if (field === 'isConjunto' && value === true) {
+          updated.shortNumber = r.number;
+        }
+        
+        return updated;
+      }
+      return r;
+    }));
+  };
 
   // Coupon State
   const [couponCode, setCouponCode] = useState('');
@@ -114,9 +173,17 @@ export default function LayoutSimples() {
       const response = await fetch('/api/catalog?type=service');
       const data = await response.json();
       const layoutService = data.find((s: any) => s.name.toLowerCase().includes('layout simples'));
+      const montagem = data.find((s: any) => s.name.toLowerCase().includes('montagem de molde'));
+      const replica = data.find((s: any) => s.name.toLowerCase().includes('replica de molde'));
       
       if (layoutService) {
         setService(layoutService);
+      }
+      if (montagem) {
+        setMontagemService(montagem);
+      }
+      if (replica) {
+        setReplicaService(replica);
       }
     } catch (err) {
       console.error('Erro ao buscar serviço:', err);
@@ -156,10 +223,23 @@ export default function LayoutSimples() {
     }
   };
 
-  const calculateFinalPrice = () => {
+  const calculateBaseTotal = () => {
     const basePrice = service?.price || 0;
-    if (!couponData) return basePrice;
-    return basePrice * (1 - couponData.percentage / 100);
+    if (!addMontagem) return basePrice;
+
+    const baseMontagem = montagemService?.price || 0;
+    const replicaPrice = replicaService?.price || 0;
+    
+    // Cada replica marcada como conjunto vale por 2 unidades
+    const totalReplicaUnits = replicas.reduce((acc, r) => acc + (r.isConjunto ? 2 : 1), 0);
+
+    return basePrice + baseMontagem + (totalReplicaUnits * replicaPrice);
+  };
+
+  const calculateFinalPrice = () => {
+    const baseTotal = calculateBaseTotal();
+    if (!couponData) return baseTotal;
+    return baseTotal * (1 - couponData.percentage / 100);
   };
 
   const handleSubmitRequest = async (method: 'credit' | 'online') => {
@@ -169,6 +249,7 @@ export default function LayoutSimples() {
     }
 
     const finalPrice = calculateFinalPrice();
+    const baseTotal = calculateBaseTotal();
     setIsSubmitting(true);
     setPaymentMethod(method);
 
@@ -181,7 +262,17 @@ export default function LayoutSimples() {
       finalDescription = `TIPO DE IMPRESSÃO: ${printType.toUpperCase()}\n\n${finalDescription}`;
     }
 
+    if (addMontagem) {
+      const replicaText = replicas.map(r => `- [${(r.category || 'unisex').toUpperCase()}] ${r.size} | ${r.name} | ${r.number}${r.isConjunto ? ` | CONJUNTO: [Short: ${r.shortSize} Nº: ${r.shortNumber}]` : ''}`).join('\n');
+      finalDescription = `${finalDescription}\n\n=================================\n--- ADICIONADO MONTAGEM DE MOLDE ---\nREPLICAS (${replicas.length}):\n${replicaText}`;
+    }
+
     try {
+        const totalReplicaUnits = addMontagem 
+          ? replicas.reduce((acc, r) => acc + (r.isConjunto ? 2 : 1), 0) 
+          : 0;
+        const totalQuantity = 1 + totalReplicaUnits;
+
         const response = await fetch('/api/layout-requests', {
             method: 'POST',
             headers: {
@@ -195,8 +286,9 @@ export default function LayoutSimples() {
                 logoUrl,
                 paymentMethod: method,
                 value: finalPrice,
-                discount: (service?.price || 0) - finalPrice,
-                couponCode: couponData?.code
+                discount: baseTotal - finalPrice,
+                couponCode: couponData?.code,
+                quantity: totalQuantity
             })
         });
 
@@ -453,6 +545,164 @@ export default function LayoutSimples() {
                   )}
                </div>
 
+               {/* Seção Montagem de Molde integrada */}
+               <div className="border-t border-zinc-800/60 pt-6 space-y-6">
+                 <div className="flex items-center justify-between p-5 bg-zinc-950/40 border border-zinc-800 rounded-3xl">
+                   <div className="space-y-1">
+                     <div className="flex items-center gap-2">
+                       <span className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-black text-sm italic">?</span>
+                       <h3 className="text-sm font-black text-white uppercase tracking-widest italic">Adicionar montagem de molde?</h3>
+                     </div>
+                     <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest max-w-md text-left">
+                       Acrescente a montagem técnica e graduação técnica do molde para produção.
+                     </p>
+                   </div>
+                   <button 
+                     type="button"
+                     onClick={() => setAddMontagem(!addMontagem)}
+                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${addMontagem ? 'bg-primary' : 'bg-zinc-800'}`}
+                   >
+                     <span
+                       className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${addMontagem ? 'translate-x-5' : 'translate-x-0'}`}
+                     />
+                   </button>
+                 </div>
+
+                 {addMontagem && (
+                   <motion.div 
+                     initial={{ opacity: 0, height: 0 }}
+                     animate={{ opacity: 1, height: 'auto' }}
+                     exit={{ opacity: 0, height: 0 }}
+                     className="space-y-6 overflow-hidden"
+                   >
+                     <div className="flex items-center gap-2 mb-2 text-left">
+                       <span className="w-8 h-8 rounded-full bg-primary text-black flex items-center justify-center font-black text-sm italic">M</span>
+                       <h3 className="text-sm font-black text-white uppercase tracking-widest italic">Preencher Lista de Moldes</h3>
+                     </div>
+
+                     <div className="space-y-4">
+                       <div className="space-y-3">
+                         <AnimatePresence mode="popLayout">
+                           {replicas.map((replica, index) => (
+                             <motion.div 
+                               key={replica.id}
+                               initial={{ opacity: 0, x: -20 }}
+                               animate={{ opacity: 1, x: 0 }}
+                               exit={{ opacity: 0, x: 20 }}
+                               className="space-y-4 bg-black/40 p-5 rounded-2xl border border-zinc-800 text-left"
+                             >
+                               <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-1">
+                                 <div className="flex items-center gap-2">
+                                   <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Item #{index + 1}</span>
+                                   <button 
+                                     type="button"
+                                     onClick={() => updateReplica(replica.id, 'isConjunto', !replica.isConjunto)}
+                                     className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all flex items-center gap-2 ${replica.isConjunto ? 'bg-primary text-black' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
+                                   >
+                                     <div className={`w-2 h-2 rounded-full ${replica.isConjunto ? 'bg-black animate-pulse' : 'bg-zinc-700'}`}></div>
+                                     {replica.isConjunto ? 'É Conjunto (Sim)' : 'É Conjunto?'}
+                                   </button>
+                                 </div>
+                                 {replicas.length > 1 && (
+                                   <button type="button" onClick={() => handleRemoveReplica(replica.id)} className="text-zinc-600 hover:text-red-500 transition">
+                                     <Trash2 size={16} />
+                                   </button>
+                                 )}
+                               </div>
+                               
+                               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                                 {/* Tipo Grade */}
+                                 <div className="sm:col-span-3 space-y-1">
+                                   <p className="text-[9px] text-zinc-600 font-extrabold uppercase tracking-wide">Tipo Grade</p>
+                                   <select 
+                                     value={replica.category || 'unisex'} 
+                                     onChange={(e) => updateReplica(replica.id, 'category', e.target.value as any)} 
+                                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:border-primary outline-none font-bold"
+                                   >
+                                     <option value="unisex">Unisex (Geral)</option>
+                                     <option value="feminina">Feminina</option>
+                                     <option value="infantil">Infantil</option>
+                                   </select>
+                                 </div>
+
+                                 {/* Tam (Blusa) */}
+                                 <div className="sm:col-span-2 space-y-1">
+                                   <p className="text-[9px] text-zinc-600 font-extrabold uppercase tracking-wide">Tam (Blusa)</p>
+                                   <select 
+                                     value={replica.size || MM_SIZES[replica.category || 'unisex'][2]} 
+                                     onChange={(e) => updateReplica(replica.id, 'size', e.target.value)}
+                                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:border-primary outline-none font-bold"
+                                   >
+                                     {MM_SIZES[replica.category || 'unisex'].map(s => <option key={s} value={s}>{s}</option>)}
+                                   </select>
+                                 </div>
+
+                                 {/* Nome / Texto */}
+                                 <div className={`${replica.isConjunto ? 'sm:col-span-3' : 'sm:col-span-5'} space-y-1`}>
+                                   <p className="text-[9px] text-zinc-600 font-extrabold uppercase tracking-wide">Nome / Texto</p>
+                                   <input 
+                                     type="text" value={replica.name} 
+                                     onChange={(e) => updateReplica(replica.id, 'name', e.target.value)}
+                                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none" 
+                                     placeholder="Nome"
+                                   />
+                                 </div>
+
+                                 {/* Nº */}
+                                 <div className="sm:col-span-2 space-y-1">
+                                   <p className="text-[9px] text-zinc-600 font-extrabold uppercase tracking-wide">Nº</p>
+                                   <input 
+                                     type="text" value={replica.number} 
+                                     onChange={(e) => updateReplica(replica.id, 'number', e.target.value)}
+                                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none" 
+                                     placeholder="00"
+                                   />
+                                 </div>
+                                 
+                                 {/* Se for conjunto */}
+                                 {replica.isConjunto && (
+                                   <>
+                                     {/* Tam Short */}
+                                     <div className="sm:col-span-2 space-y-1 animate-fade-in col-span-1">
+                                       <p className="text-[9px] text-primary font-extrabold uppercase tracking-wide">Tam Short</p>
+                                       <select 
+                                         value={replica.shortSize || MM_SIZES[replica.category || 'unisex'][2]} 
+                                         onChange={(e) => updateReplica(replica.id, 'shortSize', e.target.value)} 
+                                         className="w-full bg-zinc-900 border border-primary/30 rounded-xl px-3 py-2.5 text-xs text-white focus:border-primary outline-none font-bold"
+                                       >
+                                         {MM_SIZES[replica.category || 'unisex'].map(s => <option key={s} value={s}>{s}</option>)}
+                                       </select>
+                                     </div>
+
+                                     {/* Nº Short */}
+                                     <div className="sm:col-span-2 space-y-1 animate-fade-in col-span-1">
+                                       <p className="text-[9px] text-primary font-extrabold uppercase tracking-wide">Nº Short</p>
+                                       <input 
+                                         type="text" value={replica.shortNumber} 
+                                         onChange={(e) => updateReplica(replica.id, 'shortNumber', e.target.value)}
+                                         className="w-full bg-zinc-900 border border-primary/30 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none" 
+                                         placeholder="00"
+                                       />
+                                     </div>
+                                   </>
+                                 )}
+                               </div>
+                             </motion.div>
+                           ))}
+                         </AnimatePresence>
+                         <button 
+                           type="button"
+                           onClick={handleAddReplica}
+                           className="w-full py-3 border border-dashed border-zinc-800 rounded-2xl text-zinc-600 font-black text-[10px] uppercase tracking-widest hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-2"
+                         >
+                           <Plus size={14} /> Adicionar Nova Réplica
+                         </button>
+                       </div>
+                     </div>
+                   </motion.div>
+                 )}
+               </div>
+
                <button 
                   onClick={handleNextToSummary}
                   className="w-full py-5 bg-primary text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
@@ -504,7 +754,7 @@ export default function LayoutSimples() {
                             <span className="text-zinc-500 font-black text-xs uppercase">Valor do Serviço</span>
                             <div className="text-right">
                                 {couponData && (
-                                    <span className="block text-[10px] text-zinc-500 font-bold line-through">R$ {service.price.toFixed(2)}</span>
+                                    <span className="block text-[10px] text-zinc-500 font-bold line-through">R$ {calculateBaseTotal().toFixed(2)}</span>
                                 )}
                                 <span className="text-3xl font-black text-primary">R$ {calculateFinalPrice().toFixed(2)}</span>
                             </div>
