@@ -363,7 +363,7 @@ export default function LayoutSimples() {
                <img src={service.imageUrl} className="w-full h-full object-cover brightness-50" alt={service.name} />
                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-6">
                   <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-1">{service.name}</h2>
-                  <p className="text-primary font-black text-xl">R$ {service.price.toFixed(2)}</p>
+                  <p className="text-primary font-black text-xl">R$ {calculateBaseTotal().toFixed(2)}</p>
                </div>
             </div>
 
@@ -703,12 +703,18 @@ export default function LayoutSimples() {
                  )}
                </div>
 
-               <button 
-                  onClick={handleNextToSummary}
-                  className="w-full py-5 bg-primary text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
-               >
-                  Finalizar Solicitação <ArrowRight size={20} />
-               </button>
+               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 bg-zinc-950/40 border border-zinc-800 rounded-3xl mt-6">
+                  <div className="text-left w-full sm:w-auto">
+                     <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block">Valor do Serviço</span>
+                     <span className="text-2xl font-black text-primary">R$ {calculateBaseTotal().toFixed(2)}</span>
+                  </div>
+                  <button 
+                     onClick={handleNextToSummary}
+                     className="w-full sm:w-auto px-8 py-5 bg-primary text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+                  >
+                     Finalizar Solicitação <ArrowRight size={20} />
+                  </button>
+               </div>
             </div>
           </motion.div>
         )}
