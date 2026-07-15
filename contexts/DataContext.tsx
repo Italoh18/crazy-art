@@ -69,7 +69,8 @@ const normalizeCustomer = (c: any): Customer => {
       zipCode: c.zipCode || ''
     },
     creditLimit: c.creditLimit !== undefined ? Number(c.creditLimit) : (c.credit_limit !== undefined ? Number(c.credit_limit) : 0),
-    isSubscriber: c.isSubscriber === 1 || c.isSubscriber === true || c.is_subscriber === 1 || c.is_subscriber === true
+    isSubscriber: c.isSubscriber === 1 || c.isSubscriber === true || c.is_subscriber === 1 || c.is_subscriber === true,
+    autoPaymentEnabled: c.autoPaymentEnabled === 1 || c.autoPaymentEnabled === true || c.auto_payment_enabled === 1 || c.auto_payment_enabled === true
   };
 };
 

@@ -14,6 +14,7 @@ export interface Customer {
   creditLimit?: number;
   isSubscriber?: boolean; 
   subscriptionExpiresAt?: string;
+  autoPaymentEnabled?: boolean;
   created_at: string;
 }
 

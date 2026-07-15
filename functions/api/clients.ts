@@ -3,6 +3,13 @@ import { Env, getAuth, hashPassword } from './_auth';
 
 export const onRequest: any = async ({ request, env }: { request: Request, env: Env }) => {
   try {
+    // Ensure the auto_payment_enabled column exists in clients table
+    try {
+      await env.DB.prepare('ALTER TABLE clients ADD COLUMN auto_payment_enabled INTEGER DEFAULT 0').run();
+    } catch (err) {
+      // Column probably already exists or table does not exist yet (fine)
+    }
+
     const user = await getAuth(request, env);
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
@@ -14,7 +21,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         ...clientData,
         cloudLink: c.cloudLink || c.cloud_link,
         isSubscriber: c.isSubscriber !== undefined ? c.isSubscriber : (c.is_subscriber === 1),
-        subscriptionExpiresAt: c.subscriptionExpiresAt || c.subscription_expires_at
+        subscriptionExpiresAt: c.subscriptionExpiresAt || c.subscription_expires_at,
+        autoPaymentEnabled: c.autoPaymentEnabled !== undefined ? c.autoPaymentEnabled : (c.auto_payment_enabled === 1)
       };
     };
 
@@ -176,17 +184,34 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         }
       } else if (user.clientId === id) {
         // Cliente pode atualizar seus próprios dados (exceto creditLimit e isSubscriber)
-        await env.DB.prepare(
-          'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=? WHERE id=?'
-        ).bind(
-          String(body.name || '').trim(),
-          body.email ? String(body.email).trim() : null,
-          body.phone ? String(body.phone).trim() : null,
-          body.address?.street ? String(body.address.street).trim() : null,
-          body.address?.number ? String(body.address.number).trim() : null,
-          body.address?.zipCode ? String(body.address.zipCode).trim() : null,
-          String(id)
-        ).run();
+        const autoPaymentEnabled = body.autoPaymentEnabled !== undefined ? (body.autoPaymentEnabled ? 1 : 0) : null;
+        
+        if (autoPaymentEnabled !== null) {
+          await env.DB.prepare(
+            'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=?, auto_payment_enabled=? WHERE id=?'
+          ).bind(
+            String(body.name || '').trim(),
+            body.email ? String(body.email).trim() : null,
+            body.phone ? String(body.phone).trim() : null,
+            body.address?.street ? String(body.address.street).trim() : null,
+            body.address?.number ? String(body.address.number).trim() : null,
+            body.address?.zipCode ? String(body.address.zipCode).trim() : null,
+            autoPaymentEnabled,
+            String(id)
+          ).run();
+        } else {
+          await env.DB.prepare(
+            'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=? WHERE id=?'
+          ).bind(
+            String(body.name || '').trim(),
+            body.email ? String(body.email).trim() : null,
+            body.phone ? String(body.phone).trim() : null,
+            body.address?.street ? String(body.address.street).trim() : null,
+            body.address?.number ? String(body.address.number).trim() : null,
+            body.address?.zipCode ? String(body.address.zipCode).trim() : null,
+            String(id)
+          ).run();
+        }
       } else {
         return new Response(JSON.stringify({ error: 'Acesso negado' }), { status: 403 });
       }
