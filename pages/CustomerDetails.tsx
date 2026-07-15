@@ -1329,12 +1329,26 @@ export default function CustomerDetails() {
                 <div className="space-y-6">
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Nome Completo</label>
-                        <div className="flex items-center gap-3">
-                            <p className="text-white font-medium text-lg">{customer?.name}</p>
+                        <div className="flex items-start gap-3">
+                            <p className="text-white font-medium text-lg mt-0.5">{customer?.name}</p>
                             {customer?.isSubscriber && (
-                                <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-lg shadow-purple-900/40">
-                                    <Crown size={12} /> ASSINANTE
-                                </span>
+                                <div className="flex flex-col gap-1 items-start">
+                                    <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-lg shadow-purple-900/40">
+                                        <Crown size={12} /> ASSINANTE
+                                    </span>
+                                    {customer?.subscriptionExpiresAt && (
+                                        <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">
+                                            Validade: {(() => {
+                                                const parts = customer.subscriptionExpiresAt.split('T')[0].split('-');
+                                                if (parts.length === 3) {
+                                                    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                                                }
+                                                const d = new Date(customer.subscriptionExpiresAt);
+                                                return !isNaN(d.getTime()) ? d.toLocaleDateString('pt-BR') : customer.subscriptionExpiresAt;
+                                            })()}
+                                        </span>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </div>
