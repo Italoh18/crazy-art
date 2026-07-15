@@ -833,12 +833,42 @@ export default function Shop() {
     return Math.max(0, (currentCustomer.creditLimit || 0) - openOrdersTotal);
   }, [currentCustomer, orders]);
 
+  // Verifica se o usuário possui pedidos em atraso por mais de um dia
+  const hasOverdueOrders = useMemo(() => {
+    if (!currentCustomer || !orders) return false;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    return orders.some(o => {
+      if (o.client_id !== currentCustomer.id) return false;
+      const isPaid = (o.status === 'paid' || o.status === 'finished' || !!o.paid_at) && o.status !== 'cancelled';
+      if (isPaid || o.status === 'cancelled') return false;
+
+      if (o.due_date) {
+        const dueDateObj = new Date(o.due_date);
+        dueDateObj.setHours(0, 0, 0, 0);
+        const diffTime = now.getTime() - dueDateObj.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays > 1; // Mais de 1 dia de atraso
+      }
+      return false;
+    });
+  }, [currentCustomer, orders]);
+
   const canAddToAccount = useMemo(() => {
     if (!currentCustomer || !lastCreatedOrder) return false;
     const { items } = calculateFinalOrder();
     const allServices = items.every(i => i.type === 'service');
-    return allServices && availableCredit >= calculateDiscountedTotal();
-  }, [currentCustomer, lastCreatedOrder, availableCredit, appliedCoupon]);
+    return allServices && availableCredit >= calculateDiscountedTotal() && !hasOverdueOrders;
+  }, [currentCustomer, lastCreatedOrder, availableCredit, appliedCoupon, hasOverdueOrders]);
+
+  const hasCreditLimitButOverdue = useMemo(() => {
+    if (!currentCustomer || !lastCreatedOrder) return false;
+    const { items } = calculateFinalOrder();
+    const allServices = items.every(i => i.type === 'service');
+    const hasEnoughCredit = allServices && availableCredit >= calculateDiscountedTotal();
+    return hasEnoughCredit && hasOverdueOrders;
+  }, [currentCustomer, lastCreatedOrder, availableCredit, appliedCoupon, hasOverdueOrders]);
 
   const getHeaderTitle = () => {
       if (step === 'list') return activeTab === 'art' ? 'Quitanda de Artes' : 'Loja Crazy Art';
@@ -2009,7 +2039,21 @@ export default function Shop() {
                                 {isProcessing ? 'REDIRECIONANDO...' : 'PAGAR AGORA'}
                             </button>
                         </div>
-                        <p className="text-[10px] text-zinc-500 text-center uppercase tracking-widest leading-relaxed">{canAddToAccount ? "Você possui limite disponível. Escolha pagar agora ou faturar na sua conta." : "É necessário o pagamento para confirmação do pedido."}</p>
+                        {hasCreditLimitButOverdue && (
+                            <div className="p-3 bg-red-950/30 border border-red-500/20 rounded-xl text-center">
+                                <p className="text-[10px] text-red-400 font-bold uppercase tracking-widest leading-relaxed">
+                                    Opção de Faturar Bloqueada: Você possui pedidos em atraso por mais de um dia.
+                                </p>
+                            </div>
+                        )}
+                        <p className="text-[10px] text-zinc-500 text-center uppercase tracking-widest leading-relaxed">
+                            {canAddToAccount 
+                                ? "Você possui limite disponível. Escolha pagar agora ou faturar na sua conta." 
+                                : (hasCreditLimitButOverdue 
+                                    ? "Por favor, regularize seus débitos pendentes para liberar a opção de faturar no crédito." 
+                                    : "É necessário o pagamento para confirmação do pedido.")
+                            }
+                        </p>
                     </div>
                 </div>
             </div>
