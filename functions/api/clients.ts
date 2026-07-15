@@ -183,10 +183,41 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           ).run();
         }
       } else if (user.clientId === id) {
-        // Cliente pode atualizar seus próprios dados (exceto creditLimit e isSubscriber)
+        // Cliente pode atualizar seus próprios dados (exceto creditLimit e isSubscriber, a menos que esteja ativando o pagamento automático direto)
         const autoPaymentEnabled = body.autoPaymentEnabled !== undefined ? (body.autoPaymentEnabled ? 1 : 0) : null;
+        const processDirectSubscription = body.processDirectSubscription === true;
         
-        if (autoPaymentEnabled !== null) {
+        if (processDirectSubscription) {
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + 30);
+          const expiresStr = expiresAt.toISOString();
+          
+          await env.DB.prepare(
+            'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=?, auto_payment_enabled=1, is_subscriber=1, subscription_expires_at=? WHERE id=?'
+          ).bind(
+            String(body.name || '').trim(),
+            body.email ? String(body.email).trim() : null,
+            body.phone ? String(body.phone).trim() : null,
+            body.address?.street ? String(body.address.street).trim() : null,
+            body.address?.number ? String(body.address.number).trim() : null,
+            body.address?.zipCode ? String(body.address.zipCode).trim() : null,
+            expiresStr,
+            String(id)
+          ).run();
+
+          // Notificação de Assinatura
+          const subMsg = 'Sua assinatura Crazy Art foi ativada com sucesso via Pagamento Automático! Aproveite downloads ilimitados.';
+          const nowTs = new Date().toISOString();
+          try {
+            await env.DB.prepare(`
+              INSERT INTO notifications (
+                  id, target_role, user_id, type, title, message, created_at, is_read
+              ) VALUES (?, 'client', ?, 'success', 'Assinatura Ativada', ?, ?, 0)
+            `).bind(crypto.randomUUID(), String(id), subMsg, nowTs).run();
+          } catch (err) {
+            // Tabela de notificações pode ter restrições ou campos diferentes, ignorar falha silenciosamente
+          }
+        } else if (autoPaymentEnabled !== null) {
           await env.DB.prepare(
             'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=?, auto_payment_enabled=? WHERE id=?'
           ).bind(

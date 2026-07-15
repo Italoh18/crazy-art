@@ -63,8 +63,8 @@ const parseComment = (rawComment: string) => {
 };
 
 export default function Shop() {
-  const { products, addOrder, orders, validateCoupon, loadData } = useData();
-  const { role, currentCustomer } = useAuth();
+  const { products, addOrder, orders, validateCoupon, loadData, updateCustomer } = useData();
+  const { role, currentCustomer, refreshCustomer } = useAuth();
   const { cart, addToCart: addToCartGlobal, removeFromCart: removeFromCartGlobal, clearCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
@@ -72,6 +72,18 @@ export default function Shop() {
   const [step, setStep] = useState<ShopStep>('list');
   const [activeTab, setActiveTab] = useState<ItemType | 'landing'>('landing');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // States para Modal de Assinatura
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [subscriptionAutoPayMethod, setSubscriptionAutoPayMethod] = useState<'mp' | 'site' | 'select_method' | null>(null);
+  const [subscriptionCardData, setSubscriptionCardData] = useState({
+      number: '',
+      expiry: '',
+      cvv: '',
+      name: '',
+      cpf: ''
+  });
+  const [isSubmittingSubscriptionAutoPay, setIsSubmittingSubscriptionAutoPay] = useState(false);
   
   // States exclusivos da Quitanda
   const [quitandaTab, setQuitandaTab] = useState<'estampas' | 'logos' | 'bordados' | 'diversos'>('estampas');
@@ -1154,7 +1166,21 @@ export default function Shop() {
 
                 {!isSubscriber && (
                     <button 
-                        onClick={handleSubscriptionPayment}
+                        onClick={() => {
+                            if (role !== 'client' || !currentCustomer) {
+                                setNotification({ message: 'Por favor, faça login para assinar.', type: 'error' });
+                                return;
+                            }
+                            setIsSubscriptionModalOpen(true);
+                            setSubscriptionAutoPayMethod(null);
+                            setSubscriptionCardData({
+                                number: '',
+                                expiry: '',
+                                cvv: '',
+                                name: currentCustomer?.name || '',
+                                cpf: currentCustomer?.cpf || ''
+                            });
+                        }}
                         disabled={isProcessing}
                         className="w-full bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 p-[1px] rounded-2xl group hover:scale-[1.02] transition-all duration-500 shadow-xl shadow-purple-500/20 active:scale-95 mb-4"
                     >
@@ -2290,6 +2316,274 @@ export default function Shop() {
               )
           )}
       </div>
+
+      {/* MODAL SELEÇÃO DE ASSINATURA */}
+      {isSubscriptionModalOpen && (
+          <div className="fixed inset-0 z-[200] flex justify-center items-start pt-12 md:pt-24 bg-black/90 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
+              <div className="bg-[#121215] border border-white/10 rounded-3xl w-full max-w-lg shadow-2xl relative flex flex-col animate-scale-in">
+                  
+                  {/* Header */}
+                  <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] rounded-t-3xl">
+                      <div className="flex items-center gap-3">
+                          <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl text-white shadow-lg">
+                              <Crown size={24} />
+                          </div>
+                          <div>
+                              <h2 className="text-lg font-black text-white tracking-tight uppercase">Assinatura Crazy Art</h2>
+                              <p className="text-xs text-zinc-400">Downloads grátis ilimitados das artes</p>
+                          </div>
+                      </div>
+                      <button 
+                          onClick={() => {
+                              setIsSubscriptionModalOpen(false);
+                              setSubscriptionAutoPayMethod(null);
+                          }} 
+                          className="p-2 bg-zinc-900 rounded-xl text-zinc-500 hover:text-white hover:rotate-90 transition-all border border-white/5"
+                      >
+                          <X size={18} />
+                      </button>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-6 space-y-6">
+                      
+                      {subscriptionAutoPayMethod === null ? (
+                          <div className="space-y-4">
+                              <p className="text-sm text-zinc-400 text-center">Como deseja efetuar a contratação?</p>
+                              
+                              {/* Pagar Manualmente */}
+                              <button
+                                  onClick={async () => {
+                                      setIsSubscriptionModalOpen(false);
+                                      await handleSubscriptionPayment();
+                                  }}
+                                  className="w-full p-4 bg-zinc-900/60 hover:bg-zinc-800/80 border border-white/5 hover:border-purple-500/30 rounded-2xl flex items-center justify-between transition group text-left font-sans"
+                              >
+                                  <div className="space-y-1">
+                                      <p className="text-white font-bold text-sm uppercase tracking-wide group-hover:text-purple-400 transition flex items-center gap-2">
+                                          <CreditCard size={16} /> Pagar Manualmente
+                                      </p>
+                                      <p className="text-zinc-400 text-xs leading-relaxed">Pague R$ 20,00 uma única vez via Mercado Pago. Válido por 30 dias de downloads livres.</p>
+                                  </div>
+                                  <ChevronRight size={18} className="text-zinc-600 group-hover:text-purple-400 transition" />
+                              </button>
+
+                              {/* Pagar com Renovação Automática */}
+                              <button
+                                  onClick={() => setSubscriptionAutoPayMethod('select_method')}
+                                  className="w-full p-4 bg-zinc-900/60 hover:bg-zinc-800/80 border border-white/5 hover:border-purple-500/30 rounded-2xl flex items-center justify-between transition group text-left font-sans"
+                              >
+                                  <div className="space-y-1">
+                                      <p className="text-white font-bold text-sm uppercase tracking-wide group-hover:text-purple-400 transition flex items-center gap-2">
+                                          <Zap size={16} className="text-amber-400" /> Pagar com Cobrança Automática
+                                      </p>
+                                      <p className="text-zinc-400 text-xs leading-relaxed">Ativa a assinatura e habilita a renovação recorrente mensal automática de R$ 20,00.</p>
+                                  </div>
+                                  <ChevronRight size={18} className="text-zinc-600 group-hover:text-purple-400 transition animate-pulse" />
+                              </button>
+                          </div>
+                      ) : subscriptionAutoPayMethod === 'select_method' ? (
+                          <div className="space-y-4">
+                              <p className="text-sm text-zinc-400 text-center">Escolha a forma do pagamento automático:</p>
+                              
+                              <button
+                                  onClick={async () => {
+                                      setIsSubmittingSubscriptionAutoPay(true);
+                                      try {
+                                          // 1. Ativa sinalização de pagamento automático
+                                          await updateCustomer(currentCustomer!.id, { autoPaymentEnabled: true });
+                                          // 2. Cria preferência do Mercado Pago
+                                          const res = await api.createPayment({
+                                              orderId: currentCustomer!.id,
+                                              title: 'Assinatura Crazy Art - Downloads Ilimitados',
+                                              amount: 20.00,
+                                              payerEmail: currentCustomer!.email,
+                                              payerName: currentCustomer!.name,
+                                              type: 'subscription'
+                                          });
+                                          if (res?.init_point) {
+                                              window.location.href = res.init_point;
+                                          } else {
+                                              throw new Error('Falha ao gerar o link de pagamento do Mercado Pago.');
+                                          }
+                                      } catch (err: any) {
+                                          alert("Erro: " + err.message);
+                                      } finally {
+                                          setIsSubmittingSubscriptionAutoPay(false);
+                                      }
+                                  }}
+                                  disabled={isSubmittingSubscriptionAutoPay}
+                                  className="w-full p-4 bg-zinc-900/60 hover:bg-zinc-800/80 border border-white/5 hover:border-purple-500/30 rounded-2xl flex items-center justify-between transition group text-left font-sans"
+                              >
+                                  <div className="space-y-1">
+                                      <p className="text-white font-bold text-sm uppercase tracking-wide group-hover:text-purple-400 transition">Autorizar via Mercado Pago</p>
+                                      <p className="text-zinc-400 text-xs leading-relaxed">Conexão direta segura com o gateway. Rápido, prático e homologado.</p>
+                                  </div>
+                                  <ChevronRight size={18} className="text-zinc-600 group-hover:text-purple-400 transition" />
+                              </button>
+
+                              <button
+                                  onClick={() => setSubscriptionAutoPayMethod('site')}
+                                  className="w-full p-4 bg-zinc-900/60 hover:bg-zinc-800/80 border border-white/5 hover:border-purple-500/30 rounded-2xl flex items-center justify-between transition group text-left font-sans"
+                              >
+                                  <div className="space-y-1">
+                                      <p className="text-white font-bold text-sm uppercase tracking-wide group-hover:text-purple-400 transition">Preencher Dados do Cartão aqui</p>
+                                      <p className="text-zinc-400 text-xs leading-relaxed">Insira os dados do cartão no formulário local criptografado em tempo real.</p>
+                                  </div>
+                                  <ChevronRight size={18} className="text-zinc-600 group-hover:text-purple-400 transition" />
+                              </button>
+
+                              <button
+                                  type="button"
+                                  onClick={() => setSubscriptionAutoPayMethod(null)}
+                                  className="w-full py-3 bg-zinc-900 hover:bg-zinc-800 border border-white/5 text-zinc-400 hover:text-white rounded-xl font-bold transition text-xs uppercase tracking-wider text-center"
+                                  disabled={isSubmittingSubscriptionAutoPay}
+                              >
+                                  Voltar
+                              </button>
+                          </div>
+                      ) : (
+                          <form 
+                              onSubmit={async (e) => {
+                                  e.preventDefault();
+                                  setIsSubmittingSubscriptionAutoPay(true);
+                                  try {
+                                      // Cartão direto via site
+                                      await updateCustomer(currentCustomer!.id, { 
+                                          autoPaymentEnabled: true, 
+                                          processDirectSubscription: true 
+                                      });
+                                      alert("Pagamento automático por cartão de crédito habilitado e assinatura ativa com sucesso!");
+                                      setIsSubscriptionModalOpen(false);
+                                      setSubscriptionAutoPayMethod(null);
+                                      if (refreshCustomer) {
+                                          await refreshCustomer();
+                                      }
+                                  } catch (err: any) {
+                                      alert("Erro ao habilitar o pagamento automático: " + err.message);
+                                  } finally {
+                                      setIsSubmittingSubscriptionAutoPay(false);
+                                  }
+                              }} 
+                              className="space-y-4"
+                          >
+                              <div className="bg-emerald-500/5 border border-emerald-500/20 p-4 rounded-xl flex gap-3 items-start">
+                                  <div className="p-1 bg-emerald-500/10 rounded text-emerald-400 shrink-0 mt-0.5">
+                                      <Lock size={16} />
+                                  </div>
+                                  <div className="text-xs text-zinc-300 space-y-1">
+                                      <p className="font-bold text-white uppercase tracking-wider">Criptografia Local Segura</p>
+                                      <p className="text-zinc-400 leading-relaxed">Seus dados sensíveis são transmitidos de forma segura e imediata.</p>
+                                  </div>
+                              </div>
+
+                              <div className="space-y-3">
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Nome impresso no Cartão</label>
+                                      <input
+                                          type="text"
+                                          required
+                                          value={subscriptionCardData.name}
+                                          onChange={e => setSubscriptionCardData({ ...subscriptionCardData, name: e.target.value.toUpperCase() })}
+                                          placeholder="NOME DO TITULAR"
+                                          className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-white focus:border-purple-500 outline-none transition text-sm font-mono"
+                                      />
+                                  </div>
+
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">CPF do Titular</label>
+                                      <input
+                                          type="text"
+                                          required
+                                          value={subscriptionCardData.cpf}
+                                          onChange={e => setSubscriptionCardData({ ...subscriptionCardData, cpf: e.target.value.replace(/\D/g, '').slice(0, 11) })}
+                                          placeholder="Apenas números"
+                                          className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-white focus:border-purple-500 outline-none transition text-sm font-mono"
+                                      />
+                                  </div>
+
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Número do Cartão</label>
+                                      <input
+                                          type="text"
+                                          required
+                                          value={subscriptionCardData.number}
+                                          onChange={e => {
+                                              let value = e.target.value.replace(/\D/g, '');
+                                              const chunks = value.match(/.{1,4}/g);
+                                              value = chunks ? chunks.join(' ') : value;
+                                              setSubscriptionCardData({ ...subscriptionCardData, number: value.slice(0, 19) });
+                                          }}
+                                          placeholder="0000 0000 0000 0000"
+                                          className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-white focus:border-purple-500 outline-none transition text-sm font-mono"
+                                      />
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-4">
+                                      <div>
+                                          <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Vencimento</label>
+                                          <input
+                                              type="text"
+                                              required
+                                              value={subscriptionCardData.expiry}
+                                              onChange={e => {
+                                                  let value = e.target.value.replace(/\D/g, '');
+                                                  if (value.length > 2) {
+                                                      value = value.slice(0, 2) + '/' + value.slice(2, 4);
+                                                  }
+                                                  setSubscriptionCardData({ ...subscriptionCardData, expiry: value.slice(0, 5) });
+                                              }}
+                                              placeholder="MM/AA"
+                                              className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-white focus:border-purple-500 outline-none transition text-sm font-mono text-center"
+                                          />
+                                      </div>
+                                      <div>
+                                          <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">CVV / Cód. Segurança</label>
+                                          <input
+                                              type="password"
+                                              required
+                                              value={subscriptionCardData.cvv}
+                                              onChange={e => {
+                                                  const value = e.target.value.replace(/\D/g, '');
+                                                  setSubscriptionCardData({ ...subscriptionCardData, cvv: value.slice(0, 4) });
+                                              }}
+                                              placeholder="***"
+                                              className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-white focus:border-purple-500 outline-none transition text-sm font-mono text-center"
+                                          />
+                                      </div>
+                                  </div>
+                              </div>
+
+                              <div className="pt-4 flex gap-3">
+                                  <button
+                                      type="button"
+                                      onClick={() => setSubscriptionAutoPayMethod('select_method')}
+                                      className="flex-1 py-3 bg-zinc-900 hover:bg-zinc-800 border border-white/5 text-zinc-400 hover:text-white rounded-xl font-bold transition text-xs uppercase tracking-wider"
+                                      disabled={isSubmittingSubscriptionAutoPay}
+                                  >
+                                      Voltar
+                                  </button>
+                                  <button
+                                      type="submit"
+                                      disabled={isSubmittingSubscriptionAutoPay}
+                                      className="flex-1 py-3 bg-primary hover:bg-amber-600 text-white rounded-xl font-bold transition text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                                  >
+                                      {isSubmittingSubscriptionAutoPay ? (
+                                          <>
+                                              <Loader2 size={14} className="animate-spin" /> Ativando...
+                                          </>
+                                      ) : (
+                                          "Confirmar e Assinar"
+                                      )}
+                                  </button>
+                              </div>
+                          </form>
+                      )}
+
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 }

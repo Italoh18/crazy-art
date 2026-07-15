@@ -65,7 +65,7 @@ export default function CustomerDetails() {
       updateCustomer, deleteCustomer, deleteOrder, 
       addOrder, addProduct, updateOrder, updateOrderStatus, isLoading 
   } = useData();
-  const { role, currentCustomer, logout } = useAuth();
+  const { role, currentCustomer, logout, refreshCustomer } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'open' | 'overdue' | 'paid'>('open');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
@@ -1164,8 +1164,11 @@ export default function CustomerDetails() {
           if (confirm("Deseja desativar o pagamento automático recorrente da sua assinatura?")) {
               setIsSubmittingAutoPay(true);
               updateCustomer(customer.id, { autoPaymentEnabled: false })
-                  .then(() => {
+                  .then(async () => {
                       alert("Pagamento automático desativado com sucesso!");
+                      if (refreshCustomer) {
+                          await refreshCustomer();
+                      }
                   })
                   .finally(() => {
                       setIsSubmittingAutoPay(false);
@@ -1188,9 +1191,35 @@ export default function CustomerDetails() {
       e.preventDefault();
       setIsSubmittingAutoPay(true);
       try {
-          await updateCustomer(customer.id, { autoPaymentEnabled: true });
-          alert("Pagamento automático habilitado com sucesso!");
-          setIsAutoPayModalOpen(false);
+          if (autoPayMethod === 'mp') {
+              // 1. Ativa sinalização de pagamento automático
+              await updateCustomer(customer.id, { autoPaymentEnabled: true });
+              // 2. Cria preferência de pagamento de assinatura recorrente no Mercado Pago
+              const res = await api.createPayment({
+                  orderId: customer.id,
+                  title: 'Assinatura Crazy Art - Downloads Ilimitados',
+                  amount: 20.00,
+                  payerEmail: customer.email,
+                  payerName: customer.name,
+                  type: 'subscription'
+              });
+              if (res?.init_point) {
+                  window.location.href = res.init_point;
+              } else {
+                  throw new Error('Falha ao gerar o link de pagamento do Mercado Pago.');
+              }
+          } else {
+              // Cartão direto via site
+              await updateCustomer(customer.id, { 
+                  autoPaymentEnabled: true, 
+                  processDirectSubscription: true 
+              });
+              alert("Pagamento automático por cartão de crédito habilitado e assinatura ativa com sucesso!");
+              setIsAutoPayModalOpen(false);
+              if (refreshCustomer) {
+                  await refreshCustomer();
+              }
+          }
       } catch (err: any) {
           alert("Erro ao habilitar o pagamento automático: " + err.message);
       } finally {

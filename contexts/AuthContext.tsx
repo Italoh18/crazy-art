@@ -12,6 +12,7 @@ interface AuthContextType {
   loginAdmin: (code: string, rememberMe?: boolean) => Promise<boolean>;
   loginClient: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
   logout: () => void;
+  refreshCustomer: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,6 +33,22 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
       }
   });
 
+  const refreshCustomer = async () => {
+      if (role === 'client') {
+          try {
+              const data = await api.getClients();
+              // For clients, the API returns a single object. For admins, an array.
+              if (data && !Array.isArray(data)) {
+                setCurrentCustomer(data);
+                const storage = localStorage.getItem('auth_token') ? localStorage : sessionStorage;
+                storage.setItem('current_customer', JSON.stringify(data));
+              }
+          } catch (e) {
+              console.error("Failed to refresh user data", e);
+          }
+      }
+  };
+
   useEffect(() => {
       // Sync extra caso o storage mude externamente
       const savedCustomer = localStorage.getItem('current_customer') || sessionStorage.getItem('current_customer');
@@ -42,23 +59,7 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
       }
       
       // Auto-refresh data if user is a client to ensure subscription status is up to date
-      const refreshData = async () => {
-          if (role === 'client') {
-              try {
-                  const data = await api.getClients();
-                  // For clients, the API returns a single object. For admins, an array.
-                  if (data && !Array.isArray(data)) {
-                    setCurrentCustomer(data);
-                    const storage = localStorage.getItem('auth_token') ? localStorage : sessionStorage;
-                    storage.setItem('current_customer', JSON.stringify(data));
-                  }
-              } catch (e) {
-                  console.error("Failed to refresh user data", e);
-              }
-          }
-      };
-      
-      refreshData();
+      refreshCustomer();
   }, [role]);
 
   const loginAdmin = async (code: string, rememberMe: boolean = true) => {
@@ -98,7 +99,7 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ role, currentCustomer, loginAdmin, loginClient, logout }}>
+    <AuthContext.Provider value={{ role, currentCustomer, loginAdmin, loginClient, logout, refreshCustomer }}>
       {children}
     </AuthContext.Provider>
   );

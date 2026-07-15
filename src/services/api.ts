@@ -130,7 +130,7 @@ export const api = {
     return handleResponse(res);
   },
 
-  async createPayment(paymentData: { orderId: string, title: string, amount: number, payerEmail?: string, payerName?: string, successUrl?: string }) {
+  async createPayment(paymentData: { orderId: string, title: string, amount: number, payerEmail?: string, payerName?: string, successUrl?: string, type?: string }) {
     const res = await fetch('/api/create-payment', { 
         method: 'POST', 
         headers: getHeaders(), 
