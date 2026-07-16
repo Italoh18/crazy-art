@@ -10,7 +10,7 @@ interface AuthContextType {
   role: UserRole;
   currentCustomer: Customer | null;
   loginAdmin: (code: string, rememberMe?: boolean) => Promise<boolean>;
-  loginClient: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
+  loginClient: (email: string, password: string, rememberMe?: boolean, twoFactorCode?: string) => Promise<{ success: boolean; twoFactorRequired?: boolean; email?: string; error?: string }>;
   logout: () => void;
   refreshCustomer: () => Promise<void>;
 }
@@ -74,20 +74,28 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
     return false;
   };
 
-  const loginClient = async (email: string, password: string, rememberMe: boolean = true) => {
+  const loginClient = async (email: string, password: string, rememberMe: boolean = true, twoFactorCode?: string) => {
     try {
-        const payload = { email, password };
+        const payload = { email, password, twoFactorCode };
         const data = await api.auth(payload, rememberMe);
+        
+        if (data.twoFactorRequired) {
+            return { success: false, twoFactorRequired: true, email: data.email };
+        }
+        
         if (data.token && data.customer) {
             setRole('client');
             setCurrentCustomer(data.customer);
             const storage = rememberMe ? localStorage : sessionStorage;
             storage.setItem('current_customer', JSON.stringify(data.customer));
             await loadData(); // Recarrega dados com o novo token
-            return true;
+            return { success: true };
         }
-    } catch (e) { console.error(e); }
-    return false;
+    } catch (e: any) { 
+        console.error(e); 
+        return { success: false, error: e.message || "Erro de login" };
+    }
+    return { success: false, error: "E-mail ou senha incorretos." };
   };
 
   const logout = () => {

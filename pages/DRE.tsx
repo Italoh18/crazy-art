@@ -362,7 +362,7 @@ export default function DRE() {
                   <p className="text-emerald-400 font-bold font-mono text-sm">{formatCurrency(latestOrder.total)}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {renderStatusBadge(latestOrder.status, latestOrder.due_date && new Date(latestOrder.due_date) < new Date() && latestOrder.status !== 'paid')}
+                  {renderStatusBadge(latestOrder.status, !!(latestOrder.due_date && new Date(latestOrder.due_date) < new Date() && latestOrder.status !== 'paid'))}
                   <button 
                     onClick={() => setIsSalesHistoryModalOpen(true)}
                     className="flex items-center gap-1.5 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs rounded-lg transition border border-zinc-700 shadow-md"
@@ -501,7 +501,7 @@ export default function DRE() {
                 {[...orders]
                   .sort((a, b) => new Date(b.order_date || 0).getTime() - new Date(a.order_date || 0).getTime())
                   .map((order, idx) => {
-                    const isLate = order.due_date && new Date(order.due_date) < new Date() && order.status !== 'paid' && order.status !== 'cancelled';
+                    const isLate = !!(order.due_date && new Date(order.due_date) < new Date() && order.status !== 'paid' && order.status !== 'cancelled');
                     return (
                       <div key={order.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 first:pt-0 last:pb-0 hover:bg-white/[0.01] px-2 rounded-lg transition">
                         <div className="space-y-1">

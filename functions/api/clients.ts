@@ -10,6 +10,14 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       // Column probably already exists or table does not exist yet (fine)
     }
 
+    try {
+      await env.DB.prepare('ALTER TABLE clients ADD COLUMN two_factor_enabled INTEGER DEFAULT 0').run();
+    } catch (err) {}
+
+    try {
+      await env.DB.prepare('ALTER TABLE clients ADD COLUMN two_factor_code TEXT').run();
+    } catch (err) {}
+
     const user = await getAuth(request, env);
     const url = new URL(request.url);
     const id = url.searchParams.get('id');
@@ -22,7 +30,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         cloudLink: c.cloudLink || c.cloud_link,
         isSubscriber: c.isSubscriber !== undefined ? c.isSubscriber : (c.is_subscriber === 1),
         subscriptionExpiresAt: c.subscriptionExpiresAt || c.subscription_expires_at,
-        autoPaymentEnabled: c.autoPaymentEnabled !== undefined ? c.autoPaymentEnabled : (c.auto_payment_enabled === 1)
+        autoPaymentEnabled: c.autoPaymentEnabled !== undefined ? c.autoPaymentEnabled : (c.auto_payment_enabled === 1),
+        twoFactorEnabled: c.twoFactorEnabled !== undefined ? c.twoFactorEnabled : (c.two_factor_enabled === 1)
       };
     };
 
@@ -185,6 +194,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       } else if (user.clientId === id) {
         // Cliente pode atualizar seus próprios dados (exceto creditLimit e isSubscriber, a menos que esteja ativando o pagamento automático direto)
         const autoPaymentEnabled = body.autoPaymentEnabled !== undefined ? (body.autoPaymentEnabled ? 1 : 0) : null;
+        const twoFactorEnabled = body.twoFactorEnabled !== undefined ? (body.twoFactorEnabled ? 1 : 0) : null;
         const processDirectSubscription = body.processDirectSubscription === true;
         
         if (processDirectSubscription) {
@@ -217,9 +227,13 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           } catch (err) {
             // Tabela de notificações pode ter restrições ou campos diferentes, ignorar falha silenciosamente
           }
-        } else if (autoPaymentEnabled !== null) {
+        } else if (autoPaymentEnabled !== null || twoFactorEnabled !== null) {
+          const current: any = await env.DB.prepare('SELECT auto_payment_enabled, two_factor_enabled FROM clients WHERE id = ?').bind(String(id)).first();
+          const finalAutoPayment = autoPaymentEnabled !== null ? autoPaymentEnabled : (current?.auto_payment_enabled || 0);
+          const finalTwoFactor = twoFactorEnabled !== null ? twoFactorEnabled : (current?.two_factor_enabled || 0);
+
           await env.DB.prepare(
-            'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=?, auto_payment_enabled=? WHERE id=?'
+            'UPDATE clients SET name=?, email=?, phone=?, street=?, number=?, zipCode=?, auto_payment_enabled=?, two_factor_enabled=? WHERE id=?'
           ).bind(
             String(body.name || '').trim(),
             body.email ? String(body.email).trim() : null,
@@ -227,7 +241,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             body.address?.street ? String(body.address.street).trim() : null,
             body.address?.number ? String(body.address.number).trim() : null,
             body.address?.zipCode ? String(body.address.zipCode).trim() : null,
-            autoPaymentEnabled,
+            finalAutoPayment,
+            finalTwoFactor,
             String(id)
           ).run();
         } else {

@@ -15,6 +15,8 @@ export interface Customer {
   isSubscriber?: boolean; 
   subscriptionExpiresAt?: string;
   autoPaymentEnabled?: boolean;
+  twoFactorEnabled?: boolean;
+  currentIp?: string;
   created_at: string;
 }
 

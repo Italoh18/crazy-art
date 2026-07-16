@@ -30,6 +30,8 @@ export default function MatrizBordado() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [authError, setAuthError] = useState('');
+  const [is2FARequired, setIs2FARequired] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(true);
   const [regData, setRegData] = useState({
     name: '',
@@ -97,11 +99,16 @@ export default function MatrizBordado() {
         setAuthError('Código de acesso inválido.');
       }
     } else {
-      const success = await loginClient(inputValue, loginPassword, rememberMe);
-      if (success) {
+      const result = await loginClient(inputValue, loginPassword, rememberMe, twoFactorCode || undefined);
+      if (result.success) {
         setIsAuthModalOpen(false);
+        setIs2FARequired(false);
+        setTwoFactorCode('');
+      } else if (result.twoFactorRequired) {
+        setIs2FARequired(true);
+        setAuthError('Código de segurança enviado para o seu e-mail.');
       } else {
-        setAuthError('E-mail ou senha incorretos.');
+        setAuthError(result.error || 'E-mail ou senha incorretos.');
       }
     }
   };
@@ -140,12 +147,12 @@ export default function MatrizBordado() {
             password: regData.password
         });
         
-        const success = await loginClient(regData.email, regData.password);
-        if (success) {
+        const result = await loginClient(regData.email, regData.password);
+        if (result.success) {
             setIsAuthModalOpen(false);
         } else {
             setIsRegisterMode(false);
-            setInputValue(regData.cpf);
+            setInputValue(regData.email || regData.cpf);
             setAuthError('Cadastro realizado! Agora faça seu login.');
         }
     } catch (err: any) {
@@ -797,7 +804,7 @@ export default function MatrizBordado() {
       {isAuthModalOpen && (
         <div className="fixed inset-0 z-[10000] flex justify-center items-start pt-12 md:pt-24 bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
           <div className={`bg-zinc-900 border border-zinc-800 rounded-3xl w-full p-8 shadow-2xl relative overflow-hidden transition-all duration-500 ${isRegisterMode ? 'max-w-2xl max-h-[90vh]' : 'max-w-md'}`}>
-            <button onClick={() => setIsAuthModalOpen(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-transform hover:rotate-90 z-20"><X size={24} /></button>
+            <button onClick={() => { setIsAuthModalOpen(false); setIs2FARequired(false); setTwoFactorCode(''); }} className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-transform hover:rotate-90 z-20"><X size={24} /></button>
             
             {!isRegisterMode ? (
               <div className="animate-fade-in">
@@ -805,57 +812,89 @@ export default function MatrizBordado() {
                     <div className="w-20 h-20 bg-black rounded-full flex items-center justify-center mb-4 ring-1 ring-zinc-800 shadow-xl">
                         {loginMode === 'client' ? <User className="text-primary" size={40} strokeWidth={1.5} /> : <Lock className="text-secondary" size={40} strokeWidth={1.5} />}
                     </div>
-                    <h2 className="text-2xl font-bold text-white uppercase tracking-wide" style={{ fontFamily: '"Times New Roman", Times, serif' }}>{loginMode === 'client' ? 'Área do Cliente' : 'Acesso Adm'}</h2>
-                    <p className="text-zinc-500 text-sm mt-2">{loginMode === 'client' ? 'Entre com seu e-mail e senha' : 'Digite o código administrativo'}</p>
+                    <h2 className="text-2xl font-bold text-white uppercase tracking-wide" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
+                        {is2FARequired ? 'Segurança 2FA' : loginMode === 'client' ? 'Área do Cliente' : 'Acesso Adm'}
+                    </h2>
+                    <p className="text-zinc-500 text-sm mt-2">
+                        {is2FARequired 
+                            ? 'Insira o código enviado por e-mail' 
+                            : loginMode === 'client' 
+                                ? 'Entre com seu e-mail e senha' 
+                                : 'Digite o código administrativo'}
+                    </p>
                 </div>
                 
                 <form onSubmit={handleAuthLogin} className="space-y-5 relative z-10">
                     <div className="space-y-4">
-                        <input 
-                            type="text" 
-                            placeholder={loginMode === 'client' ? "E-mail" : "Código de Acesso"} 
-                            className="w-full bg-black/50 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-wider" 
-                            value={inputValue} 
-                            onChange={handleLoginInputChange} 
-                            autoFocus 
-                        />
-                        {loginMode === 'client' && (
-                            <div className="relative">
+                        {is2FARequired ? (
+                            <div className="space-y-3">
+                                <label className="block text-center text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Código de Verificação</label>
                                 <input 
-                                    type={showPassword ? "text" : "password"} 
-                                    placeholder="Sua Senha" 
-                                    className="w-full bg-black/50 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-wider" 
-                                    value={loginPassword} 
-                                    onChange={(e) => setLoginPassword(e.target.value)} 
+                                    type="text" 
+                                    maxLength={6}
+                                    placeholder="000000" 
+                                    className="w-full bg-black/50 border border-emerald-500/40 rounded-xl px-5 py-4 text-white focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-[0.25em] text-2xl font-mono font-black" 
+                                    value={twoFactorCode} 
+                                    onChange={(e) => setTwoFactorCode(e.target.value)} 
+                                    autoFocus 
                                 />
-                                <button 
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
-                                >
-                                    {showPassword ? <Eye size={20} className="text-[#ff8100]" /> : <EyeOff size={20} className="text-[#ff8100]" />}
-                                </button>
+                                <p className="text-[10px] text-zinc-500 text-center uppercase tracking-wider leading-relaxed">
+                                    Insira o código temporário que acabamos de enviar ao seu endereço de e-mail.
+                                </p>
                             </div>
+                        ) : (
+                            <>
+                                <input 
+                                    type="text" 
+                                    placeholder={loginMode === 'client' ? "E-mail" : "Código de Acesso"} 
+                                    className="w-full bg-black/50 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-wider" 
+                                    value={inputValue} 
+                                    onChange={handleLoginInputChange} 
+                                    autoFocus 
+                                />
+                                {loginMode === 'client' && (
+                                    <div className="relative">
+                                        <input 
+                                            type={showPassword ? "text" : "password"} 
+                                            placeholder="Sua Senha" 
+                                            className="w-full bg-black/50 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-zinc-600 text-center tracking-wider" 
+                                            value={loginPassword} 
+                                            onChange={(e) => setLoginPassword(e.target.value)} 
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                                        >
+                                            {showPassword ? <Eye size={20} className="text-[#ff8100]" /> : <EyeOff size={20} className="text-[#ff8100]" />}
+                                        </button>
+                                    </div>
+                                )}
+                            </>
                         )}
                         
-                        <div className="flex items-center gap-2 px-1">
-                            <button 
-                                type="button"
-                                onClick={() => setRememberMe(!rememberMe)}
-                                className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${rememberMe ? 'bg-primary border-primary' : 'bg-black/50 border-zinc-700'}`}
-                            >
-                                {rememberMe && <div className="w-2.5 h-2.5 bg-black rounded-[1px]" />}
-                            </button>
-                            <span 
-                                className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest cursor-pointer hover:text-white transition-colors"
-                                onClick={() => setRememberMe(!rememberMe)}
-                            >
-                                Manter conectado
-                            </span>
-                        </div>
+                        {!is2FARequired && (
+                            <div className="flex items-center gap-2 px-1">
+                                <button 
+                                    type="button"
+                                    onClick={() => setRememberMe(!rememberMe)}
+                                    className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${rememberMe ? 'bg-primary border-primary' : 'bg-black/50 border-zinc-700'}`}
+                                >
+                                    {rememberMe && <div className="w-2.5 h-2.5 bg-black rounded-[1px]" />}
+                                </button>
+                                <span 
+                                    className="text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest cursor-pointer hover:text-white transition-colors"
+                                    onClick={() => setRememberMe(!rememberMe)}
+                                >
+                                    Manter conectado
+                                </span>
+                            </div>
+                        )}
                     </div>
                     {authError && <div className="text-red-500 text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20 text-xs font-bold">{authError}</div>}
-                    <button type="submit" className="w-full bg-zinc-100 text-black font-bold py-4 rounded-xl hover:bg-white transition-all transform active:scale-95 uppercase tracking-wider text-sm shadow-xl">Entrar</button>
+                    <button type="submit" className="w-full bg-zinc-100 text-black font-bold py-4 rounded-xl hover:bg-white transition-all transform active:scale-95 uppercase tracking-wider text-sm shadow-xl">
+                        {is2FARequired ? 'Confirmar Código' : 'Entrar'}
+                    </button>
                 </form>
 
                 <div className="mt-8 flex flex-col items-center gap-4 relative z-10">

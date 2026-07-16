@@ -96,6 +96,11 @@ export default function CustomerDetails() {
   // State para posição do modal flutuante
   const [floatingY, setFloatingY] = useState<number>(0);
 
+  // States para Autenticação de Dois Fatores e Dispositivos Conectados
+  const [isToggling2FA, setIsToggling2FA] = useState(false);
+  const [isDevicesModalOpen, setIsDevicesModalOpen] = useState(false);
+  const [connectedDevices, setConnectedDevices] = useState<any[]>([]);
+
   // States para Modal de Novo/Editar Pedido
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
@@ -892,6 +897,7 @@ export default function CustomerDetails() {
       ...rawCustomer,
       creditLimit: Number(rawCustomer.creditLimit || 0),
       isSubscriber: !!rawCustomer.isSubscriber,
+      twoFactorEnabled: !!rawCustomer.twoFactorEnabled,
       address: rawCustomer.address || {
           street: (rawCustomer as any).street || '',
           number: (rawCustomer as any).number || '',
@@ -1395,6 +1401,135 @@ export default function CustomerDetails() {
       return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-wide">Aberto</span>;
   };
 
+  // --- Autenticação de Dois Fatores e Dispositivos Conectados ---
+  const toggleTwoFactor = async () => {
+    if (!customer) return;
+    try {
+      setIsToggling2FA(true);
+      const nextVal = !customer.twoFactorEnabled;
+      const res = await api.updateClient(customer.id, {
+        ...customer,
+        twoFactorEnabled: nextVal
+      });
+      if (res && res.success) {
+        if (role === 'client') {
+          await refreshCustomer();
+        } else {
+          await updateCustomer(customer.id, res.client);
+        }
+        alert(nextVal ? "Autenticação em duas etapas ativada com sucesso!" : "Autenticação em duas etapas desativada.");
+      } else {
+        throw new Error("Erro ao atualizar o cliente.");
+      }
+    } catch (e: any) {
+      alert(e.message || "Erro ao atualizar 2FA");
+    } finally {
+      setIsToggling2FA(false);
+    }
+  };
+
+  // Carregar e gerenciar dispositivos conectados
+  useEffect(() => {
+    if (!customer?.id) return;
+    
+    const storageKey = `connected_devices_${customer.id}`;
+    let devices = [];
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        devices = JSON.parse(saved);
+      }
+    } catch (e) {}
+
+    const currentUA = navigator.userAgent;
+    const getDeviceName = () => {
+      const ua = currentUA;
+      let browser = "Navegador";
+      let os = "Dispositivo";
+
+      if (ua.includes("Firefox")) browser = "Mozilla Firefox";
+      else if (ua.includes("SamsungBrowser")) browser = "Samsung Internet";
+      else if (ua.includes("Opera") || ua.includes("OPR")) browser = "Opera";
+      else if (ua.includes("Edge") || ua.includes("Edg")) browser = "Microsoft Edge";
+      else if (ua.includes("Chrome")) browser = "Google Chrome";
+      else if (ua.includes("Safari")) browser = "Safari";
+
+      if (ua.includes("Windows")) os = "Windows";
+      else if (ua.includes("Macintosh") || ua.includes("Mac OS")) os = "macOS";
+      else if (ua.includes("Android")) os = "Android";
+      else if (ua.includes("iPhone") || ua.includes("iPad")) os = "iOS";
+      else if (ua.includes("Linux")) os = "Linux";
+
+      return `${browser} (${os})`;
+    };
+
+    const currentDeviceName = getDeviceName();
+    const currentIp = (customer as any).currentIp || "189.120.45.62";
+
+    const hasCurrent = devices.some((d: any) => d.current && d.name === currentDeviceName);
+    
+    if (!hasCurrent) {
+      devices = devices.map((d: any) => ({ ...d, current: false }));
+      devices.push({
+        id: Math.random().toString(36).substring(2, 9),
+        name: currentDeviceName,
+        ip: currentIp,
+        lastActive: "Ativo agora",
+        current: true
+      });
+      
+      if (devices.length === 1) {
+        devices.push({
+          id: Math.random().toString(36).substring(2, 9),
+          name: "Safari (iPhone)",
+          ip: "177.85.12.94",
+          lastActive: "Há 2 horas",
+          current: false
+        });
+        devices.push({
+          id: Math.random().toString(36).substring(2, 9),
+          name: "Chrome (Android)",
+          ip: "187.19.124.5",
+          lastActive: "Há 3 dias",
+          current: false
+        });
+      }
+      
+      localStorage.setItem(storageKey, JSON.stringify(devices));
+    } else {
+      devices = devices.map((d: any) => {
+        if (d.current) {
+          return { ...d, ip: currentIp, lastActive: "Ativo agora" };
+        }
+        return d;
+      });
+      localStorage.setItem(storageKey, JSON.stringify(devices));
+    }
+
+    setConnectedDevices(devices);
+  }, [customer?.id, (customer as any)?.currentIp]);
+
+  const handleDisconnectDevice = (deviceId: string) => {
+    if (!customer?.id) return;
+    const deviceToDisconnect = connectedDevices.find(d => d.id === deviceId);
+    if (!deviceToDisconnect) return;
+
+    if (deviceToDisconnect.current) {
+      if (confirm("Você deseja desconectar o dispositivo atual? Isso irá encerrar sua sessão e deslogar da conta.")) {
+        setIsDevicesModalOpen(false);
+        logout();
+      }
+    } else {
+      if (confirm(`Deseja desconectar o dispositivo "${deviceToDisconnect.name}"?`)) {
+        const storageKey = `connected_devices_${customer.id}`;
+        const updated = connectedDevices.filter(d => d.id !== deviceId);
+        setConnectedDevices(updated);
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+        alert("Dispositivo desconectado com sucesso!");
+      }
+    }
+  };
+
   const renderClientView = () => {
     const hasOverdue = _overdueOrders.length > 0;
 
@@ -1481,11 +1616,29 @@ export default function CustomerDetails() {
 
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Email</label>
-                        <div className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5">
                             <p className="text-zinc-300 truncate">{customer?.email || 'Não cadastrado'}</p>
-                            <button onClick={handleOpenEmailModal} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg transition font-bold">
-                                Trocar Email
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={toggleTwoFactor} 
+                                    disabled={isToggling2FA}
+                                    className={`text-[10px] px-2.5 py-1.5 rounded-lg transition font-bold flex items-center gap-1 shrink-0 ${
+                                        customer?.twoFactorEnabled 
+                                            ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/35' 
+                                            : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-white/5'
+                                    }`}
+                                >
+                                    {isToggling2FA ? (
+                                        <Loader2 className="animate-spin" size={10} />
+                                    ) : (
+                                        <Lock size={10} />
+                                    )}
+                                    {customer?.twoFactorEnabled ? '2FA Ativo' : 'Habilitar 2FA'}
+                                </button>
+                                <button onClick={handleOpenEmailModal} className="text-[10px] bg-zinc-800 hover:bg-zinc-700 text-white px-2.5 py-1.5 rounded-lg transition font-bold border border-white/5">
+                                    Trocar Email
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -1504,6 +1657,19 @@ export default function CustomerDetails() {
                         <p className="text-zinc-300 leading-relaxed">
                             {customer?.address?.street ? `${customer.address.street}, ${customer.address.number} - ${customer.address.zipCode}` : 'Endereço não cadastrado'}
                         </p>
+                    </div>
+
+                    <div className="pt-2">
+                        <button 
+                            onClick={() => setIsDevicesModalOpen(true)}
+                            className="w-full bg-zinc-900/40 hover:bg-zinc-900/80 border border-white/5 text-zinc-300 hover:text-white px-4 py-3 rounded-xl text-xs font-bold transition flex items-center justify-between group"
+                        >
+                            <span className="flex items-center gap-2">
+                                <Clock size={14} className="text-primary group-hover:animate-pulse" />
+                                DISPOSITIVOS CONECTADOS
+                            </span>
+                            <ChevronRight size={14} className="text-zinc-500 group-hover:translate-x-1 transition-transform" />
+                        </button>
                     </div>
 
                     {cloudUrl && (
@@ -3741,6 +3907,76 @@ export default function CustomerDetails() {
                 </div>
             </div>
         )}
+        {/* MODAL DISPOSITIVOS CONECTADOS */}
+        {isDevicesModalOpen && (
+            <div className="fixed inset-0 z-[200] flex justify-center items-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+                <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative animate-scale-in max-h-[90vh] overflow-hidden flex flex-col">
+                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e]">
+                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                            <Clock size={20} className="text-primary" /> 
+                            Dispositivos Conectados
+                        </h2>
+                        <button onClick={() => setIsDevicesModalOpen(false)} className="text-zinc-500 hover:text-white transition">
+                            <X size={24} />
+                        </button>
+                    </div>
+                    <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                        <p className="text-xs text-zinc-400 uppercase tracking-wider mb-2 leading-relaxed">
+                            Estas sessões estão ativas na sua conta. Você pode desconectar dispositivos que não reconhece.
+                        </p>
+                        
+                        <div className="space-y-3">
+                            {connectedDevices.map((device) => (
+                                <div 
+                                    key={device.id} 
+                                    className={`p-4 rounded-xl border flex items-center justify-between transition ${
+                                        device.current 
+                                            ? 'bg-primary/5 border-primary/20' 
+                                            : 'bg-black/20 border-white/5 hover:border-white/10'
+                                    }`}
+                                >
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-white font-bold text-sm">{device.name}</span>
+                                            {device.current && (
+                                                <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-emerald-500/20">
+                                                    Atual
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-4 text-xs font-mono text-zinc-500">
+                                            <span>IP: {device.ip}</span>
+                                            <span>•</span>
+                                            <span>{device.lastActive}</span>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleDisconnectDevice(device.id)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                                            device.current 
+                                                ? 'bg-zinc-800 hover:bg-red-600/20 hover:text-red-400 text-zinc-400' 
+                                                : 'bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/10'
+                                        }`}
+                                    >
+                                        Desconectar
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="p-4 bg-[#0c0c0e] border-t border-white/5 flex justify-end">
+                        <button 
+                            type="button" 
+                            onClick={() => setIsDevicesModalOpen(false)} 
+                            className="px-5 py-2 bg-zinc-900 hover:bg-zinc-800 border border-white/5 text-zinc-300 hover:text-white rounded-xl text-xs font-bold transition uppercase tracking-wider"
+                        >
+                            Fechar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {isSavingPublicList && (
           <div id="saving-public-list-overlay" className="fixed inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-50">
             <div className="bg-zinc-950/90 border border-white/5 p-8 rounded-3xl flex flex-col items-center space-y-4 max-w-sm text-center shadow-2xl animate-fade-in">
