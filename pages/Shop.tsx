@@ -500,7 +500,7 @@ export default function Shop() {
               status: 'open',
               source: 'shop' as const,
               order_date: new Date().toISOString().split('T')[0],
-              due_date: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
+              due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           };
 
           const res = await addOrder(orderData);
@@ -735,7 +735,7 @@ export default function Shop() {
             size_list: null, // Now stored per-item in order_items
             status: 'open', source: 'shop',
             order_date: new Date().toISOString().split('T')[0],
-            due_date: new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0],
+            due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         };
         const res = await addOrder(orderData);
         setLastCreatedOrder({ ...res, items, discount: discountAmount, couponCode: appliedCoupon ? appliedCoupon.code : null }); 

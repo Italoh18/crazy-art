@@ -124,7 +124,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       
       const description = String(body.description || '').trim();
       const order_date = String(body.order_date || body.orderDate || now.split('T')[0]);
-      const due_date = String(body.due_date || body.dueDate || order_date);
+      const defaultDueDate = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const due_date = String(body.due_date || body.dueDate || defaultDueDate);
       const status = String(body.status || 'open');
       const source = String(body.source || 'admin');
       const size_list = body.size_list ? String(body.size_list) : null;

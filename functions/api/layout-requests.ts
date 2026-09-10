@@ -93,13 +93,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           value,
           0, // total_cost
           paymentMethod,
-          paymentMethod === 'credit' ? 'paid' : 'pending',
+          paymentMethod === 'credit' ? 'pending' : 'pending',
           paymentMethod === 'credit' ? 'open' : 'draft',
           type,
           now.split('T')[0],
-          paymentMethod === 'credit' 
-            ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-            : now.split('T')[0],
+          new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           now,
           'production',
           discount,
@@ -125,13 +123,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           value,
           0, // total_cost
           paymentMethod,
-          paymentMethod === 'credit' ? 'paid' : 'pending',
+          paymentMethod === 'credit' ? 'pending' : 'pending',
           paymentMethod === 'credit' ? 'open' : 'draft',
           type,
           now.split('T')[0],
-          paymentMethod === 'credit' 
-            ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-            : now.split('T')[0],
+          new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           now,
           'production',
           discount

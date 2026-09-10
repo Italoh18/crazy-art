@@ -16,6 +16,7 @@ import { api } from '../src/services/api';
 import { SizeListItem, Order } from '../types';
 import { ProductionPath } from '../components/ProductionPath';
 import { MontagemMoldeDetailsSection } from '../components/MontagemMoldeDetailsSection';
+import { isOrderPaid, isOrderOverdue, getOrderRemainingAmount } from '../src/utils/orderStatus';
 
 const sortSizeListItems = (items: SizeListItem[]): SizeListItem[] => {
   const categoryOrder: Record<string, number> = {
@@ -109,7 +110,7 @@ export default function CustomerDetails() {
   const [newOrderData, setNewOrderData] = useState({
       description: '',
       orderDate: new Date().toISOString().split('T')[0],
-      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       discount: 0
   });
   const [orderItems, setOrderItems] = useState<any[]>([]);
@@ -921,27 +922,20 @@ export default function CustomerDetails() {
     .filter(o => o.client_id === customer?.id)
     .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
 
-  const today = new Date();
-  today.setHours(0,0,0,0);
-
-  const _openOrders = allCustomerOrders.filter(o => {
-      if (!['open', 'production', 'revision'].includes(o.status)) return false;
-      const due = new Date(o.due_date);
-      return due >= today;
-  });
+  const _paidOrders = allCustomerOrders.filter(o => isOrderPaid(o));
 
   const _overdueOrders = allCustomerOrders.filter(o => {
-      if (!['open', 'production', 'revision'].includes(o.status)) return false;
-      const due = new Date(o.due_date);
-      return due < today;
+      if (isOrderPaid(o) || o.status === 'cancelled') return false;
+      return isOrderOverdue(o.due_date);
+  });
+
+  const _openOrders = allCustomerOrders.filter(o => {
+      if (isOrderPaid(o) || o.status === 'cancelled') return false;
+      return !isOrderOverdue(o.due_date);
   });
 
   // Lógica de Bloqueio da Nuvem
   const isCloudLocked = role === 'client' && _overdueOrders.length > 0;
-
-  const _paidOrders = allCustomerOrders.filter(o => 
-    (o.status === 'paid' || !!o.paid_at) && o.status !== 'cancelled'
-  );
 
   const displayedOrders = useMemo(() => {
       switch(activeTab) {
@@ -953,10 +947,10 @@ export default function CustomerDetails() {
   }, [activeTab, _openOrders, _overdueOrders, _paidOrders]);
 
   const allPayableOrders = [..._openOrders, ..._overdueOrders];
-  const totalPayableValue = allPayableOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
+  const totalPayableValue = allPayableOrders.reduce((acc, o) => acc + getOrderRemainingAmount(o), 0);
 
   const currentTabPayableOrders = useMemo(() => 
-      displayedOrders.filter(o => o.status === 'open'),
+      displayedOrders.filter(o => !isOrderPaid(o) && o.status !== 'cancelled'),
   [displayedOrders]);
 
   const isAllSelected = currentTabPayableOrders.length > 0 && currentTabPayableOrders.every(o => selectedOrderIds.includes(o.id));
@@ -974,8 +968,8 @@ export default function CustomerDetails() {
   };
 
   const totalPaid = _paidOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
-  const totalOpen = _openOrders.reduce((acc, o) => acc + Number(o.total || 0), 0) + _overdueOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
-  const totalOverdueValue = _overdueOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
+  const totalOpen = _openOrders.reduce((acc, o) => acc + getOrderRemainingAmount(o), 0) + _overdueOrders.reduce((acc, o) => acc + getOrderRemainingAmount(o), 0);
+  const totalOverdueValue = _overdueOrders.reduce((acc, o) => acc + getOrderRemainingAmount(o), 0);
 
   const creditLimit = customer?.creditLimit || 0;
   const availableCredit = creditLimit - totalOpen;
@@ -984,7 +978,7 @@ export default function CustomerDetails() {
   const selectedTotal = useMemo(() => {
     return allCustomerOrders
       .filter(o => selectedOrderIds.includes(o.id))
-      .reduce((acc, curr) => acc + Number(curr.total || 0), 0);
+      .reduce((acc, curr) => acc + getOrderRemainingAmount(curr), 0);
   }, [allCustomerOrders, selectedOrderIds]);
 
   const toggleSelectOrder = (orderId: string, e: React.MouseEvent) => {
@@ -999,7 +993,7 @@ export default function CustomerDetails() {
 
   const initiatePaymentFlow = (orderIds: string[]) => {
       const targetOrders = allCustomerOrders.filter(o => orderIds.includes(o.id));
-      const amountToPay = targetOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
+      const amountToPay = targetOrders.reduce((acc, o) => acc + getOrderRemainingAmount(o), 0);
       const title = orderIds.length === 1 
           ? `Pedido #${targetOrders[0]?.formattedOrderNumber} - Crazy Art`
           : `Faturas (${orderIds.length}) - Crazy Art`;
@@ -1277,7 +1271,7 @@ export default function CustomerDetails() {
       setNewOrderData({
           description: '',
           orderDate: new Date().toISOString().split('T')[0],
-          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           discount: 0
       });
       setOrderItems([]);
@@ -3064,7 +3058,15 @@ export default function CustomerDetails() {
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-4 md:px-6 py-4 text-right"><div className="font-mono font-bold text-white text-sm md:text-base">R$ {Number(order.total || 0).toFixed(2)}</div><div className={`md:hidden text-[10px] mt-1 font-medium ${isLate ? 'text-red-400' : 'text-zinc-500'}`}>Vence: {new Date(order.due_date).toLocaleDateString().slice(0,5)}</div></td>
+                                        <td className="px-4 md:px-6 py-4 text-right">
+                                            <div className="font-mono font-bold text-white text-sm md:text-base">R$ {Number(order.total || 0).toFixed(2)}</div>
+                                            {getOrderRemainingAmount(order) < Number(order.total || 0) && getOrderRemainingAmount(order) > 0 && (
+                                                <div className="text-[11px] font-bold text-amber-400 mt-0.5 whitespace-nowrap">
+                                                    Falta pagar: R$ {getOrderRemainingAmount(order).toFixed(2)}
+                                                </div>
+                                            )}
+                                            <div className={`md:hidden text-[10px] mt-1 font-medium ${isLate ? 'text-red-400' : 'text-zinc-500'}`}>Vence: {new Date(order.due_date).toLocaleDateString().slice(0,5)}</div>
+                                        </td>
                                         <td className="px-4 md:px-6 py-4 text-center">
                                             <div className="flex items-center justify-end md:justify-center gap-2">
                                                 {order.status === 'open' ? (
@@ -3278,6 +3280,12 @@ export default function CustomerDetails() {
                                     <span className="text-primary font-bold text-sm">Valor Final</span>
                                     <span className="text-primary font-mono font-bold text-sm">R$ {Number(viewingOrder.total || 0).toFixed(2)}</span>
                                 </div>
+                                {getOrderRemainingAmount(viewingOrder) < Number(viewingOrder.total || 0) && getOrderRemainingAmount(viewingOrder) > 0 && (
+                                    <div className="bg-amber-500/10 p-3 rounded-xl border border-amber-500/20 flex justify-between items-center">
+                                        <span className="text-amber-400 font-bold text-sm">Falta Pagar</span>
+                                        <span className="text-amber-400 font-mono font-bold text-sm">R$ {getOrderRemainingAmount(viewingOrder).toFixed(2)}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="flex justify-between items-center bg-zinc-900 p-4 rounded-xl border border-white/5"><span className="text-sm text-zinc-400">Status Atual</span>{renderStatusBadge(viewingOrder.status, new Date(viewingOrder.due_date) < new Date())}</div>

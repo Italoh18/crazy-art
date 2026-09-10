@@ -50,9 +50,23 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
           
           // Se for uma solicitação de layout e ainda não confirmamos pagamento
           if (order) {
-            const { meta } = await env.DB.prepare(
-              "UPDATE orders SET payment_status = 'paid', status = 'open', paid_at = ?, payment_method = 'mercadopago' WHERE id = ? AND payment_status != 'paid'"
-            ).bind(nowTs, requestId).run();
+            const hasCreditBalance = order.credit_used && Number(order.credit_used) > 0;
+            const fifteenDaysAhead = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            
+            let meta: any;
+            if (hasCreditBalance) {
+              // Pagamento de entrada online aprovado. O restante (crédito) permanece em aberto com prazo padrão de 15 dias corridos.
+              const updateRes = await env.DB.prepare(
+                "UPDATE orders SET payment_status = 'partial', status = 'open', payment_method = 'mercadopago+credit', due_date = ? WHERE id = ? AND payment_status != 'paid'"
+              ).bind(fifteenDaysAhead, requestId).run();
+              meta = updateRes.meta;
+            } else {
+              // Pagamento integral à vista
+              const updateRes = await env.DB.prepare(
+                "UPDATE orders SET payment_status = 'paid', status = 'paid', paid_at = ?, payment_method = 'mercadopago' WHERE id = ? AND payment_status != 'paid'"
+              ).bind(nowTs, requestId).run();
+              meta = updateRes.meta;
+            }
 
             // Se o update não alterou nada, significa que já foi pago/processado por outra chamada
             if (meta.changes === 0) {
@@ -142,50 +156,21 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                 url: '/minha-area'
             });
 
-            // Caso a solicitação de layout tenha utilizado crédito parcial combinado com Mercado Pago,
-            // registra a fatura a prazo no crédito do cliente de forma automática e segura
-            if (order.credit_used && Number(order.credit_used) > 0) {
-                try {
-                    const creditOrderId = crypto.randomUUID();
-                    const { results: maxResults } = await env.DB.prepare('SELECT MAX(order_number) as last FROM orders').all();
-                    const nextOrderNum = (Number((maxResults as any)[0]?.last) || 0) + 1;
-                    const formattedNum = String(nextOrderNum).padStart(5, '0');
-                    const creditDueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-                    await env.DB.prepare(`
-                        INSERT INTO orders (
-                            id, order_number, client_id, description,
-                            total, total_cost, status, source, is_confirmed,
-                            payment_method, payment_status, created_at, order_date, due_date
-                        ) VALUES (?, ?, ?, ?, ?, 0, 'open', ?, 1, 'credit', 'paid', ?, ?, ?)
-                    `).bind(
-                        creditOrderId,
-                        nextOrderNum,
-                        order.client_id,
-                        `[Crédito em Conta] Pedido #${order.order_number} (${label}) - Valor faturado a prazo`,
-                        Number(order.credit_used),
-                        order.source || 'layout_simples',
-                        nowTs,
-                        nowTs.split('T')[0],
-                        creditDueDate
-                    ).run();
-
-                    await env.DB.prepare(`
-                        INSERT INTO notifications (
-                            id, target_role, type, title, message, created_at, reference_id, is_read, client_id
-                        ) VALUES (?, 'client', 'info', 'Fatura a Prazo Gerada', ?, ?, ?, 0, ?)
-                    `).bind(
-                        crypto.randomUUID(),
-                        `Foi gerada a fatura #${formattedNum} no valor de R$ ${Number(order.credit_used).toFixed(2)} referente ao crédito utilizado no Pedido #${order.order_number}.`,
-                        nowTs,
-                        creditOrderId,
-                        order.client_id
-                    ).run();
-
-                    console.log(`[Webhook] Fatura a prazo de crédito #${formattedNum} (R$ ${order.credit_used}) gerada para cliente ${order.client_id}`);
-                } catch (errCredit) {
-                    console.error('[Webhook] Erro ao registrar fatura de crédito parcial em layout:', errCredit);
-                }
+            // Notificação detalhada caso parte tenha ficado no crédito fidelidade
+            if (hasCreditBalance) {
+                const creditVal = Number(order.credit_used);
+                const onlineVal = Number(order.total) - creditVal;
+                await env.DB.prepare(`
+                    INSERT INTO notifications (
+                        id, target_role, type, title, message, created_at, reference_id, is_read, client_id
+                    ) VALUES (?, 'client', 'info', 'Pagamento Parcial Confirmado', ?, ?, ?, 0, ?)
+                `).bind(
+                    crypto.randomUUID(),
+                    `Entrada de R$ ${onlineVal.toFixed(2)} confirmada via Mercado Pago. O valor restante de R$ ${creditVal.toFixed(2)} referente ao Pedido #${order.order_number} está no seu crédito com vencimento em 15 dias corridos.`,
+                    nowTs,
+                    requestId,
+                    order.client_id
+                ).run();
             }
 
           }
@@ -299,8 +284,21 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             const hasProducts = (items || []).some((i: any) => i.type === 'product');
             const newStatus = hasProducts ? 'production' : 'paid';
 
-            const { meta } = await env.DB.prepare("UPDATE orders SET status = ?, paid_at = ?, payment_method = 'mercadopago', credit_bonus_applied = ?, credit_penalty_applied = ? WHERE id = ? AND paid_at IS NULL")
-                .bind(newStatus, nowTs, bonusApplied, penaltyApplied || (diffDays > 15 ? 1 : 0), orderId).run();
+            const hasCreditBalance = orderInfo.credit_used && Number(orderInfo.credit_used) > 0;
+            const fifteenDaysAhead = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+            let meta: any;
+            if (hasCreditBalance) {
+                // Pagamento parcial via MP aprovado. O saldo restante permanece a prazo em aberto com 15 dias corridos.
+                const updateRes = await env.DB.prepare("UPDATE orders SET status = ?, payment_status = 'partial', payment_method = 'mercadopago+credit', due_date = ? WHERE id = ? AND paid_at IS NULL")
+                    .bind(newStatus, fifteenDaysAhead, orderId).run();
+                meta = updateRes.meta;
+            } else {
+                // Pagamento integral
+                const updateRes = await env.DB.prepare("UPDATE orders SET status = ?, payment_status = 'paid', paid_at = ?, payment_method = 'mercadopago', credit_bonus_applied = ?, credit_penalty_applied = ? WHERE id = ? AND paid_at IS NULL")
+                    .bind(newStatus, nowTs, bonusApplied, penaltyApplied || (diffDays > 15 ? 1 : 0), orderId).run();
+                meta = updateRes.meta;
+            }
             
             // Se o update não alterou nada, significa que já foi processado
             if (meta.changes === 0) {
@@ -308,50 +306,21 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                 continue;
             }
 
-            // Caso o pedido tenha combinado crédito fidelidade com pagamento Mercado Pago,
-            // registra a fatura a prazo no crédito do cliente de forma automática e segura
-            if (orderInfo.credit_used && Number(orderInfo.credit_used) > 0) {
-                try {
-                    const creditOrderId = crypto.randomUUID();
-                    const { results: maxResults } = await env.DB.prepare('SELECT MAX(order_number) as last FROM orders').all();
-                    const nextOrderNum = (Number((maxResults as any)[0]?.last) || 0) + 1;
-                    const formattedNum = String(nextOrderNum).padStart(5, '0');
-                    const creditDueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-                    await env.DB.prepare(`
-                        INSERT INTO orders (
-                            id, order_number, client_id, description,
-                            total, total_cost, status, source, is_confirmed,
-                            payment_method, payment_status, created_at, order_date, due_date
-                        ) VALUES (?, ?, ?, ?, ?, 0, 'open', 'shop', 1, 'credit', 'paid', ?, ?, ?)
-                    `).bind(
-                        creditOrderId,
-                        nextOrderNum,
-                        orderInfo.client_id,
-                        `[Crédito em Conta] Pedido #${orderInfo.order_number} - Valor faturado a prazo`,
-                        Number(orderInfo.credit_used),
-                        nowTs,
-                        nowTs.split('T')[0],
-                        creditDueDate
-                    ).run();
-
-                    // Notificação para o cliente
-                    await env.DB.prepare(`
-                        INSERT INTO notifications (
-                            id, target_role, type, title, message, created_at, reference_id, is_read, client_id
-                        ) VALUES (?, 'client', 'info', 'Fatura a Prazo Gerada', ?, ?, ?, 0, ?)
-                    `).bind(
-                        crypto.randomUUID(),
-                        `Foi gerada a fatura #${formattedNum} no valor de R$ ${Number(orderInfo.credit_used).toFixed(2)} referente ao crédito utilizado no Pedido #${orderInfo.order_number}.`,
-                        nowTs,
-                        creditOrderId,
-                        orderInfo.client_id
-                    ).run();
-
-                    console.log(`[Webhook] Fatura a prazo de crédito #${formattedNum} (R$ ${orderInfo.credit_used}) gerada para cliente ${orderInfo.client_id}`);
-                } catch (errCredit) {
-                    console.error('[Webhook] Erro ao registrar fatura de crédito parcial:', errCredit);
-                }
+            // Notificação ao cliente caso tenha saldo restante em crédito fidelidade
+            if (hasCreditBalance) {
+                const creditVal = Number(orderInfo.credit_used);
+                const onlineVal = Number(orderInfo.total) - creditVal;
+                await env.DB.prepare(`
+                    INSERT INTO notifications (
+                        id, target_role, type, title, message, created_at, reference_id, is_read, client_id
+                    ) VALUES (?, 'client', 'info', 'Pagamento Parcial Confirmado', ?, ?, ?, 0, ?)
+                `).bind(
+                    crypto.randomUUID(),
+                    `Entrada de R$ ${onlineVal.toFixed(2)} confirmada via Mercado Pago. O valor restante de R$ ${creditVal.toFixed(2)} referente ao Pedido #${orderInfo.order_number} está no seu crédito com prazo de 15 dias corridos.`,
+                    nowTs,
+                    orderId,
+                    orderInfo.client_id
+                ).run();
             }
 
             // Registrar artes compradas de forma robusta e segura

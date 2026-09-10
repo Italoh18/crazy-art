@@ -107,6 +107,8 @@ export interface Order {
   credit_bonus_applied?: number;
   credit_penalty_applied?: number;
   discount?: number;
+  credit_used?: number;
+  payment_status?: string;
   payment_url?: string;
   couponCode?: string | null;
   items?: OrderItem[]; 

@@ -12,6 +12,7 @@ import { ProductionPath } from '../components/ProductionPath';
 import { ImageUploadInput } from '../components/ImageUploadInput';
 import { api } from '../src/services/api';
 import { SizeListItem } from '../types';
+import { isOrderPaid, isOrderOverdue, getOrderRemainingAmount } from '../src/utils/orderStatus';
 
 export default function ClientOrders() {
   const navigate = useNavigate();
@@ -82,27 +83,20 @@ export default function ClientOrders() {
     .filter(o => o.client_id === customer.id)
     .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
 
-  const today = new Date();
-  today.setHours(0,0,0,0);
-
-  const _openOrders = allCustomerOrders.filter(o => {
-      if (!['open', 'production', 'revision'].includes(o.status)) return false;
-      const due = new Date(o.due_date);
-      return due >= today;
-  });
+  const _paidOrders = allCustomerOrders.filter(o => isOrderPaid(o));
 
   const _overdueOrders = allCustomerOrders.filter(o => {
-      if (!['open', 'production', 'revision'].includes(o.status)) return false;
-      const due = new Date(o.due_date);
-      return due < today;
+      if (isOrderPaid(o) || o.status === 'cancelled') return false;
+      return isOrderOverdue(o.due_date);
+  });
+
+  const _openOrders = allCustomerOrders.filter(o => {
+      if (isOrderPaid(o) || o.status === 'cancelled') return false;
+      return !isOrderOverdue(o.due_date);
   });
 
   // Lógica de Bloqueio da Nuvem
   const isCloudLocked = _overdueOrders.length > 0;
-
-  const _paidOrders = allCustomerOrders.filter(o => 
-    (o.status === 'paid' || o.status === 'finished' || !!o.paid_at) && o.status !== 'cancelled'
-  );
 
   const displayedOrders = useMemo(() => {
       switch(activeTab) {
@@ -114,10 +108,10 @@ export default function ClientOrders() {
   }, [activeTab, _openOrders, _overdueOrders, _paidOrders]);
 
   const allPayableOrders = [..._openOrders, ..._overdueOrders];
-  const totalPayableValue = allPayableOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
+  const totalPayableValue = allPayableOrders.reduce((acc, o) => acc + getOrderRemainingAmount(o), 0);
 
   const currentTabPayableOrders = useMemo(() => 
-      displayedOrders.filter(o => ['open', 'production', 'revision'].includes(o.status)),
+      displayedOrders.filter(o => !isOrderPaid(o) && o.status !== 'cancelled'),
   [displayedOrders]);
 
   const isAllSelected = currentTabPayableOrders.length > 0 && currentTabPayableOrders.every(o => selectedOrderIds.includes(o.id));
@@ -134,8 +128,8 @@ export default function ClientOrders() {
       }
   };
 
-  const totalOpen = _openOrders.reduce((acc, o) => acc + Number(o.total || 0), 0) + _overdueOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
-  const totalOverdueValue = _overdueOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
+  const totalOpen = _openOrders.reduce((acc, o) => acc + getOrderRemainingAmount(o), 0) + _overdueOrders.reduce((acc, o) => acc + getOrderRemainingAmount(o), 0);
+  const totalOverdueValue = _overdueOrders.reduce((acc, o) => acc + getOrderRemainingAmount(o), 0);
 
   const creditLimit = customer.creditLimit || 0;
   const availableCredit = creditLimit - totalOpen;
@@ -144,7 +138,7 @@ export default function ClientOrders() {
   const selectedTotal = useMemo(() => {
     return allCustomerOrders
       .filter(o => selectedOrderIds.includes(o.id))
-      .reduce((acc, curr) => acc + Number(curr.total || 0), 0);
+      .reduce((acc, curr) => acc + getOrderRemainingAmount(curr), 0);
   }, [allCustomerOrders, selectedOrderIds]);
 
   const toggleSelectOrder = (orderId: string, e: React.MouseEvent) => {
@@ -159,7 +153,7 @@ export default function ClientOrders() {
 
   const initiatePaymentFlow = (orderIds: string[]) => {
       const targetOrders = allCustomerOrders.filter(o => orderIds.includes(o.id));
-      const amountToPay = targetOrders.reduce((acc, o) => acc + Number(o.total || 0), 0);
+      const amountToPay = targetOrders.reduce((acc, o) => acc + getOrderRemainingAmount(o), 0);
       const title = orderIds.length === 1 
           ? `Pedido #${targetOrders[0]?.formattedOrderNumber} - Crazy Art`
           : `Faturas (${orderIds.length}) - Crazy Art`;
@@ -567,9 +561,9 @@ export default function ClientOrders() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {displayedOrders.map(order => {
-                            const isLate = ['open', 'production', 'revision'].includes(order.status) && new Date(order.due_date) < today;
+                            const isPaid = isOrderPaid(order);
+                            const isLate = !isPaid && isOrderOverdue(order.due_date);
                             const isSelected = selectedOrderIds.includes(order.id);
-                            const isPaid = order.status === 'paid' || order.status === 'finished' || !!order.paid_at;
                             
                             let borderColor = 'border-amber-500/50';
                             if (isPaid) borderColor = 'border-emerald-500/50';
@@ -657,6 +651,12 @@ export default function ClientOrders() {
                                                     R$ {Number(order.total || 0).toFixed(2)}
                                                 </span>
                                             </div>
+                                            {getOrderRemainingAmount(order) < Number(order.total || 0) && getOrderRemainingAmount(order) > 0 && (
+                                                <div className="text-[11px] sm:text-xs font-bold text-amber-400 mt-1 flex items-center gap-1">
+                                                    <span>Falta pagar:</span>
+                                                    <span className="font-mono font-bold">R$ {getOrderRemainingAmount(order).toFixed(2)}</span>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* A direita do bloco: ações */}
@@ -943,6 +943,11 @@ export default function ClientOrders() {
                             <div>
                                 <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-1">Total do Pedido</span>
                                 <span className="text-4xl font-black text-white tracking-tighter">R$ {Number(viewingOrder.total || 0).toFixed(2)}</span>
+                                {getOrderRemainingAmount(viewingOrder) < Number(viewingOrder.total || 0) && getOrderRemainingAmount(viewingOrder) > 0 && (
+                                    <div className="text-sm font-bold text-amber-400 mt-1">
+                                        Falta pagar: R$ {getOrderRemainingAmount(viewingOrder).toFixed(2)}
+                                    </div>
+                                )}
                             </div>
                             <div className="text-right">
                                 <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest block mb-2">Status de Pagamento</span>
