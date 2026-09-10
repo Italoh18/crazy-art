@@ -17,7 +17,8 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
 
     if (request.method === 'POST') {
       const body = await request.json() as any;
-      const { serviceId, description, exampleUrl, logoUrl, paymentMethod, value, discount = 0, type = 'layout_simples', quantity = 1 } = body;
+      const { serviceId, description, exampleUrl, logoUrl, paymentMethod, value, discount = 0, type = 'layout_simples', quantity = 1, credit_used = 0 } = body;
+      const creditUsedNum = Math.max(0, Number(credit_used || 0));
 
       const isMolde = type === 'montagem_molde';
       const label = isMolde ? 'Montagem de Molde' : 'Layout Simples';
@@ -52,6 +53,19 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         // NÃO subtraímos do creditLimit aqui. 
         // O valor será "consumido" do saldo disponível enquanto o pedido estiver com status 'open'.
         // Assim que for finalizado, o saldo é liberado automaticamente.
+      } else if (paymentMethod === 'online' && creditUsedNum > 0) {
+        // Validação quando utiliza crédito parcial combinado com pagamento online
+        const { results: openOrders } = await env.DB.prepare(`
+          SELECT SUM(total) as total_open FROM orders 
+          WHERE client_id = ? AND status = 'open'
+        `).bind(clientId).all();
+        
+        const totalOpen = Number((openOrders as any)[0]?.total_open || 0);
+        const availableCredit = Math.max(0, Number(client.creditLimit || 0) - totalOpen);
+
+        if (availableCredit < creditUsedNum) {
+          return new Response(JSON.stringify({ error: `Saldo de crédito insuficiente para utilizar R$ ${creditUsedNum.toFixed(2)}. Disponível: R$ ${availableCredit.toFixed(2)}` }), { status: 400 });
+        }
       }
 
       // Calcular Número do Pedido
@@ -60,35 +74,69 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const nextOrderNumber = (Number(lastNum) || 0) + 1;
 
       // Salvar na tabela Global de Pedidos
-      await env.DB.prepare(`
-        INSERT INTO orders (
-          id, order_number, client_id, description, 
-          example_url, logo_url, total, total_cost,
-          payment_method, payment_status, status, 
-          source, order_date, due_date, created_at, 
-          production_step, is_confirmed, discount
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
-      `).bind(
-        requestId,
-        nextOrderNumber,
-        clientId,
-        description,
-        exampleUrl || null,
-        logoUrl || null,
-        value,
-        0, // total_cost
-        paymentMethod,
-        paymentMethod === 'credit' ? 'paid' : 'pending',
-        paymentMethod === 'credit' ? 'open' : 'draft',
-        type,
-        now.split('T')[0],
-        paymentMethod === 'credit' 
-          ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-          : now.split('T')[0],
-        now,
-        'production',
-        discount
-      ).run();
+      try {
+        await env.DB.prepare(`
+          INSERT INTO orders (
+            id, order_number, client_id, description, 
+            example_url, logo_url, total, total_cost,
+            payment_method, payment_status, status, 
+            source, order_date, due_date, created_at, 
+            production_step, is_confirmed, discount, credit_used
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+        `).bind(
+          requestId,
+          nextOrderNumber,
+          clientId,
+          description,
+          exampleUrl || null,
+          logoUrl || null,
+          value,
+          0, // total_cost
+          paymentMethod,
+          paymentMethod === 'credit' ? 'paid' : 'pending',
+          paymentMethod === 'credit' ? 'open' : 'draft',
+          type,
+          now.split('T')[0],
+          paymentMethod === 'credit' 
+            ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            : now.split('T')[0],
+          now,
+          'production',
+          discount,
+          creditUsedNum
+        ).run();
+      } catch (insertErr) {
+        // Fallback caso a coluna credit_used ainda não exista na tabela orders
+        await env.DB.prepare(`
+          INSERT INTO orders (
+            id, order_number, client_id, description, 
+            example_url, logo_url, total, total_cost,
+            payment_method, payment_status, status, 
+            source, order_date, due_date, created_at, 
+            production_step, is_confirmed, discount
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+        `).bind(
+          requestId,
+          nextOrderNumber,
+          clientId,
+          description,
+          exampleUrl || null,
+          logoUrl || null,
+          value,
+          0, // total_cost
+          paymentMethod,
+          paymentMethod === 'credit' ? 'paid' : 'pending',
+          paymentMethod === 'credit' ? 'open' : 'draft',
+          type,
+          now.split('T')[0],
+          paymentMethod === 'credit' 
+            ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            : now.split('T')[0],
+          now,
+          'production',
+          discount
+        ).run();
+      }
 
       // Invalida o cupom se o usuário utilizou um
       const coupon_code = body.couponCode || body.coupon_code || body.coupon;
@@ -221,15 +269,16 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       let checkoutUrl = null;
       if (paymentMethod === 'online') {
           const origin = new URL(request.url).origin;
+          const payAmount = Math.max(0.01, Number(value) - creditUsedNum);
           const preferencePayload = {
               items: [{
                   id: requestId,
-                  title: `${label}: ${client.name}`,
+                  title: creditUsedNum > 0 ? `${label}: ${client.name} (Restante)` : `${label}: ${client.name}`,
                   description: `Solicitação de ${label} Personalizado`,
                   category_id: "services",
                   quantity: 1,
                   currency_id: 'BRL',
-                  unit_price: Number(value)
+                  unit_price: payAmount
               }],
               external_reference: `LAYOUT_${requestId}`,
               back_urls: {

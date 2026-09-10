@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Layers, Sparkles, MessageSquare, Image as ImageIcon, 
   Upload, HelpCircle, CheckCircle2, CreditCard, Wallet, 
-  ArrowRight, Loader2, Info, ChevronRight, X, Phone, Ticket, Plus, Trash2
+  ArrowRight, Loader2, Info, ChevronRight, X, Phone, Ticket, Plus, Trash2, AlertTriangle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -58,6 +58,7 @@ export default function LayoutSimples() {
   
   const [showIncompleteError, setShowIncompleteError] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'online' | null>(null);
+  const [creditToUse, setCreditToUse] = useState('');
 
   // Integrated Mold Mounting State
   const [addMontagem, setAddMontagem] = useState(false);
@@ -289,7 +290,8 @@ export default function LayoutSimples() {
                 discount: baseTotal - finalPrice,
                 couponCode: couponData?.code,
                 quantity: totalQuantity,
-                replicas: addMontagem ? replicas : []
+                replicas: addMontagem ? replicas : [],
+                credit_used: method === 'online' ? activeCreditAmount : 0
             })
         });
 
@@ -312,6 +314,35 @@ export default function LayoutSimples() {
         setIsSubmitting(false);
     }
   };
+
+  const finalPrice = calculateFinalPrice();
+  const isPartialCreditEligible = Boolean(
+    currentCustomer &&
+    availableCredit > 0 &&
+    finalPrice > availableCredit
+  );
+
+  const parsedCreditToUse = parseFloat(creditToUse) || 0;
+  const activeCreditAmount = isPartialCreditEligible && !isNaN(parsedCreditToUse) && parsedCreditToUse > 0 
+    ? Math.min(parsedCreditToUse, finalPrice) 
+    : 0;
+
+  const hasCreditError = isPartialCreditEligible && creditToUse !== '' && (
+    isNaN(parsedCreditToUse) ||
+    parsedCreditToUse < 0 ||
+    parsedCreditToUse > availableCredit ||
+    parsedCreditToUse > finalPrice
+  );
+
+  const creditValidationError = hasCreditError 
+    ? (parsedCreditToUse > availableCredit 
+        ? `O valor não pode ultrapassar o limite disponível de R$ ${availableCredit.toFixed(2)}.`
+        : parsedCreditToUse > finalPrice
+          ? `O valor não pode ser maior que o total do serviço (R$ ${finalPrice.toFixed(2)}).`
+          : 'Informe um valor válido para utilizar do crédito.')
+    : null;
+
+  const remainingPaymentAmount = Math.max(0, finalPrice - activeCreditAmount);
 
   if (isLoading) {
     return (
@@ -893,32 +924,105 @@ export default function LayoutSimples() {
                 </div>
 
                 <div className="mt-12 space-y-6">
+                   {isPartialCreditEligible && (
+                     <div className="p-5 bg-zinc-950 border border-zinc-800 rounded-2xl space-y-3 animate-fade-in">
+                        <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                                <Wallet size={15} className="text-primary" /> Usar crédito
+                            </label>
+                            <span className="text-xs text-zinc-400">
+                                Limite disponível: <strong className="text-emerald-400 font-mono">R$ {availableCredit.toFixed(2)}</strong>
+                            </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <div className="relative flex-1">
+                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 font-mono text-sm font-bold">R$</span>
+                                <input 
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max={availableCredit}
+                                    value={creditToUse}
+                                    onChange={(e) => setCreditToUse(e.target.value)}
+                                    placeholder="Digite quanto do crédito quer usar"
+                                    className={`w-full bg-zinc-900 border rounded-xl pl-11 pr-3 py-3 text-white font-mono text-sm outline-none transition ${
+                                        hasCreditError ? 'border-red-500 ring-1 ring-red-500/20' : 'border-zinc-700 focus:border-primary'
+                                    }`}
+                                />
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setCreditToUse(availableCredit.toFixed(2))}
+                                className="px-3.5 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold rounded-xl transition whitespace-nowrap border border-zinc-700 active:scale-95"
+                            >
+                                Usar Máximo
+                            </button>
+                        </div>
+
+                        {hasCreditError && (
+                            <div className="p-3 bg-red-950/40 border border-red-500/30 rounded-xl flex items-center gap-2 text-xs text-red-400 animate-fade-in">
+                                <AlertTriangle size={15} className="shrink-0 text-red-500" />
+                                <span>{creditValidationError}</span>
+                            </div>
+                        )}
+
+                        {activeCreditAmount > 0 && !hasCreditError && (
+                            <div className="p-3 bg-zinc-900/60 border border-zinc-800/80 rounded-xl space-y-1.5 text-xs">
+                                <div className="flex justify-between text-zinc-400">
+                                    <span>Total do Serviço:</span>
+                                    <span className="font-mono text-zinc-300">R$ {finalPrice.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between text-purple-400 font-bold">
+                                    <span className="flex items-center gap-1"><Wallet size={12} /> Crédito a Utilizar:</span>
+                                    <span className="font-mono">- R$ {activeCreditAmount.toFixed(2)}</span>
+                                </div>
+                                <div className="h-px bg-zinc-800 my-1"></div>
+                                <div className="flex justify-between text-white font-black text-sm">
+                                    <span>Restante a Pagar Agora:</span>
+                                    <span className="font-mono text-emerald-400">R$ {remainingPaymentAmount.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        )}
+
+                        <p className="text-[10px] text-zinc-500 leading-relaxed">
+                            Informe quanto do seu crédito deseja utilizar nesta solicitação. O saldo restante será pago via Mercado Pago.
+                        </p>
+                     </div>
+                   )}
+
                    <div className="flex flex-col gap-4">
                       {/* Crédito Fidelidade */}
                       <div className="space-y-2">
                         <button 
-                            disabled={isSubmitting || !currentCustomer || availableCredit < calculateFinalPrice()}
+                            disabled={isSubmitting || !currentCustomer || availableCredit < finalPrice}
                             onClick={() => handleSubmitRequest('credit')}
                             className="w-full py-5 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center gap-4 group transition-all hover:bg-zinc-800 hover:border-primary disabled:opacity-50 disabled:grayscale"
                         >
                             <Wallet className="text-primary" size={24} />
                             <div className="text-left">
                                 <span className="block text-white font-black text-xs uppercase tracking-widest">Adicionar ao Crédito Fidelidade</span>
-                                <span className="text-[9px] text-zinc-500 font-bold uppercase">Limite disponível: R$ {availableCredit.toFixed(2)}</span>
+                                <span className="text-[9px] text-zinc-500 font-bold uppercase">
+                                    {isPartialCreditEligible 
+                                      ? `Total maior que crédito (R$ ${availableCredit.toFixed(2)})` 
+                                      : `Limite disponível: R$ ${availableCredit.toFixed(2)}`}
+                                </span>
                             </div>
                         </button>
-                        {currentCustomer && availableCredit < calculateFinalPrice() && (
+                        {currentCustomer && availableCredit < finalPrice && !isPartialCreditEligible && (
                             <p className="text-red-500 text-[10px] font-black uppercase text-center animate-pulse tracking-widest">Não há limite disponível</p>
                         )}
                       </div>
 
                       <button 
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || hasCreditError}
                         onClick={() => handleSubmitRequest('online')}
-                        className="w-full py-5 bg-primary text-white rounded-2xl flex items-center justify-center gap-4 transition-transform hover:scale-[1.02] active:scale-95 shadow-xl shadow-primary/20"
+                        className="w-full py-5 bg-primary text-white rounded-2xl flex items-center justify-center gap-4 transition-transform hover:scale-[1.02] active:scale-95 shadow-xl shadow-primary/20 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                          {isSubmitting && paymentMethod === 'online' ? <Loader2 className="animate-spin" size={24} /> : <CreditCard size={24} />}
-                         <span className="font-black text-xs uppercase tracking-widest">Pagar Agora</span>
+                         <span className="font-black text-xs uppercase tracking-widest">
+                           {activeCreditAmount > 0 ? `Pagar Restante (R$ ${remainingPaymentAmount.toFixed(2)})` : 'Pagar Agora'}
+                         </span>
                       </button>
                    </div>
                 </div>
