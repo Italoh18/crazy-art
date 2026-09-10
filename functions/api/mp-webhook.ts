@@ -262,6 +262,52 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                 continue;
             }
 
+            // Caso o pedido tenha combinado crédito fidelidade com pagamento Mercado Pago,
+            // registra a fatura a prazo no crédito do cliente de forma automática e segura
+            if (orderInfo.credit_used && Number(orderInfo.credit_used) > 0) {
+                try {
+                    const creditOrderId = crypto.randomUUID();
+                    const { results: maxResults } = await env.DB.prepare('SELECT MAX(order_number) as last FROM orders').all();
+                    const nextOrderNum = (Number((maxResults as any)[0]?.last) || 0) + 1;
+                    const formattedNum = String(nextOrderNum).padStart(5, '0');
+                    const creditDueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+                    await env.DB.prepare(`
+                        INSERT INTO orders (
+                            id, order_number, client_id, description,
+                            total, total_cost, status, source, is_confirmed,
+                            payment_method, payment_status, created_at, order_date, due_date
+                        ) VALUES (?, ?, ?, ?, ?, 0, 'open', 'shop', 1, 'credit', 'paid', ?, ?, ?)
+                    `).bind(
+                        creditOrderId,
+                        nextOrderNum,
+                        orderInfo.client_id,
+                        `[Crédito em Conta] Pedido #${orderInfo.order_number} - Valor faturado a prazo`,
+                        Number(orderInfo.credit_used),
+                        nowTs,
+                        nowTs.split('T')[0],
+                        creditDueDate
+                    ).run();
+
+                    // Notificação para o cliente
+                    await env.DB.prepare(`
+                        INSERT INTO notifications (
+                            id, target_role, type, title, message, created_at, reference_id, is_read, client_id
+                        ) VALUES (?, 'client', 'info', 'Fatura a Prazo Gerada', ?, ?, ?, 0, ?)
+                    `).bind(
+                        crypto.randomUUID(),
+                        `Foi gerada a fatura #${formattedNum} no valor de R$ ${Number(orderInfo.credit_used).toFixed(2)} referente ao crédito utilizado no Pedido #${orderInfo.order_number}.`,
+                        nowTs,
+                        creditOrderId,
+                        orderInfo.client_id
+                    ).run();
+
+                    console.log(`[Webhook] Fatura a prazo de crédito #${formattedNum} (R$ ${orderInfo.credit_used}) gerada para cliente ${orderInfo.client_id}`);
+                } catch (errCredit) {
+                    console.error('[Webhook] Erro ao registrar fatura de crédito parcial:', errCredit);
+                }
+            }
+
             // Registrar artes compradas de forma robusta e segura
             try {
               const artItems = (items || []).filter((i: any) => i.type === 'art');

@@ -294,6 +294,21 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           return Response.json({ success: true });
       }
 
+      // Atualização de crédito utilizado na Loja (pagamento combinado)
+      if (body.hasOwnProperty('credit_used')) {
+          const creditVal = Math.max(0, Number(body.credit_used || 0));
+          try {
+              await env.DB.prepare('UPDATE orders SET credit_used = ? WHERE id = ?')
+                .bind(creditVal, String(id))
+                .run();
+          } catch (e) {
+              console.warn('[Orders] Coluna credit_used não encontrada ou erro ao atualizar:', e);
+          }
+          if (Object.keys(body).length === 1) {
+              return Response.json({ success: true, credit_used: creditVal });
+          }
+      }
+
       // Atalho para confirmação rápida ou status
       if (body.hasOwnProperty('is_confirmed')) {
           await env.DB.prepare('UPDATE orders SET is_confirmed = ? WHERE id = ?')

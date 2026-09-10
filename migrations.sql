@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS orders (
     credit_bonus_applied INTEGER DEFAULT 0,
     credit_penalty_applied INTEGER DEFAULT 0,
     discount REAL DEFAULT 0,
+    credit_used REAL DEFAULT 0,
     created_at TEXT NOT NULL,
     FOREIGN KEY (client_id) REFERENCES clients(id)
 );
@@ -214,3 +215,9 @@ CREATE TABLE IF NOT EXISTS client_coupons (
     FOREIGN KEY (client_id) REFERENCES clients(id),
     FOREIGN KEY (coupon_id) REFERENCES coupons(id)
 );
+
+-- ==========================================================
+-- 11. Atualização para Pagamento Combinado com Crédito
+-- Execute este comando manualmente no console do Cloudflare D1 se a tabela já existir:
+-- ==========================================================
+ALTER TABLE orders ADD COLUMN credit_used REAL DEFAULT 0;

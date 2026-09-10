@@ -110,6 +110,7 @@ export default function Shop() {
   const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  const [creditToUse, setCreditToUse] = useState<string>('');
 
   // States para Polling do Pagamento
   const [isPollingPayment, setIsPollingPayment] = useState(false);
@@ -738,18 +739,45 @@ export default function Shop() {
         };
         const res = await addOrder(orderData);
         setLastCreatedOrder({ ...res, items, discount: discountAmount, couponCode: appliedCoupon ? appliedCoupon.code : null }); 
+        setCreditToUse('');
         setStep('checkout');
     } finally { setIsProcessing(false); }
   };
 
   const handlePayMercadoPago = async () => {
     if (!lastCreatedOrder) return;
+    if (hasCreditError) return;
     setIsProcessing(true);
     try {
-        const discountedTotal = calculateDiscountedTotal();
-        const finalAmount = discountedTotal;
+        const orderTotal = lastCreatedOrder.total || calculateDiscountedTotal();
+        const creditUsed = activeCreditAmount;
+        const finalAmount = remainingPaymentAmount;
+
+        // Se o usuário utilizou crédito parcial, registra no backend
+        if (creditUsed > 0) {
+            try {
+                await fetch(`/api/orders?id=${encodeURIComponent(lastCreatedOrder.id)}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+                    },
+                    body: JSON.stringify({
+                        credit_used: creditUsed
+                    })
+                });
+            } catch (errUpdate) {
+                console.warn('Erro ao registrar crédito no pedido:', errUpdate);
+            }
+        }
+
         let title = `Pedido #${lastCreatedOrder.order_number} - Crazy Art`;
-        if (appliedCoupon) title += ` (Cupom: ${appliedCoupon.code})`;
+        if (creditUsed > 0) {
+            title += ` (Restante: R$ ${finalAmount.toFixed(2)})`;
+        } else if (appliedCoupon) {
+            title += ` (Cupom: ${appliedCoupon.code})`;
+        }
+
         const res = await api.createPayment({
             orderId: lastCreatedOrder.id,
             title: title,
@@ -840,10 +868,10 @@ export default function Shop() {
   const availableCredit = useMemo(() => {
     if (!currentCustomer) return 0;
     const openOrdersTotal = orders
-      .filter(o => o.client_id === currentCustomer.id && o.status === 'open')
+      .filter(o => o.client_id === currentCustomer.id && o.status === 'open' && o.id !== lastCreatedOrder?.id)
       .reduce((a, o) => a + Number(o.total || 0), 0);
     return Math.max(0, (currentCustomer.creditLimit || 0) - openOrdersTotal);
-  }, [currentCustomer, orders]);
+  }, [currentCustomer, orders, lastCreatedOrder]);
 
   // Verifica se o usuário possui pedidos em atraso por mais de um dia
   const hasOverdueOrders = useMemo(() => {
@@ -871,8 +899,59 @@ export default function Shop() {
     if (!currentCustomer || !lastCreatedOrder) return false;
     const { items } = calculateFinalOrder();
     const allServices = items.every(i => i.type === 'service');
-    return allServices && availableCredit >= calculateDiscountedTotal() && !hasOverdueOrders;
+    const orderTotal = lastCreatedOrder.total || calculateDiscountedTotal();
+    return allServices && availableCredit >= orderTotal && !hasOverdueOrders;
   }, [currentCustomer, lastCreatedOrder, availableCredit, appliedCoupon, hasOverdueOrders]);
+
+  // Elegível para crédito parcial quando:
+  // - O pedido for maior que o crédito disponível do usuário e o botão estiver desabilitado por este fato
+  // - Possui limite disponível (> 0)
+  // - Todos os itens são serviços
+  // - Não possui pedidos em atraso
+  const isPartialCreditEligible = useMemo(() => {
+    if (!currentCustomer || !lastCreatedOrder) return false;
+    const { items } = calculateFinalOrder();
+    const allServices = items.every(i => i.type === 'service');
+    const orderTotal = lastCreatedOrder.total || calculateDiscountedTotal();
+    return allServices && availableCredit > 0 && orderTotal > availableCredit && !hasOverdueOrders;
+  }, [currentCustomer, lastCreatedOrder, availableCredit, appliedCoupon, hasOverdueOrders]);
+
+  const parsedCreditToUse = useMemo(() => {
+    if (!creditToUse || creditToUse.trim() === '') return 0;
+    const clean = creditToUse.replace(',', '.').trim();
+    const val = parseFloat(clean);
+    return isNaN(val) ? 0 : val;
+  }, [creditToUse]);
+
+  const creditValidationError = useMemo(() => {
+    if (!isPartialCreditEligible) return null;
+    if (!creditToUse || creditToUse.trim() === '') return null;
+    const clean = creditToUse.replace(',', '.').trim();
+    const val = parseFloat(clean);
+    if (isNaN(val) || val < 0) {
+      return 'Por favor, informe um valor numérico válido.';
+    }
+    if (val > availableCredit) {
+      return `Valor excede seu limite disponível de R$ ${availableCredit.toFixed(2)}.`;
+    }
+    const orderTotal = lastCreatedOrder?.total || calculateDiscountedTotal();
+    if (val > orderTotal) {
+      return `O crédito não pode ser maior que o total do pedido (R$ ${orderTotal.toFixed(2)}).`;
+    }
+    return null;
+  }, [isPartialCreditEligible, creditToUse, availableCredit, lastCreatedOrder, appliedCoupon]);
+
+  const hasCreditError = !!creditValidationError;
+
+  const activeCreditAmount = useMemo(() => {
+    if (!isPartialCreditEligible || hasCreditError) return 0;
+    return parsedCreditToUse;
+  }, [isPartialCreditEligible, hasCreditError, parsedCreditToUse]);
+
+  const remainingPaymentAmount = useMemo(() => {
+    const orderTotal = lastCreatedOrder?.total || calculateDiscountedTotal();
+    return Math.max(0, orderTotal - activeCreditAmount);
+  }, [lastCreatedOrder, activeCreditAmount, appliedCoupon]);
 
   const hasCreditLimitButOverdue = useMemo(() => {
     if (!currentCustomer || !lastCreatedOrder) return false;
@@ -2035,12 +2114,79 @@ export default function Shop() {
                                         <span className="text-2xl font-black text-white font-mono">R$ {finalAmount.toFixed(2)}</span>
                                     </div>
                                 </div>
+
+                                {activeCreditAmount > 0 && !hasCreditError && (
+                                    <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-2xl space-y-2 text-xs animate-fade-in">
+                                        <div className="flex justify-between text-zinc-400">
+                                            <span>Subtotal do Pedido:</span>
+                                            <span className="font-mono text-zinc-300">R$ {finalAmount.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-purple-400 font-bold">
+                                            <span className="flex items-center gap-1"><Wallet size={13} /> Crédito a Utilizar:</span>
+                                            <span className="font-mono">- R$ {activeCreditAmount.toFixed(2)}</span>
+                                        </div>
+                                        <div className="h-px bg-zinc-800 my-1"></div>
+                                        <div className="flex justify-between text-white font-black text-sm">
+                                            <span>Restante a Pagar Agora:</span>
+                                            <span className="font-mono text-emerald-400">R$ {remainingPaymentAmount.toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         );
                     })()}
 
                     <div className="pt-6 space-y-4">
-                        <div className={canAddToAccount ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-4"}>
+                        {isPartialCreditEligible && (
+                            <div className="p-5 bg-zinc-950 border border-zinc-800 rounded-2xl space-y-3 animate-fade-in">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                                        <Wallet size={15} className="text-primary" /> Usar crédito
+                                    </label>
+                                    <span className="text-xs text-zinc-400">
+                                        Limite disponível: <strong className="text-emerald-400 font-mono">R$ {availableCredit.toFixed(2)}</strong>
+                                    </span>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <div className="relative flex-1">
+                                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 font-mono text-sm font-bold">R$</span>
+                                        <input 
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            max={availableCredit}
+                                            value={creditToUse}
+                                            onChange={(e) => setCreditToUse(e.target.value)}
+                                            placeholder="Digite quanto do crédito quer usar"
+                                            className={`w-full bg-zinc-900 border rounded-xl pl-11 pr-3 py-3 text-white font-mono text-sm outline-none transition ${
+                                                hasCreditError ? 'border-red-500 ring-1 ring-red-500/20' : 'border-zinc-700 focus:border-primary'
+                                            }`}
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCreditToUse(availableCredit.toFixed(2))}
+                                        className="px-3.5 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold rounded-xl transition whitespace-nowrap border border-zinc-700 active:scale-95"
+                                    >
+                                        Usar Máximo
+                                    </button>
+                                </div>
+
+                                {hasCreditError && (
+                                    <div className="p-3 bg-red-950/40 border border-red-500/30 rounded-xl flex items-center gap-2 text-xs text-red-400 animate-fade-in">
+                                        <AlertTriangle size={15} className="shrink-0 text-red-500" />
+                                        <span>{creditValidationError}</span>
+                                    </div>
+                                )}
+
+                                <p className="text-[10px] text-zinc-500 leading-relaxed">
+                                    Informe quanto do seu crédito deseja utilizar neste pedido. O saldo restante será direcionado para pagamento via Mercado Pago.
+                                </p>
+                            </div>
+                        )}
+
+                        <div className={(canAddToAccount || isPartialCreditEligible) ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "space-y-4"}>
                             {canAddToAccount && (
                                 <button 
                                     onClick={handleConfirmOrderWithCredit} 
@@ -2056,13 +2202,28 @@ export default function Shop() {
                                     )}
                                 </button>
                             )}
+
+                            {isPartialCreditEligible && (
+                                <button 
+                                    disabled={true}
+                                    className="w-full bg-zinc-800/40 border border-zinc-800 text-zinc-500 py-4 rounded-2xl font-bold flex flex-col items-center justify-center uppercase tracking-wider text-xs sm:text-sm cursor-not-allowed opacity-50"
+                                    title="Pedido maior que o crédito total disponível"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Wallet size={18} />
+                                        Adicionar à Conta
+                                    </div>
+                                    <span className="text-[9px] text-zinc-500 font-bold">Total maior que crédito (R$ {availableCredit.toFixed(2)})</span>
+                                </button>
+                            )}
+
                             <button 
                                 onClick={handlePayMercadoPago} 
-                                disabled={isProcessing} 
-                                className={`w-full bg-blue-600 text-white rounded-2xl font-black transition flex items-center justify-center gap-3 shadow-xl active:scale-95 ${canAddToAccount ? 'py-4 text-xs sm:text-sm' : 'py-5 text-lg'}`}
+                                disabled={isProcessing || hasCreditError} 
+                                className={`w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-2xl font-black transition flex items-center justify-center gap-3 shadow-xl active:scale-95 ${(canAddToAccount || isPartialCreditEligible) ? 'py-4 text-xs sm:text-sm' : 'py-5 text-lg'}`}
                             >
-                                {isProcessing ? <Loader2 className="animate-spin" /> : <CreditCard size={canAddToAccount ? 18 : 24} />} 
-                                {isProcessing ? 'REDIRECIONANDO...' : 'PAGAR AGORA'}
+                                {isProcessing ? <Loader2 className="animate-spin" /> : <CreditCard size={(canAddToAccount || isPartialCreditEligible) ? 18 : 24} />} 
+                                {isProcessing ? 'REDIRECIONANDO...' : (activeCreditAmount > 0 ? `PAGAR RESTANTE (R$ ${remainingPaymentAmount.toFixed(2)})` : 'PAGAR AGORA')}
                             </button>
                         </div>
                         {hasCreditLimitButOverdue && (
@@ -2075,9 +2236,13 @@ export default function Shop() {
                         <p className="text-[10px] text-zinc-500 text-center uppercase tracking-widest leading-relaxed">
                             {canAddToAccount 
                                 ? "Você possui limite disponível. Escolha pagar agora ou faturar na sua conta." 
-                                : (hasCreditLimitButOverdue 
-                                    ? "Por favor, regularize seus débitos pendentes para liberar a opção de faturar no crédito." 
-                                    : "É necessário o pagamento para confirmação do pedido.")
+                                : isPartialCreditEligible
+                                    ? (activeCreditAmount > 0 
+                                        ? `Será utilizado R$ ${activeCreditAmount.toFixed(2)} do seu crédito. Clique em Pagar Restante para concluir.` 
+                                        : "O total do pedido é maior que seu limite. Você pode usar parte do seu crédito acima e pagar o restante.")
+                                    : (hasCreditLimitButOverdue 
+                                        ? "Por favor, regularize seus débitos pendentes para liberar a opção de faturar no crédito." 
+                                        : "É necessário o pagamento para confirmação do pedido.")
                             }
                         </p>
                     </div>
