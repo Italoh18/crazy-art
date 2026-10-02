@@ -238,6 +238,25 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             orderIds = [reference];
         }
 
+        // Validação de Segurança Global: Somar valor esperado de todos os pedidos do lote
+        let totalExpectedBatch = 0;
+        for (const oId of orderIds) {
+          if (!oId) continue;
+          try {
+            const oRow: any = await env.DB.prepare('SELECT total, credit_used, paid_at, payment_status FROM orders WHERE id = ?').bind(oId).first();
+            if (oRow && !oRow.paid_at && oRow.payment_status !== 'paid') {
+              const creditUsed = Number(oRow.credit_used || 0);
+              const exp = creditUsed > 0 ? Math.max(0.01, Number(oRow.total) - creditUsed) : Number(oRow.total);
+              totalExpectedBatch += exp;
+            }
+          } catch (batchSumErr) {}
+        }
+
+        if (totalExpectedBatch > 0 && paidAmount < totalExpectedBatch - 0.05) {
+          console.error(`[Webhook] Pagamento insuficiente para lote/pedido ${reference}: Pago R$ ${paidAmount}, Esperado R$ ${totalExpectedBatch}`);
+          return new Response('Valor insuficiente para cobrir o total dos pedidos', { status: 400 });
+        }
+
         for (const orderId of orderIds) {
           if (!orderId) continue;
 

@@ -20,37 +20,58 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
       });
     }
 
-    // 3. Validação
-    const allowedTypes = [
-      'image/',
-      'padding/', // Algumas variações de mime-type
-      'application/pdf',
-      'application/x-coreldraw',
-      'application/illustrator',
-      'application/postscript',
-      'image/vnd.adobe.photoshop',
-      'application/octet-stream' // Para extensões menos comuns ou binárias de artes
-    ];
+    // 3. Validação baseada no perfil
+    const isUserAdmin = user && user.role === 'admin';
+    const isUserClient = user && user.role === 'client';
 
-    const isAllowed = allowedTypes.some(type => file.type.startsWith(type)) || 
-                      file.name.toLowerCase().endsWith('.cdr') || 
-                      file.name.toLowerCase().endsWith('.ai') ||
-                      file.name.toLowerCase().endsWith('.pdf') ||
-                      file.name.toLowerCase().endsWith('.eps');
+    let isAllowed = false;
+    let maxSize = 5 * 1024 * 1024; // 5MB padrão para anônimos
 
-    if (!isAllowed && (!user || user.role !== 'admin')) {
-      return new Response(JSON.stringify({ error: 'Formato de arquivo não suportado.' }), { 
+    if (isUserAdmin) {
+      isAllowed = true;
+      maxSize = 50 * 1024 * 1024;
+    } else if (isUserClient) {
+      const clientAllowed = [
+        'image/',
+        'application/pdf',
+        'application/x-coreldraw',
+        'application/illustrator',
+        'application/postscript',
+        'image/vnd.adobe.photoshop'
+      ];
+      isAllowed = clientAllowed.some(type => file.type.startsWith(type)) || 
+                  file.name.toLowerCase().endsWith('.cdr') || 
+                  file.name.toLowerCase().endsWith('.ai') ||
+                  file.name.toLowerCase().endsWith('.pdf') ||
+                  file.name.toLowerCase().endsWith('.eps') ||
+                  file.name.toLowerCase().endsWith('.psd');
+      maxSize = 15 * 1024 * 1024; // 15MB para clientes logados
+    } else {
+      // Visitantes Anônimos: Estritamente imagens comuns, máx 5MB
+      const anonAllowed = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/svg+xml',
+        'image/gif'
+      ];
+      isAllowed = anonAllowed.includes(file.type.toLowerCase()) || 
+                  file.name.toLowerCase().endsWith('.jpg') ||
+                  file.name.toLowerCase().endsWith('.jpeg') ||
+                  file.name.toLowerCase().endsWith('.png') ||
+                  file.name.toLowerCase().endsWith('.webp');
+      maxSize = 5 * 1024 * 1024;
+    }
+
+    if (!isAllowed) {
+      return new Response(JSON.stringify({ error: 'Formato de arquivo não suportado ou upload não autorizado para este tipo.' }), { 
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    // Limites de tamanho
-    // Máximo 10MB para clientes logados ou anônimos, 50MB para admins
-    const isUserAdmin = user && user.role === 'admin';
-    const maxSize = isUserAdmin ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
     if (file.size > maxSize) {
-      return new Response(JSON.stringify({ error: `O arquivo excede o limite de ${maxSize / (1024 * 1024)}MB.` }), { 
+      return new Response(JSON.stringify({ error: `O arquivo excede o limite de ${maxSize / (1024 * 1024)}MB permitido para o seu perfil.` }), { 
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });

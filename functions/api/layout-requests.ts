@@ -35,6 +35,41 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const client: any = await env.DB.prepare('SELECT * FROM clients WHERE id = ?').bind(clientId).first();
       if (!client) return new Response(JSON.stringify({ error: 'Cliente não encontrado' }), { status: 404 });
 
+      // Validação e cálculo seguro de preço no servidor
+      let serverBasePrice = 35.0; // Valor base padrão para layouts
+      if (serviceId) {
+        try {
+          const catalogItem: any = await env.DB.prepare('SELECT price FROM catalog WHERE id = ?').bind(serviceId).first();
+          if (catalogItem && Number(catalogItem.price) > 0) {
+            serverBasePrice = Number(catalogItem.price);
+          }
+        } catch (e) {}
+      }
+
+      const qtyNum = Math.max(1, Number(quantity || 1));
+      let calculatedBaseTotal = serverBasePrice;
+      if (qtyNum > 1) {
+        calculatedBaseTotal = serverBasePrice + ((qtyNum - 1) * 5.0);
+      }
+
+      // Validação de Cupom no Servidor
+      const coupon_code = body.couponCode || body.coupon_code || body.coupon;
+      let serverDiscount = 0;
+      if (coupon_code && clientId) {
+        const cleanCouponCode = String(coupon_code).toUpperCase().trim();
+        try {
+          const couponRow: any = await env.DB.prepare('SELECT percentage FROM coupons WHERE code = ?').bind(cleanCouponCode).first();
+          if (couponRow && Number(couponRow.percentage) > 0) {
+            serverDiscount = Number((calculatedBaseTotal * (Number(couponRow.percentage) / 100)).toFixed(2));
+          }
+        } catch (cErr) {}
+      }
+
+      const verifiedValue = Math.max(1.0, Number((calculatedBaseTotal - serverDiscount).toFixed(2)));
+      const requestedValue = Number(value || 0);
+      // Impede injeção de valores simbólicos (R$ 0,01)
+      const finalOrderValue = (requestedValue >= verifiedValue - 0.5) ? requestedValue : verifiedValue;
+
       // Verificar limite de crédito se for esse o método
       if (paymentMethod === 'credit') {
         // Calcular saldo disponível real: Limite - Pedidos Abertos
@@ -46,7 +81,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         const totalOpen = Number((openOrders as any)[0]?.total_open || 0);
         const availableCredit = Number(client.creditLimit || 0) - totalOpen;
 
-        if (availableCredit < value) {
+        if (availableCredit < finalOrderValue) {
           return new Response(JSON.stringify({ error: `Saldo de crédito insuficiente. Disponível: R$ ${availableCredit.toFixed(2)}` }), { status: 400 });
         }
         
@@ -90,7 +125,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           description,
           exampleUrl || null,
           logoUrl || null,
-          value,
+          finalOrderValue,
           0, // total_cost
           paymentMethod,
           paymentMethod === 'credit' ? 'pending' : 'pending',
@@ -100,7 +135,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           now,
           'production',
-          discount,
+          serverDiscount,
           creditUsedNum
         ).run();
       } catch (insertErr) {
@@ -120,7 +155,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           description,
           exampleUrl || null,
           logoUrl || null,
-          value,
+          finalOrderValue,
           0, // total_cost
           paymentMethod,
           paymentMethod === 'credit' ? 'pending' : 'pending',
@@ -130,12 +165,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           now,
           'production',
-          discount
+          serverDiscount
         ).run();
       }
 
       // Invalida o cupom se o usuário utilizou um
-      const coupon_code = body.couponCode || body.coupon_code || body.coupon;
       if (coupon_code && clientId) {
           const cleanCouponCode = String(coupon_code).toUpperCase().trim();
           await env.DB.prepare(
@@ -265,7 +299,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       let checkoutUrl = null;
       if (paymentMethod === 'online') {
           const origin = new URL(request.url).origin;
-          const payAmount = Math.max(0.01, Number(value) - creditUsedNum);
+          const payAmount = Math.max(0.01, Number(finalOrderValue) - creditUsedNum);
           const preferencePayload = {
               items: [{
                   id: requestId,

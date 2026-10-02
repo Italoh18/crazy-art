@@ -170,16 +170,22 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           let dl = item.downloadLink || item.download_link || (item.product ? (item.product.downloadLink || item.product.download_link) : null);
           const catId = String(item.productId || item.item_id || item.catalog_id || '');
 
-          // Se for cliente comum e o item existir no catálogo, usa obrigatoriamente o preço do banco
-          if (catId && catId !== 'manual' && user.role !== 'admin') {
+          // Se for cliente comum, exige obrigatoriamente produto cadastrado no catálogo e preço do banco
+          if (user.role !== 'admin') {
+            if (!catId || catId === 'manual') {
+              return new Response(JSON.stringify({ error: 'Item de pedido inválido. Selecione produtos ativos do catálogo.' }), { status: 400 });
+            }
             try {
               const catItem: any = await env.DB.prepare('SELECT price, cost, cost_price, download_link FROM catalog WHERE id = ?').bind(catId).first();
-              if (catItem) {
-                p = Number(catItem.price || 0);
-                c = Number(catItem.cost_price || catItem.cost || 0);
-                if (catItem.download_link) dl = catItem.download_link;
+              if (!catItem) {
+                return new Response(JSON.stringify({ error: 'Produto não encontrado no catálogo.' }), { status: 400 });
               }
-            } catch (err) {}
+              p = Number(catItem.price || 0);
+              c = Number(catItem.cost_price || catItem.cost || 0);
+              if (catItem.download_link) dl = catItem.download_link;
+            } catch (err: any) {
+              return new Response(JSON.stringify({ error: 'Erro ao validar produto no catálogo.' }), { status: 500 });
+            }
           }
 
           const subtotal = Number((p * q).toFixed(2));
@@ -415,6 +421,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         }
 
         if (body.production_step) {
+            if (user.role !== 'admin') {
+                return new Response(JSON.stringify({ error: 'Apenas administradores podem alterar a etapa de produção.' }), { status: 403 });
+            }
             clauses.push('production_step = ?');
             updateParams.push(String(body.production_step));
 

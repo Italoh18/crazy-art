@@ -29,6 +29,11 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
     // GET handler
     if (method === 'GET') {
       if (clientIdParam) {
+        const user = await getAuth(request, env);
+        if (!user || (user.role !== 'admin' && user.clientId !== clientIdParam)) {
+          return new Response(JSON.stringify({ error: 'Acesso negado. Autenticação necessária.' }), { status: 403 });
+        }
+
         if (url.searchParams.get('all') === 'true') {
           const lists: any = await env.DB.prepare('SELECT * FROM public_lists WHERE client_id = ? ORDER BY created_at DESC').bind(clientIdParam).all();
           return new Response(JSON.stringify(lists.results || []), {
@@ -209,7 +214,7 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
         return new Response(JSON.stringify({ error: 'Lista não encontrada' }), { status: 404 });
       }
 
-      // Se a lista estiver travada e a requisição vier de fonte pública (sem o campo is_locked explícito no corpo)
+      // Se a lista estiver travada para produção
       if (existing.is_locked === 1 && body.is_locked === undefined) {
         return new Response(JSON.stringify({ error: 'lista fechada para produção' }), { 
           status: 403,
@@ -217,7 +222,14 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
         });
       }
 
-      const isLocked = body.is_locked !== undefined ? (body.is_locked ? 1 : 0) : (existing.is_locked || 0);
+      let isLocked = existing.is_locked || 0;
+      if (body.is_locked !== undefined) {
+        const user = await getAuth(request, env);
+        if (!user || (user.role !== 'admin' && user.clientId !== existing.client_id)) {
+          return new Response(JSON.stringify({ error: 'Apenas o proprietário da lista pode alterar o status de bloqueio.' }), { status: 403 });
+        }
+        isLocked = body.is_locked ? 1 : 0;
+      }
 
       await env.DB.prepare(`
         UPDATE public_lists
