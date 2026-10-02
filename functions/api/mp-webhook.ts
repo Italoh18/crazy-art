@@ -33,6 +33,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     if (!mpRes.ok) return new Response('MP API Error', { status: 500 });
 
     const paymentData: any = await mpRes.json();
+    const paidAmount = Number(paymentData.transaction_amount || 0);
     
     if (paymentData.status === 'approved' || paymentData.status === 'authorized') {
       const reference = paymentData.external_reference;
@@ -51,6 +52,16 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
           // Se for uma solicitação de layout e ainda não confirmamos pagamento
           if (order) {
             const hasCreditBalance = order.credit_used && Number(order.credit_used) > 0;
+            const expectedAmount = hasCreditBalance 
+              ? Math.max(0.01, Number(order.total) - Number(order.credit_used)) 
+              : Number(order.total);
+
+            // Validação de Segurança: O valor pago no Mercado Pago deve cobrir o valor devido
+            if (paidAmount < expectedAmount - 0.05) {
+              console.error(`[Webhook] Pagamento insuficiente para layout ${requestId}: Pago R$ ${paidAmount}, Esperado R$ ${expectedAmount}`);
+              return new Response('Valor insuficiente', { status: 400 });
+            }
+
             const fifteenDaysAhead = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
             
             let meta: any;
@@ -180,6 +191,12 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
 
         if (reference.startsWith('SUB_')) {
           const clientId = reference.replace('SUB_', '');
+          // Validação de Segurança: Valor mínimo para assinatura (R$ 20,00)
+          if (paidAmount < 19.90) {
+            console.error(`[Webhook] Pagamento insuficiente para assinatura do cliente ${clientId}: Pago R$ ${paidAmount}`);
+            return new Response('Valor insuficiente', { status: 400 });
+          }
+
           const expiresAt = new Date();
           expiresAt.setDate(expiresAt.getDate() + 30); // 30 dias de assinatura
           
@@ -243,6 +260,17 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                 continue;
             }
 
+            // Validação de Segurança: Se for pedido único, confere se o valor pago é suficiente
+            const hasCreditBalance = orderInfo.credit_used && Number(orderInfo.credit_used) > 0;
+            const expectedAmount = hasCreditBalance 
+                ? Math.max(0.01, Number(orderInfo.total) - Number(orderInfo.credit_used)) 
+                : Number(orderInfo.total);
+
+            if (orderIds.length === 1 && paidAmount < expectedAmount - 0.05) {
+                console.error(`[Webhook] Pagamento insuficiente para pedido #${orderInfo.order_number}: Pago R$ ${paidAmount}, Esperado R$ ${expectedAmount}`);
+                continue;
+            }
+
             // 2. Lógica de Crédito Dinâmico
             const now = new Date();
             const dueDate = new Date(orderInfo.due_date);
@@ -284,7 +312,6 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             const hasProducts = (items || []).some((i: any) => i.type === 'product');
             const newStatus = hasProducts ? 'production' : 'paid';
 
-            const hasCreditBalance = orderInfo.credit_used && Number(orderInfo.credit_used) > 0;
             const fifteenDaysAhead = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
             let meta: any;

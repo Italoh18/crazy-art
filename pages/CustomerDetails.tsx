@@ -1191,34 +1191,19 @@ export default function CustomerDetails() {
       e.preventDefault();
       setIsSubmittingAutoPay(true);
       try {
-          if (autoPayMethod === 'mp') {
-              // 1. Ativa sinalização de pagamento automático
-              await updateCustomer(customer.id, { autoPaymentEnabled: true });
-              // 2. Cria preferência de pagamento de assinatura recorrente no Mercado Pago
-              const res = await api.createPayment({
-                  orderId: customer.id,
-                  title: 'Assinatura Crazy Art - Downloads Ilimitados',
-                  amount: 20.00,
-                  payerEmail: customer.email,
-                  payerName: customer.name,
-                  type: 'subscription'
-              });
-              if (res?.init_point) {
-                  window.location.href = res.init_point;
-              } else {
-                  throw new Error('Falha ao gerar o link de pagamento do Mercado Pago.');
-              }
+          // Cria preferência de pagamento de assinatura segura no Mercado Pago
+          const res = await api.createPayment({
+              orderId: customer.id,
+              title: 'Assinatura Crazy Art - Downloads Ilimitados',
+              amount: 20.00,
+              payerEmail: customer.email,
+              payerName: customer.name,
+              type: 'subscription'
+          });
+          if (res?.init_point) {
+              window.location.href = res.init_point;
           } else {
-              // Cartão direto via site
-              await updateCustomer(customer.id, { 
-                  autoPaymentEnabled: true, 
-                  processDirectSubscription: true 
-              });
-              alert("Pagamento automático por cartão de crédito habilitado e assinatura ativa com sucesso!");
-              setIsAutoPayModalOpen(false);
-              if (refreshCustomer) {
-                  await refreshCustomer();
-              }
+              throw new Error('Falha ao gerar o link de pagamento do Mercado Pago.');
           }
       } catch (err: any) {
           alert("Erro ao habilitar o pagamento automático: " + err.message);
@@ -3746,170 +3731,54 @@ export default function CustomerDetails() {
                     {/* Content */}
                     <div className="p-6 space-y-6">
                         
-                        {/* Alerta de Segurança */}
+                        {/* Alerta de Segurança Oficial */}
                         <div className="bg-emerald-500/5 border border-emerald-500/20 p-4 rounded-xl flex gap-3 items-start">
                             <div className="p-1 bg-emerald-500/10 rounded text-emerald-400 shrink-0 mt-0.5">
                                 <Lock size={16} />
                             </div>
                             <div className="text-xs text-zinc-300 space-y-1">
-                                <p className="font-bold text-white uppercase tracking-wider">Ambiente 100% Blindado e Seguro</p>
+                                <p className="font-bold text-white uppercase tracking-wider">Pagamento Homologado e Protegido</p>
                                 <p className="text-zinc-400 leading-relaxed">
-                                    Os dados sensíveis do seu cartão de crédito são convertidos localmente em um token criptografado e transmitidos diretamente via API criptografada. Nosso banco de dados nunca salva nem visualiza os números completos do seu cartão.
+                                    A assinatura é processada de ponta a ponta com segurança criptografada pelo Mercado Pago. Seus dados de pagamento nunca passam por intermediários não autorizados.
                                 </p>
                             </div>
                         </div>
 
-                        {/* Seleção do Método */}
-                        {autoPayMethod === null ? (
-                            <div className="space-y-4">
-                                <p className="text-sm text-zinc-400 text-center">Como você prefere autorizar a recorrência?</p>
-                                
-                                <button
-                                    onClick={() => setAutoPayMethod('mp')}
-                                    className="w-full p-4 bg-zinc-900/60 hover:bg-zinc-800/80 border border-white/5 hover:border-purple-500/30 rounded-2xl flex items-center justify-between transition group text-left font-sans"
-                                >
-                                    <div className="space-y-1">
-                                        <p className="text-white font-bold text-sm uppercase tracking-wide group-hover:text-purple-400 transition">Autorizar via Mercado Pago</p>
-                                        <p className="text-zinc-400 text-xs leading-relaxed">Conexão direta segura com o gateway. Rápido, prático e homologado.</p>
-                                    </div>
-                                    <ChevronRight size={18} className="text-zinc-600 group-hover:text-purple-400 transition animate-pulse" />
-                                </button>
+                        {/* Fluxo Mercado Pago */}
+                        <div className="space-y-5 text-center py-2">
+                            <div className="mx-auto w-16 h-16 bg-purple-600/10 text-purple-400 rounded-full flex items-center justify-center mb-2">
+                                <Crown size={32} />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-white font-bold uppercase tracking-wider text-sm">Assinatura Crazy Art (Recorrente)</h3>
+                                <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
+                                    Por apenas <strong>R$ 20,00/mês</strong>, você tem acesso liberado e downloads ilimitados de todas as artes da Quitanda. Você será redirecionado para a plataforma oficial do Mercado Pago para autorizar com segurança.
+                                </p>
+                            </div>
 
+                            <div className="pt-4 flex gap-3">
                                 <button
-                                    onClick={() => setAutoPayMethod('site')}
-                                    className="w-full p-4 bg-zinc-900/60 hover:bg-zinc-800/80 border border-white/5 hover:border-purple-500/30 rounded-2xl flex items-center justify-between transition group text-left font-sans"
+                                    type="button"
+                                    onClick={() => setIsAutoPayModalOpen(false)}
+                                    className="flex-1 py-3 bg-zinc-900 hover:bg-zinc-800 border border-white/5 text-zinc-400 hover:text-white rounded-xl font-bold transition text-xs uppercase tracking-wider"
                                 >
-                                    <div className="space-y-1">
-                                        <p className="text-white font-bold text-sm uppercase tracking-wide group-hover:text-purple-400 transition">Preencher Dados do Cartão aqui</p>
-                                        <p className="text-zinc-400 text-xs leading-relaxed">Insira os dados do cartão no formulário local criptografado em tempo real.</p>
-                                    </div>
-                                    <ChevronRight size={18} className="text-zinc-600 group-hover:text-purple-400 transition animate-pulse" />
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleSaveAutoPay}
+                                    disabled={isSubmittingAutoPay}
+                                    className="flex-1 py-3 bg-primary hover:bg-amber-600 text-white rounded-xl font-bold transition text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                                >
+                                    {isSubmittingAutoPay ? (
+                                        <>
+                                            <Loader2 size={14} className="animate-spin" /> Processando...
+                                        </>
+                                    ) : (
+                                        "Assinar via Mercado Pago"
+                                    )}
                                 </button>
                             </div>
-                        ) : autoPayMethod === 'mp' ? (
-                            <div className="space-y-5 text-center py-4">
-                                <div className="mx-auto w-16 h-16 bg-purple-600/10 text-purple-400 rounded-full flex items-center justify-center mb-2">
-                                    <Crown size={32} />
-                                </div>
-                                <div className="space-y-2">
-                                    <h3 className="text-white font-bold uppercase tracking-wider text-sm">Integração Direta com o Mercado Pago</h3>
-                                    <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
-                                        Você será direcionado para autorizar o fluxo seguro de assinatura recorrente do Mercado Pago. O sistema notificará automaticamente nossa plataforma assim que estiver habilitado.
-                                    </p>
-                                </div>
-
-                                <div className="pt-4 flex gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setAutoPayMethod(null)}
-                                        className="flex-1 py-3 bg-zinc-900 hover:bg-zinc-800 border border-white/5 text-zinc-400 hover:text-white rounded-xl font-bold transition text-xs uppercase tracking-wider"
-                                    >
-                                        Voltar
-                                    </button>
-                                    <button
-                                        onClick={handleSaveAutoPay}
-                                        disabled={isSubmittingAutoPay}
-                                        className="flex-1 py-3 bg-primary hover:bg-amber-600 text-white rounded-xl font-bold transition text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
-                                    >
-                                        {isSubmittingAutoPay ? (
-                                            <>
-                                                <Loader2 size={14} className="animate-spin" /> Processando...
-                                            </>
-                                        ) : (
-                                            "Habilitar Assinatura"
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <form onSubmit={handleSaveAutoPay} className="space-y-4">
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Nome impresso no Cartão</label>
-                                        <input
-                                            type="text"
-                                            required
-                                            value={autoPayCardData.name}
-                                            onChange={e => setAutoPayCardData({ ...autoPayCardData, name: e.target.value.toUpperCase() })}
-                                            placeholder="NOME DO TITULAR"
-                                            className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-white focus:border-purple-500 outline-none transition text-sm font-mono"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">CPF do Titular</label>
-                                        <input
-                                            type="text"
-                                            required
-                                            value={autoPayCardData.cpf}
-                                            onChange={e => setAutoPayCardData({ ...autoPayCardData, cpf: e.target.value.replace(/\D/g, '').slice(0, 11) })}
-                                            placeholder="Apenas números"
-                                            className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-white focus:border-purple-500 outline-none transition text-sm font-mono"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Número do Cartão</label>
-                                        <input
-                                            type="text"
-                                            required
-                                            value={autoPayCardData.number}
-                                            onChange={handleCardNumberChange}
-                                            placeholder="0000 0000 0000 0000"
-                                            className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-white focus:border-purple-500 outline-none transition text-sm font-mono"
-                                        />
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Vencimento</label>
-                                            <input
-                                                type="text"
-                                                required
-                                                value={autoPayCardData.expiry}
-                                                onChange={handleCardExpiryChange}
-                                                placeholder="MM/AA"
-                                                className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-white focus:border-purple-500 outline-none transition text-sm font-mono text-center"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">CVV / Cód. Segurança</label>
-                                            <input
-                                                type="password"
-                                                required
-                                                value={autoPayCardData.cvv}
-                                                onChange={handleCardCvvChange}
-                                                placeholder="***"
-                                                className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-white focus:border-purple-500 outline-none transition text-sm font-mono text-center"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="pt-4 flex gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setAutoPayMethod(null)}
-                                        className="flex-1 py-3 bg-zinc-900 hover:bg-zinc-800 border border-white/5 text-zinc-400 hover:text-white rounded-xl font-bold transition text-xs uppercase tracking-wider"
-                                    >
-                                        Voltar
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={isSubmittingAutoPay}
-                                        className="flex-1 py-3 bg-primary hover:bg-amber-600 text-white rounded-xl font-bold transition text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
-                                    >
-                                        {isSubmittingAutoPay ? (
-                                            <>
-                                                <Loader2 size={14} className="animate-spin" /> Validando...
-                                            </>
-                                        ) : (
-                                            "Confirmar e Salvar"
-                                        )}
-                                    </button>
-                                </div>
-                            </form>
-                        )}
+                        </div>
 
                     </div>
                 </div>

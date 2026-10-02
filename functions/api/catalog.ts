@@ -106,6 +106,15 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           return base;
         });
         
+        const cacheHeader = (user?.role === 'admin' || isSubscriber)
+          ? 'private, no-cache, no-store, must-revalidate'
+          : 'public, max-age=60, s-maxage=60';
+
+        const responseHeaders = {
+          'Cache-Control': cacheHeader,
+          'Vary': 'Authorization'
+        };
+
         if (isPaged) {
           return Response.json({
             data: mappedResults,
@@ -113,12 +122,12 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
             page,
             limit
           }, {
-            headers: { 'Cache-Control': 'public, max-age=60, s-maxage=60' }
+            headers: responseHeaders
           });
         }
         
         return Response.json(mappedResults, {
-          headers: { 'Cache-Control': 'public, max-age=60, s-maxage=60' }
+          headers: responseHeaders
         });
       } catch (sqlError: any) {
           // Se a tabela 'catalog' não existir, tenta 'products' como fallback

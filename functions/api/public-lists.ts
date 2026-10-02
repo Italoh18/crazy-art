@@ -164,6 +164,20 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
         return new Response(JSON.stringify({ error: 'ID da lista é obrigatório' }), { status: 400 });
       }
 
+      const user = await getAuth(request, env);
+      if (!user) {
+        return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
+      }
+
+      const listRecord: any = await env.DB.prepare('SELECT client_id FROM public_lists WHERE id = ?').bind(listId).first();
+      if (!listRecord) {
+        return new Response(JSON.stringify({ error: 'Lista não encontrada' }), { status: 404 });
+      }
+
+      if (user.role !== 'admin' && listRecord.client_id !== user.clientId) {
+        return new Response(JSON.stringify({ error: 'Acesso negado. Apenas o proprietário pode excluir esta lista.' }), { status: 403 });
+      }
+
       await env.DB.prepare('DELETE FROM public_lists WHERE id = ?').bind(listId).run();
 
       return new Response(JSON.stringify({ success: true }), {

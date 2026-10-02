@@ -153,14 +153,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         discount
       ).run();
 
-      // Invalida o cupom se o usuário utilizou um
+      // Invalida o cupom se o usuário utilizou um e valida desconto no servidor
       const coupon_code = body.couponCode || body.coupon_code || body.coupon;
-      if (coupon_code && client_id) {
-          const cleanCouponCode = String(coupon_code).toUpperCase().trim();
-          await env.DB.prepare(
-              'UPDATE client_coupons SET is_used = 1 WHERE client_id = ? AND code = ? AND is_used = 0'
-          ).bind(client_id, cleanCouponCode).run();
-      }
+      let serverDiscount = 0;
 
       const items = Array.isArray(body.items) ? body.items : [];
       let calculatedTotal = 0;
@@ -169,12 +164,25 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       if (items.length > 0) {
         for (const item of items) {
           const itemId = crypto.randomUUID();
-          const q = Number(item.quantity || 1);
-          const p = Number(item.unitPrice || item.unit_price || item.price || 0);
-          const c = Number(item.cost_price || item.costPrice || item.cost || 0);
-          const subtotal = Number(item.total || (p * q));
-          const dl = item.downloadLink || item.download_link || (item.product ? (item.product.downloadLink || item.product.download_link) : null);
-          
+          const q = Math.max(1, Number(item.quantity || 1));
+          let p = Number(item.unitPrice || item.unit_price || item.price || 0);
+          let c = Number(item.cost_price || item.costPrice || item.cost || 0);
+          let dl = item.downloadLink || item.download_link || (item.product ? (item.product.downloadLink || item.product.download_link) : null);
+          const catId = String(item.productId || item.item_id || item.catalog_id || '');
+
+          // Se for cliente comum e o item existir no catálogo, usa obrigatoriamente o preço do banco
+          if (catId && catId !== 'manual' && user.role !== 'admin') {
+            try {
+              const catItem: any = await env.DB.prepare('SELECT price, cost, cost_price, download_link FROM catalog WHERE id = ?').bind(catId).first();
+              if (catItem) {
+                p = Number(catItem.price || 0);
+                c = Number(catItem.cost_price || catItem.cost || 0);
+                if (catItem.download_link) dl = catItem.download_link;
+              }
+            } catch (err) {}
+          }
+
+          const subtotal = Number((p * q).toFixed(2));
           calculatedTotal += subtotal;
           calculatedCost += (c * q);
 
@@ -200,8 +208,24 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
           ).run();
         }
 
-        await env.DB.prepare('UPDATE orders SET total = ?, total_cost = ? WHERE id = ?')
-            .bind(calculatedTotal - discount, calculatedCost, newId).run();
+        if (coupon_code && client_id) {
+          const cleanCouponCode = String(coupon_code).toUpperCase().trim();
+          try {
+            const couponRow: any = await env.DB.prepare('SELECT percentage FROM coupons WHERE code = ?').bind(cleanCouponCode).first();
+            if (couponRow && Number(couponRow.percentage) > 0) {
+              serverDiscount = Number((calculatedTotal * (Number(couponRow.percentage) / 100)).toFixed(2));
+            }
+            await env.DB.prepare(
+              'UPDATE client_coupons SET is_used = 1 WHERE client_id = ? AND code = ? AND is_used = 0'
+            ).bind(client_id, cleanCouponCode).run();
+          } catch (cErr) {}
+        }
+
+        const finalDiscount = user.role === 'admin' ? Number(body.discount || 0) : serverDiscount;
+        const finalTotal = Math.max(0, calculatedTotal - finalDiscount);
+
+        await env.DB.prepare('UPDATE orders SET total = ?, total_cost = ?, discount = ? WHERE id = ?')
+            .bind(finalTotal, calculatedCost, finalDiscount, newId).run();
 
         // PUSH ADMIN (Novo Pedido)
         console.log(`[Orders] Enviando push para admins sobre novo pedido #${formattedOrder}`);
@@ -215,7 +239,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       return Response.json({ 
         success: true,
         id: newId,
-        total: calculatedTotal - discount,
+        total: calculatedTotal - (user.role === 'admin' ? Number(body.discount || 0) : serverDiscount),
         order_number: nextOrderNumber,
         formattedOrderNumber: formattedOrder
       });
@@ -226,7 +250,7 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       const body = await request.json() as any;
 
       // Verificação de Segurança: Verificar se o pedido existe e pertence ao usuário (ou se é admin)
-      const existingOrder: any = await env.DB.prepare('SELECT client_id FROM orders WHERE id = ?').bind(id).first();
+      const existingOrder: any = await env.DB.prepare('SELECT client_id, total FROM orders WHERE id = ?').bind(id).first();
       if (!existingOrder) return new Response(JSON.stringify({ error: 'Pedido não encontrado' }), { status: 404 });
       
       if (user.role !== 'admin' && existingOrder.client_id !== user.clientId) {
@@ -234,6 +258,21 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
       }
 
       if (body.confirm_with_credit === true) {
+          // Validar limite de crédito disponível no servidor antes de confirmar
+          const clientRow: any = await env.DB.prepare('SELECT creditLimit FROM clients WHERE id = ?').bind(existingOrder.client_id).first();
+          const { results: openOrders } = await env.DB.prepare(
+            "SELECT SUM(total) as total_open FROM orders WHERE client_id = ? AND status = 'open' AND id != ?"
+          ).bind(existingOrder.client_id, id).all();
+          const totalOpen = Number((openOrders as any)[0]?.total_open || 0);
+          const availableCredit = Number(clientRow?.creditLimit || 0) - totalOpen;
+          const orderTotal = Number(existingOrder.total || 0);
+
+          if (user.role !== 'admin' && availableCredit < orderTotal) {
+            return new Response(JSON.stringify({ 
+              error: `Saldo de crédito insuficiente. Disponível: R$ ${availableCredit.toFixed(2)}, Pedido: R$ ${orderTotal.toFixed(2)}` 
+            }), { status: 400 });
+          }
+
           // 1. Confirmar pedido e alterar status do pagamento
           await env.DB.prepare("UPDATE orders SET is_confirmed = 1, payment_method = 'credit', payment_status = 'paid', status = 'open' WHERE id = ?")
             .bind(String(id))
@@ -324,6 +363,9 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         let clauses: string[] = [];
 
         if (body.status) {
+            if (user.role !== 'admin') {
+                return new Response(JSON.stringify({ error: 'Apenas administradores podem alterar o status do pedido.' }), { status: 403 });
+            }
             clauses.push('status = ?');
             updateParams.push(String(body.status));
             
@@ -539,7 +581,11 @@ export const onRequest: any = async ({ request, env }: { request: Request, env: 
         return Response.json({ success: true });
       }
 
-      // Edição Completa
+      // Edição Completa (Apenas Administrador)
+      if (user.role !== 'admin') {
+        return new Response(JSON.stringify({ error: 'Apenas administradores podem editar itens ou valores do pedido.' }), { status: 403 });
+      }
+
       const description = String(body.description || '').trim();
       const order_date = String(body.order_date || body.orderDate || '');
       const due_date = String(body.due_date || body.dueDate || '');
