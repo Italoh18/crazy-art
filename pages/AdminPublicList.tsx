@@ -240,6 +240,7 @@ export default function AdminPublicList() {
             ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           },
           body: JSON.stringify({
+            clientId: selectedClientId,
             title: listTitle.trim(),
             items: items
           })

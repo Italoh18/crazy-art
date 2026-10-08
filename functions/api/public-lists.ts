@@ -259,11 +259,22 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
         isLocked = body.is_locked ? 1 : 0;
       }
 
+      // Permitir transferência de cliente se for administrador
+      let targetClientId = existing.client_id;
+      const requestedClientId = body.clientId || body.client_id;
+      if (requestedClientId && requestedClientId !== existing.client_id) {
+        const user = await getAuth(request, env);
+        if (!user || user.role !== 'admin') {
+          return new Response(JSON.stringify({ error: 'Apenas administradores podem transferir listas para outro cliente.' }), { status: 403 });
+        }
+        targetClientId = requestedClientId;
+      }
+
       await env.DB.prepare(`
         UPDATE public_lists
-        SET title = ?, items = ?, is_locked = ?, updated_at = ?
+        SET title = ?, items = ?, is_locked = ?, client_id = ?, updated_at = ?
         WHERE id = ?
-      `).bind(title, itemsStr, isLocked, now, listId).run();
+      `).bind(title, itemsStr, isLocked, targetClientId, now, listId).run();
 
       return new Response(JSON.stringify({ success: true, message: 'Lista atualizada com sucesso' }), {
         headers: { 'Content-Type': 'application/json' }
