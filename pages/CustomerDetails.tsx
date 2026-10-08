@@ -106,6 +106,7 @@ export default function CustomerDetails() {
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [isLoadingOrderDetails, setIsLoadingOrderDetails] = useState(false);
+  const [selectedListIdForOrder, setSelectedListIdForOrder] = useState<string>('');
 
   const [newOrderData, setNewOrderData] = useState({
       description: '',
@@ -1253,6 +1254,7 @@ export default function CustomerDetails() {
 
   const handleOpenNewOrder = () => {
       setEditingOrderId(null);
+      setSelectedListIdForOrder('');
       setNewOrderData({
           description: '',
           orderDate: new Date().toISOString().split('T')[0],
@@ -1261,6 +1263,7 @@ export default function CustomerDetails() {
       });
       setOrderItems([]);
       setItemSearch('');
+      loadPublicLists();
       setIsNewOrderModalOpen(true);
   };
 
@@ -1280,6 +1283,7 @@ export default function CustomerDetails() {
       setViewingOrder(null);
       setIsLoadingOrderDetails(true);
       setEditingOrderId(order.id);
+      setSelectedListIdForOrder('');
       setIsNewOrderModalOpen(true);
 
       try {
@@ -1305,6 +1309,102 @@ export default function CustomerDetails() {
       } finally {
           setIsLoadingOrderDetails(false);
       }
+  };
+
+  const handleSelectListForOrder = (listId: string) => {
+      setSelectedListIdForOrder(listId);
+      if (!listId) {
+          return;
+      }
+
+      const listObj = publicLists.find(l => String(l.id) === String(listId));
+      if (!listObj) return;
+
+      let itemsArray: SizeListItem[] = [];
+      if (Array.isArray(listObj.items)) {
+          itemsArray = listObj.items;
+      } else if (typeof listObj.items === 'string') {
+          try {
+              itemsArray = JSON.parse(listObj.items);
+          } catch (e) {
+              itemsArray = [];
+          }
+      }
+
+      if (itemsArray.length === 0) {
+          alert('A lista selecionada não possui peças cadastradas.');
+          return;
+      }
+
+      let totalCamisas = 0;
+      let totalShorts = 0;
+
+      itemsArray.forEach(item => {
+          const qty = item.isSimple ? Math.max(1, Number(item.quantity || 1)) : 1;
+          totalCamisas += qty;
+
+          const hasShort = Boolean(
+              item.isConjunto || 
+              (item.shortSize && String(item.shortNumber || '').trim().length > 0)
+          );
+          if (hasShort) {
+              totalShorts += qty;
+          }
+      });
+
+      const totalReplicas = totalCamisas + totalShorts;
+      const hasShortsInList = totalShorts > 0;
+      const montagemQty = hasShortsInList ? 2 : 1;
+
+      // Buscar produtos no catálogo
+      const montagemService = products.find(p => p.name.toLowerCase().includes('montagem de molde')) 
+                           || products.find(p => p.name.toLowerCase().includes('montagem'));
+      const replicaService = products.find(p => p.name.toLowerCase().includes('replica') && p.name.toLowerCase().includes('molde'))
+                          || products.find(p => p.name.toLowerCase().includes('replica'))
+                          || products.find(p => p.name.toLowerCase().includes('réplica'));
+
+      const montagemPrice = montagemService ? Number(montagemService.price) : 35.00;
+      const replicaPrice = replicaService ? Number(replicaService.price) : 10.00;
+
+      const newOrderItemsList: any[] = [];
+
+      // 1. Item Montagem de Molde (1 un se só camisas, 2 un se tiver camisa e short na lista)
+      newOrderItemsList.push({
+          productId: montagemService ? montagemService.id : 'service-montagem-molde',
+          productName: montagemService ? montagemService.name : 'Montagem de Molde',
+          quantity: montagemQty,
+          unitPrice: montagemPrice,
+          total: Number((montagemQty * montagemPrice).toFixed(2)),
+          type: montagemService?.type || 'service',
+          size_list: JSON.stringify(itemsArray)
+      });
+
+      // 2. Item Réplica de Molde (cada peça como item réplica de molde, lembrando que camisa e short são 2 itens distintos)
+      if (totalReplicas > 0) {
+          newOrderItemsList.push({
+              productId: replicaService ? replicaService.id : 'service-replica-molde',
+              productName: replicaService ? replicaService.name : 'Réplica de Molde',
+              quantity: totalReplicas,
+              unitPrice: replicaPrice,
+              total: Number((totalReplicas * replicaPrice).toFixed(2)),
+              type: replicaService?.type || 'service',
+              size_list: JSON.stringify(itemsArray)
+          });
+      }
+
+      setOrderItems(newOrderItemsList);
+
+      setNewOrderData(prev => {
+          const currentDesc = prev.description.trim();
+          const isGeneric = !currentDesc || currentDesc.startsWith('Pedido com') || currentDesc.startsWith('Lista:');
+          if (isGeneric) {
+              return {
+                  ...prev,
+                  description: `Lista: ${listObj.title || 'Grade'} (${totalCamisas} camisa(s)${hasShortsInList ? `, ${totalShorts} short(s)` : ''} - Total ${totalReplicas} peças)`
+              };
+          }
+          return prev;
+      });
   };
 
   const handleAddItem = (product: any) => {
@@ -1345,7 +1445,7 @@ export default function CustomerDetails() {
 
   const handleFinalizeOrder = async () => {
       if (orderItems.length === 0 && !newOrderData.description) return;
-      const payload = {
+      const payload: any = {
           client_id: customer.id,
           description: newOrderData.description || `Pedido com ${orderItems.length} itens`,
           order_date: newOrderData.orderDate,
@@ -1354,8 +1454,12 @@ export default function CustomerDetails() {
           discount: Number(newOrderData.discount || 0),
           status: 'open'
       };
+      if (selectedListIdForOrder) {
+          payload.size_list = selectedListIdForOrder;
+      }
       if (editingOrderId) await updateOrder(editingOrderId, payload);
       else await addOrder(payload);
+      setSelectedListIdForOrder('');
       setIsNewOrderModalOpen(false);
   };
 
@@ -3341,7 +3445,7 @@ export default function CustomerDetails() {
         {isNewOrderModalOpen && (
             <div className="fixed inset-0 z-50 flex justify-center items-start pt-12 md:pt-24 bg-black/60 backdrop-blur-md p-4 animate-fade-in overflow-y-auto">
                 <div className="bg-[#121215] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col animate-scale-in">
-                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] rounded-t-2xl shrink-0"><h2 className="text-xl font-bold text-white flex items-center gap-2"><div className="bg-primary/20 p-2 rounded-lg text-primary">{editingOrderId ? <Edit size={18} /> : <Plus size={18} />}</div> {editingOrderId ? 'Editar Pedido' : 'Novo Pedido'}</h2><button onClick={() => setIsNewOrderModalOpen(false)} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button></div>
+                    <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0c0c0e] rounded-t-2xl shrink-0"><h2 className="text-xl font-bold text-white flex items-center gap-2"><div className="bg-primary/20 p-2 rounded-lg text-primary">{editingOrderId ? <Edit size={18} /> : <Plus size={18} />}</div> {editingOrderId ? 'Editar Pedido' : 'Novo Pedido'}</h2><button onClick={() => { setIsNewOrderModalOpen(false); setSelectedListIdForOrder(''); }} className="text-zinc-500 hover:text-white hover:rotate-90 transition-transform"><X size={24} /></button></div>
                     {isLoadingOrderDetails ? (
                         <div className="p-12 flex justify-center items-center"><Loader2 className="animate-spin text-primary" size={32} /></div>
                     ) : (
@@ -3351,6 +3455,72 @@ export default function CustomerDetails() {
                                 <div><label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Data do Pedido</label><input type="date" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" value={newOrderData.orderDate} onChange={(e) => setNewOrderData({...newOrderData, orderDate: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-zinc-500 uppercase mb-1.5 ml-1">Vencimento</label><input type="date" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none transition" value={newOrderData.dueDate} onChange={(e) => setNewOrderData({...newOrderData, dueDate: e.target.value})} /></div>
                             </div>
+
+                            {/* Seleção de Lista Criada */}
+                            <div className="bg-zinc-950/70 border border-white/5 rounded-2xl p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
+                                        <ClipboardList size={16} /> Selecionar Lista Criada (Opcional)
+                                    </label>
+                                    {selectedListIdForOrder && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSelectListForOrder('')}
+                                            className="text-[10px] text-zinc-500 hover:text-red-400 font-bold uppercase transition"
+                                        >
+                                            Limpar Seleção
+                                        </button>
+                                    )}
+                                </div>
+                                {publicLists.length === 0 ? (
+                                    <p className="text-zinc-600 text-xs">Este cliente não possui nenhuma lista de tamanhos/grade cadastrada.</p>
+                                ) : (
+                                    <select
+                                        value={selectedListIdForOrder}
+                                        onChange={(e) => handleSelectListForOrder(e.target.value)}
+                                        className="w-full bg-[#121215] border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-primary outline-none transition font-medium cursor-pointer"
+                                    >
+                                        <option value="">-- Selecione uma lista para preencher os itens do pedido --</option>
+                                        {publicLists.map((l) => (
+                                            <option key={l.id} value={l.id}>{l.title}</option>
+                                        ))}
+                                    </select>
+                                )}
+                                {selectedListIdForOrder && (() => {
+                                    const selList = publicLists.find(l => String(l.id) === String(selectedListIdForOrder));
+                                    if (!selList) return null;
+                                    let itemsArr: SizeListItem[] = [];
+                                    if (Array.isArray(selList.items)) itemsArr = selList.items;
+                                    else if (typeof selList.items === 'string') {
+                                        try { itemsArr = JSON.parse(selList.items); } catch(e){}
+                                    }
+                                    let camisas = 0;
+                                    let shorts = 0;
+                                    itemsArr.forEach(it => {
+                                        const q = it.isSimple ? Math.max(1, Number(it.quantity || 1)) : 1;
+                                        camisas += q;
+                                        if (it.isConjunto || (it.shortSize && String(it.shortNumber || '').trim().length > 0)) {
+                                            shorts += q;
+                                        }
+                                    });
+                                    const total = camisas + shorts;
+                                    return (
+                                        <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 text-xs text-zinc-300 space-y-1 animate-fade-in">
+                                            <div className="flex items-center justify-between text-white font-bold">
+                                                <span>Lista carregada: {selList.title}</span>
+                                                <span className="text-primary font-mono">{total} peça(s) no total</span>
+                                            </div>
+                                            <p className="text-[11px] text-zinc-400">
+                                                • {camisas} camisa(s) | {shorts} short(s) = <strong className="text-white">{total} Réplica(s) de Molde</strong>
+                                            </p>
+                                            <p className="text-[11px] text-zinc-400">
+                                                • Montagem de Molde: <strong className="text-white">{shorts > 0 ? '2 unidades (Camisas e Shorts)' : '1 unidade (Somente Camisas)'}</strong>
+                                            </p>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+
                             <div className="border-t border-white/5 pt-4"><h3 className="font-bold text-primary flex items-center gap-2 mb-3 uppercase text-xs tracking-wider"><Package size={14} /> Itens do Pedido</h3>
                                 {isQuickCreateOpen ? (
                                     <div className="bg-zinc-900/50 p-4 rounded-xl border border-primary/30 animate-fade-in relative"><button onClick={() => setIsQuickCreateOpen(false)} className="absolute top-2 right-2 text-zinc-500 hover:text-white"><X size={16} /></button><h4 className="text-sm font-bold text-white mb-3">Criar Novo {quickCreateType === 'product' ? 'Produto' : 'Serviço'}</h4><div className="flex gap-3 items-end"><div className="flex-1"><input autoFocus placeholder="Nome do Item" className="w-full bg-black/60 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary outline-none" value={quickItemData.name} onChange={e => setQuickItemData({...quickItemData, name: e.target.value})} /></div><div className="w-24"><input placeholder="R$ 0.00" className="w-full bg-black/60 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary outline-none" value={quickItemData.price} onChange={e => setQuickItemData({...quickItemData, price: e.target.value})} /></div><button onClick={handleQuickCreate} className="bg-primary hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition">Adicionar</button></div></div>
