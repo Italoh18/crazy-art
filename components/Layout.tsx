@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid, TrendingUp, ShoppingCart, Layers, Scissors } from 'lucide-react';
+import { Users, Package, FileText, Menu, X, LogOut, ArrowLeft, Home, Instagram, Facebook, Mail, MessageCircle, Image as ImageIcon, Sparkles, ClipboardList, Building, Clock, Ticket, Fingerprint, User, MessageSquare, ChevronDown, LayoutGrid, TrendingUp, ShoppingCart, Layers, Scissors, ListChecks } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { useData } from '../contexts/DataContext';
@@ -236,6 +236,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
     { name: 'Dashboard', path: '/', icon: Home },
     { name: 'Pedidos', path: '/orders', icon: ClipboardList }, 
     { name: 'Clientes', path: '/customers', icon: Users },
+    { name: 'Lista Pública', path: '/admin-public-lists', icon: ListChecks },
     { name: 'Produtos', path: '/products', icon: Package },
     { name: 'Cupons', path: '/coupons', icon: Ticket }, 
     { name: 'Carrossel', path: '/carousel-manager', icon: ImageIcon },

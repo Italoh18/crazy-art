@@ -44,6 +44,7 @@ const MatrizBordado = lazy(() => import('./pages/MatrizBordado'));
 const Vetorizacao = lazy(() => import('./pages/Vetorizacao'));
 const MoldesManager = lazy(() => import('./pages/MoldesManager'));
 const AdminMockupSoon = lazy(() => import('./pages/AdminMockupSoon'));
+const AdminPublicList = lazy(() => import('./pages/AdminPublicList'));
 const ListaPublica = lazy(() => import('./pages/ListaPublica'));
 const RefundPolicy = lazy(() => import('./pages/RefundPolicy'));
 const BaixarApp = lazy(() => import('./pages/BaixarApp'));
@@ -128,6 +129,7 @@ const AppRoutes = () => {
                 <Route path="/trusted-companies" element={<ProtectedRoute requiredRole="admin"><TrustedCompanies /></ProtectedRoute>} />
                 <Route path="/email-templates" element={<ProtectedRoute requiredRole="admin"><EmailTemplates /></ProtectedRoute>} />
                 <Route path="/identity" element={<ProtectedRoute requiredRole="admin"><Identity /></ProtectedRoute>} />
+                <Route path="/admin-public-lists" element={<ProtectedRoute requiredRole="admin"><AdminPublicList /></ProtectedRoute>} />
                 <Route path="/moldes" element={<ProtectedRoute requiredRole="admin"><MoldesManager /></ProtectedRoute>} />
                 <Route path="/feedbacks" element={<ProtectedRoute requiredRole="admin"><Feedbacks /></ProtectedRoute>} />
                 <Route path="/admin-mockup-soon" element={<ProtectedRoute requiredRole="admin"><AdminMockupSoon /></ProtectedRoute>} />

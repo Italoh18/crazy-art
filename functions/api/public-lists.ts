@@ -28,6 +28,24 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
 
     // GET handler
     if (method === 'GET') {
+      if (url.searchParams.get('admin_all') === 'true') {
+        const user = await getAuth(request, env);
+        if (!user || user.role !== 'admin') {
+          return new Response(JSON.stringify({ error: 'Acesso negado. Apenas administradores.' }), { status: 403 });
+        }
+
+        const lists: any = await env.DB.prepare(`
+          SELECT pl.*, c.name as client_name, c.email as client_email, c.phone as client_phone
+          FROM public_lists pl
+          LEFT JOIN clients c ON pl.client_id = c.id
+          ORDER BY pl.created_at DESC
+        `).all();
+
+        return new Response(JSON.stringify(lists.results || []), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
       if (clientIdParam) {
         const user = await getAuth(request, env);
         if (!user || (user.role !== 'admin' && user.clientId !== clientIdParam)) {
@@ -132,16 +150,26 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
     // POST handler (Criação de nova lista)
     if (method === 'POST') {
       const user = await getAuth(request, env);
-      let clientId = clientIdParam;
-      if (!clientId) {
-        if (!user || !user.clientId) {
-          return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
-        }
-        clientId = user.clientId;
+      if (!user) {
+        return new Response(JSON.stringify({ error: 'Não autorizado' }), { status: 401 });
       }
 
       const body = await request.json() as any;
+      let clientId = clientIdParam || body.clientId || body.client_id;
+      if (!clientId) {
+        clientId = user.clientId;
+      }
+
+      if (user.role !== 'admin' && clientId !== user.clientId) {
+        return new Response(JSON.stringify({ error: 'Acesso negado. Apenas administradores podem criar listas para outros perfis.' }), { status: 403 });
+      }
+
+      if (!clientId) {
+        return new Response(JSON.stringify({ error: 'Identificação do perfil do cliente é obrigatória.' }), { status: 400 });
+      }
+
       const title = body.title || 'Nova Lista Pública';
+      const itemsStr = typeof body.items === 'string' ? body.items : JSON.stringify(body.items || []);
       const newId = crypto.randomUUID();
       const now = new Date().toISOString();
 
@@ -152,7 +180,7 @@ export const onRequest: any = async ({ request, env }: { request: any, env: any 
         newId,
         clientId,
         title,
-        '[]',
+        itemsStr,
         now,
         now
       ).run();
