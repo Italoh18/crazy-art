@@ -90,10 +90,6 @@ export const onRequest: any = async (context: {
     })
     .on('head', {
       element(el: any) {
-        if (!hasReplacedCanonical) {
-          el.append(`<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />\n`, { html: true });
-        }
-
         // Schema.org CollectionPage / WebPage
         const collectionJsonLd = {
           "@context": "https://schema.org",
@@ -108,6 +104,12 @@ export const onRequest: any = async (context: {
           }
         };
         el.append(`<script type="application/ld+json">${JSON.stringify(collectionJsonLd)}</script>\n`, { html: true });
+
+        el.onEndTag((endTag: any) => {
+          if (!hasReplacedCanonical) {
+            endTag.before(`<link rel="canonical" href="${escapeHtml(canonicalUrl)}" />\n`, { html: true });
+          }
+        });
       }
     })
     .transform(response);
