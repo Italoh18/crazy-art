@@ -40,6 +40,9 @@ export interface Product {
   primaryColor?: string; 
   priceVariations?: PriceVariation[]; 
   supplierLink?: string;
+  slug?: string;
+  altText?: string;
+  alt_text?: string;
 }
 
 export interface OrderItem {

@@ -98,6 +98,7 @@ const AppRoutes = () => {
                 <Route path="/" element={<Home />} />
                 <Route path="/shop" element={<Shop />} />
                 <Route path="/quitanda_de_art" element={<Shop />} />
+                <Route path="/quitanda_de_art/:slug" element={<Shop />} />
                 <Route path="/tools" element={<Programs />} />
                 <Route path="/font-editor" element={<FontEditor />} /> {/* Nova Rota */}
                 <Route path="/layout-builder" element={<LayoutBuilder />} />

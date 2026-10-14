@@ -4,6 +4,7 @@ import { useData } from '../contexts/DataContext';
 import { Plus, Trash2, Package, Wrench, Link as LinkIcon, Image as ImageIcon, Search, CheckCircle, AlertOctagon, AlertTriangle, Loader2, Edit, X, Palette, CloudDownload, Hash, TrendingDown, Layers } from 'lucide-react';
 import { ItemType, Product, PriceVariation } from '../types';
 import { ImageUploadInput } from '../components/ImageUploadInput';
+import { generateSlug } from '../utils/slug';
 
 const DEFAULT_SUBCATEGORIES = ['Carnaval', 'Colegio', 'Futebol', 'Volei', 'E-sport', 'Anime', 'Patterns', 'Icons', 'Emojis', 'Animais', 'Logos', 'Bordados', 'Diversos'];
 
@@ -45,7 +46,9 @@ export default function Products() {
     downloadLink: '',
     subcategory: '',
     primaryColor: '#000000',
-    supplierLink: ''
+    supplierLink: '',
+    slug: '',
+    altText: ''
   });
 
   // State para variações de preço (Apenas Produtos)
@@ -62,7 +65,7 @@ export default function Products() {
   const openNewModal = () => {
       setIsEditMode(false);
       setEditId(null);
-      setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '', downloadLink: '', subcategory: '', primaryColor: '#000000', supplierLink: '' });
+      setFormData({ name: '', price: '', costPrice: '', description: '', imageUrl: '', downloadLink: '', subcategory: '', primaryColor: '#000000', supplierLink: '', slug: '', altText: '' });
       setVariations([]);
       setIsModalOpen(true);
   };
@@ -79,7 +82,9 @@ export default function Products() {
           downloadLink: item.downloadLink || '',
           subcategory: item.subcategory || '',
           primaryColor: item.primaryColor || '#000000',
-          supplierLink: item.supplierLink || ''
+          supplierLink: item.supplierLink || '',
+          slug: item.slug || '',
+          altText: item.altText || (item as any).alt_text || ''
       });
       setVariations(item.priceVariations || []);
       setIsModalOpen(true);
@@ -117,7 +122,9 @@ export default function Products() {
         subcategory: activeTab === 'art' ? formData.subcategory : null,
         primaryColor: activeTab === 'art' ? formData.primaryColor : null,
         priceVariations: activeTab === 'product' ? variations : [],
-        supplierLink: formData.supplierLink || null
+        supplierLink: formData.supplierLink || null,
+        slug: activeTab === 'art' ? (formData.slug ? generateSlug(formData.slug) : generateSlug(formData.name)) : null,
+        altText: activeTab === 'art' ? (formData.altText || `Arte ${formData.name}`) : null
     };
 
     try {
@@ -561,6 +568,40 @@ export default function Products() {
                                 onChange={e => setFormData({ ...formData, downloadLink: e.target.value })}
                                 />
                                 <CloudDownload className="absolute left-3 top-3.5 text-emerald-500" size={16} />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 col-span-1 md:col-span-2">
+                            <div>
+                                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1.5 ml-1">
+                                    Slug da URL (Opcional - ex: interclasse-leao-vetor)
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder={formData.name ? generateSlug(formData.name) : 'deixe em branco p/ gerar automático'}
+                                    className="w-full bg-black/40 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition font-mono text-xs"
+                                    value={formData.slug}
+                                    onChange={e => setFormData({ ...formData, slug: e.target.value })}
+                                />
+                                <span className="text-[10px] text-zinc-500 ml-1">
+                                    URL: /quitanda_de_art/{formData.slug ? generateSlug(formData.slug) : (formData.name ? generateSlug(formData.name) : '...')}
+                                </span>
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1.5 ml-1">
+                                    Alt Text Descritivo (SEO da Imagem)
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder={formData.name ? `Arte ${formData.name} vetor para estamparia` : 'Texto alternativo para SEO da imagem'}
+                                    className="w-full bg-black/40 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none transition text-xs"
+                                    value={formData.altText}
+                                    onChange={e => setFormData({ ...formData, altText: e.target.value })}
+                                />
+                                <span className="text-[10px] text-zinc-500 ml-1">
+                                    Aparece no Google Imagens e na prévia do link.
+                                </span>
                             </div>
                         </div>
                       </div>

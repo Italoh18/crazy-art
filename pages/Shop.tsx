@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { 
   ArrowLeft, Search, ShoppingCart, 
   CheckCircle, AlertOctagon, Send, X, Trash2, Minus, 
@@ -15,6 +15,7 @@ import { useCart } from '../contexts/CartContext';
 import { Product, Order, SizeListItem, Coupon, ItemType } from '../types';
 import { api } from '../src/services/api';
 import { ImageUploadInput } from '../components/ImageUploadInput';
+import { generateSlug } from '../utils/slug';
 
 type ShopStep = 'list' | 'detail' | 'questionnaire' | 'checkout' | 'success';
 
@@ -68,6 +69,7 @@ export default function Shop() {
   const { cart, addToCart: addToCartGlobal, removeFromCart: removeFromCartGlobal, clearCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
+  const { slug } = useParams<{ slug?: string }>();
 
   const [step, setStep] = useState<ShopStep>('list');
   const [activeTab, setActiveTab] = useState<ItemType | 'landing'>('landing');
@@ -338,7 +340,7 @@ export default function Shop() {
   // Verifica se é assinante
   const isSubscriber = currentCustomer?.isSubscriber;
 
-  // Inicializa a aba com base na URL
+  // Inicializa a aba com base na URL e parâmetros
   useEffect(() => {
       const params = new URLSearchParams(location.search);
       const tab = params.get('tab');
@@ -346,7 +348,7 @@ export default function Shop() {
       const itemId = params.get('item');
       const currencyParam = params.get('currency');
 
-      if (tab === 'art' || location.pathname === '/quitanda_de_art') {
+      if (tab === 'art' || location.pathname.startsWith('/quitanda_de_art') || slug) {
           setActiveTab('art');
       } else if (tab === 'service') {
           setActiveTab('service');
@@ -368,14 +370,69 @@ export default function Shop() {
           }
       }
 
-      if (itemId && products && products.length > 0) {
+      if (slug) {
+          if (products && products.length > 0) {
+              const matchedProduct = products.find(p => 
+                  p.slug === slug || 
+                  generateSlug(p.name) === slug || 
+                  String(p.id) === String(slug)
+              );
+              if (matchedProduct) {
+                  setViewingProduct(matchedProduct);
+                  setStep('detail');
+                  setActiveTab('art');
+              }
+          }
+      } else if (itemId && products && products.length > 0) {
           const matchedProduct = products.find(p => String(p.id) === String(itemId));
           if (matchedProduct) {
               setViewingProduct(matchedProduct);
               setStep('detail');
           }
+      } else if (location.pathname === '/quitanda_de_art') {
+          if (step === 'detail' && !itemId) {
+              setStep('list');
+              setViewingProduct(null);
+          }
       }
-  }, [location.search, location.pathname, products]);
+  }, [location.search, location.pathname, slug, products]);
+
+  // Se o usuário acessar diretamente /quitanda_de_art/:slug e ainda não tiver em products, busca da API
+  useEffect(() => {
+      if (!slug) return;
+      if (viewingProduct && (viewingProduct.slug === slug || generateSlug(viewingProduct.name) === slug || String(viewingProduct.id) === slug)) {
+          return;
+      }
+
+      const match = products.find(p => 
+          p.slug === slug || 
+          generateSlug(p.name) === slug || 
+          String(p.id) === String(slug)
+      );
+
+      if (match) {
+          setViewingProduct(match);
+          setStep('detail');
+          setActiveTab('art');
+      } else {
+          fetch(`/api/catalog?type=art&slug=${encodeURIComponent(slug)}`)
+              .then(res => res.json())
+              .then((data: any) => {
+                  const list = Array.isArray(data) ? data : data?.data || [];
+                  const found = list.find((item: any) => 
+                      item.slug === slug || 
+                      generateSlug(item.name) === slug || 
+                      String(item.id) === String(slug)
+                  ) || list[0];
+                  if (found) {
+                      setViewingProduct(found);
+                      setStep('detail');
+                      setActiveTab('art');
+                  }
+              })
+              .catch(() => {});
+      }
+  }, [slug, products]);
 
   // Derivar categorias dinâmicas com base nos produtos existentes (apenas para Estampas)
   const artCategories = useMemo(() => {
@@ -462,6 +519,13 @@ export default function Shop() {
     
     setStep('detail');
     window.scrollTo(0, 0);
+
+    if (product.type === 'art') {
+      const artSlug = product.slug || generateSlug(product.name);
+      if (artSlug) {
+        navigate(`/quitanda_de_art/${artSlug}`);
+      }
+    }
   };
 
   const handleAssembleDigitalGrid = async () => {
@@ -1291,7 +1355,7 @@ export default function Shop() {
                         <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-2 px-1"><Sparkles size={12} className="text-primary" /> Últimas Artes Adicionadas</h3>
                         <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar snap-x px-1">
                             {latestArts.map(art => (
-                                <button key={art.id} onClick={() => openProduct(art)} className="flex-shrink-0 w-20 group relative snap-start focus:outline-none"><div className="w-20 h-20 rounded-xl overflow-hidden border border-zinc-800 group-hover:border-primary/50 transition relative bg-zinc-950">{art.imageUrl ? <img src={art.imageUrl} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={art.name} /> : <Palette className="w-full h-full p-6 text-zinc-700" />}<div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center"><PlusIcon size={16} className="text-white" /></div></div><p className="text-[9px] text-zinc-400 mt-1 truncate w-full text-center group-hover:text-white transition">{art.name}</p></button>
+                                <button key={art.id} onClick={() => openProduct(art)} className="flex-shrink-0 w-20 group relative snap-start focus:outline-none"><div className="w-20 h-20 rounded-xl overflow-hidden border border-zinc-800 group-hover:border-primary/50 transition relative bg-zinc-950">{art.imageUrl ? <img src={art.imageUrl} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={art.altText || (art as any).alt_text || `Arte ${art.name}`} /> : <Palette className="w-full h-full p-6 text-zinc-700" />}<div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center"><PlusIcon size={16} className="text-white" /></div></div><p className="text-[9px] text-zinc-400 mt-1 truncate w-full text-center group-hover:text-white transition">{art.name}</p></button>
                             ))}
                         </div>
                     </div>
@@ -1323,7 +1387,7 @@ export default function Shop() {
             <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-primary/50 transition group h-full flex flex-col relative">
                 <div onClick={() => openProduct(item)} className="cursor-pointer flex-1 flex flex-col">
                     <div className={`${isArt ? 'aspect-square' : 'h-56'} bg-zinc-800 flex items-center justify-center relative overflow-hidden`}>
-                        {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" /> : isArt ? <Palette size={64} className="text-purple-500/50" /> : <ShoppingBag size={64} className="text-zinc-700" />}
+                        {item.imageUrl ? <img src={item.imageUrl} alt={item.altText || (item as any).alt_text || (isArt ? `Arte ${item.name} para estamparia` : item.name)} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" /> : isArt ? <Palette size={64} className="text-purple-500/50" /> : <ShoppingBag size={64} className="text-zinc-700" />}
                         
                         <div className={`absolute bottom-3 right-3 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase backdrop-blur-md ${showFree ? 'bg-gradient-to-r from-purple-600 to-pink-600' : isArt ? 'bg-purple-600/80' : 'bg-black/60'}`}>
                             {showFree ? <span className="flex items-center gap-1"><Crown size={12} /> ASSINATURA</span> : formatCurrency(item.price, selectedCurrency)}
@@ -1511,7 +1575,7 @@ export default function Shop() {
     <div className="animate-fade-in max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
         <div className="flex flex-col space-y-6">
             <div className="bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 aspect-square flex items-center justify-center relative flex-shrink-0">
-                {viewingProduct?.imageUrl ? <img src={viewingProduct.imageUrl} className="w-full h-full object-cover" /> : (viewingProduct?.type as string) === 'art' ? <Palette size={120} className="text-purple-500/20" /> : <ShoppingBag size={120} className="text-zinc-800" />}
+                {viewingProduct?.imageUrl ? <img src={viewingProduct.imageUrl} alt={viewingProduct.altText || (viewingProduct as any).alt_text || `Arte ${viewingProduct.name} - Quitanda Crazy Art`} className="w-full h-full object-cover" /> : (viewingProduct?.type as string) === 'art' ? <Palette size={120} className="text-purple-500/20" /> : <ShoppingBag size={120} className="text-zinc-800" />}
                 {(viewingProduct?.type as string) === 'art' && (
                     <div className="absolute top-4 right-4 bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
                         <CloudDownload size={12} /> Digital
@@ -2319,10 +2383,14 @@ export default function Shop() {
       // 1. Se estiver visualizando detalhes de um item, adiciona o Schema de Produto único
       if (step === 'detail' && viewingProduct) {
         const isArtProduct = (viewingProduct.type as string) === 'art';
+        const productUrl = isArtProduct 
+          ? `https://crazyart.com.br/quitanda_de_art/${viewingProduct.slug || generateSlug(viewingProduct.name)}`
+          : `https://crazyart.com.br/shop?item=${viewingProduct.id}`;
         schemas.push({
           "@context": "https://schema.org/",
           "@type": "Product",
-          "@id": `https://crazyart.com.br/shop?item=${viewingProduct.id}`,
+          "@id": productUrl,
+          "url": productUrl,
           "name": viewingProduct.name,
           "image": viewingProduct.imageUrl || "",
           "description": viewingProduct.description || (isArtProduct 
@@ -2434,7 +2502,21 @@ export default function Shop() {
       {renderSchemaOrg()}
       <div className="max-w-7xl mx-auto mb-12 flex items-center justify-between">
         <div className="flex items-center space-x-4">
-            <button onClick={() => step === 'detail' ? setStep('list') : step === 'questionnaire' ? setStep('list') : step === 'checkout' ? setStep('questionnaire') : navigate('/')} className="p-3 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white rounded-full transition hover:scale-110 active:scale-95">
+            <button onClick={() => {
+                if (step === 'detail') {
+                    if (location.pathname.startsWith('/quitanda_de_art')) {
+                        navigate('/quitanda_de_art');
+                    }
+                    setStep('list');
+                    setViewingProduct(null);
+                } else if (step === 'questionnaire') {
+                    setStep('list');
+                } else if (step === 'checkout') {
+                    setStep('questionnaire');
+                } else {
+                    navigate('/');
+                }
+            }} className="p-3 bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white rounded-full transition hover:scale-110 active:scale-95">
                 <ArrowLeft size={24} />
             </button>
             <div className="flex items-center space-x-3">
