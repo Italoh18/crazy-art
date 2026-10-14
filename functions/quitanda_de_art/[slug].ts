@@ -145,7 +145,7 @@ export const onRequest: any = async (context: {
   // Arte ENCONTRADA: Injetar metadados específicos da arte
   const artName = art.name || 'Arte Exclusiva';
   const pageTitle = `${artName} | Quitanda de Artes - Crazy Art`;
-  const rawDesc = art.description || `Baixe a arte digital ${artName} em vetor e matriz pronta para estampas, sublimação e bordados na Quitanda da Crazy Art.`;
+  const rawDesc = art.description || `Baixe a arte ${artName} em vetor, pronta para serigrafia, DTF e sublimação. Arquivo digital para estamparia na Quitanda da Crazy Art.`;
   const pageDesc = rawDesc.length > 160 ? rawDesc.slice(0, 157) + '...' : rawDesc;
   const artSlug = art.slug || generateSlug(art.name);
   const canonicalUrl = `https://crazyart.com.br/quitanda_de_art/${artSlug}`;
