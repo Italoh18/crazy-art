@@ -887,28 +887,40 @@ export default function ClientOrders() {
                             </div>
                         </div>
 
-                        {viewingOrder.size_list && (
-                            <div className="space-y-4">
-                                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2 ml-1"><ListChecks size={16} className="text-primary" /> Lista de Produção</h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {(typeof viewingOrder.size_list === 'string' ? JSON.parse(viewingOrder.size_list) : viewingOrder.size_list).map((item: SizeListItem, idx: number) => (
-                                        <div key={idx} className="bg-zinc-900/30 p-4 rounded-xl border border-white/5 flex justify-between items-center group hover:border-primary/30 transition-colors">
-                                            <div className="flex flex-col">
-                                                <span className="text-zinc-300 font-black text-sm uppercase">{item.size} <span className="text-zinc-500 font-bold text-[10px]">({item.category})</span></span>
-                                                {!item.isSimple && <span className="text-primary font-bold text-xs mt-0.5">{item.name || '-'}</span>}
+                        {viewingOrder.size_list && (() => {
+                            let items: SizeListItem[] = [];
+                            if (Array.isArray(viewingOrder.size_list)) {
+                                items = viewingOrder.size_list;
+                            } else if (typeof viewingOrder.size_list === 'string') {
+                                try {
+                                    const parsed = JSON.parse(viewingOrder.size_list);
+                                    if (Array.isArray(parsed)) items = parsed;
+                                } catch (e) {}
+                            }
+                            if (items.length === 0) return null;
+                            return (
+                                <div className="space-y-4">
+                                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2 ml-1"><ListChecks size={16} className="text-primary" /> Lista de Produção</h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {items.map((item: SizeListItem, idx: number) => (
+                                            <div key={idx} className="bg-zinc-900/30 p-4 rounded-xl border border-white/5 flex justify-between items-center group hover:border-primary/30 transition-colors">
+                                                <div className="flex flex-col">
+                                                    <span className="text-zinc-300 font-black text-sm uppercase">{item.size} <span className="text-zinc-500 font-bold text-[10px]">({item.category})</span></span>
+                                                    {!item.isSimple && <span className="text-primary font-bold text-xs mt-0.5">{item.name || '-'}</span>}
+                                                </div>
+                                                <div className="text-right">
+                                                    {item.isSimple ? (
+                                                        <span className="bg-zinc-800 text-white px-3 py-1 rounded-lg font-mono font-bold text-sm">x{item.quantity}</span>
+                                                    ) : (
+                                                        <span className="text-white font-mono font-black text-lg">{item.number ? `#${item.number}` : ''}</span>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div className="text-right">
-                                                {item.isSimple ? (
-                                                    <span className="bg-zinc-800 text-white px-3 py-1 rounded-lg font-mono font-bold text-sm">x{item.quantity}</span>
-                                                ) : (
-                                                    <span className="text-white font-mono font-black text-lg">{item.number ? `#${item.number}` : ''}</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
                         
                         {/* LISTA DE ITENS */}
                         {viewingOrder.items && viewingOrder.items.length > 0 && (

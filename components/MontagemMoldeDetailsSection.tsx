@@ -1,22 +1,122 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, CheckSquare, Square, Download, FileText, Check, X, Package } from 'lucide-react';
 
+function extractReplicasLines(order: any): { details: string; paperSize: string; replicasLines: string[] } {
+    if (!order) return { details: '', paperSize: '', replicasLines: [] };
+    const description = order.description || '';
+    if (description.startsWith('MONTAGEM DE MOLDE:')) {
+        const parts = description.split('\n\nPAPEL DE IMPRESSÃO:');
+        const details = parts[0].replace('MONTAGEM DE MOLDE:\n', '').trim();
+        const rest = parts[1] || '';
+        
+        const [paper, replicasPart] = rest.split('\n\nREPLICAS');
+        const paperSize = paper ? paper.trim() : '';
+
+        const replicasStr = replicasPart ? replicasPart.split('):\n')[1] : '';
+        const replicasLines = replicasStr ? replicasStr.split('\n').filter(Boolean) : [];
+        return { details, paperSize, replicasLines };
+    }
+
+    // Fallback: busca itens da lista de produção direto em size_list ou nos itens do pedido
+    let itemsArr: any[] = [];
+    if (order.size_list) {
+        if (Array.isArray(order.size_list)) {
+            itemsArr = order.size_list;
+        } else if (typeof order.size_list === 'string') {
+            const trimmed = order.size_list.trim();
+            if (trimmed.startsWith('[')) {
+                try { itemsArr = JSON.parse(trimmed); } catch (e) {}
+            }
+        }
+    }
+    if ((!itemsArr || itemsArr.length === 0) && order.items && Array.isArray(order.items)) {
+        for (const it of order.items) {
+            if (it.size_list) {
+                if (Array.isArray(it.size_list)) {
+                    itemsArr = it.size_list;
+                    break;
+                } else if (typeof it.size_list === 'string') {
+                    const trimmed = it.size_list.trim();
+                    if (trimmed.startsWith('[')) {
+                        try {
+                            itemsArr = JSON.parse(trimmed);
+                            if (itemsArr.length > 0) break;
+                        } catch (e) {}
+                    }
+                }
+            }
+        }
+    }
+
+    if (itemsArr && itemsArr.length > 0) {
+        const replicasLines = itemsArr.map((it: any) => {
+            const cat = (it.category || 'unisex').toUpperCase();
+            const nameStr = it.isSimple ? `SEM NOME (x${it.quantity || 1})` : (it.name || '-');
+            const numStr = it.isSimple ? '' : (it.number ? `#${it.number}` : '');
+            const shortStr = (it.shortSize || it.shortNumber || it.isConjunto)
+                ? ` | CONJUNTO: [Short: ${it.shortSize || it.size || 'M'}${it.shortNumber ? ` Nº: ${it.shortNumber}` : ''}]`
+                : '';
+            return `- [${cat}] ${it.size || 'M'} | ${nameStr} ${numStr}${shortStr}`.trim();
+        });
+        return {
+            details: description || 'Pedido vinculado a Lista de Produção',
+            paperSize: '',
+            replicasLines
+        };
+    }
+
+    return { details: description, paperSize: '', replicasLines: [] };
+}
+
 export const MontagemMoldeDetailsSection = ({ order }: { order: any }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
+    const [asyncLines, setAsyncLines] = useState<string[]>([]);
 
-    const description = order.description || '';
-    if (!description.startsWith('MONTAGEM DE MOLDE:')) return null;
+    const baseData = extractReplicasLines(order);
+    const details = baseData.details;
+    const paperSize = baseData.paperSize;
+    const replicasLines = baseData.replicasLines.length > 0 ? baseData.replicasLines : asyncLines;
 
-    const parts = description.split('\n\nPAPEL DE IMPRESSÃO:');
-    const details = parts[0].replace('MONTAGEM DE MOLDE:\n', '').trim();
-    const rest = parts[1] || '';
-    
-    const [paper, replicasPart] = rest.split('\n\nREPLICAS');
-    const paperSize = paper ? paper.trim() : '';
+    // Se o pedido salvou apenas o ID da lista pública, busca os itens da lista
+    React.useEffect(() => {
+        if (baseData.replicasLines.length === 0 && order?.size_list && typeof order.size_list === 'string' && !order.size_list.trim().startsWith('[')) {
+            const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '';
+            fetch(`/api/public-lists?client_id=${order.client_id}&all=true`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    const match = data.find(l => String(l.id) === String(order.size_list).trim());
+                    if (match && match.items) {
+                        const items = typeof match.items === 'string' ? JSON.parse(match.items) : match.items;
+                        if (Array.isArray(items)) {
+                            const lines = items.map((it: any) => {
+                                const cat = (it.category || 'unisex').toUpperCase();
+                                const nameStr = it.isSimple ? `SEM NOME (x${it.quantity || 1})` : (it.name || '-');
+                                const numStr = it.isSimple ? '' : (it.number ? `#${it.number}` : '');
+                                const shortStr = (it.shortSize || it.shortNumber || it.isConjunto)
+                                    ? ` | CONJUNTO: [Short: ${it.shortSize || it.size || 'M'}${it.shortNumber ? ` Nº: ${it.shortNumber}` : ''}]`
+                                    : '';
+                                return `- [${cat}] ${it.size || 'M'} | ${nameStr} ${numStr}${shortStr}`.trim();
+                            });
+                            setAsyncLines(lines);
+                        }
+                    }
+                }
+            })
+            .catch(() => {});
+        }
+    }, [order, baseData.replicasLines.length]);
 
-    const replicasStr = replicasPart ? replicasPart.split('):\n')[1] : '';
-    const replicasLines = replicasStr ? replicasStr.split('\n').filter(Boolean) : [];
+    const hasData = order && (
+        (order.description && order.description.startsWith('MONTAGEM DE MOLDE:')) ||
+        replicasLines.length > 0 ||
+        order.size_list ||
+        order.source === 'montagem_molde'
+    );
+    if (!hasData) return null;
 
     const handleToggleCheck = (index: number, textToCopy: string) => {
         const newChecked = new Set(checkedItems);
@@ -64,19 +164,52 @@ export const MontagemMoldeDetailsSection = ({ order }: { order: any }) => {
 
 export const MontagemMoldeModal = ({ order, onClose }: { order: any, onClose: () => void }) => {
     const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
+    const [asyncLines, setAsyncLines] = useState<string[]>([]);
 
-    const description = order.description || '';
-    if (!description.startsWith('MONTAGEM DE MOLDE:')) return null;
+    const baseData = extractReplicasLines(order);
+    const details = baseData.details;
+    const paperSize = baseData.paperSize;
+    const replicasLines = baseData.replicasLines.length > 0 ? baseData.replicasLines : asyncLines;
 
-    const parts = description.split('\n\nPAPEL DE IMPRESSÃO:');
-    const details = parts[0].replace('MONTAGEM DE MOLDE:\n', '').trim();
-    const rest = parts[1] || '';
-    
-    const [paper, replicasPart] = rest.split('\n\nREPLICAS');
-    const paperSize = paper ? paper.trim() : '';
+    // Se o pedido salvou apenas o ID da lista pública, busca os itens da lista
+    React.useEffect(() => {
+        if (baseData.replicasLines.length === 0 && order?.size_list && typeof order.size_list === 'string' && !order.size_list.trim().startsWith('[')) {
+            const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') || '';
+            fetch(`/api/public-lists?client_id=${order.client_id}&all=true`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    const match = data.find(l => String(l.id) === String(order.size_list).trim());
+                    if (match && match.items) {
+                        const items = typeof match.items === 'string' ? JSON.parse(match.items) : match.items;
+                        if (Array.isArray(items)) {
+                            const lines = items.map((it: any) => {
+                                const cat = (it.category || 'unisex').toUpperCase();
+                                const nameStr = it.isSimple ? `SEM NOME (x${it.quantity || 1})` : (it.name || '-');
+                                const numStr = it.isSimple ? '' : (it.number ? `#${it.number}` : '');
+                                const shortStr = (it.shortSize || it.shortNumber || it.isConjunto)
+                                    ? ` | CONJUNTO: [Short: ${it.shortSize || it.size || 'M'}${it.shortNumber ? ` Nº: ${it.shortNumber}` : ''}]`
+                                    : '';
+                                return `- [${cat}] ${it.size || 'M'} | ${nameStr} ${numStr}${shortStr}`.trim();
+                            });
+                            setAsyncLines(lines);
+                        }
+                    }
+                }
+            })
+            .catch(() => {});
+        }
+    }, [order, baseData.replicasLines.length]);
 
-    const replicasStr = replicasPart ? replicasPart.split('):\n')[1] : '';
-    const replicasLines = replicasStr ? replicasStr.split('\n').filter(Boolean) : [];
+    const hasData = order && (
+        (order.description && order.description.startsWith('MONTAGEM DE MOLDE:')) ||
+        replicasLines.length > 0 ||
+        order.size_list ||
+        order.source === 'montagem_molde'
+    );
+    if (!hasData) return null;
 
     const handleToggleCheck = (index: number, textToCopy: string) => {
         const newChecked = new Set(checkedItems);

@@ -290,7 +290,7 @@ export default function Orders() {
                                               isCompact 
                                               onStepClick={handleStepClick}
                                            />
-                                           {order.source === 'montagem_molde' && (
+                                           {(order.source === 'montagem_molde' || Boolean(order.size_list) || (order.description && order.description.startsWith('MONTAGEM DE MOLDE:')) || (order.items && order.items.some((i: any) => i.size_list))) && (
                                               <button 
                                                   onClick={() => setViewingMoldeDetailsOrder(order)}
                                                   className="mt-2 w-full py-2 px-3 bg-zinc-800 hover:bg-zinc-700 text-xs text-white font-bold rounded-lg border border-zinc-700 transition"

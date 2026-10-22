@@ -58,6 +58,35 @@ const sortSizeListItems = (items: SizeListItem[]): SizeListItem[] => {
   });
 };
 
+const parseSafeSizeList = (value: any, availableLists: any[] = []): SizeListItem[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    const found = availableLists.find(l => String(l.id) === trimmed);
+    if (found) {
+      if (Array.isArray(found.items)) return found.items;
+      if (typeof found.items === 'string') {
+        try {
+          const parsed = JSON.parse(found.items);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (e) {}
+      }
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {}
+  }
+  return [];
+};
+
 export default function CustomerDetails() {
   const { id: paramId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -1455,7 +1484,16 @@ export default function CustomerDetails() {
           status: 'open'
       };
       if (selectedListIdForOrder) {
-          payload.size_list = selectedListIdForOrder;
+          const selList = publicLists.find(l => String(l.id) === String(selectedListIdForOrder));
+          let itemsToSave: any[] = [];
+          if (selList) {
+              if (Array.isArray(selList.items)) itemsToSave = selList.items;
+              else if (typeof selList.items === 'string') {
+                  try { itemsToSave = JSON.parse(selList.items); } catch (e) {}
+              }
+          }
+          payload.size_list = itemsToSave.length > 0 ? JSON.stringify(itemsToSave) : selectedListIdForOrder;
+          payload.source = 'montagem_molde';
       }
       if (editingOrderId) await updateOrder(editingOrderId, payload);
       else await addOrder(payload);
@@ -3283,9 +3321,32 @@ export default function CustomerDetails() {
                             <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5"><span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Data do Pedido</span><span className="text-white font-mono text-sm">{new Date(viewingOrder.order_date).toLocaleDateString()}</span></div>
                             <div className="bg-zinc-900/50 p-3 rounded-xl border border-white/5"><span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Vencimento</span><span className={`font-mono text-sm ${new Date(viewingOrder.due_date) < new Date() && viewingOrder.status === 'open' ? 'text-red-400 font-bold' : 'text-white'}`}>{new Date(viewingOrder.due_date).toLocaleDateString()}</span></div>
                         </div>
-                        {viewingOrder.size_list && (
-                            <div><h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Lista de Produção</h3><div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">{(typeof viewingOrder.size_list === 'string' ? JSON.parse(viewingOrder.size_list) : viewingOrder.size_list).map((item: SizeListItem, idx: number) => (<div key={idx} className="bg-zinc-900/30 p-2 rounded border border-white/5 flex justify-between items-center text-xs"><span className="text-zinc-300 font-bold">{item.size} <span className="text-zinc-500 font-normal">({item.category})</span></span>{item.isSimple ? <span className="text-white bg-zinc-700 px-2 py-0.5 rounded font-mono">x{item.quantity}</span> : <span className="text-primary font-bold">{item.name || '-'} <span className="text-white font-mono">{item.number ? `#${item.number}` : ''}</span></span>}</div>))}</div></div>
-                        )}
+                        {(() => {
+                            let listItems = parseSafeSizeList(viewingOrder.size_list, publicLists);
+                            if (listItems.length === 0 && viewingOrder.items) {
+                                for (const it of viewingOrder.items) {
+                                    const sub = parseSafeSizeList(it.size_list, publicLists);
+                                    if (sub.length > 0) {
+                                        listItems = sub;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (listItems.length === 0) return null;
+                            return (
+                                <div>
+                                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-2"><ListChecks size={14} /> Lista de Produção</h3>
+                                    <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                                        {listItems.map((item: SizeListItem, idx: number) => (
+                                            <div key={idx} className="bg-zinc-900/30 p-2 rounded border border-white/5 flex justify-between items-center text-xs">
+                                                <span className="text-zinc-300 font-bold">{item.size} <span className="text-zinc-500 font-normal">({item.category})</span></span>
+                                                {item.isSimple ? <span className="text-white bg-zinc-700 px-2 py-0.5 rounded font-mono">x{item.quantity}</span> : <span className="text-primary font-bold">{item.name || '-'} <span className="text-white font-mono">{item.number ? `#${item.number}` : ''}</span></span>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })()}
                         
                         {/* LISTA DE ITENS COM DOWNLOAD SE APLICÁVEL */}
                         {viewingOrder.items && viewingOrder.items.length > 0 && (
@@ -3320,17 +3381,21 @@ export default function CustomerDetails() {
                                                         </div>
                                                     )}
                                                     
-                                                    {item.size_list && (
-                                                        <div className="space-y-1">
-                                                            <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Lista de Produção:</p>
-                                                            {(typeof item.size_list === 'string' ? JSON.parse(item.size_list) : item.size_list).map((li: any, lidx: number) => (
-                                                                <div key={lidx} className="text-[10px] text-zinc-400 flex justify-between">
-                                                                    <span>{li.size} ({li.category}) {li.name ? `- ${li.name}` : ''} {li.number ? `#${li.number}` : ''}</span>
-                                                                    {li.quantity > 1 && <span className="text-zinc-500">x{li.quantity}</span>}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                    {item.size_list && (() => {
+                                                        const itemSubList = parseSafeSizeList(item.size_list, publicLists);
+                                                        if (itemSubList.length === 0) return null;
+                                                        return (
+                                                            <div className="space-y-1">
+                                                                <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Lista de Produção:</p>
+                                                                {itemSubList.map((li: any, lidx: number) => (
+                                                                    <div key={lidx} className="text-[10px] text-zinc-400 flex justify-between">
+                                                                        <span>{li.size} ({li.category}) {li.name ? `- ${li.name}` : ''} {li.number ? `#${li.number}` : ''}</span>
+                                                                        {li.quantity > 1 && <span className="text-zinc-500">x{li.quantity}</span>}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                     
                                                     <div className="flex flex-wrap gap-2">
                                                         {item.layout_option && <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${item.layout_option === 'sim' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}>Layout: {item.layout_option === 'sim' ? 'OK' : 'Precisa'}</span>}
@@ -3388,7 +3453,7 @@ export default function CustomerDetails() {
                             />
                         </div>
                         
-                        {viewingOrder.source === 'montagem_molde' && (
+                        {(viewingOrder.source === 'montagem_molde' || Boolean(viewingOrder.size_list) || (viewingOrder.description && viewingOrder.description.startsWith('MONTAGEM DE MOLDE:')) || (viewingOrder.items && viewingOrder.items.some((i: any) => i.size_list))) && (
                             <MontagemMoldeDetailsSection order={viewingOrder} />
                         )}
                     </div>
