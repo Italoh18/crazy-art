@@ -1,5 +1,5 @@
 // Service Worker for PWA and Push Notifications - v1.0.3
-const CACHE_NAME = 'crazy-art-v1.0.3';
+const CACHE_NAME = 'crazy-art-v1.1.0';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -21,24 +21,51 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Apenas intercepta requisições locais do tipo GET para cumprir os requisitos de PWA
-  if (event.request.method !== 'GET') return;
-  if (!event.request.url.startsWith(self.location.origin)) return;
-  
-  // Evita interceptar chamadas de API para evitar conflitos de autenticação/dados
-  if (event.request.url.includes('/api/')) return;
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith('/api/')) return;
 
-  // Permite que o navegador trate requisições de navegação nativamente.
-  // Isso previne que reloads (Ctrl+R) deem tela branca em sub-rotas SPA.
-  if (event.request.mode === 'navigate') {
+  // Páginas (HTML): busca da internet primeiro; se estiver sem internet, usa a cópia salva
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then((c) => c.put('/', copy));
+        return res;
+      }).catch(() => caches.match('/').then((r) => r || Response.error()))
+    );
     return;
   }
 
-  event.respondWith(
-    fetch(event.request).catch((err) => {
-      console.warn('[SW] Falha ao buscar recurso:', event.request.url, err);
-    })
-  );
+  // Arquivos do build do Vite (/assets/ com hash no nome): nunca mudam, então usa o cache primeiro
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      caches.match(req).then((cached) => cached || fetch(req).then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(req, copy));
+        }
+        return res;
+      }))
+    );
+    return;
+  }
+
+  // Imagens, ícones e fontes do próprio site: mostra o salvo na hora e atualiza por trás
+  if (['image', 'font', 'style'].includes(req.destination)) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then((cache) => cache.match(req).then((cached) => {
+        const network = fetch(req).then((res) => {
+          if (res.ok) cache.put(req, res.clone());
+          return res;
+        }).catch(() => cached);
+        return cached || network;
+      }))
+    );
+    return;
+  }
 });
 
 // Push Notification Handling
