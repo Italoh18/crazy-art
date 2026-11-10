@@ -3158,7 +3158,7 @@ export default function CustomerDetails() {
                             <tr><td colSpan={7} className="text-center py-16 text-zinc-600"><div className="flex flex-col items-center gap-2"><Layers size={32} className="opacity-20" /><p>Nenhum pedido nesta categoria.</p></div></td></tr>
                         ) : (
                             displayedOrders.map(order => {
-                                const isLate = order.status === 'open' && new Date(order.due_date) < new Date();
+                                const isLate = !isOrderPaid(order) && isOrderOverdue(order.due_date);
                                 const isSelected = selectedOrderIds.includes(order.id);
                                 return (
                                     <tr key={order.id} className={`hover:bg-white/[0.02] transition-colors ${isSelected ? 'bg-primary/5' : ''}`}>
@@ -3442,7 +3442,7 @@ export default function CustomerDetails() {
                                 )}
                             </div>
                         </div>
-                        <div className="flex justify-between items-center bg-zinc-900 p-4 rounded-xl border border-white/5"><span className="text-sm text-zinc-400">Status Atual</span>{renderStatusBadge(viewingOrder.status, new Date(viewingOrder.due_date) < new Date())}</div>
+                        <div className="flex justify-between items-center bg-zinc-900 p-4 rounded-xl border border-white/5"><span className="text-sm text-zinc-400">Status Atual</span>{renderStatusBadge(viewingOrder.status, !isOrderPaid(viewingOrder) && isOrderOverdue(viewingOrder.due_date))}</div>
                         
                         <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5">
                             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4 flex items-center gap-2">
