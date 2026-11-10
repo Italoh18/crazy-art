@@ -11,6 +11,7 @@ import { NotificationCenter } from './NotificationCenter';
 import { VirtualAssistant } from './VirtualAssistant'; 
 import { CookieConsent } from './CookieConsent';
 import { PwaInstallPrompt } from './PwaInstallPrompt';
+import MoldesTableModal from './MoldesTableModal';
 
 export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
@@ -18,6 +19,7 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = React.useState(false);
   const [legalModal, setLegalModal] = useState<'termos' | 'cookies' | 'privacidade' | null>(null);
   const [hasUnreadFeedbacks, setHasUnreadFeedbacks] = useState(false);
+  const [isMoldesModalOpen, setIsMoldesModalOpen] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -137,6 +139,13 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
           </div>
         </div>
         <div className="flex flex-wrap justify-center gap-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest pt-4 border-t border-zinc-800/50">
+            <button 
+              onClick={() => setIsMoldesModalOpen(true)} 
+              className="text-zinc-400 hover:text-primary transition flex items-center gap-1.5"
+            >
+              <Scissors size={12} className="text-primary" />
+              Tabela de Moldes
+            </button>
             <button onClick={() => setLegalModal('termos')} className="hover:text-white transition">Termos de Uso</button>
             <button onClick={() => setLegalModal('privacidade')} className="hover:text-white transition">Política de Privacidade</button>
             <button onClick={() => setLegalModal('cookies')} className="hover:text-white transition">Relatório de Cookies</button>
@@ -149,21 +158,26 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
   );
 
   const LegalModals = () => {
-    if (!legalModal) return null;
     return (
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-        <div className="bg-[#18181b] border border-zinc-800 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col relative animate-in fade-in zoom-in duration-300 shadow-2xl">
-          <button 
-            onClick={() => setLegalModal(null)} 
-            className="absolute right-4 top-4 text-zinc-500 hover:text-white transition z-10"
-          >
-            <X size={24} />
-          </button>
-          <div className="p-6 border-b border-zinc-800">
-            <h3 className="text-xl font-black uppercase tracking-widest text-transparent bg-clip-text bg-crazy-gradient">
-                {legalModal === 'termos' ? 'Termos de Uso' : legalModal === 'privacidade' ? 'Política de Privacidade' : 'Relatório de Cookies'}
-            </h3>
-          </div>
+      <>
+        <MoldesTableModal 
+          isOpen={isMoldesModalOpen} 
+          onClose={() => setIsMoldesModalOpen(false)} 
+        />
+        {legalModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+            <div className="bg-[#18181b] border border-zinc-800 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col relative animate-in fade-in zoom-in duration-300 shadow-2xl">
+              <button 
+                onClick={() => setLegalModal(null)} 
+                className="absolute right-4 top-4 text-zinc-500 hover:text-white transition z-10"
+              >
+                <X size={24} />
+              </button>
+              <div className="p-6 border-b border-zinc-800">
+                <h3 className="text-xl font-black uppercase tracking-widest text-transparent bg-clip-text bg-crazy-gradient">
+                    {legalModal === 'termos' ? 'Termos de Uso' : legalModal === 'privacidade' ? 'Política de Privacidade' : 'Relatório de Cookies'}
+                </h3>
+              </div>
           <div className="p-6 overflow-y-auto custom-scrollbar text-zinc-400 text-sm space-y-4">
             {legalModal === 'termos' && (
               <>
@@ -205,6 +219,8 @@ export const Layout = ({ children }: { children?: React.ReactNode }) => {
           </div>
         </div>
       </div>
+      )}
+    </>
     );
   };
 

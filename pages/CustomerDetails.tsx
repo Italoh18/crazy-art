@@ -10,12 +10,13 @@ import {
   Filter, Layers, Package, Wrench, Search, Minus, ListChecks, Check, Eye, MoreHorizontal,
   Coins, Lock, RotateCcw, CloudDownload, Sparkles, ChevronRight, Upload, MessageCircle,
   Crown, Ticket, Tag, Percent, Copy, Printer, Download, ToggleLeft, ToggleRight, RefreshCw,
-  Palette, Image, ClipboardList
+  Palette, Image, ClipboardList, Scissors
 } from 'lucide-react';
 import { api } from '../src/services/api';
 import { SizeListItem, Order } from '../types';
 import { ProductionPath } from '../components/ProductionPath';
 import { MontagemMoldeDetailsSection } from '../components/MontagemMoldeDetailsSection';
+import MoldesTableModal from '../components/MoldesTableModal';
 import { isOrderPaid, isOrderOverdue, getOrderRemainingAmount } from '../src/utils/orderStatus';
 
 const sortSizeListItems = (items: SizeListItem[]): SizeListItem[] => {
@@ -160,6 +161,9 @@ export default function CustomerDetails() {
 
   // State para Modal de Políticas de Pedido
   const [isOrderPolicyModalOpen, setIsOrderPolicyModalOpen] = useState(false);
+
+  // State para Modal da Tabela de Moldes
+  const [showMoldesModal, setShowMoldesModal] = useState(false);
 
   // --- New Order Generator Modal States ---
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
@@ -1661,11 +1665,21 @@ export default function CustomerDetails() {
           (e.currentTarget as HTMLElement).classList.remove('animate-fade-in-up');
         }}
       >
-        <div className="flex items-center gap-4 mb-8">
-            <Link to="/" className="p-3 bg-zinc-900 border border-white/5 hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-white transition">
-                <ArrowLeft size={20} />
-            </Link>
-            <h1 className="text-3xl font-bold text-white tracking-tight font-heading">Minha Área</h1>
+        <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+                <Link to="/" className="p-3 bg-zinc-900 border border-white/5 hover:bg-zinc-800 rounded-xl text-zinc-400 hover:text-white transition">
+                    <ArrowLeft size={20} />
+                </Link>
+                <h1 className="text-3xl font-bold text-white tracking-tight font-heading">Minha Área</h1>
+            </div>
+            <button
+                type="button"
+                onClick={() => setShowMoldesModal(true)}
+                className="px-5 py-2.5 bg-zinc-900 border border-zinc-800 hover:border-primary/50 text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-zinc-800 transition flex items-center gap-2 shadow-lg"
+            >
+                <Scissors size={16} className="text-primary" />
+                <span>Tabela de Moldes</span>
+            </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -2487,6 +2501,26 @@ export default function CustomerDetails() {
                   )}
                 </div>
 
+                {/* Atalho Tabela de Moldes */}
+                <div className="w-full bg-[#121215] border border-white/5 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-primary/10 text-primary rounded-2xl shrink-0">
+                            <Scissors size={24} />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold text-white">Tabela de Moldes & Medidas</h3>
+                            <p className="text-zinc-500 text-xs mt-0.5">Consulte as medidas oficiais ou imprima e baixe em PDF (A4)</p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowMoldesModal(true)}
+                        className="px-4 py-2.5 bg-primary hover:bg-primary/90 text-black font-black text-xs uppercase tracking-wider rounded-xl transition shadow-md shadow-primary/20 shrink-0 self-start sm:self-auto"
+                    >
+                        Ver Moldes
+                    </button>
+                </div>
+
                 {/* Status Financeiro */}
                 <div className={`w-full p-6 rounded-3xl border flex items-start gap-4 ${hasOverdue ? 'bg-red-500/5 border-red-500/20' : 'bg-emerald-500/5 border-emerald-500/20'}`}>
                     <div className={`p-3 rounded-full mt-0.5 ${hasOverdue ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
@@ -2943,7 +2977,15 @@ export default function CustomerDetails() {
   };
 
   if (role === 'client') {
-    return renderClientView();
+    return (
+      <>
+        {renderClientView()}
+        <MoldesTableModal 
+          isOpen={showMoldesModal} 
+          onClose={() => setShowMoldesModal(false)} 
+        />
+      </>
+    );
   }
 
   return (
@@ -4100,6 +4142,11 @@ export default function CustomerDetails() {
             </div>
           </div>
         )}
+
+        <MoldesTableModal 
+          isOpen={showMoldesModal} 
+          onClose={() => setShowMoldesModal(false)} 
+        />
     </div>
   );
 }
