@@ -27,6 +27,7 @@ interface RepliaItem {
   name: string;
   number: string;
   isConjunto?: boolean;
+  shortCategory?: 'unisex' | 'feminina' | 'infantil';
   shortSize?: string;
   shortNumber?: string;
 }
@@ -234,17 +235,32 @@ export default function MontagemMolde() {
         
         if (field === 'category') {
           updated.size = MM_SIZES[value][0];
-          updated.shortSize = MM_SIZES[value][0];
+          if (!r.shortCategory) {
+            updated.shortSize = MM_SIZES[value][0];
+          }
+        }
+
+        if (field === 'shortCategory') {
+          updated.shortCategory = value;
+          updated.shortSize = MM_SIZES[value][2] || MM_SIZES[value][0];
         }
 
         // Herança de número: quando o número da camisa muda, o do short segue se for conjunto
-        if (field === 'number' && r.isConjunto) {
+        if (field === 'number' && r.isConjunto && !r.shortNumber) {
           updated.shortNumber = value;
         }
         
         // Quando ativa o conjunto, herda o número que já estiver na camisa
         if (field === 'isConjunto' && value === true) {
-          updated.shortNumber = r.number;
+          if (!updated.shortCategory) {
+            updated.shortCategory = updated.category || 'unisex';
+          }
+          if (!updated.shortSize) {
+            updated.shortSize = MM_SIZES[updated.shortCategory][2] || MM_SIZES[updated.shortCategory][0];
+          }
+          if (!updated.shortNumber) {
+            updated.shortNumber = r.number;
+          }
         }
         
         return updated;
@@ -326,7 +342,7 @@ export default function MontagemMolde() {
             },
             body: JSON.stringify({
                 serviceId: mainService?.id,
-                description: `MONTAGEM DE MOLDE:\n${description}\n\nPAPEL DE IMPRESSÃO: ${paperSize}\n\nREPLICAS (${replicas.length}):\n${replicas.map(r => `- [${(r.category || 'unisex').toUpperCase()}] ${r.size} | ${r.name} | ${r.number}${r.isConjunto ? ` | CONJUNTO: [Short: ${r.shortSize} Nº: ${r.shortNumber}]` : ''}`).join('\n')}`,
+                description: `MONTAGEM DE MOLDE:\n${description}\n\nPAPEL DE IMPRESSÃO: ${paperSize}\n\nREPLICAS (${replicas.length}):\n${replicas.map(r => `- [${(r.category || 'unisex').toUpperCase()}] ${r.size} | ${r.name} | ${r.number}${r.isConjunto ? ` | CONJUNTO: [Short${r.shortCategory && r.shortCategory !== r.category ? ` (${r.shortCategory.toUpperCase()})` : ''}: ${r.shortSize} Nº: ${r.shortNumber}]` : ''}`).join('\n')}`,
                 logoUrl: layoutFileUrl, // Reutilizando campo logo_url para o arquivo de layout
                 paymentMethod: method,
                 value: totalAmount,
@@ -571,7 +587,7 @@ export default function MontagemMolde() {
                                             </div>
 
                                             {/* Nome / Texto */}
-                                            <div className={`${replica.isConjunto ? 'sm:col-span-3' : 'sm:col-span-5'} space-y-1`}>
+                                            <div className="sm:col-span-5 space-y-1">
                                                 <p className="text-[9px] text-zinc-600 font-extrabold uppercase tracking-wide">Nome / Texto</p>
                                                 <input 
                                                     type="text" value={replica.name} 
@@ -594,21 +610,35 @@ export default function MontagemMolde() {
                                             
                                             {/* Se for conjunto */}
                                             {replica.isConjunto && (
-                                                <>
+                                                <div className="sm:col-span-12 grid grid-cols-1 sm:grid-cols-12 gap-3 p-3 bg-primary/[0.04] border border-primary/20 rounded-xl mt-1 animate-fade-in">
+                                                    {/* Tipo Short */}
+                                                    <div className="sm:col-span-4 space-y-1">
+                                                        <p className="text-[9px] text-primary font-extrabold uppercase tracking-wide">Tipo Short</p>
+                                                        <select
+                                                            value={replica.shortCategory || replica.category || 'unisex'}
+                                                            onChange={(e) => updateReplica(replica.id, 'shortCategory', e.target.value as any)}
+                                                            className="w-full bg-zinc-900 border border-primary/30 rounded-xl px-3 py-2.5 text-xs text-white focus:border-primary outline-none font-bold"
+                                                        >
+                                                            <option value="unisex">Unisex (Geral)</option>
+                                                            <option value="feminina">Feminina</option>
+                                                            <option value="infantil">Infantil</option>
+                                                        </select>
+                                                    </div>
+
                                                     {/* Tam Short */}
-                                                    <div className="sm:col-span-2 space-y-1 animate-fade-in col-span-1">
+                                                    <div className="sm:col-span-4 space-y-1">
                                                         <p className="text-[9px] text-primary font-extrabold uppercase tracking-wide">Tam Short</p>
                                                         <select 
-                                                            value={replica.shortSize || MM_SIZES[replica.category || 'unisex'][2]} 
+                                                            value={replica.shortSize || MM_SIZES[replica.shortCategory || replica.category || 'unisex'][2]} 
                                                             onChange={(e) => updateReplica(replica.id, 'shortSize', e.target.value)}
                                                             className="w-full bg-zinc-900 border border-primary/30 rounded-xl px-3 py-2.5 text-xs text-white focus:border-primary outline-none font-bold"
                                                         >
-                                                            {MM_SIZES[replica.category || 'unisex'].map(s => <option key={s} value={s}>{s}</option>)}
+                                                            {MM_SIZES[replica.shortCategory || replica.category || 'unisex'].map(s => <option key={s} value={s}>{s}</option>)}
                                                         </select>
                                                     </div>
 
                                                     {/* Nº Short */}
-                                                    <div className="sm:col-span-2 space-y-1 animate-fade-in col-span-1">
+                                                    <div className="sm:col-span-4 space-y-1">
                                                         <p className="text-[9px] text-primary font-extrabold uppercase tracking-wide">Nº Short</p>
                                                         <input 
                                                             type="text" value={replica.shortNumber} 
@@ -617,7 +647,7 @@ export default function MontagemMolde() {
                                                             placeholder="00"
                                                         />
                                                     </div>
-                                                </>
+                                                </div>
                                             )}
                                         </div>
                                     </motion.div>
@@ -698,7 +728,7 @@ export default function MontagemMolde() {
                                     <div className="space-y-1">
                                         {replicas.map(r => (
                                             <div key={r.id} className="text-[10px] text-zinc-400 font-bold py-1 border-b border-zinc-800/50">
-                                                <span className="uppercase">{r.size}</span> • {r.name} • {r.number} {r.isConjunto && <span className="text-primary ml-2"> (CONJUNTO: <span className="uppercase">{r.shortSize}</span> • {r.shortNumber})</span>}
+                                                <span className="uppercase">{r.size}</span> • {r.name} • {r.number} {r.isConjunto && <span className="text-primary ml-2"> (CONJUNTO: [Short{r.shortCategory && r.shortCategory !== r.category ? ` (${r.shortCategory.toUpperCase()})` : ''}: <span className="uppercase">{r.shortSize}</span> • {r.shortNumber}])</span>}
                                             </div>
                                         ))}
                                     </div>

@@ -606,7 +606,24 @@ export default function CustomerDetails() {
           const updated = { ...item, [field]: value };
           if (field === 'category') {
             updated.size = listSizes[value][0];
-            updated.shortSize = listSizes[value][0];
+            if (!item.shortCategory) {
+              updated.shortSize = listSizes[value][0];
+            }
+          }
+          if (field === 'shortCategory') {
+            updated.shortCategory = value;
+            updated.shortSize = listSizes[value][2] || listSizes[value][0];
+          }
+          if (field === 'isConjunto' && value === true) {
+            if (!updated.shortCategory) {
+              updated.shortCategory = updated.category || 'unisex';
+            }
+            if (!updated.shortSize) {
+              updated.shortSize = listSizes[updated.shortCategory][2] || listSizes[updated.shortCategory][0];
+            }
+            if (!updated.shortNumber && updated.number) {
+              updated.shortNumber = updated.number;
+            }
           }
           return updated;
         }
@@ -2330,6 +2347,7 @@ export default function CustomerDetails() {
                                               <td className="p-3">
                                                 {item.isConjunto ? (
                                                   <span className="text-primary font-bold">
+                                                    {item.shortCategory && item.shortCategory !== item.category ? `[${item.shortCategory.toUpperCase()}] ` : ''}
                                                     {item.shortSize || 'M'}{item.isSimple ? '' : ` (${item.shortNumber || item.number || '00'})`}
                                                   </span>
                                                 ) : '-'}
@@ -2380,7 +2398,7 @@ export default function CustomerDetails() {
                                         </div>
 
                                         <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
-                                          <div className={item.isConjunto && !item.isSimple ? "sm:col-span-2" : "sm:col-span-3"}>
+                                          <div className="sm:col-span-3">
                                             <select 
                                               value={item.category} 
                                               onChange={(e) => updatePublicListRow(item.id, 'category', e.target.value as any)} 
@@ -2402,7 +2420,7 @@ export default function CustomerDetails() {
                                           </div>
 
                                           {item.isSimple ? (
-                                            <div className={item.isConjunto ? "sm:col-span-4" : "sm:col-span-7"}>
+                                            <div className="sm:col-span-7">
                                               <input 
                                                 type="number" 
                                                 min="1" 
@@ -2413,7 +2431,7 @@ export default function CustomerDetails() {
                                             </div>
                                           ) : (
                                             <>
-                                              <div className={item.isConjunto ? "sm:col-span-1" : "sm:col-span-2"}>
+                                              <div className="sm:col-span-2">
                                                 <input 
                                                   type="text" 
                                                   placeholder="Nº"
@@ -2427,7 +2445,7 @@ export default function CustomerDetails() {
                                                   className="w-full bg-[#121215] border border-white/10 rounded-lg p-1.5 text-xs text-white font-bold text-center placeholder:text-zinc-700 px-1" 
                                                 />
                                               </div>
-                                              <div className={item.isConjunto ? "sm:col-span-3" : "sm:col-span-5"}>
+                                              <div className="sm:col-span-5">
                                                 <input 
                                                   type="text" 
                                                   placeholder="Nome"
@@ -2440,28 +2458,44 @@ export default function CustomerDetails() {
                                           )}
 
                                           {item.isConjunto && (
-                                            <>
-                                              <div className={item.isSimple ? "sm:col-span-3" : "sm:col-span-2"}>
+                                            <div className="sm:col-span-12 grid grid-cols-1 sm:grid-cols-12 gap-2 p-2.5 bg-primary/[0.04] border border-primary/20 rounded-lg mt-1">
+                                              <div className="sm:col-span-4">
+                                                <label className="block text-[8px] font-black text-primary uppercase mb-0.5 tracking-widest">Tipo Short</label>
                                                 <select 
-                                                  value={item.shortSize || listSizes[item.category][2]} 
-                                                  onChange={(e) => updatePublicListRow(item.id, 'shortSize', e.target.value)} 
+                                                  value={item.shortCategory || item.category || "unisex"} 
+                                                  onChange={(e) => updatePublicListRow(item.id, "shortCategory", e.target.value as any)} 
                                                   className="w-full bg-[#121215] border border-primary/30 rounded-lg text-xs text-white p-1.5 outline-none font-bold"
                                                 >
-                                                  {listSizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
+                                                  <option value="unisex">Unisex (Geral)</option>
+                                                  <option value="feminina">Feminina</option>
+                                                  <option value="infantil">Infantil</option>
                                                 </select>
                                               </div>
+
+                                              <div className={item.isSimple ? "sm:col-span-8" : "sm:col-span-4"}>
+                                                <label className="block text-[8px] font-black text-primary uppercase mb-0.5 tracking-widest">Tam Short</label>
+                                                <select 
+                                                  value={item.shortSize || listSizes[item.shortCategory || item.category || "unisex"][2] || listSizes[item.shortCategory || item.category || "unisex"][0]} 
+                                                  onChange={(e) => updatePublicListRow(item.id, "shortSize", e.target.value)} 
+                                                  className="w-full bg-[#121215] border border-primary/30 rounded-lg text-xs text-white p-1.5 outline-none font-bold"
+                                                >
+                                                  {listSizes[item.shortCategory || item.category || "unisex"].map(s => <option key={s} value={s}>{s}</option>)}
+                                                </select>
+                                              </div>
+
                                               {!item.isSimple && (
-                                                <div className="sm:col-span-2">
+                                                <div className="sm:col-span-4">
+                                                  <label className="block text-[8px] font-black text-primary uppercase mb-0.5 tracking-widest">Nº Short</label>
                                                   <input 
                                                     type="text" 
                                                     placeholder="Nº Sh"
-                                                    value={item.shortNumber || item.number || ''} 
-                                                    onChange={(e) => updatePublicListRow(item.id, 'shortNumber', e.target.value)} 
+                                                    value={item.shortNumber || item.number || ""} 
+                                                    onChange={(e) => updatePublicListRow(item.id, "shortNumber", e.target.value)} 
                                                     className="w-full bg-[#121215] border border-primary/30 rounded-lg p-1.5 text-xs text-white text-center font-bold" 
                                                   />
                                                 </div>
                                               )}
-                                            </>
+                                            </div>
                                           )}
                                         </div>
                                       </div>

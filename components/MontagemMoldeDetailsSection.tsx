@@ -53,8 +53,9 @@ function extractReplicasLines(order: any): { details: string; paperSize: string;
             const cat = (it.category || 'unisex').toUpperCase();
             const nameStr = it.isSimple ? `SEM NOME (x${it.quantity || 1})` : (it.name || '-');
             const numStr = it.isSimple ? '' : (it.number ? `#${it.number}` : '');
+            const shortCatStr = it.shortCategory && it.shortCategory !== it.category ? ` (${String(it.shortCategory).toUpperCase()})` : '';
             const shortStr = (it.shortSize || it.shortNumber || it.isConjunto)
-                ? ` | CONJUNTO: [Short: ${it.shortSize || it.size || 'M'}${it.shortNumber ? ` Nº: ${it.shortNumber}` : ''}]`
+                ? ` | CONJUNTO: [Short${shortCatStr}: ${it.shortSize || it.size || 'M'}${it.shortNumber ? ` Nº: ${it.shortNumber}` : ''}]`
                 : '';
             return `- [${cat}] ${it.size || 'M'} | ${nameStr} ${numStr}${shortStr}`.trim();
         });
@@ -96,8 +97,9 @@ export const MontagemMoldeDetailsSection = ({ order }: { order: any }) => {
                                 const cat = (it.category || 'unisex').toUpperCase();
                                 const nameStr = it.isSimple ? `SEM NOME (x${it.quantity || 1})` : (it.name || '-');
                                 const numStr = it.isSimple ? '' : (it.number ? `#${it.number}` : '');
+                                const shortCatStr = it.shortCategory && it.shortCategory !== it.category ? ` (${String(it.shortCategory).toUpperCase()})` : '';
                                 const shortStr = (it.shortSize || it.shortNumber || it.isConjunto)
-                                    ? ` | CONJUNTO: [Short: ${it.shortSize || it.size || 'M'}${it.shortNumber ? ` Nº: ${it.shortNumber}` : ''}]`
+                                    ? ` | CONJUNTO: [Short${shortCatStr}: ${it.shortSize || it.size || 'M'}${it.shortNumber ? ` Nº: ${it.shortNumber}` : ''}]`
                                     : '';
                                 return `- [${cat}] ${it.size || 'M'} | ${nameStr} ${numStr}${shortStr}`.trim();
                             });
@@ -189,8 +191,9 @@ export const MontagemMoldeModal = ({ order, onClose }: { order: any, onClose: ()
                                 const cat = (it.category || 'unisex').toUpperCase();
                                 const nameStr = it.isSimple ? `SEM NOME (x${it.quantity || 1})` : (it.name || '-');
                                 const numStr = it.isSimple ? '' : (it.number ? `#${it.number}` : '');
+                                const shortCatStr = it.shortCategory && it.shortCategory !== it.category ? ` (${String(it.shortCategory).toUpperCase()})` : '';
                                 const shortStr = (it.shortSize || it.shortNumber || it.isConjunto)
-                                    ? ` | CONJUNTO: [Short: ${it.shortSize || it.size || 'M'}${it.shortNumber ? ` Nº: ${it.shortNumber}` : ''}]`
+                                    ? ` | CONJUNTO: [Short${shortCatStr}: ${it.shortSize || it.size || 'M'}${it.shortNumber ? ` Nº: ${it.shortNumber}` : ''}]`
                                     : '';
                                 return `- [${cat}] ${it.size || 'M'} | ${nameStr} ${numStr}${shortStr}`.trim();
                             });

@@ -211,7 +211,24 @@ export default function ListaPublica() {
           const updated = { ...item, [field]: value };
           if (field === 'category') {
             updated.size = sizes[value][0]; // seleciona o primeiro tamanho padrão da nova categoria
-            updated.shortSize = sizes[value][0];
+            if (!item.shortCategory) {
+              updated.shortSize = sizes[value][0];
+            }
+          }
+          if (field === 'shortCategory') {
+            updated.shortCategory = value;
+            updated.shortSize = sizes[value][2] || sizes[value][0];
+          }
+          if (field === 'isConjunto' && value === true) {
+            if (!updated.shortCategory) {
+              updated.shortCategory = updated.category || 'unisex';
+            }
+            if (!updated.shortSize) {
+              updated.shortSize = sizes[updated.shortCategory][2] || sizes[updated.shortCategory][0];
+            }
+            if (!updated.shortNumber && updated.number) {
+              updated.shortNumber = updated.number;
+            }
           }
           return updated;
         }
@@ -335,7 +352,7 @@ export default function ListaPublica() {
                           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                             
                             {/* Tipo / Gênero */}
-                            <div className={item.isConjunto && !item.isSimple ? "sm:col-span-2" : "sm:col-span-3"}>
+                            <div className="sm:col-span-3">
                               <label className="block text-[8px] font-black text-zinc-500 uppercase mb-1 tracking-widest">Tipo de Grade</label>
                               <select 
                                 value={item.category} 
@@ -362,7 +379,7 @@ export default function ListaPublica() {
 
                             {/* Condicional: isSimple */}
                             {item.isSimple ? (
-                              <div className={item.isConjunto ? "sm:col-span-4" : "sm:col-span-7"}>
+                              <div className="sm:col-span-7">
                                 <label className="block text-[8px] font-black text-zinc-500 uppercase mb-1 tracking-widest">Qtd Peças</label>
                                 <input 
                                   type="number" 
@@ -375,7 +392,7 @@ export default function ListaPublica() {
                             ) : (
                               <>
                                 {/* Número Camisa */}
-                                <div className={item.isConjunto ? "sm:col-span-1" : "sm:col-span-2"}>
+                                <div className="sm:col-span-2">
                                   <label className="block text-[8px] font-black text-zinc-500 uppercase mb-1 tracking-widest">Nº Camisa</label>
                                   <input 
                                     type="text" 
@@ -383,7 +400,7 @@ export default function ListaPublica() {
                                     value={item.number || ''} 
                                     onChange={(e) => {
                                       updateListRow(item.id, 'number', e.target.value);
-                                      if (item.isConjunto) {
+                                      if (item.isConjunto && !item.shortNumber) {
                                         updateListRow(item.id, 'shortNumber', e.target.value);
                                       }
                                     }} 
@@ -391,7 +408,7 @@ export default function ListaPublica() {
                                   />
                                 </div>
                                 {/* Nome Camisa */}
-                                <div className={item.isConjunto ? "sm:col-span-3" : "sm:col-span-5"}>
+                                <div className="sm:col-span-5">
                                   <label className="block text-[8px] font-black text-zinc-500 uppercase mb-1 tracking-widest">Nome na Camisa</label>
                                   <input 
                                     type="text" 
@@ -404,35 +421,49 @@ export default function ListaPublica() {
                               </>
                             )}
 
-                            {/* Se for conjunto, adicionar tamanho e número do short */}
+                            {/* Se for conjunto, adicionar tipo, tamanho e número do short */}
                             {item.isConjunto && (
-                              <>
+                              <div className="sm:col-span-12 grid grid-cols-1 sm:grid-cols-12 gap-3 p-3 bg-primary/[0.04] border border-primary/20 rounded-xl mt-1">
+                                {/* Tipo Short */}
+                                <div className="sm:col-span-4">
+                                  <label className="block text-[8px] font-black text-primary uppercase mb-1 tracking-widest">Tipo Short</label>
+                                  <select 
+                                    value={item.shortCategory || item.category || 'unisex'} 
+                                    onChange={(e) => updateListRow(item.id, 'shortCategory', e.target.value as any)} 
+                                    className="w-full bg-[#121215] border border-primary/30 focus:border-primary rounded-xl text-xs text-white p-2.5 outline-none font-bold"
+                                  >
+                                    <option value="unisex">Unisex (Geral)</option>
+                                    <option value="feminina">Feminina</option>
+                                    <option value="infantil">Infantil</option>
+                                  </select>
+                                </div>
+
                                 {/* Tamanho Short */}
-                                <div className={item.isSimple ? "sm:col-span-3" : "sm:col-span-2"}>
+                                <div className={item.isSimple ? "sm:col-span-8" : "sm:col-span-4"}>
                                   <label className="block text-[8px] font-black text-primary uppercase mb-1 tracking-widest">Tam Short</label>
                                   <select 
-                                    value={item.shortSize || sizes[item.category][2]} 
+                                    value={item.shortSize || sizes[item.shortCategory || item.category || 'unisex'][2] || sizes[item.shortCategory || item.category || 'unisex'][0]} 
                                     onChange={(e) => updateListRow(item.id, 'shortSize', e.target.value)} 
-                                    className="w-full bg-[#121215] border border-primary/20 focus:border-primary rounded-xl text-xs text-white p-2.5 outline-none font-bold align-middle"
+                                    className="w-full bg-[#121215] border border-primary/30 focus:border-primary rounded-xl text-xs text-white p-2.5 outline-none font-bold align-middle"
                                   >
-                                    {sizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
+                                    {sizes[item.shortCategory || item.category || 'unisex'].map(s => <option key={s} value={s}>{s}</option>)}
                                   </select>
                                 </div>
 
                                 {/* Número Short (apenas se não for simples) */}
                                 {!item.isSimple && (
-                                  <div className="sm:col-span-2">
+                                  <div className="sm:col-span-4">
                                     <label className="block text-[8px] font-black text-primary uppercase mb-1 tracking-widest">Nº Short</label>
                                     <input 
                                       type="text" 
                                       placeholder="00"
                                       value={item.shortNumber || item.number || ''} 
                                       onChange={(e) => updateListRow(item.id, 'shortNumber', e.target.value)} 
-                                      className="w-full bg-[#121215] border border-primary/20 focus:border-primary rounded-xl p-2.5 text-xs text-white font-mono font-bold text-center placeholder:text-zinc-700" 
+                                      className="w-full bg-[#121215] border border-primary/30 focus:border-primary rounded-xl p-2.5 text-xs text-white font-mono font-bold text-center placeholder:text-zinc-700" 
                                     />
                                   </div>
                                 )}
-                              </>
+                              </div>
                             )}
 
                           </div>

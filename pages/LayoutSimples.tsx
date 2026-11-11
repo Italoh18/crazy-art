@@ -22,6 +22,7 @@ interface CatalogService {
 interface RepliaItem {
   id: string;
   category?: 'unisex' | 'feminina' | 'infantil';
+  shortCategory?: 'unisex' | 'feminina' | 'infantil';
   size: string;
   name: string;
   number: string;
@@ -62,12 +63,12 @@ export default function LayoutSimples() {
 
   // Integrated Mold Mounting State
   const [addMontagem, setAddMontagem] = useState(false);
-  const [replicas, setReplicas] = useState<RepliaItem[]>([{ id: crypto.randomUUID(), category: 'unisex', size: 'M', name: '', number: '', isConjunto: false, shortSize: 'M', shortNumber: '' }]);
+  const [replicas, setReplicas] = useState<RepliaItem[]>([{ id: crypto.randomUUID(), category: 'unisex', shortCategory: 'unisex', size: 'M', name: '', number: '', isConjunto: false, shortSize: 'M', shortNumber: '' }]);
   const [montagemService, setMontagemService] = useState<CatalogService | null>(null);
   const [replicaService, setReplicaService] = useState<CatalogService | null>(null);
 
   const handleAddReplica = () => {
-    setReplicas([...replicas, { id: crypto.randomUUID(), category: 'unisex', size: 'M', name: '', number: '', isConjunto: false, shortSize: 'M', shortNumber: '' }]);
+    setReplicas([...replicas, { id: crypto.randomUUID(), category: 'unisex', shortCategory: 'unisex', size: 'M', name: '', number: '', isConjunto: false, shortSize: 'M', shortNumber: '' }]);
   };
 
   const handleRemoveReplica = (id: string) => {
@@ -83,6 +84,13 @@ export default function LayoutSimples() {
         
         if (field === 'category') {
           updated.size = MM_SIZES[value][0];
+          if (!updated.shortCategory || updated.shortCategory === r.category) {
+            updated.shortCategory = value;
+            updated.shortSize = MM_SIZES[value][0];
+          }
+        }
+
+        if (field === 'shortCategory') {
           updated.shortSize = MM_SIZES[value][0];
         }
 
@@ -94,6 +102,10 @@ export default function LayoutSimples() {
         // Quando ativa o conjunto, herda o número que já estiver na camisa
         if (field === 'isConjunto' && value === true) {
           updated.shortNumber = r.number;
+          if (!updated.shortCategory) {
+            updated.shortCategory = r.category || 'unisex';
+            updated.shortSize = MM_SIZES[updated.shortCategory][0];
+          }
         }
         
         return updated;
@@ -264,7 +276,7 @@ export default function LayoutSimples() {
     }
 
     if (addMontagem) {
-      const replicaText = replicas.map(r => `- [${(r.category || 'unisex').toUpperCase()}] ${r.size} | ${r.name} | ${r.number}${r.isConjunto ? ` | CONJUNTO: [Short: ${r.shortSize} Nº: ${r.shortNumber}]` : ''}`).join('\n');
+      const replicaText = replicas.map(r => `- [${(r.category || 'unisex').toUpperCase()}] ${r.size} | ${r.name} | ${r.number}${r.isConjunto ? ` | CONJUNTO: [Short${r.shortCategory && r.shortCategory !== r.category ? ` (${r.shortCategory.toUpperCase()})` : ''}: ${r.shortSize} Nº: ${r.shortNumber}]` : ''}`).join('\n');
       finalDescription = `${finalDescription}\n\n=================================\n--- ADICIONADO MONTAGEM DE MOLDE ---\nREPLICAS (${replicas.length}):\n${replicaText}`;
     }
 
@@ -669,55 +681,69 @@ export default function LayoutSimples() {
                                    </select>
                                  </div>
 
-                                 {/* Nome / Texto */}
-                                 <div className={`${replica.isConjunto ? 'sm:col-span-3' : 'sm:col-span-5'} space-y-1`}>
-                                   <p className="text-[9px] text-zinc-600 font-extrabold uppercase tracking-wide">Nome / Texto</p>
-                                   <input 
-                                     type="text" value={replica.name} 
-                                     onChange={(e) => updateReplica(replica.id, 'name', e.target.value)}
-                                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none" 
-                                     placeholder="Nome"
-                                   />
-                                 </div>
+                                  {/* Nome / Texto */}
+                                  <div className="sm:col-span-5 space-y-1">
+                                    <p className="text-[9px] text-zinc-600 font-extrabold uppercase tracking-wide">Nome / Texto</p>
+                                    <input 
+                                      type="text" value={replica.name} 
+                                      onChange={(e) => updateReplica(replica.id, "name", e.target.value)}
+                                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none" 
+                                      placeholder="Nome"
+                                    />
+                                  </div>
 
-                                 {/* Nº */}
-                                 <div className="sm:col-span-2 space-y-1">
-                                   <p className="text-[9px] text-zinc-600 font-extrabold uppercase tracking-wide">Nº</p>
-                                   <input 
-                                     type="text" value={replica.number} 
-                                     onChange={(e) => updateReplica(replica.id, 'number', e.target.value)}
-                                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none" 
-                                     placeholder="00"
-                                   />
-                                 </div>
-                                 
-                                 {/* Se for conjunto */}
-                                 {replica.isConjunto && (
-                                   <>
-                                     {/* Tam Short */}
-                                     <div className="sm:col-span-2 space-y-1 animate-fade-in col-span-1">
-                                       <p className="text-[9px] text-primary font-extrabold uppercase tracking-wide">Tam Short</p>
-                                       <select 
-                                         value={replica.shortSize || MM_SIZES[replica.category || 'unisex'][2]} 
-                                         onChange={(e) => updateReplica(replica.id, 'shortSize', e.target.value)} 
-                                         className="w-full bg-zinc-900 border border-primary/30 rounded-xl px-3 py-2.5 text-xs text-white focus:border-primary outline-none font-bold"
-                                       >
-                                         {MM_SIZES[replica.category || 'unisex'].map(s => <option key={s} value={s}>{s}</option>)}
-                                       </select>
-                                     </div>
+                                  {/* Nº */}
+                                  <div className="sm:col-span-2 space-y-1">
+                                    <p className="text-[9px] text-zinc-600 font-extrabold uppercase tracking-wide">Nº</p>
+                                    <input 
+                                      type="text" value={replica.number} 
+                                      onChange={(e) => updateReplica(replica.id, "number", e.target.value)}
+                                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none" 
+                                      placeholder="00"
+                                    />
+                                  </div>
+                                  
+                                  {/* Se for conjunto */}
+                                  {replica.isConjunto && (
+                                    <div className="sm:col-span-12 grid grid-cols-1 sm:grid-cols-12 gap-3 p-3 bg-primary/[0.04] border border-primary/20 rounded-xl mt-1 animate-fade-in">
+                                      {/* Tipo Short */}
+                                      <div className="sm:col-span-4 space-y-1">
+                                        <p className="text-[9px] text-primary font-extrabold uppercase tracking-wide">Tipo Short</p>
+                                        <select
+                                          value={replica.shortCategory || replica.category || "unisex"}
+                                          onChange={(e) => updateReplica(replica.id, "shortCategory", e.target.value as any)}
+                                          className="w-full bg-zinc-900 border border-primary/30 rounded-xl px-3 py-2.5 text-xs text-white focus:border-primary outline-none font-bold"
+                                        >
+                                          <option value="unisex">Unisex (Geral)</option>
+                                          <option value="feminina">Feminina</option>
+                                          <option value="infantil">Infantil</option>
+                                        </select>
+                                      </div>
 
-                                     {/* Nº Short */}
-                                     <div className="sm:col-span-2 space-y-1 animate-fade-in col-span-1">
-                                       <p className="text-[9px] text-primary font-extrabold uppercase tracking-wide">Nº Short</p>
-                                       <input 
-                                         type="text" value={replica.shortNumber} 
-                                         onChange={(e) => updateReplica(replica.id, 'shortNumber', e.target.value)}
-                                         className="w-full bg-zinc-900 border border-primary/30 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none" 
-                                         placeholder="00"
-                                       />
-                                     </div>
-                                   </>
-                                 )}
+                                      {/* Tam Short */}
+                                      <div className="sm:col-span-4 space-y-1">
+                                        <p className="text-[9px] text-primary font-extrabold uppercase tracking-wide">Tam Short</p>
+                                        <select 
+                                          value={replica.shortSize || MM_SIZES[replica.shortCategory || replica.category || "unisex"][2]} 
+                                          onChange={(e) => updateReplica(replica.id, "shortSize", e.target.value)} 
+                                          className="w-full bg-zinc-900 border border-primary/30 rounded-xl px-3 py-2.5 text-xs text-white focus:border-primary outline-none font-bold"
+                                        >
+                                          {MM_SIZES[replica.shortCategory || replica.category || "unisex"].map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                      </div>
+
+                                      {/* Nº Short */}
+                                      <div className="sm:col-span-4 space-y-1">
+                                        <p className="text-[9px] text-primary font-extrabold uppercase tracking-wide">Nº Short</p>
+                                        <input 
+                                          type="text" value={replica.shortNumber} 
+                                          onChange={(e) => updateReplica(replica.id, "shortNumber", e.target.value)}
+                                          className="w-full bg-zinc-900 border border-primary/30 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none" 
+                                          placeholder="00"
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
                                </div>
                              </motion.div>
                            ))}

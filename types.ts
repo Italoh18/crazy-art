@@ -72,6 +72,7 @@ export interface SizeListItem {
   size: string;
   number: string;
   name: string;
+  shortCategory?: 'unisex' | 'feminina' | 'infantil';
   shortSize: string;
   shortNumber: string;
   quantity?: number; 

@@ -34,6 +34,7 @@ interface SizeListItem {
   isSimple?: boolean;
   quantity?: number;
   isConjunto?: boolean;
+  shortCategory?: 'unisex' | 'feminina' | 'infantil';
   shortSize?: string;
   shortNumber?: string;
 }
@@ -191,8 +192,23 @@ export default function AdminPublicList() {
         const updated = { ...item, [field]: value };
         if (field === 'category') {
           updated.size = listSizes[value as string][0] || 'M';
-          if (updated.isConjunto) {
+          if (!item.shortCategory) {
             updated.shortSize = listSizes[value as string][0] || 'M';
+          }
+        }
+        if (field === 'shortCategory') {
+          updated.shortCategory = value;
+          updated.shortSize = listSizes[value as string][1] || listSizes[value as string][0] || 'M';
+        }
+        if (field === 'isConjunto' && value === true) {
+          if (!updated.shortCategory) {
+            updated.shortCategory = updated.category || 'unisex';
+          }
+          if (!updated.shortSize) {
+            updated.shortSize = listSizes[updated.shortCategory][1] || listSizes[updated.shortCategory][0] || 'M';
+          }
+          if (!updated.shortNumber && updated.number) {
+            updated.shortNumber = updated.number;
           }
         }
         return updated;
@@ -788,7 +804,7 @@ export default function AdminPublicList() {
                   {/* Form fields grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end pt-1">
                     {/* Category */}
-                    <div className={item.isConjunto && !item.isSimple ? "sm:col-span-2" : "sm:col-span-3"}>
+                    <div className="sm:col-span-3">
                       <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Categoria</label>
                       <select
                         value={item.category}
@@ -815,7 +831,7 @@ export default function AdminPublicList() {
 
                     {/* Simple mode quantity OR Detailed mode (number + name) */}
                     {item.isSimple ? (
-                      <div className={item.isConjunto ? "sm:col-span-4" : "sm:col-span-7"}>
+                      <div className="sm:col-span-7">
                         <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Quantidade</label>
                         <input
                           type="number"
@@ -827,7 +843,7 @@ export default function AdminPublicList() {
                       </div>
                     ) : (
                       <>
-                        <div className={item.isConjunto ? "sm:col-span-1" : "sm:col-span-2"}>
+                        <div className="sm:col-span-2">
                           <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Nº</label>
                           <input
                             type="text"
@@ -842,7 +858,7 @@ export default function AdminPublicList() {
                             className="w-full bg-[#121215] border border-white/10 rounded-xl p-2.5 text-xs text-white font-bold text-center placeholder:text-zinc-700 focus:border-primary focus:outline-none"
                           />
                         </div>
-                        <div className={item.isConjunto ? "sm:col-span-3" : "sm:col-span-5"}>
+                        <div className="sm:col-span-5">
                           <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Nome no Uniforme</label>
                           <input
                             type="text"
@@ -857,19 +873,33 @@ export default function AdminPublicList() {
 
                     {/* Short details (if conjunto) */}
                     {item.isConjunto && (
-                      <>
-                        <div className={item.isSimple ? "sm:col-span-3" : "sm:col-span-2"}>
+                      <div className="sm:col-span-12 grid grid-cols-1 sm:grid-cols-12 gap-2.5 p-3 bg-primary/[0.04] border border-primary/20 rounded-xl mt-1">
+                        <div className="sm:col-span-4">
+                          <label className="text-[9px] font-bold text-primary uppercase tracking-widest block mb-1">Tipo Short</label>
+                          <select
+                            value={item.shortCategory || item.category || 'unisex'}
+                            onChange={(e) => updateRow(item.id, 'shortCategory', e.target.value as any)}
+                            className="w-full bg-[#121215] border border-primary/40 rounded-xl text-xs text-white p-2.5 outline-none font-bold focus:border-primary"
+                          >
+                            <option value="unisex">Unisex (Geral)</option>
+                            <option value="feminina">Feminina</option>
+                            <option value="infantil">Infantil</option>
+                          </select>
+                        </div>
+
+                        <div className={item.isSimple ? "sm:col-span-8" : "sm:col-span-4"}>
                           <label className="text-[9px] font-bold text-primary uppercase tracking-widest block mb-1">Tam. Short</label>
                           <select
-                            value={item.shortSize || listSizes[item.category][1]}
+                            value={item.shortSize || listSizes[item.shortCategory || item.category || 'unisex'][1] || listSizes[item.shortCategory || item.category || 'unisex'][0]}
                             onChange={(e) => updateRow(item.id, 'shortSize', e.target.value)}
                             className="w-full bg-[#121215] border border-primary/40 rounded-xl text-xs text-white p-2.5 outline-none font-bold focus:border-primary"
                           >
-                            {listSizes[item.category].map(s => <option key={s} value={s}>{s}</option>)}
+                            {listSizes[item.shortCategory || item.category || 'unisex'].map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                         </div>
+
                         {!item.isSimple && (
-                          <div className="sm:col-span-2">
+                          <div className="sm:col-span-4">
                             <label className="text-[9px] font-bold text-primary uppercase tracking-widest block mb-1">Nº Short</label>
                             <input
                               type="text"
@@ -880,7 +910,7 @@ export default function AdminPublicList() {
                             />
                           </div>
                         )}
-                      </>
+                      </div>
                     )}
                   </div>
                 </div>
