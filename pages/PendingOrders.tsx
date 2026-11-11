@@ -162,7 +162,7 @@ export default function PendingOrders() {
                                                   <td className="p-3"><span className="bg-zinc-800 px-2 py-0.5 rounded text-[10px] uppercase font-bold">{item.category}</span></td>
                                                   <td className="p-3 font-bold text-white">{item.size}</td>
                                                   <td className="p-3 text-center font-mono">{item.isSimple ? '-' : (item.number || '-')}</td>
-                                                  <td className="p-3 font-bold uppercase text-primary">
+                                                  <td className="p-3 font-bold text-primary">
                                                       {item.isSimple ? (
                                                           <span className="text-zinc-400 italic">SEM NOME ({item.quantity} unidades)</span>
                                                       ) : (

@@ -865,7 +865,7 @@ export default function AdminPublicList() {
                             placeholder="Nome do integrante"
                             value={item.name || ''}
                             onChange={(e) => updateRow(item.id, 'name', e.target.value)}
-                            className="w-full bg-[#121215] border border-white/10 rounded-xl p-2.5 text-xs text-white uppercase font-bold placeholder:text-zinc-700 focus:border-primary focus:outline-none"
+                            className="w-full bg-[#121215] border border-white/10 rounded-xl p-2.5 text-xs text-white font-bold placeholder:text-zinc-700 focus:border-primary focus:outline-none"
                           />
                         </div>
                       </>

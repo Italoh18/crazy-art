@@ -1807,7 +1807,7 @@ export default function Shop() {
                                             </div>
                                             <div className="sm:col-span-3">
                                                 <label className="block text-[8px] font-bold text-zinc-600 uppercase mb-1">Nome</label>
-                                                <input type="text" value={item.name} onChange={(e) => updateListRow(item.id, 'name', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-md p-1 text-[10px] text-white uppercase" />
+                                                <input type="text" value={item.name} onChange={(e) => updateListRow(item.id, 'name', e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-md p-1 text-[10px] text-white" />
                                             </div>
                                         </>
                                     )}

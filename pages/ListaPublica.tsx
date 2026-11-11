@@ -412,10 +412,10 @@ export default function ListaPublica() {
                                   <label className="block text-[8px] font-black text-zinc-500 uppercase mb-1 tracking-widest">Nome na Camisa</label>
                                   <input 
                                     type="text" 
-                                    placeholder="SILVA"
+                                    placeholder="Silva"
                                     value={item.name || ''} 
                                     onChange={(e) => updateListRow(item.id, 'name', e.target.value)} 
-                                    className="w-full bg-[#121215] border border-zinc-800 focus:border-primary rounded-xl p-2.5 text-xs text-white uppercase font-bold placeholder:text-zinc-700" 
+                                    className="w-full bg-[#121215] border border-zinc-800 focus:border-primary rounded-xl p-2.5 text-xs text-white font-bold placeholder:text-zinc-700" 
                                   />
                                 </div>
                               </>

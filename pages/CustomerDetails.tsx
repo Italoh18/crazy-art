@@ -706,7 +706,7 @@ export default function CustomerDetails() {
           const num = item.isSimple ? "-" : String(item.number || '');
           doc.text(num, 90, y);
           
-          const name = item.isSimple ? "-" : String(item.name || '').toUpperCase();
+          const name = item.isSimple ? "-" : String(item.name || '');
           doc.text(name, 125, y);
           
           y += 8;
@@ -743,7 +743,7 @@ export default function CustomerDetails() {
           <td style="padding: 10px; font-weight: bold;">${item.size || ''}</td>
           <td style="padding: 10px;">${item.isSimple ? (item.quantity || 1) : 1}</td>
           <td style="padding: 10px; font-family: monospace;">${item.isSimple ? '-' : (item.number || '')}</td>
-          <td style="padding: 10px; text-transform: uppercase;">${item.isSimple ? '-' : (item.name || '')}</td>
+          <td style="padding: 10px;">${item.isSimple ? '-' : (item.name || '')}</td>
         </tr>
       `).join('')
       : '<tr><td colspan="5" style="text-align: center; padding: 20px; color: #777;">Nenhum item preenchido</td></tr>';
@@ -2343,7 +2343,7 @@ export default function CustomerDetails() {
                                               <td className="p-3 font-semibold text-white">{item.size}</td>
                                               <td className="p-3">{item.isSimple ? (item.quantity || 1) : 1}</td>
                                               <td className="p-3">{item.isSimple ? "-" : (item.number || "-")}</td>
-                                              <td className="p-3 uppercase">{item.isSimple ? "-" : (item.name || "-")}</td>
+                                              <td className="p-3">{item.isSimple ? "-" : (item.name || "-")}</td>
                                               <td className="p-3">
                                                 {item.isConjunto ? (
                                                   <span className="text-primary font-bold">
@@ -2451,7 +2451,7 @@ export default function CustomerDetails() {
                                                   placeholder="Nome"
                                                   value={item.name || ''} 
                                                   onChange={(e) => updatePublicListRow(item.id, 'name', e.target.value)} 
-                                                  className="w-full bg-[#121215] border border-white/10 rounded-lg p-1.5 text-xs text-white uppercase font-bold placeholder:text-zinc-700" 
+                                                  className="w-full bg-[#121215] border border-white/10 rounded-lg p-1.5 text-xs text-white font-bold placeholder:text-zinc-700" 
                                                 />
                                               </div>
                                             </>
