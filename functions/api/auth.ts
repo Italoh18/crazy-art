@@ -31,9 +31,11 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
     .first();
 
   if (attemptRecord && attemptRecord.attempts >= 5 && attemptRecord.last_attempt > fifteenMinutesAgo) {
-    return new Response(JSON.stringify({ 
-      error: 'Muitas tentativas. Tente novamente em alguns minutos.' 
-    }), { status: 429 });
+    if (!code) {
+      return new Response(JSON.stringify({ 
+        error: 'Muitas tentativas. Tente novamente em alguns minutos.' 
+      }), { status: 429 });
+    }
   }
 
   const recordAttempt = async (success: boolean) => {
@@ -53,14 +55,25 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
       .bind('admin_access_code')
       .first();
     
-    if (adminSetting && code === adminSetting.value) {
+    const userCode = String(code || '').trim().replace(/^["']|["']$/g, '');
+    const storedCode = adminSetting && adminSetting.value !== undefined && adminSetting.value !== null
+      ? String(adminSetting.value).trim().replace(/^["']|["']$/g, '')
+      : null;
+
+    if (storedCode && (userCode === storedCode || userCode.toLowerCase() === storedCode.toLowerCase())) {
       await recordAttempt(true);
       const token = await createJWT({ role: 'admin', userId: 'admin' }, env.JWT_SECRET);
       return Response.json({ token, role: 'admin' });
     }
     
+    if (attemptRecord && attemptRecord.attempts >= 5 && attemptRecord.last_attempt > fifteenMinutesAgo) {
+      return new Response(JSON.stringify({ 
+        error: 'Muitas tentativas. Tente novamente em alguns minutos.' 
+      }), { status: 429 });
+    }
+
     await recordAttempt(false);
-    return new Response(JSON.stringify({ error: 'Código inválido' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Código de acesso incorreto.' }), { status: 401 });
   }
 
   const mapClient = (c: any) => {

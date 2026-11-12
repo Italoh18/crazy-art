@@ -92,11 +92,11 @@ export default function MatrizBordado() {
     e.preventDefault();
     setAuthError('');
     if (loginMode === 'admin') {
-      const success = await loginAdmin(inputValue, rememberMe);
-      if (success) {
+      const result = await loginAdmin(inputValue.trim(), rememberMe);
+      if (result.success) {
         setIsAuthModalOpen(false);
       } else {
-        setAuthError('Código de acesso inválido.');
+        setAuthError(result.error || 'Código de acesso inválido.');
       }
     } else {
       const result = await loginClient(inputValue, loginPassword, rememberMe, twoFactorCode || undefined);

@@ -9,7 +9,7 @@ type UserRole = 'guest' | 'admin' | 'client';
 interface AuthContextType {
   role: UserRole;
   currentCustomer: Customer | null;
-  loginAdmin: (code: string, rememberMe?: boolean) => Promise<boolean>;
+  loginAdmin: (code: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
   loginClient: (email: string, password: string, rememberMe?: boolean, twoFactorCode?: string) => Promise<{ success: boolean; twoFactorRequired?: boolean; email?: string; error?: string }>;
   logout: () => void;
   refreshCustomer: () => Promise<void>;
@@ -62,16 +62,20 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
       refreshCustomer();
   }, [role]);
 
-  const loginAdmin = async (code: string, rememberMe: boolean = true) => {
+  const loginAdmin = async (code: string, rememberMe: boolean = true): Promise<{ success: boolean; error?: string }> => {
     try {
-        const data = await api.auth({ code }, rememberMe);
+        const cleanCode = typeof code === 'string' ? code.trim() : code;
+        const data = await api.auth({ code: cleanCode }, rememberMe);
         if (data.token) {
             setRole('admin');
             await loadData(); // Recarrega dados com o novo token
-            return true;
+            return { success: true };
         }
-    } catch (e) { console.error(e); }
-    return false;
+        return { success: false, error: data.error || 'Código de acesso incorreto.' };
+    } catch (e: any) { 
+        console.error(e); 
+        return { success: false, error: e.message || 'Código de acesso incorreto.' };
+    }
   };
 
   const loginClient = async (email: string, password: string, rememberMe: boolean = true, twoFactorCode?: string) => {

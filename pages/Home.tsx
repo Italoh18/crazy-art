@@ -90,11 +90,11 @@ export default function Home() {
     e.preventDefault();
     setError('');
     if (loginMode === 'admin') {
-      const success = await loginAdmin(inputValue, rememberMe);
-      if (success) {
+      const result = await loginAdmin(inputValue.trim(), rememberMe);
+      if (result.success) {
         setIsModalOpen(false);
       } else {
-        setError('Código de acesso inválido.');
+        setError(result.error || 'Código de acesso inválido.');
       }
     } else {
       const result = await loginClient(inputValue, loginPassword, rememberMe, twoFactorCode || undefined);
