@@ -10,11 +10,103 @@ function base64urlToUint8Array(base64url: string) {
 
 // Criptografia Web Push (Simulação simplificada ou envio raw)
 // A implementação real completa exigiria @web-push/encryption
+async function hkdf(salt: Uint8Array, ikm: Uint8Array, info: Uint8Array, length: number): Promise<Uint8Array> {
+    const key = await crypto.subtle.importKey(
+        'raw',
+        ikm as unknown as BufferSource,
+        { name: 'HKDF' },
+        false,
+        ['deriveBits']
+    );
+    const bits = await crypto.subtle.deriveBits(
+        {
+            name: 'HKDF',
+            hash: 'SHA-256',
+            salt: salt as unknown as BufferSource,
+            info: info as unknown as BufferSource,
+        },
+        key,
+        length * 8
+    );
+    return new Uint8Array(bits);
+}
+
 async function encryptPayload(payload: any, subscription: any) {
-    // Retornamos o JSON stringeado. Alguns gateways (como FCM se configurado para legacy/raw) aceitam.
-    // Navegadores modernos podem exigir a criptografia AES-GCM.
-    // Se o teste falhar com 400 'invalid payload', precisaremos da implementação completa.
-    return new TextEncoder().encode(JSON.stringify(payload));
+    const uaPublic = base64urlToUint8Array(subscription.keys.p256dh);
+    const authSecret = base64urlToUint8Array(subscription.keys.auth);
+
+    const asKey = await crypto.subtle.generateKey(
+        { name: 'ECDH', namedCurve: 'P-256' },
+        true,
+        ['deriveBits']
+    );
+
+    const asPublic = new Uint8Array(await crypto.subtle.exportKey('raw', asKey.publicKey));
+
+    const uaKey = await crypto.subtle.importKey(
+        'raw',
+        uaPublic as unknown as BufferSource,
+        { name: 'ECDH', namedCurve: 'P-256' },
+        false,
+        []
+    );
+
+    const ecdhSecretBits = await crypto.subtle.deriveBits(
+        { name: 'ECDH', public: uaKey },
+        asKey.privateKey,
+        256
+    );
+    const ecdhSecret = new Uint8Array(ecdhSecretBits);
+
+    const infoWebPush = new TextEncoder().encode("WebPush: info\0");
+    const ikmInfo = new Uint8Array(infoWebPush.length + uaPublic.length + asPublic.length);
+    ikmInfo.set(infoWebPush, 0);
+    ikmInfo.set(uaPublic, infoWebPush.length);
+    ikmInfo.set(asPublic, infoWebPush.length + uaPublic.length);
+
+    const IKM = await hkdf(authSecret, ecdhSecret, ikmInfo, 32);
+
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+
+    const infoCek = new TextEncoder().encode("Content-Encoding: aes128gcm\0");
+    const CEK = await hkdf(salt, IKM, infoCek, 16);
+
+    const infoNonce = new TextEncoder().encode("Content-Encoding: nonce\0");
+    const NONCE = await hkdf(salt, IKM, infoNonce, 12);
+
+    const jsonStr = JSON.stringify(payload);
+    const jsonBytes = new TextEncoder().encode(jsonStr);
+    const text = new Uint8Array(jsonBytes.length + 1);
+    text.set(jsonBytes, 0);
+    text[jsonBytes.length] = 0x02;
+
+    const cekKey = await crypto.subtle.importKey(
+        'raw',
+        CEK as unknown as BufferSource,
+        { name: 'AES-GCM' },
+        false,
+        ['encrypt']
+    );
+
+    const ciphertextBuf = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: NONCE as unknown as BufferSource },
+        cekKey,
+        text as unknown as BufferSource
+    );
+    const ciphertext = new Uint8Array(ciphertextBuf);
+
+    const rs = new Uint8Array([0, 0, 16, 0]); // 4096
+    const idlen = new Uint8Array([65]);
+
+    const corpo = new Uint8Array(16 + 4 + 1 + asPublic.length + ciphertext.length);
+    let offset = 0;
+    corpo.set(salt, offset); offset += 16;
+    corpo.set(rs, offset); offset += 4;
+    corpo.set(idlen, offset); offset += 1;
+    corpo.set(asPublic, offset); offset += asPublic.length;
+    corpo.set(ciphertext, offset);
+
+    return corpo;
 }
 
 async function getVapidAuthHeader(env: any, endpoint: string) {
@@ -90,15 +182,18 @@ export async function sendPushNotification(env: any, userId: string, payload: { 
 
         if (!authHeader) throw new Error('VAPID não configurado');
 
+        const encryptedBody = await encryptPayload(payload, subscription);
+
         const response = await fetch(subscription.endpoint, {
           method: 'POST',
           headers: {
             'Authorization': authHeader,
             'Crypto-Key': `p256ecdsa=${env.VAPID_PUBLIC_KEY}`,
             'TTL': '60',
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/octet-stream',
+            'Content-Encoding': 'aes128gcm',
           },
-          body: JSON.stringify(payload)
+          body: encryptedBody
         });
 
         if (response.ok || response.status === 201) {
