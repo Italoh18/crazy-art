@@ -327,6 +327,13 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                 creditMessage = "Pagamento recebido.";
             }
 
+            if (hasCreditBalance) {
+                newLimit = Number(orderInfo.creditLimit || 0);
+                bonusApplied = 0;
+                penaltyApplied = 0;
+                creditMessage = "Entrada recebida. O saldo restante está no seu crédito.";
+            }
+
             // 3. Atualiza Pedido para Pago ATOMICAMENTE
             // Verifica se possui produtos para mover para produção automaticamente
             const { results: items } = await env.DB.prepare(`
