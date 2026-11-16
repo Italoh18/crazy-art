@@ -245,8 +245,11 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
           try {
             const oRow: any = await env.DB.prepare('SELECT total, credit_used, paid_at, payment_status FROM orders WHERE id = ?').bind(oId).first();
             if (oRow && !oRow.paid_at && oRow.payment_status !== 'paid') {
+              const isPartialPending = (oRow.payment_status === 'partial' && !oRow.paid_at);
               const creditUsed = Number(oRow.credit_used || 0);
-              const exp = creditUsed > 0 ? Math.max(0.01, Number(oRow.total) - creditUsed) : Number(oRow.total);
+              const exp = isPartialPending 
+                ? Math.max(0.01, creditUsed) 
+                : (creditUsed > 0 ? Math.max(0.01, Number(oRow.total) - creditUsed) : Number(oRow.total));
               totalExpectedBatch += exp;
             }
           } catch (batchSumErr) {}
@@ -270,9 +273,9 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                 WHERE o.id = ?
             `).bind(orderId).first();
 
-            // Se não achar ou já possuir marcação de pago (ou em produção), pula lógica repetida
-            // Pedidos físicos vão para 'production' ao serem pagos, por isso checamos ambos.
-            const isAlreadyPaid = orderInfo?.paid_at || orderInfo?.payment_status === 'paid' || orderInfo?.status === 'paid' || orderInfo?.status === 'production';
+            // Se não achar ou já possuir marcação de pago (ou em produção), mas permitindo se for isPartialPending
+            const isPartialPending = (orderInfo?.payment_status === 'partial' && !orderInfo?.paid_at);
+            const isAlreadyPaid = !isPartialPending && (orderInfo?.paid_at || orderInfo?.payment_status === 'paid' || orderInfo?.status === 'paid' || orderInfo?.status === 'production');
 
             if (!orderInfo || isAlreadyPaid) {
                 console.log(`[Webhook] Pedido ${orderId} já processado como pago ou não encontrado.`);
@@ -280,10 +283,12 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
             }
 
             // Validação de Segurança: Se for pedido único, confere se o valor pago é suficiente
-            const hasCreditBalance = orderInfo.credit_used && Number(orderInfo.credit_used) > 0;
-            const expectedAmount = hasCreditBalance 
-                ? Math.max(0.01, Number(orderInfo.total) - Number(orderInfo.credit_used)) 
-                : Number(orderInfo.total);
+            const hasCreditBalance = !isPartialPending && orderInfo.credit_used && Number(orderInfo.credit_used) > 0;
+            const expectedAmount = isPartialPending 
+                ? Math.max(0.01, Number(orderInfo.credit_used || 0))
+                : (hasCreditBalance 
+                    ? Math.max(0.01, Number(orderInfo.total) - Number(orderInfo.credit_used)) 
+                    : Number(orderInfo.total));
 
             if (orderIds.length === 1 && paidAmount < expectedAmount - 0.05) {
                 console.error(`[Webhook] Pagamento insuficiente para pedido #${orderInfo.order_number}: Pago R$ ${paidAmount}, Esperado R$ ${expectedAmount}`);
@@ -340,7 +345,7 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                     .bind(newStatus, fifteenDaysAhead, orderId).run();
                 meta = updateRes.meta;
             } else {
-                // Pagamento integral
+                // Pagamento integral ou quitação de parcial
                 const updateRes = await env.DB.prepare("UPDATE orders SET status = ?, payment_status = 'paid', paid_at = ?, payment_method = 'mercadopago', credit_bonus_applied = ?, credit_penalty_applied = ? WHERE id = ? AND paid_at IS NULL")
                     .bind(newStatus, nowTs, bonusApplied, penaltyApplied || (diffDays > 15 ? 1 : 0), orderId).run();
                 meta = updateRes.meta;
