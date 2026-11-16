@@ -6,20 +6,11 @@ import { Order } from '../../types';
  */
 export const isOrderPaid = (o: Partial<Order> | any): boolean => {
   if (!o || o.status === 'cancelled') return false;
-  
-  // Se estiver explicitamente finalizado ou pago
-  if (o.status === 'paid' || o.status === 'finished') return true;
-
-  // Se o pagamento for parcial (ex: parte paga no cartão e parte no crédito), NÃO está 100% pago
+  if (o.paid_at) return true;
   if (o.payment_status === 'partial') return false;
-
-  // Se é método crédito ou tem saldo de crédito a pagar e o pedido ainda está em aberto/produção/revisão
+  if (o.status === 'paid' || o.status === 'finished') return true;
   if (o.payment_method === 'credit' && ['open', 'production', 'revision'].includes(o.status)) return false;
-  if (o.credit_used && Number(o.credit_used) > 0 && ['open', 'production', 'revision'].includes(o.status) && !o.paid_at) return false;
-
-  // Se possui marcação de paid_at e o status não é open/aberto
-  if (o.paid_at && !['open', 'production', 'revision'].includes(o.status)) return true;
-
+  if (Number(o.credit_used) > 0 && ['open', 'production', 'revision'].includes(o.status)) return false;
   return false;
 };
 
