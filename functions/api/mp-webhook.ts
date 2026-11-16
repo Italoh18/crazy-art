@@ -84,6 +84,41 @@ export const onRequestPost: any = async ({ request, env }: { request: Request, e
                 return new Response('OK', { status: 200 });
             }
 
+            if (!hasCreditBalance) {
+              try {
+                const now = new Date();
+                const dueDate = new Date(order.due_date);
+                now.setHours(0,0,0,0);
+                dueDate.setHours(0,0,0,0);
+
+                const diffTime = now.getTime() - dueDate.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                const clientRow: any = await env.DB.prepare("SELECT creditLimit FROM clients WHERE id = ?").bind(order.client_id).first();
+                if (clientRow) {
+                  let currentLimit = Number(clientRow.creditLimit || 0);
+                  const orderTotal = Number(order.total || 0);
+                  let limitChanged = false;
+
+                  if (diffDays <= 0) {
+                    currentLimit += (orderTotal / 2);
+                    await env.DB.prepare("UPDATE orders SET credit_bonus_applied = 1 WHERE id = ?").bind(requestId).run();
+                    limitChanged = true;
+                  } else if (diffDays > 15) {
+                    currentLimit = Math.max(0, currentLimit - (orderTotal / 2));
+                    await env.DB.prepare("UPDATE orders SET credit_penalty_applied = 1 WHERE id = ?").bind(requestId).run();
+                    limitChanged = true;
+                  }
+
+                  if (limitChanged) {
+                    await env.DB.prepare("UPDATE clients SET creditLimit = ? WHERE id = ?").bind(currentLimit, order.client_id).run();
+                  }
+                }
+              } catch (limitErr) {
+                console.error("[Webhook] Erro ao atualizar crédito dinâmico para layout/molde:", limitErr);
+              }
+            }
+
             const isMolde = order.source === 'montagem_molde';
             const label = isMolde ? 'Montagem de Molde' : 'Layout Simples';
 
